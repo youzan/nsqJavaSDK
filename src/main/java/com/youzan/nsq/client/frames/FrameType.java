@@ -4,7 +4,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 public enum FrameType {
-    RESPONSE(0), ERROR(1), MESSAGE(2);
+    RESPONSE(0), //
+    ERROR(1), //
+    MESSAGE(2);
     private static Map<Integer, FrameType> mappings;
 
     static {

@@ -27,8 +27,9 @@ public class ResponseFrame implements NSQFrame {
 
     @Override
     public String getMessage() {
-        if (responseType == null)
+        if (responseType == null) {
             return response;
+        }
         return responseType.getCode();
     }
 }

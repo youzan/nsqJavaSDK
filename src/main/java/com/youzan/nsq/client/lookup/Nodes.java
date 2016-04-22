@@ -34,7 +34,7 @@ public class Nodes {
      */
     public Nodes(String host, int port) {
         String[] hostArr = host.split(",");
-        StringBuffer sb = new StringBuffer();
+        StringBuffer sb = new StringBuffer(35);
         for (String h : hostArr) {
             sb.append("http://").append(h).append(":").append(port).append("/nodes");
             addrs.add(sb.toString());
@@ -58,6 +58,8 @@ public class Nodes {
                 return nodes;
             } catch (IOException e) {
                 log.error("execute nsqlookupd command 'nodes' failed, {}, addr:{}", e.getMessage(), addr);
+            } catch (Exception e) {
+                log.error("Fail to execute", e);
             }
         }
 

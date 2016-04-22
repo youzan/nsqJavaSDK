@@ -67,8 +67,9 @@ public class NodesHandler implements ResponseHandler<List<NSQNode>> {
             log.error("error mapping json from lookupd:", e);
         } catch (IOException e) {
             log.error("error reading response from lookupd:", e);
+        } catch (Exception e) {
+            log.error("", e);
         }
-
         return nodes;
     }
 

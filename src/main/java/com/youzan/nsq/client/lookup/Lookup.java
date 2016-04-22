@@ -23,6 +23,8 @@ public class Lookup {
     private static final int DEFAULT_TIMEOUT = 5 * 1000;
     private static Set<String> addrs = new HashSet<String>();
 
+    private static final List<NSQNode> EMPTY_PRODUCERS = new ArrayList<NSQNode>(0);
+
     public Lookup(String host, int port) {
         String[] hostArr = host.split(",");
         StringBuffer sb = new StringBuffer();
@@ -40,9 +42,9 @@ public class Lookup {
      * @return
      */
     public List<NSQNode> query(String topic) {
-        List<NSQNode> producers = new ArrayList<NSQNode>();
+        final StringBuffer sb = new StringBuffer(50);
 
-        StringBuffer sb = new StringBuffer();
+        List<NSQNode> producers = null;
         for (String addr : addrs) {
             sb.append(addr).append(topic);
             try {
@@ -51,12 +53,12 @@ public class Lookup {
 
                 return producers;
             } catch (Exception e) {
-                log.error("excute lookup command on lookupd failed, msg: {}", e.getMessage());
+                log.error("Fail to excute lookup command on lookupd !", e);
             }
             sb.setLength(0);
         }
 
-        return producers;
+        return EMPTY_PRODUCERS;
     }
 
 }
