@@ -3,8 +3,7 @@ package com.youzan.nsq.client.commands;
 import com.youzan.nsq.client.enums.CommandType;
 
 public class Ready implements NSQCommand {
-
-    private int count;
+    private final int count;
 
     public Ready(int count) {
         this.count = count;

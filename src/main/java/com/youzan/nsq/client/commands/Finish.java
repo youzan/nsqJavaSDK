@@ -1,7 +1,6 @@
 package com.youzan.nsq.client.commands;
 
 public class Finish implements NSQCommand {
-
     private final byte[] msgId;
 
     public Finish(byte[] msgId) {

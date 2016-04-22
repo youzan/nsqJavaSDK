@@ -12,7 +12,10 @@ public class Requeue implements NSQCommand {
 
     @Override
     public String getCommandString() {
-        return "REQ " + new String(msgId) + " " + timeout + "\n";
+        final StringBuffer sb = new StringBuffer(50);
+        sb.append("REQ ").append(new String(msgId)).append(" ");
+        sb.append(timeout).append("\n");
+        return sb.toString();
     }
 
     @Override

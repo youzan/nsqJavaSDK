@@ -9,8 +9,8 @@ import com.youzan.nsq.client.remoting.connector.NSQConfig;
  * @author caohaihong since 2015年10月29日 上午10:53:35
  */
 public class Identify implements NSQCommand {
-    private String configString;
-    private byte[] configData;
+    private final String configString;
+    private final byte[] configData;
 
     public Identify(NSQConfig config) {
         configString = config.toString();

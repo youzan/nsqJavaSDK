@@ -5,8 +5,8 @@ import java.nio.ByteBuffer;
 import com.youzan.nsq.client.enums.CommandType;
 
 public class Publish implements NSQCommand {
-    private String topic;
-    private byte[] data;
+    private final String topic;
+    private final byte[] data;
 
     public Publish(String topic, byte[] data) {
         this.topic = topic;
