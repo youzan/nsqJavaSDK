@@ -185,8 +185,8 @@ public class NetworkUtils {
      * @param intf
      * @return
      */
-    public static boolean interfaceHasIPAddresses(NetworkInterface intf, StackType ipVersion) throws SocketException,
-            UnknownHostException {
+    public static boolean interfaceHasIPAddresses(NetworkInterface intf, StackType ipVersion)
+            throws SocketException, UnknownHostException {
         boolean supportsVersion = false;
         if (intf != null) {
             // get all the InetAddresses defined on the interface

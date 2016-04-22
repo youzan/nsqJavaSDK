@@ -5,8 +5,7 @@ import java.util.EventListener;
 /**
  * Created by pepper on 14/12/15.
  */
-public interface ConnectorListener extends EventListener{
-
+public interface ConnectorListener extends EventListener {
 
     public void handleEvent(NSQEvent event) throws Exception;
 

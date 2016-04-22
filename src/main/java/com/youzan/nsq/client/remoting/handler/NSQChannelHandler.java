@@ -1,5 +1,8 @@
 package com.youzan.nsq.client.remoting.handler;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.youzan.nsq.client.remoting.NSQConnector;
 import com.youzan.nsq.client.remoting.connector.ConnectorUtils;
 
@@ -8,12 +11,9 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 public class NSQChannelHandler extends ChannelInboundHandlerAdapter {
     private static final Logger log = LoggerFactory.getLogger(NSQChannelHandler.class);
-    
+
     @Override
     public void channelRead(ChannelHandlerContext ctx, final Object msg) throws Exception {
         final NSQConnector connector = ctx.channel().attr(NSQConnector.CONNECTOR).get();
@@ -28,13 +28,13 @@ public class NSQChannelHandler extends ChannelInboundHandlerAdapter {
             log.warn("no connection set for : " + ctx.channel());
         }
     }
-    
+
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         log.error("nsqChannelHandler.exceptionCaught:", cause);
         ctx.close();
         NSQConnector connector = ctx.channel().attr(NSQConnector.CONNECTOR).get();
-        if(connector != null) {
+        if (connector != null) {
             connector.close();
         } else {
             log.error("no connection set for : " + ctx.channel());
@@ -45,7 +45,7 @@ public class NSQChannelHandler extends ChannelInboundHandlerAdapter {
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         super.channelInactive(ctx);
         NSQConnector connector = ctx.channel().attr(NSQConnector.CONNECTOR).get();
-        if(connector != null) {
+        if (connector != null) {
             log.info("channel disconnected! " + ConnectorUtils.getConnectorKey(connector));
         } else {
             log.error("no connection set for : " + ctx.channel());

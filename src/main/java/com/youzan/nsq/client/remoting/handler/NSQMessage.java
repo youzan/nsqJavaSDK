@@ -3,11 +3,12 @@ package com.youzan.nsq.client.remoting.handler;
 import java.nio.ByteBuffer;
 
 public class NSQMessage {
-    // message format defined as 8 byte TS, 2 byte attempts, 16 byte msg ID, N byte body
+    // message format defined as 8 byte TS, 2 byte attempts, 16 byte msg ID, N
+    // byte body
     public static final int MIN_SIZE_BYTES = 26;
     // nano second
     private long timestamp;
-    // really a uint16 but java doesnt do unsigned 
+    // really a uint16 but java doesnt do unsigned
     private int attempts;
     // 16 bytes
     private byte[] messageId;

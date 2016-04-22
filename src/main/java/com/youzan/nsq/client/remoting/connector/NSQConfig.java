@@ -15,6 +15,7 @@ import io.netty.handler.ssl.SslContext;
  */
 public class NSQConfig {
     private static final Logger log = LoggerFactory.getLogger(NSQConfig.class);
+
     public static enum Compression {
         NO_COMPRESSION, DEFLATE, SNAPPY
     }
@@ -42,7 +43,7 @@ public class NSQConfig {
             log.warn("NSQCnfog: get local ip goes wrong at:{}", e);
         }
     }
-    
+
     public String getClientId() {
         return clientId;
     }
@@ -50,11 +51,11 @@ public class NSQConfig {
     public void setClientId(String clientId) {
         this.clientId = clientId;
     }
-    
+
     public String getHostname() {
         return hostname;
     }
-    
+
     public void setHostname(String hostname) {
         this.hostname = hostname;
     }
@@ -153,7 +154,7 @@ public class NSQConfig {
         }
         if (getHostname() != null) {
             buffer.append("\"hostname\":\"" + hostname + "\", ");
-        } 
+        }
         if (getHeartbeatInterval() != null) {
             buffer.append("\"heartbeat_interval\":" + getHeartbeatInterval().toString() + ", ");
         }

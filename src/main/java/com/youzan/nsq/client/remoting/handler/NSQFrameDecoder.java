@@ -1,5 +1,10 @@
 package com.youzan.nsq.client.remoting.handler;
 
+import java.nio.ByteBuffer;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.youzan.nsq.client.enums.ResponseType;
 import com.youzan.nsq.client.exceptions.NSQException;
 import com.youzan.nsq.client.frames.ErrorFrame;
@@ -10,11 +15,6 @@ import com.youzan.nsq.client.frames.ResponseFrame;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.nio.ByteBuffer;
 
 public class NSQFrameDecoder extends LengthFieldBasedFrameDecoder {
 
@@ -87,7 +87,8 @@ public class NSQFrameDecoder extends LengthFieldBasedFrameDecoder {
     private ResponseFrame handleResponse(ChannelHandlerContext ctx, ByteBuffer byteBuffer, int size) {
         String resp = readString(byteBuffer, size);
         ResponseType type = ResponseType.fromCode(resp);
-        if (type != null) return new ResponseFrame(type);
+        if (type != null)
+            return new ResponseFrame(type);
         return new ResponseFrame(resp);
     }
 

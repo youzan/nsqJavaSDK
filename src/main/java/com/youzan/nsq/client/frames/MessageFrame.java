@@ -7,7 +7,7 @@ import com.youzan.nsq.client.remoting.handler.NSQMessage;
  */
 public class MessageFrame implements NSQFrame {
     private NSQMessage message;
-    
+
     public MessageFrame(NSQMessage message) {
         this.message = message;
     }

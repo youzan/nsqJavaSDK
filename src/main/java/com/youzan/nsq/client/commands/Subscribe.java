@@ -1,6 +1,5 @@
 package com.youzan.nsq.client.commands;
 
-
 import com.youzan.nsq.client.enums.CommandType;
 
 public class Subscribe implements NSQCommand {
