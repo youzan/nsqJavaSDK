@@ -1,20 +1,6 @@
 package com.youzan.nsq.client.remoting;
 
-import io.netty.bootstrap.Bootstrap;
-import io.netty.buffer.ByteBuf;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.SocketChannel;
-import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.handler.timeout.IdleStateHandler;
-import io.netty.util.AttributeKey;
-import io.netty.util.concurrent.Future;
-import io.netty.util.concurrent.GenericFutureListener;
-
+import java.io.Closeable;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -43,10 +29,25 @@ import com.youzan.nsq.client.remoting.handler.NSQMessage;
 import com.youzan.nsq.client.remoting.listener.ConnectorListener;
 import com.youzan.nsq.client.remoting.listener.NSQEvent;
 
+import io.netty.bootstrap.Bootstrap;
+import io.netty.buffer.ByteBuf;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.timeout.IdleStateHandler;
+import io.netty.util.AttributeKey;
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
+
 /**
  * Created by pepper on 14/12/22.
  */
-public class NSQConnector {
+public class NSQConnector implements Closeable {
     private static final Logger log = LoggerFactory.getLogger(NSQConnector.class);
     private String host; // nsqd host
     private int port; // nsqd tcp port
@@ -139,9 +140,10 @@ public class NSQConnector {
                                 new String(nsqMsg.getMessageId()));
                         finish(nsqMsg);
                     }
-                    
-                    if (rdyCount.get() <= 0) 
+
+                    if (rdyCount.get() <= 0) {
                         rdy(defaultRdyCount);
+                    }
                 }
             } else {
                 finish(nsqMsg);
@@ -220,6 +222,7 @@ public class NSQConnector {
 
     public ChannelFuture finishAndRdy(NSQMessage msg, final int count) {
         return finish(msg).addListener(new GenericFutureListener<Future<? super Void>>() {
+            @Override
             public void operationComplete(Future<? super Void> future) throws Exception {
                 rdy(count);
             };
@@ -233,27 +236,31 @@ public class NSQConnector {
     private void cleanClose() {
         try {
             NSQFrame resp = writeAndWait(new Close());
-            if (resp instanceof ErrorFrame)
+            if (resp instanceof ErrorFrame) {
                 log.warn("cleanClose {}:{} goes error at:{}", host, port, resp.getMessage());
+            }
         } catch (NSQException | InterruptedException e) {
             log.warn("cleanClose {}:{} goes error at:{}", host, port, e);
         }
     }
 
+    @Override
     public void close() {
         if (channel != null) {
-            if (channel.isActive())
+            if (channel.isActive()) {
                 cleanClose();
+            }
             channel.disconnect();
         }
-        if (workerGroup != null)
+        if (workerGroup != null) {
             workerGroup.shutdownGracefully();
+        }
     }
 
     public boolean isConnected() {
         return channel == null ? false : channel.isActive() ? true : false;
     }
-    
+
     public int getDefaultRdyCount() {
         return defaultRdyCount;
     }

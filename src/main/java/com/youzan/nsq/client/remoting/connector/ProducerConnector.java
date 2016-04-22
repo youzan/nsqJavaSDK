@@ -15,6 +15,7 @@ import com.youzan.nsq.client.frames.NSQFrame;
 import com.youzan.nsq.client.frames.ResponseFrame;
 import com.youzan.nsq.client.remoting.ConnectorMonitor;
 import com.youzan.nsq.client.remoting.NSQConnector;
+import com.youzan.util.IOUtil;
 
 /**
  * Created by pepper on 14/12/22.
@@ -46,20 +47,22 @@ public class ProducerConnector {
         }
 
         for (NSQNode nsqNode : nodes) {
-            if (ConnectorUtils.isExcluded(nsqNode))
+            if (ConnectorUtils.isExcluded(nsqNode)) {
                 continue;
+            }
 
             NSQConnector connector = null;
             try {
                 connector = new NSQConnector(nsqNode.getHost(), nsqNode.getPort(), null, 0);
                 connectorMap.put(ConnectorUtils.getConnectorKey(nsqNode), connector);
             } catch (NSQException e) {
-                log.error("Producer: connector to {} goes wrong at:{}", ConnectorUtils.getConnectorKey(nsqNode), e);
-                if (connector != null)
-                    connector.close();
+                final StringBuffer sb = new StringBuffer(100);
+                sb.append("ProducerConnector can not connect ").append(ConnectorUtils.getConnectorKey(nsqNode));
+                log.error(sb.toString(), e);
+                IOUtil.closeQuietly(connector);
             }
         }
-        
+
         ConnectorMonitor.getInstance().setLookup(host, port);
         ConnectorMonitor.getInstance().registerProducer(this);
     }
@@ -72,8 +75,9 @@ public class ProducerConnector {
         Publish pub = new Publish(topic, msgData);
         NSQConnector connector = getConnector();
 
-        if (connector == null)
+        if (connector == null) {
             throw new NSQException("No active connector to be used.");
+        }
 
         NSQFrame response = connector.writeAndWait(pub);
         if (response instanceof ResponseFrame) {
@@ -86,36 +90,46 @@ public class ProducerConnector {
 
     private NSQConnector getConnector() {
         NSQConnector connector = nextConnector();
-        if (connector == null) return null;
+        if (connector == null) {
+            return null;
+        }
         int retry = 0;
         while (!connector.isConnected()) {
             if (retry >= DEFAULT_RETRY) {
-                connector = null;
+                IOUtil.closeQuietly(connector);
                 break;
             }
             removeConnector(connector);
             connector = nextConnector();
             retry++;
+            try {
+                Thread.sleep(retry * 2);
+            } catch (InterruptedException e) {
+                Thread.interrupted();
+            }
         }
-
         return connector;
     }
 
     private NSQConnector nextConnector() {
         NSQConnector[] connectors = new NSQConnector[connectorMap.size()];
         connectorMap.values().toArray(connectors);
-        if (connectors.length < 1) return null;
+        if (connectors.length < 1) {
+            return null;
+        }
         Long nextIndex = Math.abs(index.incrementAndGet() % connectors.length);
         return connectors[nextIndex.intValue()];
     }
-    
+
     public boolean removeConnector(NSQConnector connector) {
-        if (connector == null) return true;
+        if (connector == null) {
+            return true;
+        }
         log.info("Producer: removeConnector({})", ConnectorUtils.getConnectorKey(connector));
         connector.close();
         return connectorMap.remove(ConnectorUtils.getConnectorKey(connector), connector);
     }
-    
+
     public void addConnector(NSQConnector connector) {
         log.info("Producer: addConnector({})", ConnectorUtils.getConnectorKey(connector));
         connectorMap.put(ConnectorUtils.getConnectorKey(connector), connector);
