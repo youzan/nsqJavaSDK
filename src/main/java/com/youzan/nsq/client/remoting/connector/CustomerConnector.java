@@ -93,7 +93,7 @@ public class CustomerConnector {
         if (connector == null) {
             return true;
         }
-        connector.close();
+        IOUtil.closeQuietly(connector);
         return connectorMap.remove(ConnectorUtils.getConnectorKey(connector), connector);
     }
 
@@ -103,7 +103,7 @@ public class CustomerConnector {
 
     public void close() {
         for (NSQConnector connector : connectorMap.values()) {
-            connector.close();
+            IOUtil.closeQuietly(connector);
         }
     }
 }

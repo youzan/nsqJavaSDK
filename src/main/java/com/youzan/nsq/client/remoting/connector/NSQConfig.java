@@ -5,6 +5,7 @@ import java.net.SocketException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.youzan.nsq.client.bean.Version;
 import com.youzan.nsq.client.remoting.NetworkUtils;
 import com.youzan.nsq.client.remoting.NetworkUtils.StackType;
 
@@ -36,7 +37,7 @@ public class NSQConfig {
 
     public NSQConfig() {
         try {
-            userAgent = "JavaClient_1.3.3";
+            userAgent = Version.version;
             clientId = NetworkUtils.getFirstNonLoopbackAddress(StackType.IPv4).getHostAddress();
             hostname = clientId;
         } catch (SocketException e) {

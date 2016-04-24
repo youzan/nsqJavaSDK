@@ -84,7 +84,7 @@ public class NSQConnector implements Closeable {
         });
         boot.option(ChannelOption.SO_KEEPALIVE, true);
 
-        ChannelFuture future = boot.connect(this.host, this.port);
+        final ChannelFuture future = boot.connect(this.host, this.port);
         channel = future.awaitUninterruptibly().channel();
         if (!future.isSuccess()) {
             throw new NSQException("can't connect to server", future.cause());
@@ -99,6 +99,7 @@ public class NSQConnector implements Closeable {
             NSQFrame resp = writeAndWait(identify);
             log.info("identify response:" + resp.getMessage());
         } catch (InterruptedException e) {
+            Thread.interrupted();
             throw new NSQException("send indentify goes wrong.", e);
         }
     }
