@@ -1,4 +1,4 @@
-package com.youzan.nsq.client.remoting;
+package com.youzan.nsq.client.util;
 
 import java.net.Inet4Address;
 import java.net.Inet6Address;
@@ -87,10 +87,11 @@ public class NetworkUtils {
     }
 
     public static InetAddress getLocalhost(StackType ip_version) throws UnknownHostException {
-        if (ip_version == StackType.IPv4)
+        if (ip_version == StackType.IPv4) {
             return InetAddress.getByName("127.0.0.1");
-        else
+        } else {
             return InetAddress.getByName("::1");
+        }
     }
 
     /**
@@ -104,8 +105,9 @@ public class NetworkUtils {
         InetAddress address;
         for (NetworkInterface intf : getInterfaces()) {
             try {
-                if (!intf.isUp() || intf.isLoopback())
+                if (!intf.isUp() || intf.isLoopback()) {
                     continue;
+                }
             } catch (Exception e) {
                 // might happen when calling on a network interface that does
                 // not exists
@@ -125,7 +127,7 @@ public class NetworkUtils {
 
         List<NetworkInterface> intfsList = new ArrayList<NetworkInterface>();
         while (intfs.hasMoreElements()) {
-            intfsList.add((NetworkInterface) intfs.nextElement());
+            intfsList.add(intfs.nextElement());
         }
 
         return intfsList;
@@ -142,15 +144,17 @@ public class NetworkUtils {
      */
     public static InetAddress getFirstNonLoopbackAddress(NetworkInterface intf, StackType ipVersion)
             throws SocketException {
-        if (intf == null)
+        if (intf == null) {
             throw new IllegalArgumentException("Network interface pointer is null");
+        }
 
         for (Enumeration<InetAddress> addresses = intf.getInetAddresses(); addresses.hasMoreElements();) {
-            InetAddress address = (InetAddress) addresses.nextElement();
+            InetAddress address = addresses.nextElement();
             if (!address.isLoopbackAddress()) {
                 if ((address instanceof Inet4Address && ipVersion == StackType.IPv4)
-                        || (address instanceof Inet6Address && ipVersion == StackType.IPv6))
+                        || (address instanceof Inet6Address && ipVersion == StackType.IPv6)) {
                     return address;
+                }
             }
         }
         return null;
@@ -166,14 +170,16 @@ public class NetworkUtils {
      *            Constraint on IP version of address to be returned, 4 or 6
      */
     public static InetAddress getFirstAddress(NetworkInterface intf, StackType ipVersion) throws SocketException {
-        if (intf == null)
+        if (intf == null) {
             throw new IllegalArgumentException("Network interface pointer is null");
+        }
 
         for (Enumeration<InetAddress> addresses = intf.getInetAddresses(); addresses.hasMoreElements();) {
-            InetAddress address = (InetAddress) addresses.nextElement();
+            InetAddress address = addresses.nextElement();
             if ((address instanceof Inet4Address && ipVersion == StackType.IPv4)
-                    || (address instanceof Inet6Address && ipVersion == StackType.IPv6))
+                    || (address instanceof Inet6Address && ipVersion == StackType.IPv6)) {
                 return address;
+            }
         }
         return null;
     }
@@ -193,7 +199,7 @@ public class NetworkUtils {
             Enumeration<InetAddress> addresses = intf.getInetAddresses();
             while (addresses != null && addresses.hasMoreElements()) {
                 // get the next InetAddress for the current interface
-                InetAddress address = (InetAddress) addresses.nextElement();
+                InetAddress address = addresses.nextElement();
 
                 // check if we find an address of correct version
                 if ((address instanceof Inet4Address && (ipVersion == StackType.IPv4))
@@ -232,11 +238,13 @@ public class NetworkUtils {
         else if (isIPv4StackAvailable && isIPv6StackAvailable) {
             // get the System property which records user preference for a stack
             // on a dual stack machine
-            if (Boolean.getBoolean(IPv4_SETTING)) // has preference over
-                                                  // java.net.preferIPv6Addresses
+            if (Boolean.getBoolean(IPv4_SETTING)) {
+                // java.net.preferIPv6Addresses
                 return StackType.IPv4;
-            if (Boolean.getBoolean(IPv6_SETTING))
+            }
+            if (Boolean.getBoolean(IPv6_SETTING)) {
                 return StackType.IPv6;
+            }
             return StackType.IPv6;
         }
         return StackType.Unknown;
@@ -244,9 +252,11 @@ public class NetworkUtils {
 
     public static boolean isStackAvailable(boolean ipv4) {
         Collection<InetAddress> allAddrs = getAllAvailableAddresses();
-        for (InetAddress addr : allAddrs)
-            if (ipv4 && addr instanceof Inet4Address || (!ipv4 && addr instanceof Inet6Address))
+        for (InetAddress addr : allAddrs) {
+            if (ipv4 && addr instanceof Inet4Address || (!ipv4 && addr instanceof Inet6Address)) {
                 return true;
+            }
+        }
         return false;
     }
 
@@ -276,11 +286,12 @@ public class NetworkUtils {
         try {
             for (NetworkInterface intf : getInterfaces()) {
                 Enumeration<InetAddress> addrs = intf.getInetAddresses();
-                while (addrs.hasMoreElements())
+                while (addrs.hasMoreElements()) {
                     retval.add(addrs.nextElement());
+                }
             }
         } catch (SocketException e) {
-            LOG.warn("Failed to derive all available interfaces", e);
+            LOG.error("Failed to derive all available interfaces", e);
         }
 
         return retval;

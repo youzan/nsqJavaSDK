@@ -6,8 +6,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.youzan.nsq.client.bean.Version;
-import com.youzan.nsq.client.remoting.NetworkUtils;
-import com.youzan.nsq.client.remoting.NetworkUtils.StackType;
+import com.youzan.nsq.client.util.NetworkUtils;
+import com.youzan.nsq.client.util.NetworkUtils.StackType;
 
 import io.netty.handler.ssl.SslContext;
 
