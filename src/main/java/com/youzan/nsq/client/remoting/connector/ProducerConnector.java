@@ -107,7 +107,7 @@ public class ProducerConnector {
             try {
                 Thread.sleep(retry * 2);
             } catch (InterruptedException e) {
-                Thread.interrupted();
+                Thread.currentThread().interrupt();
             }
         }
         return connector;

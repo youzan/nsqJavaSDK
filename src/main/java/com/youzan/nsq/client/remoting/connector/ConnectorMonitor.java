@@ -45,7 +45,7 @@ public class ConnectorMonitor {
                     try {
                         Thread.sleep(DEFAULT_RECONNECT_PERIOD);
                     } catch (InterruptedException e) {
-                        Thread.interrupted();
+                        Thread.currentThread().interrupt();
                     }
 
                     try {

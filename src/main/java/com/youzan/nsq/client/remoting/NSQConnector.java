@@ -99,7 +99,7 @@ public class NSQConnector implements Closeable {
             NSQFrame resp = writeAndWait(identify);
             log.info("identify response:" + resp.getMessage());
         } catch (InterruptedException e) {
-            Thread.interrupted();
+            Thread.currentThread().interrupt();
             throw new NSQException("send indentify goes wrong.", e);
         }
     }
