@@ -113,7 +113,7 @@ public class NSQConnector implements Closeable {
                 dealResponse(resp);
             }
         } else if (msg instanceof ErrorFrame) {
-            log.error("get errorFrame:" + ((ErrorFrame) msg).getError());
+            log.error("get errorFrame: {}", ((ErrorFrame) msg).getError());
             dealResponse((ErrorFrame) msg);
         } else if (msg instanceof MessageFrame) {
             MessageFrame msgFrame = (MessageFrame) msg;
@@ -134,7 +134,7 @@ public class NSQConnector implements Closeable {
                     }
                 } catch (Exception e) {
                     if (nsqMsg.getAttempts() < DEFAULT_REQ_TIMES) {
-                        log.warn("nsq message deal fail(will requeue) at:{}", e);
+                        log.warn("nsq message deal fail(will requeue) at: {}", e);
                         requeue(nsqMsg);
                     } else {
                         log.warn("nsq message deal fail and requeue times gt 10, then be finished. this messageID:{}",
@@ -252,6 +252,15 @@ public class NSQConnector implements Closeable {
                 cleanClose();
             }
             channel.disconnect();
+        }
+        if (workerGroup != null) {
+            workerGroup.shutdownGracefully();
+        }
+    }
+
+    public void close4Producer() {
+        if (channel != null) {
+            channel.close();
         }
         if (workerGroup != null) {
             workerGroup.shutdownGracefully();

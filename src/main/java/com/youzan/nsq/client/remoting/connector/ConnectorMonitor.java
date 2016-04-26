@@ -1,4 +1,4 @@
-package com.youzan.nsq.client.remoting;
+package com.youzan.nsq.client.remoting.connector;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -9,9 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.youzan.nsq.client.bean.NSQNode;
-import com.youzan.nsq.client.remoting.connector.ConnectorUtils;
-import com.youzan.nsq.client.remoting.connector.CustomerConnector;
-import com.youzan.nsq.client.remoting.connector.ProducerConnector;
+import com.youzan.nsq.client.remoting.NSQConnector;
 import com.youzan.util.IOUtil;
 
 /**
@@ -22,25 +20,23 @@ import com.youzan.util.IOUtil;
  */
 public class ConnectorMonitor {
     private static final Logger log = LoggerFactory.getLogger(ConnectorMonitor.class);
-    private static final int DEFAULT_RECONNECT_PERIOD = 60 * 1000;
+
+    private static final int DEFAULT_RECONNECT_PERIOD = 30 * 1000;
     private HashSet<ProducerConnector> producers = new HashSet<ProducerConnector>();
     private HashSet<CustomerConnector> consumers = new HashSet<CustomerConnector>();
     private String lookupHost;
     private int lookupPort;
 
-    private ConnectorMonitor() {
-        monitor();
+    /**
+     * @param host
+     * @param port
+     */
+    public ConnectorMonitor(String host, int port) {
+        this.lookupHost = host;
+        this.lookupPort = port;
     }
 
-    private static class ConnectorMonitorHolder {
-        static final ConnectorMonitor instance = new ConnectorMonitor();
-    }
-
-    public static ConnectorMonitor getInstance() {
-        return ConnectorMonitorHolder.instance;
-    }
-
-    private void monitor() {
+    void monitor() {
         Thread monitor = new Thread(new Runnable() {
 
             @Override
@@ -49,13 +45,19 @@ public class ConnectorMonitor {
                     try {
                         Thread.sleep(DEFAULT_RECONNECT_PERIOD);
                     } catch (InterruptedException e) {
-                        log.warn("NSQ connector monitor sleep goes wrong at:{}", e);
+                        Thread.interrupted();
                     }
+
                     try {
                         dealProducer();
+                    } catch (Exception e) {
+                        log.error("Monitoring of Producers error", e);
+                    }
+
+                    try {
                         dealCustomer();
                     } catch (Exception e) {
-                        log.error("Monitor deal goes wrong at:{}", e);
+                        log.error("Monitoring of Consumers error", e);
                     }
                 }
             }
@@ -66,10 +68,12 @@ public class ConnectorMonitor {
     }
 
     private void dealProducer() {
+        // 服务端的最新节点
         List<NSQNode> nodes = ConnectorUtils.lookupNode(lookupHost, lookupPort);
 
         for (ProducerConnector producer : producers) {
             ConcurrentHashMap<String, NSQConnector> connectorMap = producer.getConnectorMap();
+            // 当前内存保存的节点, 变成过时的节点
             List<NSQNode> oldNodes = new ArrayList<NSQNode>();
             for (NSQConnector connector : connectorMap.values()) {
                 if (!connector.isConnected()) {
@@ -121,10 +125,8 @@ public class ConnectorMonitor {
                         connector.rdy(customer.getReadyCount());
                         connectorMap.put(ConnectorUtils.getConnectorKey(node), connector);
                     } catch (Exception e) {
-                        final StringBuffer sb = new StringBuffer(100);
-                        sb.append("CustomerConnector can not connect ").append(ConnectorUtils.getConnectorKey(node));
-                        log.error(sb.toString(), e);
-                        IOUtil.closeQuietly(connector);
+                        final String tips = "CustomerConnector can not connect " + ConnectorUtils.getConnectorKey(node);
+                        log.error(tips, e);
                         IOUtil.closeQuietly(connector);
                     }
                 }
@@ -132,22 +134,18 @@ public class ConnectorMonitor {
         }
     }
 
-    public void registerProducer(ProducerConnector producer) {
+    void registerProducer(ProducerConnector producer) {
         if (null == producer) {
             return;
         }
         producers.add(producer);
     }
 
-    public void registerConsumer(CustomerConnector connector) {
+    void registerConsumer(CustomerConnector connector) {
         if (null == connector) {
             return;
         }
         consumers.add(connector);
     }
 
-    public void setLookup(String lookupHost, int lookupPort) {
-        this.lookupHost = lookupHost;
-        this.lookupPort = lookupPort;
-    }
 }

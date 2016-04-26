@@ -65,6 +65,9 @@
     <logger name="org" additivity="false">
         <appender-ref ref="ERROR" />
     </logger>
+    <logger name="ch.qos.logback" additivity="false">
+        <appender-ref ref="ERROR" />
+    </logger>
 
     <root level="INFO">
         <appender-ref ref="STDOUT" />

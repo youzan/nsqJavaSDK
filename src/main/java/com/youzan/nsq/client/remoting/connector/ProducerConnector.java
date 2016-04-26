@@ -13,7 +13,6 @@ import com.youzan.nsq.client.enums.ResponseType;
 import com.youzan.nsq.client.exceptions.NSQException;
 import com.youzan.nsq.client.frames.NSQFrame;
 import com.youzan.nsq.client.frames.ResponseFrame;
-import com.youzan.nsq.client.remoting.ConnectorMonitor;
 import com.youzan.nsq.client.remoting.NSQConnector;
 import com.youzan.util.IOUtil;
 
@@ -22,17 +21,20 @@ import com.youzan.util.IOUtil;
  */
 public class ProducerConnector {
     private static final Logger log = LoggerFactory.getLogger(ProducerConnector.class);
-    private String host; // lookupd ip
-    private int port; // lookupd port
-    private ConcurrentHashMap</* ip:port */String, NSQConnector> connectorMap;
-    private AtomicLong index;
     private static final int DEFAULT_RETRY = 3;
+
+    private final String host; // lookupd ip
+    private final int port; // lookupd port
+    private final ConcurrentHashMap</* ip:port */String, NSQConnector> connectorMap;
+    private final AtomicLong index;
+    private final ConnectorMonitor monitor;
 
     public ProducerConnector(String host, int port) {
         this.host = host;
         this.port = port;
         this.connectorMap = new ConcurrentHashMap<String, NSQConnector>();
         this.index = new AtomicLong(0);
+        this.monitor = new ConnectorMonitor(host, port);
     }
 
     public ConcurrentHashMap<String, NSQConnector> getConnectorMap() {
@@ -56,15 +58,15 @@ public class ProducerConnector {
                 connector = new NSQConnector(nsqNode.getHost(), nsqNode.getPort(), null, 0);
                 connectorMap.put(ConnectorUtils.getConnectorKey(nsqNode), connector);
             } catch (NSQException e) {
-                final StringBuffer sb = new StringBuffer(100);
-                sb.append("ProducerConnector can not connect ").append(ConnectorUtils.getConnectorKey(nsqNode));
-                log.error(sb.toString(), e);
+                String tip = "ProducerConnector can not connect " + ConnectorUtils.getConnectorKey(nsqNode);
+                log.error(tip, e);
                 IOUtil.closeQuietly(connector);
             }
         }
 
-        ConnectorMonitor.getInstance().setLookup(host, port);
-        ConnectorMonitor.getInstance().registerProducer(this);
+        // Post
+        monitor.registerProducer(this);
+        monitor.monitor();
     }
 
     public boolean put(String topic, String msg) throws NSQException, InterruptedException {
@@ -126,7 +128,7 @@ public class ProducerConnector {
             return true;
         }
         log.info("Producer: removeConnector({})", ConnectorUtils.getConnectorKey(connector));
-        connector.close();
+        IOUtil.closeQuietly(connector);
         return connectorMap.remove(ConnectorUtils.getConnectorKey(connector), connector);
     }
 
@@ -137,7 +139,7 @@ public class ProducerConnector {
 
     public void close() {
         for (NSQConnector connector : connectorMap.values()) {
-            connector.close();
+            connector.close4Producer();
         }
     }
 }

@@ -11,7 +11,13 @@ public class ExampleSubscriber {
 
     public static void main(String[] args) throws Throwable {
         start("binlog_order_paysuccess");
-
+        while (true) {
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+                Thread.interrupted();
+            }
+        }
     }
 
     public static void start(String topic) throws Throwable {
@@ -24,9 +30,10 @@ public class ExampleSubscriber {
             }
         };
 
-        CustomerConnector connector = new CustomerConnector("192.168.66.202,192.168.66.202", 4161, topic, "default");
+        String lookupd = "127.0.0.1";
+        int port = 4161;
+        CustomerConnector connector = new CustomerConnector(lookupd, port, topic, "default");
         connector.setSubListener(listener);
         connector.connect();
-
     }
 }

@@ -8,7 +8,6 @@ import org.slf4j.LoggerFactory;
 
 import com.youzan.nsq.client.bean.NSQNode;
 import com.youzan.nsq.client.exceptions.NSQException;
-import com.youzan.nsq.client.remoting.ConnectorMonitor;
 import com.youzan.nsq.client.remoting.NSQConnector;
 import com.youzan.nsq.client.remoting.listener.ConnectorListener;
 import com.youzan.util.IOUtil;
@@ -18,13 +17,16 @@ import com.youzan.util.IOUtil;
  */
 public class CustomerConnector {
     private static final Logger log = LoggerFactory.getLogger(CustomerConnector.class);
-    private String host;// lookup host
-    private int port;// lookup port
-    private String topic;
-    private String channel;
     private static final int readyCount = 10;
+
+    private final String host;// lookup host
+    private final int port;// lookup port
+    private final String topic;
+    private final String channel;
     private ConnectorListener subListener;
     private ConcurrentHashMap</* ip:port */String, NSQConnector> connectorMap;
+
+    private final ConnectorMonitor monitor;
 
     public CustomerConnector(String host, int port, String topic, String channel) {
         this.host = host;
@@ -32,6 +34,7 @@ public class CustomerConnector {
         this.topic = topic;
         this.channel = channel;
         this.connectorMap = new ConcurrentHashMap<String, NSQConnector>();
+        this.monitor = new ConnectorMonitor(host, port);
     }
 
     public ConcurrentHashMap<String, NSQConnector> getConnectorMap() {
@@ -65,8 +68,9 @@ public class CustomerConnector {
             }
         }
 
-        ConnectorMonitor.getInstance().setLookup(host, port);
-        ConnectorMonitor.getInstance().registerConsumer(this);
+        // Post
+        monitor.registerConsumer(this);
+        monitor.monitor();
     }
 
     public void setSubListener(ConnectorListener listener) {
