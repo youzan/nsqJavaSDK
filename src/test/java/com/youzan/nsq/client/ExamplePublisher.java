@@ -14,11 +14,11 @@ public class ExamplePublisher {
     public static void main(String[] args) {
         try {
             String lookupd = "127.0.0.1";
-            int port = 4161;
+            int port = 4261;
             ProducerConnector pub = new ProducerConnector(lookupd, port);
             pub.connect();
 
-            String topic = "binlog_order_paysuccess";
+            String topic = "zhaoxi_test";
             String message = "{'customer_id':'10000353', 'buyer_id':'0', 'kdt_id':'1', 'pay_time':'1432374788'}";
             for (int i = 0; i < 1; i++) {
                 System.out.println(pub.put(topic, message));

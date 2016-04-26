@@ -31,7 +31,7 @@ public class ExampleSubscriber {
         };
 
         String lookupd = "127.0.0.1";
-        int port = 4161;
+        int port = 4261;
         CustomerConnector connector = new CustomerConnector(lookupd, port, topic, "default");
         connector.setSubListener(listener);
         connector.connect();
