@@ -29,7 +29,7 @@ public class ProducerDemo {
         host = "127.0.0.1";
         port = 4161;
         topic = "zhaoxi_test";
-        msg = "test_timestamp_" + System.currentTimeMillis();
+        msg = "demo1_test_timestamp_" + System.currentTimeMillis();
         ProducerConnector demo1 = new ProducerConnector(host, port);
 
         try {
@@ -49,7 +49,7 @@ public class ProducerDemo {
         host = "127.0.0.1";
         port = 4261;
         topic = "zhaoxi_test";
-        msg = "test_timestamp_" + System.currentTimeMillis();
+        msg = "demo2_test_timestamp_" + System.currentTimeMillis();
         ProducerConnector demo2 = new ProducerConnector(host, port);
 
         try {
@@ -65,5 +65,8 @@ public class ProducerDemo {
         } finally {
 
         }
+
+        System.out.println("Done!");
+        // System.exit(0);
     }
 }
