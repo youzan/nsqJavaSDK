@@ -47,7 +47,7 @@ public class ProducerDemo {
                 demo2.put(topic, msg);
 
                 try {
-                    Thread.sleep(500);
+                    Thread.sleep(100);
                 } catch (InterruptedException e) {
                     Thread.interrupted();
                 }
