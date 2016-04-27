@@ -44,6 +44,7 @@ public class ProducerConnector implements Closeable {
         this.connectorMap = new ConcurrentHashMap<String, NSQConnector>();
         this.index = new AtomicLong(0);
         this.monitor = new ConnectorMonitor(host, port);
+        monitoringBoss.scheduleWithFixedDelay(this.monitor, 10, DEFAULT_MONITORING_PERIOD_IN_SECOND, TimeUnit.SECONDS);
     }
 
     public ConcurrentHashMap<String, NSQConnector> getConnectorMap() {
@@ -75,7 +76,6 @@ public class ProducerConnector implements Closeable {
 
         // Post
         monitor.registerProducer(this);
-        monitoringBoss.scheduleWithFixedDelay(monitor, 10, DEFAULT_MONITORING_PERIOD_IN_SECOND, TimeUnit.SECONDS);
     }
 
     public boolean put(String topic, String msg) throws NSQException, InterruptedException {

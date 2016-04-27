@@ -39,7 +39,6 @@ public class ConsumerDemo {
         topic = "zhaoxi_test";
         channel = "zhaoxi_is_a_consumer";
         demo2.start(host, port, topic, channel);
-
     }
 
     void start(String host, int port, String topic, String channel) {

@@ -17,7 +17,6 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 
 public class NSQFrameDecoder extends LengthFieldBasedFrameDecoder {
-
     private static final Logger log = LoggerFactory.getLogger(NSQFrameDecoder.class);
 
     public NSQFrameDecoder(int maxFrameLength, int lengthFieldOffset, int lengthFieldLength, int lengthAdjustment,
@@ -87,8 +86,9 @@ public class NSQFrameDecoder extends LengthFieldBasedFrameDecoder {
     private ResponseFrame handleResponse(ChannelHandlerContext ctx, ByteBuffer byteBuffer, int size) {
         String resp = readString(byteBuffer, size);
         ResponseType type = ResponseType.fromCode(resp);
-        if (type != null)
+        if (type != null) {
             return new ResponseFrame(type);
+        }
         return new ResponseFrame(resp);
     }
 

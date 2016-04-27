@@ -78,6 +78,7 @@ public class ConnectorMonitor implements Runnable {
             for (NSQConnector connector : connectorMap.values()) {
                 if (!connector.isConnected()) {
                     customer.removeConnector(connector);
+                    IOUtil.closeQuietly(connector);
                 } else {
                     oldNodes.add(new NSQNode(connector.getHost(), connector.getPort()));
                 }

@@ -19,10 +19,9 @@ import com.youzan.nsq.client.bean.NSQNode;
  *
  */
 public class Nodes {
-
     private static final Logger log = LoggerFactory.getLogger(Nodes.class);
     private static final int DEFAULT_TIMEOUT = 5 * 1000;
-    private static Set<String> addrs = new HashSet<String>();
+    private final Set<String> addrs = new HashSet<String>();
 
     /**
      * 构造器

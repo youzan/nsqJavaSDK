@@ -15,7 +15,6 @@ import com.youzan.nsq.client.bean.NSQNode;
  *
  */
 public class LookupdClients {
-
     private static final Logger log = LoggerFactory.getLogger(LookupdClients.class);
 
     /**

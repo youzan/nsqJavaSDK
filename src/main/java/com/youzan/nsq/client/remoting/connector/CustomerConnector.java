@@ -42,6 +42,7 @@ public class CustomerConnector {
         this.channel = channel;
         this.connectorMap = new ConcurrentHashMap<String, NSQConnector>();
         this.monitor = new ConnectorMonitor(host, port);
+        monitoringBoss.scheduleWithFixedDelay(this.monitor, 10, DEFAULT_MONITORING_PERIOD_IN_SECOND, TimeUnit.SECONDS);
     }
 
     public ConcurrentHashMap<String, NSQConnector> getConnectorMap() {
@@ -77,7 +78,6 @@ public class CustomerConnector {
 
         // Post
         monitor.registerConsumer(this);
-        monitoringBoss.scheduleWithFixedDelay(monitor, 10, DEFAULT_MONITORING_PERIOD_IN_SECOND, TimeUnit.SECONDS);
     }
 
     public void setSubListener(ConnectorListener listener) {

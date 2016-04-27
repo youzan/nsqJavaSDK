@@ -27,7 +27,6 @@ import com.youzan.nsq.client.bean.NSQNode;
  *
  */
 public class NodesHandler implements ResponseHandler<List<NSQNode>> {
-
     private static final Logger log = LoggerFactory.getLogger(NodesHandler.class);
 
     @Override

@@ -18,12 +18,11 @@ import com.youzan.nsq.client.bean.NSQNode;
  *
  */
 public class Lookup {
-
     private static final Logger log = LoggerFactory.getLogger(Lookup.class);
     private static final int DEFAULT_TIMEOUT = 5 * 1000;
-    private static Set<String> addrs = new HashSet<String>();
+    private final Set<String> addrs = new HashSet<String>();
 
-    private static final List<NSQNode> EMPTY_PRODUCERS = new ArrayList<NSQNode>(0);
+    private final List<NSQNode> emptyProducers = new ArrayList<NSQNode>(0);
 
     public Lookup(String host, int port) {
         String[] hostArr = host.split(",");
@@ -58,7 +57,7 @@ public class Lookup {
             sb.setLength(0);
         }
 
-        return EMPTY_PRODUCERS;
+        return emptyProducers;
     }
 
 }
