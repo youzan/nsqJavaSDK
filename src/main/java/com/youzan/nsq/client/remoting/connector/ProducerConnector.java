@@ -75,7 +75,7 @@ public class ProducerConnector implements Closeable {
 
         // Post
         monitor.registerProducer(this);
-        monitoringBoss.scheduleAtFixedRate(monitor, 10, DEFAULT_MONITORING_PERIOD_IN_SECOND, TimeUnit.SECONDS);
+        monitoringBoss.scheduleWithFixedDelay(monitor, 10, DEFAULT_MONITORING_PERIOD_IN_SECOND, TimeUnit.SECONDS);
     }
 
     public boolean put(String topic, String msg) throws NSQException, InterruptedException {
