@@ -46,6 +46,7 @@ public class ConnectorMonitor implements Runnable {
             for (NSQConnector connector : connectorMap.values()) {
                 if (!connector.isConnected()) {
                     producer.removeConnector(connector);
+                    IOUtil.closeQuietly(connector);
                 } else {
                     oldNodes.add(new NSQNode(connector.getHost(), connector.getPort()));
                 }
@@ -60,9 +61,7 @@ public class ConnectorMonitor implements Runnable {
                     } catch (Exception e) {
                         log.error("Producer monitor: connector to ({}:{}) failed.", node.getHost(), node.getPort());
                         log.error("", e);
-                        if (connector != null) {
-                            connector.close();
-                        }
+                        IOUtil.closeQuietly(connector);
                     }
                 }
             }
