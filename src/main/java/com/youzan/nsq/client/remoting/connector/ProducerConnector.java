@@ -1,7 +1,11 @@
 package com.youzan.nsq.client.remoting.connector;
 
+import java.io.Closeable;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.slf4j.Logger;
@@ -15,11 +19,12 @@ import com.youzan.nsq.client.frames.NSQFrame;
 import com.youzan.nsq.client.frames.ResponseFrame;
 import com.youzan.nsq.client.remoting.NSQConnector;
 import com.youzan.util.IOUtil;
+import com.youzan.util.NamedThreadFactory;
 
 /**
  * Created by pepper on 14/12/22.
  */
-public class ProducerConnector {
+public class ProducerConnector implements Closeable {
     private static final Logger log = LoggerFactory.getLogger(ProducerConnector.class);
     private static final int DEFAULT_RETRY = 3;
 
@@ -27,6 +32,10 @@ public class ProducerConnector {
     private final int port; // lookupd port
     private final ConcurrentHashMap</* ip:port */String, NSQConnector> connectorMap;
     private final AtomicLong index;
+
+    public static final int DEFAULT_MONITORING_PERIOD_IN_SECOND = 45;
+    private final ScheduledExecutorService monitoringBoss = Executors
+            .newSingleThreadScheduledExecutor(new NamedThreadFactory("ProducerMonitoring", Thread.MIN_PRIORITY));
     private final ConnectorMonitor monitor;
 
     public ProducerConnector(String host, int port) {
@@ -66,7 +75,7 @@ public class ProducerConnector {
 
         // Post
         monitor.registerProducer(this);
-        monitor.monitor();
+        monitoringBoss.scheduleAtFixedRate(monitor, 10, DEFAULT_MONITORING_PERIOD_IN_SECOND, TimeUnit.SECONDS);
     }
 
     public boolean put(String topic, String msg) throws NSQException, InterruptedException {
@@ -137,9 +146,11 @@ public class ProducerConnector {
         connectorMap.put(ConnectorUtils.getConnectorKey(connector), connector);
     }
 
+    @Override
     public void close() {
         for (NSQConnector connector : connectorMap.values()) {
             connector.close4Producer();
         }
+        monitoringBoss.shutdownNow();
     }
 }

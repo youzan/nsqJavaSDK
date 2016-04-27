@@ -18,58 +18,26 @@ import com.youzan.util.IOUtil;
  * @author maoxiajun
  *
  */
-public class ConnectorMonitor {
+public class ConnectorMonitor implements Runnable {
     private static final Logger log = LoggerFactory.getLogger(ConnectorMonitor.class);
 
-    private static final int DEFAULT_RECONNECT_PERIOD = 30 * 1000;
     private HashSet<ProducerConnector> producers = new HashSet<ProducerConnector>();
     private HashSet<CustomerConnector> consumers = new HashSet<CustomerConnector>();
-    private String lookupHost;
-    private int lookupPort;
+    private String host;
+    private int port;
 
     /**
      * @param host
      * @param port
      */
     public ConnectorMonitor(String host, int port) {
-        this.lookupHost = host;
-        this.lookupPort = port;
-    }
-
-    void monitor() {
-        Thread monitor = new Thread(new Runnable() {
-
-            @Override
-            public void run() {
-                while (true) {
-                    try {
-                        Thread.sleep(DEFAULT_RECONNECT_PERIOD);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    }
-
-                    try {
-                        dealProducer();
-                    } catch (Exception e) {
-                        log.error("Monitoring of Producers error", e);
-                    }
-
-                    try {
-                        dealCustomer();
-                    } catch (Exception e) {
-                        log.error("Monitoring of Consumers error", e);
-                    }
-                }
-            }
-        });
-        monitor.setName("ConnectorMonitorThread");
-        monitor.setDaemon(true);
-        monitor.start();
+        this.host = host;
+        this.port = port;
     }
 
     private void dealProducer() {
         // 服务端的最新节点
-        List<NSQNode> nodes = ConnectorUtils.lookupNode(lookupHost, lookupPort);
+        List<NSQNode> nodes = ConnectorUtils.lookupNode(host, port);
 
         for (ProducerConnector producer : producers) {
             ConcurrentHashMap<String, NSQConnector> connectorMap = producer.getConnectorMap();
@@ -103,7 +71,7 @@ public class ConnectorMonitor {
 
     private void dealCustomer() {
         for (CustomerConnector customer : consumers) {
-            List<NSQNode> nodes = ConnectorUtils.lookupTopic(lookupHost, lookupPort, customer.getTopic());
+            List<NSQNode> nodes = ConnectorUtils.lookupTopic(host, port, customer.getTopic());
             ConcurrentHashMap<String, NSQConnector> connectorMap = customer.getConnectorMap();
             List<NSQNode> oldNodes = new ArrayList<NSQNode>();
 
@@ -146,6 +114,21 @@ public class ConnectorMonitor {
             return;
         }
         consumers.add(connector);
+    }
+
+    @Override
+    public void run() {
+        try {
+            dealCustomer();
+        } catch (Exception e) {
+            log.error("Monitoring of Consumers error", e);
+        }
+
+        try {
+            dealProducer();
+        } catch (Exception e) {
+            log.error("Monitoring of Producers error", e);
+        }
     }
 
 }

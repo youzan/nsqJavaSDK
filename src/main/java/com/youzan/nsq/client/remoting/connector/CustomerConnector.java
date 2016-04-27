@@ -2,6 +2,9 @@ package com.youzan.nsq.client.remoting.connector;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,6 +14,7 @@ import com.youzan.nsq.client.exceptions.NSQException;
 import com.youzan.nsq.client.remoting.NSQConnector;
 import com.youzan.nsq.client.remoting.listener.ConnectorListener;
 import com.youzan.util.IOUtil;
+import com.youzan.util.NamedThreadFactory;
 
 /**
  * Created by pepper on 14/12/22.
@@ -26,6 +30,9 @@ public class CustomerConnector {
     private ConnectorListener subListener;
     private ConcurrentHashMap</* ip:port */String, NSQConnector> connectorMap;
 
+    public static final int DEFAULT_MONITORING_PERIOD_IN_SECOND = 45;
+    private final ScheduledExecutorService monitoringBoss = Executors
+            .newSingleThreadScheduledExecutor(new NamedThreadFactory("ConsumerMonitoring", Thread.MIN_PRIORITY));
     private final ConnectorMonitor monitor;
 
     public CustomerConnector(String host, int port, String topic, String channel) {
@@ -70,7 +77,7 @@ public class CustomerConnector {
 
         // Post
         monitor.registerConsumer(this);
-        monitor.monitor();
+        monitoringBoss.scheduleAtFixedRate(monitor, 10, DEFAULT_MONITORING_PERIOD_IN_SECOND, TimeUnit.SECONDS);
     }
 
     public void setSubListener(ConnectorListener listener) {
@@ -109,5 +116,6 @@ public class CustomerConnector {
         for (NSQConnector connector : connectorMap.values()) {
             IOUtil.closeQuietly(connector);
         }
+        monitoringBoss.shutdownNow();
     }
 }
