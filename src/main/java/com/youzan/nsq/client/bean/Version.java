@@ -9,5 +9,5 @@ package com.youzan.nsq.client.bean;
  *
  */
 public final class Version {
-    public static final String version = "JavaClient_1.3.3";
+    public static final String version = "JavaClient_1.4.0.RELEASE";
 }
