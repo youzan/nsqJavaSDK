@@ -37,12 +37,12 @@ public class ConnectorMonitor implements Runnable {
 
     private void dealProducer() {
         // 服务端的最新节点
-        List<NSQNode> nodes = ConnectorUtils.lookupNode(host, port);
+        final List<NSQNode> nodes = ConnectorUtils.lookupNode(host, port);
 
         for (ProducerConnector producer : producers) {
             ConcurrentHashMap<String, NSQConnector> connectorMap = producer.getConnectorMap();
             // 当前内存保存的节点, 变成过时的节点
-            List<NSQNode> oldNodes = new ArrayList<NSQNode>();
+            final List<NSQNode> oldNodes = new ArrayList<NSQNode>();
             for (NSQConnector connector : connectorMap.values()) {
                 if (!connector.isConnected()) {
                     producer.removeConnector(connector);
@@ -65,6 +65,7 @@ public class ConnectorMonitor implements Runnable {
                     }
                 }
             }
+            oldNodes.clear();
         }
     }
 
@@ -72,7 +73,7 @@ public class ConnectorMonitor implements Runnable {
         for (CustomerConnector customer : consumers) {
             List<NSQNode> nodes = ConnectorUtils.lookupTopic(host, port, customer.getTopic());
             ConcurrentHashMap<String, NSQConnector> connectorMap = customer.getConnectorMap();
-            List<NSQNode> oldNodes = new ArrayList<NSQNode>();
+            final List<NSQNode> oldNodes = new ArrayList<NSQNode>();
 
             for (NSQConnector connector : connectorMap.values()) {
                 if (!connector.isConnected()) {
@@ -99,6 +100,7 @@ public class ConnectorMonitor implements Runnable {
                     }
                 }
             }
+            oldNodes.clear();
         }
     }
 
