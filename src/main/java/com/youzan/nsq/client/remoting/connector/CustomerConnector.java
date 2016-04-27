@@ -117,5 +117,6 @@ public class CustomerConnector {
             IOUtil.closeQuietly(connector);
         }
         monitoringBoss.shutdownNow();
+        connectorMap.clear();
     }
 }

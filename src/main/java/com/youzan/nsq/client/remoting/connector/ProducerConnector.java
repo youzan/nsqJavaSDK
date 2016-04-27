@@ -152,5 +152,6 @@ public class ProducerConnector implements Closeable {
             connector.close4Producer();
         }
         monitoringBoss.shutdownNow();
+        connectorMap.clear();
     }
 }
