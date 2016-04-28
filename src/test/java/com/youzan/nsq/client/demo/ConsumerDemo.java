@@ -50,6 +50,7 @@ public class ConsumerDemo {
                 }
             }
         };
+        @SuppressWarnings("resource")
         CustomerConnector connector = new CustomerConnector(host, port, topic, channel);
         connector.setSubListener(listener);
         connector.connect();

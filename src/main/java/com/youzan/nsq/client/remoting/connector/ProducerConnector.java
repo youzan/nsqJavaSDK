@@ -43,7 +43,7 @@ public class ProducerConnector implements Closeable {
         this.port = port;
         this.connectorMap = new ConcurrentHashMap<String, NSQConnector>();
         this.index = new AtomicLong(0);
-        this.monitor = new ConnectorMonitor(host, port);
+        this.monitor = new ConnectorMonitor(host, port, this.getClass());
         monitoringBoss.scheduleWithFixedDelay(this.monitor, 10, DEFAULT_MONITORING_PERIOD_IN_SECOND, TimeUnit.SECONDS);
     }
 
@@ -65,7 +65,7 @@ public class ProducerConnector implements Closeable {
 
             NSQConnector connector = null;
             try {
-                connector = new NSQConnector(nsqNode.getHost(), nsqNode.getPort(), null, 0);
+                connector = new NSQConnector(this.getClass(), nsqNode.getHost(), nsqNode.getPort(), null, 0);
                 connectorMap.put(ConnectorUtils.getConnectorKey(nsqNode), connector);
             } catch (NSQException e) {
                 String tip = "ProducerConnector can not connect " + ConnectorUtils.getConnectorKey(nsqNode);
@@ -149,7 +149,7 @@ public class ProducerConnector implements Closeable {
     @Override
     public void close() {
         for (NSQConnector connector : connectorMap.values()) {
-            connector.close4Producer();
+            IOUtil.closeQuietly(connector);
         }
         monitoringBoss.shutdownNow();
         connectorMap.clear();

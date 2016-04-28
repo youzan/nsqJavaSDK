@@ -22,7 +22,9 @@ import com.youzan.nsq.client.frames.ErrorFrame;
 import com.youzan.nsq.client.frames.MessageFrame;
 import com.youzan.nsq.client.frames.NSQFrame;
 import com.youzan.nsq.client.frames.ResponseFrame;
+import com.youzan.nsq.client.remoting.connector.CustomerConnector;
 import com.youzan.nsq.client.remoting.connector.NSQConfig;
+import com.youzan.nsq.client.remoting.connector.ProducerConnector;
 import com.youzan.nsq.client.remoting.handler.NSQChannelHandler;
 import com.youzan.nsq.client.remoting.handler.NSQFrameDecoder;
 import com.youzan.nsq.client.remoting.handler.NSQMessage;
@@ -48,7 +50,8 @@ import io.netty.util.concurrent.GenericFutureListener;
  * Created by pepper on 14/12/22.
  */
 public class NSQConnector implements Closeable {
-    private static final Logger log = LoggerFactory.getLogger(NSQConnector.class);
+    private static final Logger logger = LoggerFactory.getLogger(NSQConnector.class);
+    private final Class<?> holderClz;
     private String host; // nsqd host
     private int port; // nsqd tcp port
     private Channel channel;
@@ -64,7 +67,9 @@ public class NSQConnector implements Closeable {
     private final AtomicLong rdyCount = new AtomicLong();
     public static final AttributeKey<NSQConnector> CONNECTOR = AttributeKey.valueOf("connector");
 
-    public NSQConnector(String host, int port, ConnectorListener subListener, int rdyCount) throws NSQException {
+    public NSQConnector(Class<?> holderClz, String host, int port, ConnectorListener subListener, int rdyCount)
+            throws NSQException {
+        this.holderClz = holderClz;
         this.subListener = subListener;
         this.host = host;
         this.port = port;
@@ -89,7 +94,7 @@ public class NSQConnector implements Closeable {
         if (!future.isSuccess()) {
             throw new NSQException("can't connect to server", future.cause());
         }
-        log.info("NSQConnector start, address {}:{}", host, port);
+        logger.info("NSQConnector start, address {}:{}", host, port);
 
         this.channel.attr(CONNECTOR).set(this);
         sendMagic();
@@ -97,7 +102,7 @@ public class NSQConnector implements Closeable {
         Identify identify = new Identify(new NSQConfig());
         try {
             NSQFrame resp = writeAndWait(identify);
-            log.info("identify response:" + resp.getMessage());
+            logger.info("identify response:" + resp.getMessage());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new NSQException("send indentify goes wrong.", e);
@@ -113,7 +118,7 @@ public class NSQConnector implements Closeable {
                 dealResponse(resp);
             }
         } else if (msg instanceof ErrorFrame) {
-            log.error("get errorFrame: {}", ((ErrorFrame) msg).getError());
+            logger.error("get errorFrame: {}", ((ErrorFrame) msg).getError());
             dealResponse((ErrorFrame) msg);
         } else if (msg instanceof MessageFrame) {
             MessageFrame msgFrame = (MessageFrame) msg;
@@ -121,7 +126,7 @@ public class NSQConnector implements Closeable {
             NSQMessage nsqMsg = msgFrame.getNSQMessage();
             byte[] data = nsqMsg.getBody();
             String message = new String(data);
-            log.debug("Received message\n" + message);
+            logger.debug("Received message\n" + message);
 
             if (subListener != null) {
                 try {
@@ -134,10 +139,11 @@ public class NSQConnector implements Closeable {
                     }
                 } catch (Exception e) {
                     if (nsqMsg.getAttempts() < DEFAULT_REQ_TIMES) {
-                        log.warn("nsq message deal fail(will requeue) at: {}", e);
+                        logger.warn("nsq message deal fail(will requeue) at: {}", e);
                         requeue(nsqMsg);
                     } else {
-                        log.warn("nsq message deal fail and requeue times gt 10, then be finished. this messageID:{}",
+                        logger.warn(
+                                "nsq message deal fail and requeue times gt 10, then be finished. this messageID:{}",
                                 new String(nsqMsg.getMessageId()));
                         finish(nsqMsg);
                     }
@@ -148,10 +154,10 @@ public class NSQConnector implements Closeable {
                 }
             } else {
                 finish(nsqMsg);
-                log.warn("no message listener, this message has be finished.");
+                logger.warn("no message listener, this message has be finished.");
             }
         } else {
-            log.warn("something else error:{}", msg);
+            logger.warn("something else error:{}", msg);
         }
     }
 
@@ -159,7 +165,7 @@ public class NSQConnector implements Closeable {
         try {
             this.responses.offer(resp, DEFAULT_WAIT, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
-            log.error("response offer error:{}", e);
+            logger.error("response offer error:{}", e);
         }
     }
 
@@ -197,7 +203,7 @@ public class NSQConnector implements Closeable {
 
     public ChannelFuture sub(String topic, String channel) {
         Subscribe sub = new Subscribe(topic, channel);
-        log.debug("Subscribing to " + sub.getCommandString());
+        logger.debug("Subscribing to " + sub.getCommandString());
 
         byte[] subBytes = sub.getCommandBytes();
         return this.channel.writeAndFlush(this.channel.alloc().buffer().writeBytes(subBytes));
@@ -238,23 +244,34 @@ public class NSQConnector implements Closeable {
         try {
             NSQFrame resp = writeAndWait(new Close());
             if (resp instanceof ErrorFrame) {
-                log.warn("cleanClose {}:{} goes error at:{}", host, port, resp.getMessage());
+                logger.warn("cleanClose {}:{} goes error at:{}", host, port, resp.getMessage());
             }
         } catch (NSQException | InterruptedException e) {
-            log.warn("cleanClose {}:{} goes error at:{}", host, port, e);
+            logger.warn("cleanClose {}:{} goes error at:{}", host, port, e);
         }
     }
 
     @Override
     public void close() {
+        if (this.holderClz == ProducerConnector.class) {
+            close4Producer();
+        } else if (this.holderClz == CustomerConnector.class) {
+            close4Consumer();
+        } else {
+            logger.error("Are you kidding me: there's no Class Descriptor ?");
+        }
+    }
+
+    public void close4Consumer() {
         if (channel != null) {
             if (channel.isActive()) {
                 cleanClose();
             }
-            channel.disconnect();
+            channel.close();
         }
         if (workerGroup != null) {
             workerGroup.shutdownGracefully();
+            workerGroup.terminationFuture();
         }
     }
 
@@ -264,6 +281,7 @@ public class NSQConnector implements Closeable {
         }
         if (workerGroup != null) {
             workerGroup.shutdownGracefully();
+            workerGroup.terminationFuture();
         }
     }
 

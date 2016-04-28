@@ -1,5 +1,6 @@
 package com.youzan.nsq.client.remoting.connector;
 
+import java.io.Closeable;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -19,7 +20,7 @@ import com.youzan.util.NamedThreadFactory;
 /**
  * Created by pepper on 14/12/22.
  */
-public class CustomerConnector {
+public class CustomerConnector implements Closeable {
     private static final Logger log = LoggerFactory.getLogger(CustomerConnector.class);
     private static final int readyCount = 10;
 
@@ -41,7 +42,7 @@ public class CustomerConnector {
         this.topic = topic;
         this.channel = channel;
         this.connectorMap = new ConcurrentHashMap<String, NSQConnector>();
-        this.monitor = new ConnectorMonitor(host, port);
+        this.monitor = new ConnectorMonitor(host, port, this.getClass());
         monitoringBoss.scheduleWithFixedDelay(this.monitor, 10, DEFAULT_MONITORING_PERIOD_IN_SECOND, TimeUnit.SECONDS);
     }
 
@@ -64,7 +65,7 @@ public class CustomerConnector {
         for (NSQNode node : nsqNodes) {
             NSQConnector connector = null;
             try {
-                connector = new NSQConnector(node.getHost(), node.getPort(), subListener, readyCount);
+                connector = new NSQConnector(this.getClass(), node.getHost(), node.getPort(), subListener, readyCount);
                 connector.sub(topic, channel);
                 connector.rdy(readyCount);
                 connectorMap.put(ConnectorUtils.getConnectorKey(node), connector);
@@ -112,6 +113,7 @@ public class CustomerConnector {
         connectorMap.put(ConnectorUtils.getConnectorKey(connector), connector);
     }
 
+    @Override
     public void close() {
         for (NSQConnector connector : connectorMap.values()) {
             IOUtil.closeQuietly(connector);

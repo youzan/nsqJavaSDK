@@ -25,14 +25,17 @@ public class ConnectorMonitor implements Runnable {
     private HashSet<CustomerConnector> consumers = new HashSet<CustomerConnector>();
     private String host;
     private int port;
+    private final Class<?> holderClz;
 
     /**
      * @param host
      * @param port
+     * @param clz
      */
-    public ConnectorMonitor(String host, int port) {
+    public ConnectorMonitor(String host, int port, Class<?> clz) {
         this.host = host;
         this.port = port;
+        this.holderClz = clz;
     }
 
     private void dealProducer() {
@@ -55,7 +58,7 @@ public class ConnectorMonitor implements Runnable {
                 if (!oldNodes.contains(node) && !ConnectorUtils.isExcluded(node)) {
                     NSQConnector connector = null;
                     try {
-                        connector = new NSQConnector(node.getHost(), node.getPort(), null, 0);
+                        connector = new NSQConnector(this.holderClz, node.getHost(), node.getPort(), null, 0);
                         producer.addConnector(connector);
                     } catch (Exception e) {
                         log.error("Producer monitor: connector to ({}:{}) failed.", node.getHost(), node.getPort());
@@ -86,8 +89,8 @@ public class ConnectorMonitor implements Runnable {
                 if (!oldNodes.contains(node)) {
                     NSQConnector connector = null;
                     try {
-                        connector = new NSQConnector(node.getHost(), node.getPort(), customer.getSubListener(),
-                                customer.getReadyCount());
+                        connector = new NSQConnector(this.holderClz, node.getHost(), node.getPort(),
+                                customer.getSubListener(), customer.getReadyCount());
                         connector.sub(customer.getTopic(), customer.getChannel());
                         connector.rdy(customer.getReadyCount());
                         connectorMap.put(ConnectorUtils.getConnectorKey(node), connector);
