@@ -33,6 +33,8 @@ public class NSQLookupServiceImpl implements NSQLookupService {
         if (tmp != null) {
             this.addresses = new ArrayList<>(tmp.length);
             for (String addr : tmp) {
+                addr = addr.trim();
+                addr = addr.replace(" ", "");
                 this.addresses.add(addr);
             }
         } else {
