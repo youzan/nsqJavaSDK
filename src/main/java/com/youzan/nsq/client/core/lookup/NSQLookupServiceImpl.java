@@ -1,6 +1,7 @@
 package com.youzan.nsq.client.core.lookup;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.SortedSet;
 
@@ -10,13 +11,14 @@ public class NSQLookupServiceImpl implements NSQLookupService {
 
     private static final long serialVersionUID = 1773482379917817275L;
 
+    private final List<String> addresses;
+
     /**
      * 
      * @param addresses
      */
     public NSQLookupServiceImpl(List<String> addresses) {
-        // TODO - implement NSQLookupServiceImpl.NSQLookupServiceImpl
-        throw new UnsupportedOperationException();
+        this.addresses = addresses;
     }
 
     /**
@@ -24,12 +26,21 @@ public class NSQLookupServiceImpl implements NSQLookupService {
      * @param addresses
      */
     public NSQLookupServiceImpl(String addresses) {
-        // TODO - implement NSQLookupServiceImpl.NSQLookupServiceImpl
-        throw new UnsupportedOperationException();
+        if (addresses == null || addresses.isEmpty()) {
+            throw new IllegalArgumentException("addresses is blank!");
+        }
+        String[] tmp = addresses.split(",");
+        if (tmp != null) {
+            this.addresses = new ArrayList<>(tmp.length);
+            for (String addr : tmp) {
+                this.addresses.add(addr);
+            }
+        } else {
+            this.addresses = new ArrayList<>(0);
+        }
     }
 
     /**
-     * return ordered addresses
      * 
      * @param topic
      * @param writable
@@ -54,6 +65,20 @@ public class NSQLookupServiceImpl implements NSQLookupService {
 
     @Override
     public void close() throws IOException {
+    }
+
+    /**
+     * @return the serialversionuid
+     */
+    public static long getSerialversionuid() {
+        return serialVersionUID;
+    }
+
+    /**
+     * @return the addresses
+     */
+    public List<String> getAddresses() {
+        return addresses;
     }
 
 }
