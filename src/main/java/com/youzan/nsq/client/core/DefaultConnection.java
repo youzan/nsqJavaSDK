@@ -4,6 +4,7 @@ import java.io.IOException;
 
 import com.youzan.nsq.client.core.command.NSQCommand;
 import com.youzan.nsq.client.entity.Address;
+import com.youzan.nsq.client.entity.NSQConfig;
 
 import io.netty.channel.Channel;
 
@@ -32,6 +33,10 @@ public class DefaultConnection implements Connection {
 
     @Override
     public void close() throws IOException {
+    }
+
+    @Override
+    public void connect(NSQConfig config) {
     }
 
 }
