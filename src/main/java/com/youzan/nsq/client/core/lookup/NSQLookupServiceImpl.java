@@ -15,6 +15,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.youzan.nsq.client.entity.Address;
+import com.youzan.nsq.client.exception.NSQLookupException;
 
 public class NSQLookupServiceImpl implements NSQLookupService {
 
@@ -79,7 +80,7 @@ public class NSQLookupServiceImpl implements NSQLookupService {
     }
 
     @Override
-    public SortedSet<Address> lookup(String topic) {
+    public SortedSet<Address> lookup(String topic) throws NSQLookupException {
         return lookup(topic, true);
     }
 
@@ -90,8 +91,8 @@ public class NSQLookupServiceImpl implements NSQLookupService {
      * @return the NSQd addresses . The count must be not too large.
      */
     @Override
-    public SortedSet<Address> lookup(String topic, boolean writable) {
-        SortedSet<Address> nsqds = new TreeSet<>();
+    public SortedSet<Address> lookup(String topic, boolean writable) throws NSQLookupException {
+        final SortedSet<Address> nsqds = new TreeSet<>();
         /**
          * It is unnecessary to use Atomic/Lock for the variable
          */
@@ -115,7 +116,9 @@ public class NSQLookupServiceImpl implements NSQLookupService {
             }
             logger.debug("Server response info : {}", rootNode.toString());
         } catch (Exception e) {
-            logger.error("", e);
+            final String tip = "SDK can't get the right lookup info.";
+            logger.error(tip, e);
+            throw new NSQLookupException(tip, e);
         }
         return nsqds;
     }

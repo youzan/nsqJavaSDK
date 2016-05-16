@@ -9,6 +9,8 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 import org.testng.log4testng.Logger;
 
+import com.youzan.nsq.client.exception.NSQLookupException;
+
 public class NSQLookupServiceImplTest {
     private static final Logger logger = Logger.getLogger(NSQLookupServiceImplTest.class);
 
@@ -56,7 +58,7 @@ public class NSQLookupServiceImplTest {
     }
 
     @Test
-    public void lookup() {
+    public void lookup() throws NSQLookupException {
         NSQLookupServiceImpl srv = new NSQLookupServiceImpl("127.0.0.1:4161");
         srv.lookup("test", true);
     }
