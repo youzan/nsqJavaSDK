@@ -87,11 +87,4 @@ public class Address implements java.io.Serializable, Comparable<Address> {
         return true;
     }
 
-    /**
-     * @return the serialversionuid
-     */
-    public static long getSerialversionuid() {
-        return serialVersionUID;
-    }
-
 }

@@ -136,13 +136,6 @@ public class NSQLookupServiceImpl implements NSQLookupService {
     }
 
     /**
-     * @return the serialversionuid
-     */
-    public static long getSerialversionuid() {
-        return serialVersionUID;
-    }
-
-    /**
      * @return the addresses
      */
     public List<String> getAddresses() {
