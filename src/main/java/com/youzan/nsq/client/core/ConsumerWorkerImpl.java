@@ -52,15 +52,7 @@ public class ConsumerWorkerImpl extends BaseKeyedPooledObjectFactory<Address, Co
         this.config = config;
         this.handler = handler;
 
-        /* pool size */
-        final int size;
-        if (config.isOrdered()) {
-            size = 1;
-        } else {
-            final int tmp = config.getConnectionPoolSize();
-            size = tmp <= 0 ? Runtime.getRuntime().availableProcessors() * 2 : tmp;
-        }
-
+        final int size = calcPoolSize();
         this.eventLoopGroup = new NioEventLoopGroup(size);
 
         bootstrap = new Bootstrap();
@@ -69,8 +61,41 @@ public class ConsumerWorkerImpl extends BaseKeyedPooledObjectFactory<Address, Co
         bootstrap.handler(new NSQClientInitializer());
     }
 
+    /**
+     * @param config
+     * @return
+     */
+    private int calcPoolSize() {
+        /* pool size */
+        final int size;
+        if (config.isOrdered()) {
+            size = 1;
+        } else {
+            final int tmp = config.getConnectionPoolSize();
+            size = tmp <= 0 ? Runtime.getRuntime().availableProcessors() * 2 : tmp;
+        }
+        return size;
+    }
+
     @Override
     public void start() {
+        final int size = calcPoolSize();
+        int ok = 0;
+        int retry = 0;
+        Exception last = null;
+        while (ok < size) {
+            retry++;
+            try {
+                create(this.address);
+                ok++;
+            } catch (Exception e) {
+                logger.error("Exception", e);
+                last = e;
+            }
+            if (retry > size * 3) {
+                throw new IllegalStateException("The system cann't create one pool. The last exception:", last);
+            }
+        }
     }
 
     @Override

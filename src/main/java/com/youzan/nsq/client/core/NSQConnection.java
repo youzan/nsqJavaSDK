@@ -33,6 +33,11 @@ public class NSQConnection implements Connection {
     private final int timeoutInSecond;
     private final long timeoutInMillisecond;
 
+    /**
+     * @param channel
+     *            It is already connected and alive so far.
+     * @param timeoutInSecond
+     */
     public NSQConnection(Channel channel, int timeoutInSecond) {
         this.channel = channel;
         this.timeoutInSecond = timeoutInSecond;
