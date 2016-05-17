@@ -41,8 +41,8 @@ public class NSQConnection implements Connection {
 
     @Override
     public NSQFrame send(final NSQCommand command) throws TimeoutException {
+        final long start = System.currentTimeMillis();
         try {
-            final long start = System.currentTimeMillis();
             long timeout = timeoutInMillisecond - (0L);
             if (!requests.offer(command, timeoutInMillisecond, TimeUnit.MILLISECONDS)) {
                 throw new TimeoutException("Command: " + command + " timedout");
@@ -65,7 +65,7 @@ public class NSQConnection implements Connection {
             requests.poll(); // clear
             return frame;
         } catch (InterruptedException e) {
-            close(); // broken pipe
+            close(); // broken pipeline
             Thread.currentThread().interrupt();
         }
         return null;

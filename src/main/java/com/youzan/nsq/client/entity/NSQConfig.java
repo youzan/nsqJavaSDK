@@ -7,6 +7,8 @@ public class NSQConfig implements java.io.Serializable {
     private static final long serialVersionUID = 6624842850216901700L;
 
     public static final byte[] MAGIC_PROTOCOL_VERSION = "  V2".getBytes();
+
+    private int timeoutInSecond = 10;
     /**
      * the sorted Lookupd addresses
      */
@@ -20,12 +22,27 @@ public class NSQConfig implements java.io.Serializable {
      * The set of messages is ordered in one specific partition
      */
     private boolean ordered = true;
-    private int connectionPoolSize;
+    private int connectionPoolSize = -1;
     private int clientId;
     private String host;
     private boolean featureNegotiation;
     private Integer heartbeatInterval;
     private String userAgent;
+
+    /**
+     * @return the timeoutInSecond
+     */
+    public int getTimeoutInSecond() {
+        return timeoutInSecond;
+    }
+
+    /**
+     * @param timeoutInSecond
+     *            the timeoutInSecond to set
+     */
+    public void setTimeoutInSecond(int timeoutInSecond) {
+        this.timeoutInSecond = timeoutInSecond;
+    }
 
     /**
      * @return the lookupAddresses
