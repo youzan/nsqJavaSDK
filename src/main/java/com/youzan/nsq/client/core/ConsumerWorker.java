@@ -1,5 +1,7 @@
 package com.youzan.nsq.client.core;
 
+import java.io.Closeable;
+
 import org.apache.commons.pool2.KeyedPooledObjectFactory;
 
 import com.youzan.nsq.client.entity.Address;
@@ -12,7 +14,7 @@ import com.youzan.nsq.client.network.frame.NSQFrame;
  * @email linzuxiong1988@gmail.com
  *
  */
-public interface ConsumerWorker extends KeyedPooledObjectFactory<Address, Connection> {
+public interface ConsumerWorker extends KeyedPooledObjectFactory<Address, Connection>, Closeable {
 
     /**
      * create one connection pool and start working
@@ -20,4 +22,5 @@ public interface ConsumerWorker extends KeyedPooledObjectFactory<Address, Connec
     void start();
 
     void incoming(NSQFrame frame);
+
 }

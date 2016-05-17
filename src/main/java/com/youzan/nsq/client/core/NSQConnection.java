@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import com.youzan.nsq.client.core.command.NSQCommand;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.util.AttributeKey;
@@ -54,6 +55,7 @@ public class NSQConnection implements Connection {
             }
 
             responses.clear(); // clear
+            // write data
             final ChannelFuture future = flush(command);
 
             timeout = timeoutInMillisecond - (start - System.currentTimeMillis());
@@ -77,13 +79,14 @@ public class NSQConnection implements Connection {
     }
 
     @Override
-    public boolean isConnected() {
-        return channel.isActive();
+    public ChannelFuture flush(NSQCommand cmd) {
+        final ByteBuf buf = channel.alloc().buffer().writeBytes(cmd.getBytes());
+        return channel.writeAndFlush(buf);
     }
 
     @Override
-    public ChannelFuture flush(NSQCommand cmd) {
-        return channel.writeAndFlush(cmd);
+    public boolean isConnected() {
+        return channel.isActive();
     }
 
     @Override

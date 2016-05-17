@@ -115,12 +115,10 @@ public class ConsumerWorkerImpl extends BaseKeyedPooledObjectFactory<Address, Co
         final ChannelFuture future = this.bootstrap.connect(new InetSocketAddress(addr.getHost(), addr.getPort()));
 
         // Wait until the connection attempt succeeds or fails.
-        // if (!future.awaitUninterruptibly(config.getTimeoutInSecond(),
-        // TimeUnit.SECONDS)) {
-        // throw new NoConnectionException("Could not connect to server",
-        // future.cause());
-        // }
-        Channel channel = future.awaitUninterruptibly().channel();
+        if (!future.awaitUninterruptibly(config.getTimeoutInSecond(), TimeUnit.SECONDS)) {
+            throw new NoConnectionException("Could not connect to server", future.cause());
+        }
+        Channel channel = future.channel();
         if (!future.isSuccess()) {
             throw new NoConnectionException("Could not connect to server", future.cause());
         }
@@ -152,5 +150,9 @@ public class ConsumerWorkerImpl extends BaseKeyedPooledObjectFactory<Address, Co
     @Override
     public void destroyObject(final Address key, final PooledObject<Connection> p) throws Exception {
         p.getObject().close();
+    }
+
+    @Override
+    public void close() {
     }
 }

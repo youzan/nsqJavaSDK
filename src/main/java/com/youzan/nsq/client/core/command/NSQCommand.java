@@ -8,8 +8,11 @@ public interface NSQCommand {
 
     String getString();
 
+    /**
+     * Using binary data to send to NSQ-Server
+     * 
+     * @return
+     */
     byte[] getBytes();
 
-    @Override
-    String toString();
 }

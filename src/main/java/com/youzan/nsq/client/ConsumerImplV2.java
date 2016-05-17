@@ -12,6 +12,7 @@ import com.youzan.nsq.client.core.MessageHandler;
 import com.youzan.nsq.client.core.lookup.NSQLookupService;
 import com.youzan.nsq.client.core.lookup.NSQLookupServiceImpl;
 import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.util.IOUtil;
 
 public class ConsumerImplV2 implements Consumer {
 
@@ -66,6 +67,9 @@ public class ConsumerImplV2 implements Consumer {
 
     @Override
     public void close() throws IOException {
+        for (ConsumerWorker w : workers) {
+            IOUtil.closeQuietly(w);
+        }
     }
 
 }
