@@ -2,11 +2,18 @@ package com.youzan.nsq.client.entity;
 
 import java.util.List;
 
+import com.youzan.nsq.client.exception.NSQException;
+import com.youzan.util.HostUtil;
+import com.youzan.util.IPUtil;
+import com.youzan.util.SystemUtil;
+
 public class NSQConfig implements java.io.Serializable {
 
     private static final long serialVersionUID = 6624842850216901700L;
 
-    public static final byte[] MAGIC_PROTOCOL_VERSION = "  V2".getBytes();
+    public enum Compression {
+        NO_COMPRESSION, DEFLATE, SNAPPY
+    }
 
     private int timeoutInSecond = 10;
     /**
@@ -23,11 +30,26 @@ public class NSQConfig implements java.io.Serializable {
      */
     private boolean ordered = true;
     private int connectionPoolSize = -1;
-    private int clientId;
-    private String host;
+    private String clientId;
+    private String hostname = "";
     private boolean featureNegotiation;
     private Integer heartbeatInterval;
-    private String userAgent;
+    private Integer outputBufferSize = null;
+    private Integer outputBufferTimeout = null;
+    private boolean tlsV1 = false;
+    private Integer deflateLevel = null;
+    private Integer sampleRate = null;
+    private final String userAgent = "nsq-client-java/2.0-SNAPSHOT";
+    private Compression compression = Compression.NO_COMPRESSION;
+
+    public NSQConfig() throws NSQException {
+        try {
+            hostname = HostUtil.getLocalIP();
+            clientId = "IP:" + IPUtil.ipv4(hostname) + ", PID:" + SystemUtil.getPID();
+        } catch (Exception e) {
+            throw new NSQException("System cann't get the IPv4!", e);
+        }
+    }
 
     /**
      * @return the timeoutInSecond
@@ -64,13 +86,6 @@ public class NSQConfig implements java.io.Serializable {
      */
     public static long getSerialversionuid() {
         return serialVersionUID;
-    }
-
-    /**
-     * @return the magicProtocolVersion
-     */
-    public static byte[] getMagicProtocolVersion() {
-        return MAGIC_PROTOCOL_VERSION;
     }
 
     /**
@@ -136,7 +151,7 @@ public class NSQConfig implements java.io.Serializable {
     /**
      * @return the clientId
      */
-    public int getClientId() {
+    public String getClientId() {
         return clientId;
     }
 
@@ -144,23 +159,23 @@ public class NSQConfig implements java.io.Serializable {
      * @param clientId
      *            the clientId to set
      */
-    public void setClientId(int clientId) {
+    public void setClientId(String clientId) {
         this.clientId = clientId;
     }
 
     /**
-     * @return the host
+     * @return the hostname
      */
-    public String getHost() {
-        return host;
+    public String getHostname() {
+        return hostname;
     }
 
     /**
-     * @param host
-     *            the host to set
+     * @param hostname
+     *            the hostname to set
      */
-    public void setHost(String host) {
-        this.host = host;
+    public void setHostname(String hostname) {
+        this.hostname = hostname;
     }
 
     /**
@@ -194,6 +209,21 @@ public class NSQConfig implements java.io.Serializable {
     }
 
     /**
+     * @return the outputBufferSize
+     */
+    public Integer getOutputBufferSize() {
+        return outputBufferSize;
+    }
+
+    /**
+     * @param outputBufferSize
+     *            the outputBufferSize to set
+     */
+    public void setOutputBufferSize(Integer outputBufferSize) {
+        this.outputBufferSize = outputBufferSize;
+    }
+
+    /**
      * @return the userAgent
      */
     public String getUserAgent() {
@@ -201,11 +231,111 @@ public class NSQConfig implements java.io.Serializable {
     }
 
     /**
-     * @param userAgent
-     *            the userAgent to set
+     * @return the outputBufferTimeout
      */
-    public void setUserAgent(String userAgent) {
-        this.userAgent = userAgent;
+    public Integer getOutputBufferTimeout() {
+        return outputBufferTimeout;
     }
 
+    /**
+     * @param outputBufferTimeout
+     *            the outputBufferTimeout to set
+     */
+    public void setOutputBufferTimeout(Integer outputBufferTimeout) {
+        this.outputBufferTimeout = outputBufferTimeout;
+    }
+
+    /**
+     * @return the tlsV1
+     */
+    public boolean isTlsV1() {
+        return tlsV1;
+    }
+
+    /**
+     * @param tlsV1
+     *            the tlsV1 to set
+     */
+    public void setTlsV1(boolean tlsV1) {
+        this.tlsV1 = tlsV1;
+    }
+
+    /**
+     * @return the compression
+     */
+    public Compression getCompression() {
+        return compression;
+    }
+
+    /**
+     * @param compression
+     *            the compression to set
+     */
+    public void setCompression(Compression compression) {
+        this.compression = compression;
+    }
+
+    /**
+     * @return the deflateLevel
+     */
+    public Integer getDeflateLevel() {
+        return deflateLevel;
+    }
+
+    /**
+     * @param deflateLevel
+     *            the deflateLevel to set
+     */
+    public void setDeflateLevel(Integer deflateLevel) {
+        this.deflateLevel = deflateLevel;
+    }
+
+    /**
+     * @return the sampleRate
+     */
+    public Integer getSampleRate() {
+        return sampleRate;
+    }
+
+    /**
+     * @param sampleRate
+     *            the sampleRate to set
+     */
+    public void setSampleRate(Integer sampleRate) {
+        this.sampleRate = sampleRate;
+    }
+
+    public String identify() {
+        final StringBuffer buffer = new StringBuffer(300);
+        buffer.append("{\"client_id\":\"" + clientId + "\", ");
+        buffer.append("\"hostname\":\"" + hostname + "\", ");
+        buffer.append("\"feature_negotiation\": true, ");
+        if (heartbeatInterval != null) {
+            buffer.append("\"heartbeat_interval\":" + heartbeatInterval.toString() + ", ");
+        }
+        if (outputBufferSize != null) {
+            buffer.append("\"output_buffer_size\":" + outputBufferSize + ", ");
+        }
+        if (outputBufferTimeout != null) {
+            buffer.append("\"output_buffer_timeout\":" + outputBufferTimeout.toString() + ", ");
+        }
+        if (tlsV1) {
+            buffer.append("\"tls_v1\":" + tlsV1 + ", ");
+        }
+        if (compression == Compression.SNAPPY) {
+            buffer.append("\"snappy\": true, ");
+        }
+        if (compression == Compression.DEFLATE) {
+            buffer.append("\"deflate\": true, ");
+            if (deflateLevel != null) {
+                buffer.append("\"deflate_level\":" + deflateLevel.toString() + ", ");
+            }
+        }
+        if (sampleRate != null) {
+            buffer.append("\"sample_rate\":" + sampleRate.toString() + ",");
+        }
+        buffer.append("\"msg_timeout\":" + Integer.valueOf(timeoutInSecond * 1000).toString() + ",");
+        buffer.append("\"user_agent\": \"" + userAgent + "\"}");
+        return buffer.toString();
+    }
 }

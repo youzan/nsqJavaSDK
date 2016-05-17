@@ -4,12 +4,17 @@
 package com.youzan.nsq.client.core;
 
 import java.net.InetSocketAddress;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.pool2.BaseKeyedPooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
+import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.youzan.nsq.client.core.command.Identify;
+import com.youzan.nsq.client.core.command.Magic;
+import com.youzan.nsq.client.core.command.Nop;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.exception.NoConnectionException;
@@ -61,22 +66,6 @@ public class ConsumerWorkerImpl extends BaseKeyedPooledObjectFactory<Address, Co
         bootstrap.handler(new NSQClientInitializer());
     }
 
-    /**
-     * @param config
-     * @return
-     */
-    private int calcPoolSize() {
-        /* pool size */
-        final int size;
-        if (config.isOrdered()) {
-            size = 1;
-        } else {
-            final int tmp = config.getConnectionPoolSize();
-            size = tmp <= 0 ? Runtime.getRuntime().availableProcessors() * 2 : tmp;
-        }
-        return size;
-    }
-
     @Override
     public void start() {
         final int size = calcPoolSize();
@@ -98,8 +87,25 @@ public class ConsumerWorkerImpl extends BaseKeyedPooledObjectFactory<Address, Co
         }
     }
 
+    /**
+     * @param config
+     * @return
+     */
+    private int calcPoolSize() {
+        /* pool size */
+        final int size;
+        if (config.isOrdered()) {
+            size = 1;
+        } else {
+            final int tmp = config.getConnectionPoolSize();
+            size = tmp <= 0 ? Runtime.getRuntime().availableProcessors() * 2 : tmp;
+        }
+        return size;
+    }
+
     @Override
     public void incoming(final NSQFrame frame) {
+        // TODO
     }
 
     @Override
@@ -109,7 +115,11 @@ public class ConsumerWorkerImpl extends BaseKeyedPooledObjectFactory<Address, Co
         final ChannelFuture future = this.bootstrap.connect(new InetSocketAddress(addr.getHost(), addr.getPort()));
 
         // Wait until the connection attempt succeeds or fails.
-        // TODO timeout
+        // if (!future.awaitUninterruptibly(config.getTimeoutInSecond(),
+        // TimeUnit.SECONDS)) {
+        // throw new NoConnectionException("Could not connect to server",
+        // future.cause());
+        // }
         Channel channel = future.awaitUninterruptibly().channel();
         if (!future.isSuccess()) {
             throw new NoConnectionException("Could not connect to server", future.cause());
@@ -117,17 +127,25 @@ public class ConsumerWorkerImpl extends BaseKeyedPooledObjectFactory<Address, Co
 
         final Connection conn = new NSQConnection(channel, this.config.getTimeoutInSecond());
         channel.attr(NSQConnection.STATE).set(conn);
-        // Send the identify. IF ok , THEN return conn. ELSE return null
+        // Send magic
+        conn.flush(Magic.getInstance());
+        // Send the identify. IF ok , THEN return conn. ELSE throws one
+        // exception
+        final NSQFrame response = conn.send(new Identify(this.config));
         return conn;
     }
 
     @Override
     public PooledObject<Connection> wrap(final Connection connection) {
-        return null;
+        return new DefaultPooledObject<>(connection);
     }
 
     @Override
     public boolean validateObject(final Address key, final PooledObject<Connection> p) {
+        final ChannelFuture future = p.getObject().flush(Nop.getInstance());
+        if (future.awaitUninterruptibly(1, TimeUnit.SECONDS)) {
+            return future.isSuccess();
+        }
         return false;
     }
 
