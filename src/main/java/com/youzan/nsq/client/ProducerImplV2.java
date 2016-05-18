@@ -7,13 +7,14 @@ import com.youzan.nsq.client.entity.NSQMessage;
 
 public class ProducerImplV2 implements Producer {
 
+    private final NSQConfig config;
+
     /**
      * 
      * @param config
      */
     public ProducerImplV2(NSQConfig config) {
-        // TODO - implement ProducerImplV2.Producer
-        throw new UnsupportedOperationException();
+        this.config = config;
     }
 
     @Override
@@ -34,6 +35,11 @@ public class ProducerImplV2 implements Producer {
 
     @Override
     public void close() throws IOException {
+    }
+
+    @Override
+    public NSQConfig getConfig() {
+        return this.config;
     }
 
 }

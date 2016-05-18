@@ -11,7 +11,7 @@ import java.util.List;
  * @email linzuxiong1988@gmail.com
  *
  */
-public interface Consumer extends Closeable {
+public interface Consumer extends Client, Closeable {
 
     Consumer start();
 

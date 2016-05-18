@@ -7,6 +7,8 @@ import com.youzan.util.HostUtil;
 import com.youzan.util.IPUtil;
 import com.youzan.util.SystemUtil;
 
+import io.netty.handler.ssl.SslContext;
+
 public class NSQConfig implements java.io.Serializable {
 
     private static final long serialVersionUID = 6624842850216901700L;
@@ -43,6 +45,8 @@ public class NSQConfig implements java.io.Serializable {
     // "Java/com.youzan/nsq-client/2.0-SNAPSHOT";
     private final String userAgent = "Java-2.x";
     private Compression compression = Compression.NO_COMPRESSION;
+    // ...
+    private SslContext sslContext = null;
 
     public NSQConfig() throws NSQException {
         try {
@@ -230,6 +234,18 @@ public class NSQConfig implements java.io.Serializable {
      */
     public String getUserAgent() {
         return userAgent;
+    }
+
+    public SslContext getSslContext() {
+        return sslContext;
+    }
+
+    public void setSslContext(SslContext sslContext) {
+        if (null == sslContext) {
+            throw new NullPointerException();
+        }
+        tlsV1 = true;
+        this.sslContext = sslContext;
     }
 
     /**

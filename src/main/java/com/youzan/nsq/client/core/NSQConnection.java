@@ -16,7 +16,6 @@ import com.youzan.nsq.client.network.frame.NSQFrame;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
-import io.netty.util.AttributeKey;
 
 /**
  * @author zhaoxi (linzuxiong)
@@ -25,8 +24,6 @@ import io.netty.util.AttributeKey;
  */
 public class NSQConnection implements Connection {
     private static final Logger logger = LoggerFactory.getLogger(NSQConnection.class);
-
-    public static final AttributeKey<Connection> STATE = AttributeKey.valueOf("Connection.State");
 
     private final LinkedBlockingQueue<NSQCommand> requests = new LinkedBlockingQueue<>(1);
     private final LinkedBlockingQueue<NSQFrame> responses = new LinkedBlockingQueue<>(1);

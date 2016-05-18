@@ -8,12 +8,15 @@ import com.youzan.nsq.client.core.command.NSQCommand;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 
 import io.netty.channel.ChannelFuture;
+import io.netty.util.AttributeKey;
 
 /**
  * This is for consumer to broker. Only one message can be transported
  * simultaneously.
  */
-interface Connection extends Closeable {
+public interface Connection extends Closeable {
+
+    public static final AttributeKey<Connection> STATE = AttributeKey.valueOf("Connection.State");
 
     boolean isConnected();
 

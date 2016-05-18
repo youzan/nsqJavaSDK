@@ -6,15 +6,11 @@ package com.youzan.nsq.client.core;
 import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.commons.pool2.BaseKeyedPooledObjectFactory;
-import org.apache.commons.pool2.PooledObject;
-import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.youzan.nsq.client.core.command.Identify;
 import com.youzan.nsq.client.core.command.Magic;
-import com.youzan.nsq.client.core.command.Nop;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.exception.NoConnectionException;
@@ -29,13 +25,13 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 
 /**
- * Stand for one connection pool(client->one broker) underlying TCP
+ * Stand for one connection pool(client->one broker) underlying TCP.
  * 
  * @author zhaoxi (linzuxiong)
  * @email linzuxiong1988@gmail.com
  *
  */
-public class ConsumerWorkerImpl extends BaseKeyedPooledObjectFactory<Address, Connection> implements ConsumerWorker {
+public class ConsumerWorkerImpl implements ConsumerWorker {
     private static final Logger logger = LoggerFactory.getLogger(ConsumerWorkerImpl.class);
 
     /**
@@ -103,12 +99,6 @@ public class ConsumerWorkerImpl extends BaseKeyedPooledObjectFactory<Address, Co
         return size;
     }
 
-    @Override
-    public void incoming(final NSQFrame frame) {
-        // TODO
-    }
-
-    @Override
     public Connection create(final Address addr) throws Exception {
         // Create one connection and connect to the broker
         // Start the connection attempt.
@@ -124,7 +114,8 @@ public class ConsumerWorkerImpl extends BaseKeyedPooledObjectFactory<Address, Co
         }
 
         final Connection conn = new NSQConnection(channel, this.config.getTimeoutInSecond());
-        channel.attr(NSQConnection.STATE).set(conn);
+        channel.attr(Connection.STATE).set(conn);
+        channel.attr(ConsumerWorker.STATE).set(this);
         // Send magic
         conn.flush(Magic.getInstance());
         // Send the identify. IF ok , THEN return conn. ELSE throws one
@@ -134,25 +125,16 @@ public class ConsumerWorkerImpl extends BaseKeyedPooledObjectFactory<Address, Co
     }
 
     @Override
-    public PooledObject<Connection> wrap(final Connection connection) {
-        return new DefaultPooledObject<>(connection);
+    public void incoming(Connection conn, NSQFrame msg) {
     }
 
     @Override
-    public boolean validateObject(final Address key, final PooledObject<Connection> p) {
-        final ChannelFuture future = p.getObject().flush(Nop.getInstance());
-        if (future.awaitUninterruptibly(1, TimeUnit.SECONDS)) {
-            return future.isSuccess();
-        }
-        return false;
-    }
-
-    @Override
-    public void destroyObject(final Address key, final PooledObject<Connection> p) throws Exception {
-        p.getObject().close();
+    public NSQConfig getConfig() {
+        return this.config;
     }
 
     @Override
     public void close() {
     }
+
 }

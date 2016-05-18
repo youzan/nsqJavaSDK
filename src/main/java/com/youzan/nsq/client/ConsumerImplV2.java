@@ -14,6 +14,13 @@ import com.youzan.nsq.client.core.lookup.NSQLookupServiceImpl;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.util.IOUtil;
 
+/**
+ * Expose to Client Code
+ * 
+ * @author zhaoxi (linzuxiong)
+ * @email linzuxiong1988@gmail.com
+ *
+ */
 public class ConsumerImplV2 implements Consumer {
 
     private static final Logger logger = LoggerFactory.getLogger(ConsumerImplV2.class);
@@ -23,12 +30,16 @@ public class ConsumerImplV2 implements Consumer {
 
     private final List<ConsumerWorker> workers;
 
+    private final NSQConfig config;
+
     /**
      * 
      * @param config
      * @param handler
      */
     public ConsumerImplV2(NSQConfig config, MessageHandler handler) {
+        this.config = config;
+
         lookup = new NSQLookupServiceImpl(config.getLookupAddresses());
         // TODO - implement ConsumerImplV2.Consumer
         final int size = 0;
@@ -63,6 +74,11 @@ public class ConsumerImplV2 implements Consumer {
     public void addLookupCluster(List<String> addresses) {
         // TODO - implement ConsumerImplV2.addLookupCluster
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public NSQConfig getConfig() {
+        return this.config;
     }
 
     @Override

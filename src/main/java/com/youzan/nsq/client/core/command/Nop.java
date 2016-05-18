@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
  */
 public class Nop implements NSQCommand {
     private static final Logger logger = LoggerFactory.getLogger(Nop.class);
-    private static final String NOP = "NOP\n";
+    private static final String cmd = "NOP\n";
 
     private static class Instance {
         // final
@@ -31,13 +31,13 @@ public class Nop implements NSQCommand {
 
     @Override
     public String getString() {
-        return NOP;
+        return cmd;
     }
 
     @Override
     public byte[] getBytes() {
         try {
-            return NOP.getBytes(CHARSET_NAME);
+            return cmd.getBytes(CHARSET_NAME);
         } catch (UnsupportedEncodingException e) {
             // Ugly Java
             logger.error("Exception", e);

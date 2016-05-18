@@ -19,7 +19,7 @@ import com.youzan.nsq.client.entity.NSQConfig;
 public class Identify implements NSQCommand {
     private static final Logger logger = LoggerFactory.getLogger(Identify.class);
 
-    private static final String IDENTIFY = "IDENTIFY\n";
+    private static final String cmd = "IDENTIFY\n";
     private final String identifier;
     private byte[] data;
 
@@ -36,12 +36,12 @@ public class Identify implements NSQCommand {
     @Override
     public String getString() {
         // JDK8
-        return IDENTIFY + identifier;
+        return cmd + identifier;
     }
 
     @Override
     public byte[] getBytes() {
-        final String header = IDENTIFY;
+        final String header = cmd;
         final int size = data.length;
         ByteBuffer bb = ByteBuffer.allocate(header.length() + 4 + size);
         try {
