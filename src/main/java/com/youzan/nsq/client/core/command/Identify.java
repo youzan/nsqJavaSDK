@@ -56,4 +56,14 @@ public class Identify implements NSQCommand {
         return bb.array();
     }
 
+    @Override
+    public String toString() {
+        try {
+            return new String(this.getBytes(), NSQCommand.UTF8);
+        } catch (UnsupportedEncodingException e) {
+            logger.error("Exception", e);
+        }
+        return null;
+    }
+
 }

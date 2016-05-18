@@ -2,6 +2,7 @@ package com.youzan.nsq.client.network.netty;
 
 import java.util.List;
 
+import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 
 import io.netty.buffer.ByteBuf;
@@ -19,16 +20,15 @@ public class NSQDecoder extends MessageToMessageDecoder<ByteBuf> {
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
         size = in.readInt();
-        int id = in.readInt();
-        frame = NSQFrame.newInstance(id);
+        final int frameType = in.readInt();
+        frame = NSQFrame.newInstance(frameType);
         if (frame == null) {
             // uhh, bad response from server.. what should we do?
-            throw new Exception("Bad frame id from server (" + id + ").  disconnect!");
+            // JDK8 : string
+            throw new NSQException("Bad frame id from server (" + frameType + ").  disconnect!");
         }
         frame.setSize(size);
-        ByteBuf bytes = in.readBytes(frame.getSize() - 4); // subtract 4 because
-                                                           // the frame id is
-                                                           // included
+        final ByteBuf bytes = in.readBytes(size - 4);
         frame.setData(bytes.array());
         out.add(frame);
     }

@@ -41,9 +41,7 @@ public class NSQConfig implements java.io.Serializable {
     private boolean tlsV1 = false;
     private Integer deflateLevel = null;
     private Integer sampleRate = null;
-    // private final String userAgent =
-    // "Java/com.youzan/nsq-client/2.0-SNAPSHOT";
-    private final String userAgent = "Java-2.x";
+    private final String userAgent = "Java/com.youzan/nsq-client/2.0-SNAPSHOT";
     private Compression compression = Compression.NO_COMPRESSION;
     // ...
     private SslContext sslContext = null;

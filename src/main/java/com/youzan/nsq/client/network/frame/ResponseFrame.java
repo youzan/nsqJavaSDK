@@ -21,4 +21,9 @@ public class ResponseFrame extends NSQFrame {
             return null;
         }
     }
+
+    @Override
+    public String toString() {
+        return "Response: " + this.getMessage();
+    }
 }

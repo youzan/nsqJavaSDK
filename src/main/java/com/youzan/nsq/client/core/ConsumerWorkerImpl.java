@@ -5,14 +5,18 @@ package com.youzan.nsq.client.core;
 
 import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.youzan.nsq.client.Client;
 import com.youzan.nsq.client.core.command.Identify;
 import com.youzan.nsq.client.core.command.Magic;
+import com.youzan.nsq.client.core.command.NSQCommand;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NoConnectionException;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.netty.NSQClientInitializer;
@@ -64,23 +68,33 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
 
     @Override
     public void start() {
-        final int size = calcPoolSize();
-        int ok = 0;
-        int retry = 0;
-        Exception last = null;
-        while (ok < size) {
-            retry++;
-            try {
-                create(this.address);
-                ok++;
-            } catch (Exception e) {
-                logger.error("Exception", e);
-                last = e;
-            }
-            if (retry > size * 3) {
-                throw new IllegalStateException("The system cann't create one pool. The last exception:", last);
-            }
+        try {
+            start0();
+        } catch (Exception e) {
+            logger.error("Exception", e);
         }
+        // final int size = calcPoolSize();
+        // int ok = 0;
+        // int retry = 0;
+        // Exception last = null;
+        // while (ok < size) {
+        // retry++;
+        // try {
+        // create(this.address);
+        // ok++;
+        // } catch (Exception e) {
+        // logger.error("Exception", e);
+        // last = e;
+        // }
+        // if (retry > size * 3) {
+        // throw new IllegalStateException("The system cann't create one pool.
+        // The last exception:", last);
+        // }
+        // }
+    }
+
+    private void start0() throws Exception {
+        create(this.address);
     }
 
     /**
@@ -108,7 +122,7 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
         if (!future.awaitUninterruptibly(config.getTimeoutInSecond(), TimeUnit.SECONDS)) {
             throw new NoConnectionException("Could not connect to server", future.cause());
         }
-        Channel channel = future.channel();
+        final Channel channel = future.channel();
         if (!future.isSuccess()) {
             throw new NoConnectionException("Could not connect to server", future.cause());
         }
@@ -116,16 +130,30 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
         final Connection conn = new NSQConnection(channel, this.config.getTimeoutInSecond());
         channel.attr(Connection.STATE).set(conn);
         channel.attr(ConsumerWorker.STATE).set(this);
+        channel.attr(Client.STATE).set(this);
         // Send magic
         conn.command(Magic.getInstance());
         // Send the identify. IF ok , THEN return conn. ELSE throws one
         // exception
-        final NSQFrame response = conn.commandAndGetResponse(new Identify(this.config));
+        final NSQCommand ident = new Identify(this.config);
+        try {
+            final NSQFrame response = conn.commandAndGetResponse(ident);
+            if (null == response) {
+                conn.close();
+                throw new NSQException("Bad Identify Response!");
+            }  // !null => OK. Get the server's negotiation identify
+        } catch (final TimeoutException e) {
+            logger.error("Exception", e);
+            conn.close();
+            throw e;
+        }
         return conn;
     }
 
     @Override
     public void incoming(NSQFrame msg, Connection conn) {
+        // TODO now is testing
+        System.out.println(msg);
     }
 
     @Override
