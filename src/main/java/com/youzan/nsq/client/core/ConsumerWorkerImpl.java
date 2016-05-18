@@ -117,15 +117,15 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
         channel.attr(Connection.STATE).set(conn);
         channel.attr(ConsumerWorker.STATE).set(this);
         // Send magic
-        conn.flush(Magic.getInstance());
+        conn.command(Magic.getInstance());
         // Send the identify. IF ok , THEN return conn. ELSE throws one
         // exception
-        final NSQFrame response = conn.send(new Identify(this.config));
+        final NSQFrame response = conn.commandAndGetResponse(new Identify(this.config));
         return conn;
     }
 
     @Override
-    public void incoming(Connection conn, NSQFrame msg) {
+    public void incoming(NSQFrame msg, Connection conn) {
     }
 
     @Override

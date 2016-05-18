@@ -23,5 +23,5 @@ public interface ConsumerWorker extends Client, Closeable {
      */
     void start();
 
-    void incoming(final Connection conn, final NSQFrame msg);
+    void incoming(final NSQFrame msg, final Connection conn);
 }

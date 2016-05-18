@@ -26,11 +26,11 @@ public interface Connection extends Closeable {
      * @param command
      * @throws IOException
      */
-    NSQFrame send(final NSQCommand command) throws TimeoutException;
+    NSQFrame commandAndGetResponse(final NSQCommand command) throws TimeoutException;
 
     /**
      * @param command
      * @return
      */
-    ChannelFuture flush(final NSQCommand command);
+    ChannelFuture command(final NSQCommand command);
 }

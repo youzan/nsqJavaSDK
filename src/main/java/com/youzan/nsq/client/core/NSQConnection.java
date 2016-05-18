@@ -43,7 +43,7 @@ public class NSQConnection implements Connection {
     }
 
     @Override
-    public NSQFrame send(final NSQCommand command) throws TimeoutException {
+    public NSQFrame commandAndGetResponse(final NSQCommand command) throws TimeoutException {
         final long start = System.currentTimeMillis();
         try {
             long timeout = timeoutInMillisecond - (0L);
@@ -53,7 +53,7 @@ public class NSQConnection implements Connection {
 
             responses.clear(); // clear
             // write data
-            final ChannelFuture future = flush(command);
+            final ChannelFuture future = command(command);
 
             timeout = timeoutInMillisecond - (start - System.currentTimeMillis());
             if (!future.await(timeout, TimeUnit.MILLISECONDS)) {
@@ -76,7 +76,7 @@ public class NSQConnection implements Connection {
     }
 
     @Override
-    public ChannelFuture flush(NSQCommand cmd) {
+    public ChannelFuture command(NSQCommand cmd) {
         final ByteBuf buf = channel.alloc().buffer().writeBytes(cmd.getBytes());
         return channel.writeAndFlush(buf);
     }
