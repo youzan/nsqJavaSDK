@@ -95,6 +95,8 @@ public class NSQConnection implements Connection {
     @Override
     public void close() {
         if (null != channel) {
+            // It is very important!
+            channel.attr(Connection.STATE).remove();
             channel.close();
         }
     }
