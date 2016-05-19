@@ -52,5 +52,8 @@ public abstract class NSQFrame {
 
     public abstract FrameType getType();
 
+    /**
+     * @return
+     */
     public abstract String getMessage();
 }
