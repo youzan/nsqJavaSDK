@@ -19,7 +19,9 @@ import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NoConnectionException;
+import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
+import com.youzan.nsq.client.network.frame.ResponseFrame;
 import com.youzan.nsq.client.network.netty.NSQClientInitializer;
 
 import io.netty.bootstrap.Bootstrap;
@@ -99,7 +101,7 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
     }
 
     private void start0() throws Exception {
-        create(this.address);
+        create(address);
     }
 
     /**
@@ -121,7 +123,7 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
     public Connection create(final Address addr) throws Exception {
         // Create one connection and connect to the broker
         // Start the connection attempt.
-        final ChannelFuture future = this.bootstrap.connect(new InetSocketAddress(addr.getHost(), addr.getPort()));
+        final ChannelFuture future = bootstrap.connect(new InetSocketAddress(addr.getHost(), addr.getPort()));
 
         // Wait until the connection attempt succeeds or fails.
         if (!future.awaitUninterruptibly(config.getTimeoutInSecond(), TimeUnit.SECONDS)) {
@@ -132,7 +134,7 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
             throw new NoConnectionException("Could not connect to server", future.cause());
         }
 
-        final Connection conn = new NSQConnection(channel, this.config.getTimeoutInSecond());
+        final Connection conn = new NSQConnection(channel, config.getTimeoutInSecond());
         channel.attr(Connection.STATE).set(conn);
         channel.attr(ConsumerWorker.STATE).set(this);
         channel.attr(Client.STATE).set(this);
@@ -140,7 +142,7 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
         conn.command(Magic.getInstance());
         // Send the identify. IF ok , THEN return conn. ELSE throws one
         // exception
-        final NSQCommand ident = new Identify(this.config);
+        final NSQCommand ident = new Identify(config);
         try {
             final NSQFrame response = conn.commandAndGetResponse(ident);
             if (null == response) {
@@ -165,19 +167,25 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
                     conn.command(Nop.getInstance());
                     return;
                 } else {
+                    conn.addResponseFrame((ResponseFrame) frame);
                 }
                 break;
             }
             case ERROR_FRAME: {
+                // ErrorCallback ?
+                conn.addErrorFrame((ErrorFrame) frame);
                 break;
             }
             case MESSAGE_FRAME: {
+                // TODO
                 break;
             }
             default: {
+                logger.error("Invalid Frame Type.");
                 break;
             }
         }
+        return;
     }
 
     @Override

@@ -24,8 +24,8 @@ public class ResponseFrame extends NSQFrame {
             return new String(super.getData(), NSQCommand.UTF8);
         } catch (UnsupportedEncodingException e) {
             logger.error("Exception", e);
-            return null;
         }
+        return null;
     }
 
     @Override

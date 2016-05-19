@@ -11,7 +11,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.youzan.nsq.client.core.command.NSQCommand;
+import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
+import com.youzan.nsq.client.network.frame.ResponseFrame;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
@@ -94,5 +96,23 @@ public class NSQConnection implements Connection {
         if (null != channel) {
             channel.close();
         }
+    }
+
+    @Override
+    public void addResponseFrame(ResponseFrame frame) {
+        if (!requests.isEmpty()) {
+            try {
+                responses.offer(frame, timeoutInSecond, TimeUnit.SECONDS);
+            } catch (final InterruptedException e) {
+                Thread.currentThread().interrupt();
+                logger.error("Thread was interruped, probably shuthing down", e);
+                close();
+            }
+        }
+    }
+
+    @Override
+    public void addErrorFrame(ErrorFrame frame) {
+        responses.add(frame);
     }
 }

@@ -2,6 +2,9 @@ package com.youzan.nsq.client.network.frame;
 
 public abstract class NSQFrame {
 
+    public static final String UTF8 = "UTF-8";
+    public static final String DEFAULT_CHARSET_NAME = UTF8;
+
     public enum FrameType {
         RESPONSE_FRAME(0),//
         ERROR_FRAME(1),//

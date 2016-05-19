@@ -26,11 +26,12 @@ public class Identify implements NSQCommand {
     public Identify(NSQConfig config) {
         this.identifier = config.identify();
         try {
-            this.data = config.identify().getBytes(CHARSET_NAME);
+            this.data = config.identify().getBytes(DEFAULT_CHARSET_NAME);
         } catch (UnsupportedEncodingException e) {
             // ignore
+            logger.error("Exception", e);
+            this.data = config.identify().getBytes();
         }
-
     }
 
     @Override
@@ -45,7 +46,7 @@ public class Identify implements NSQCommand {
         final int size = data.length;
         ByteBuffer bb = ByteBuffer.allocate(header.length() + 4 + size);
         try {
-            bb.put(header.getBytes(CHARSET_NAME));
+            bb.put(header.getBytes(DEFAULT_CHARSET_NAME));
         } catch (UnsupportedEncodingException e) {
             // Ugly Java
             logger.error("Exception", e);

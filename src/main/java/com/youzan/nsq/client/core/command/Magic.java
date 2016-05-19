@@ -37,7 +37,7 @@ public class Magic implements NSQCommand {
     @Override
     public byte[] getBytes() {
         try {
-            return MAGIC.getBytes(CHARSET_NAME);
+            return MAGIC.getBytes(ASCII);
         } catch (UnsupportedEncodingException e) {
             logger.error("Exception", e);
         }

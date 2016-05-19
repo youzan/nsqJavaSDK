@@ -37,7 +37,7 @@ public class Nop implements NSQCommand {
     @Override
     public byte[] getBytes() {
         try {
-            return cmd.getBytes(CHARSET_NAME);
+            return cmd.getBytes(DEFAULT_CHARSET_NAME);
         } catch (UnsupportedEncodingException e) {
             // Ugly Java
             logger.error("Exception", e);
