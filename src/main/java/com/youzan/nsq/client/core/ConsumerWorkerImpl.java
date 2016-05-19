@@ -17,9 +17,11 @@ import com.youzan.nsq.client.core.command.NSQCommand;
 import com.youzan.nsq.client.core.command.Nop;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NoConnectionException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
+import com.youzan.nsq.client.network.frame.MessageFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
 import com.youzan.nsq.client.network.netty.NSQClientInitializer;
@@ -162,7 +164,6 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
 
     @Override
     public void incoming(NSQFrame frame, Connection conn) {
-        // TODO now is testing
         switch (frame.getType()) {
             case RESPONSE_FRAME: {
                 final String resp = frame.getMessage();
@@ -180,7 +181,7 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
                 break;
             }
             case MESSAGE_FRAME: {
-                // TODO
+                process4Client((MessageFrame) frame, conn);
                 break;
             }
             default: {
@@ -189,6 +190,28 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
             }
         }
         return;
+    }
+
+    @Override
+    public void process4Client(MessageFrame frame, Connection conn) {
+        // more exposure to client
+        final NSQMessage message = new NSQMessage(frame.getTimestamp(), frame.getAttempts(), frame.getMessageID(),
+                frame.getMessageBody());
+        // TODO any exception , it will reQueue!
+        final boolean successful = handler.process(message);
+        if (successful) {
+            finish(frame, conn);
+        } else {
+            reQueue(frame, conn);
+        }
+    }
+
+    @Override
+    public void finish(MessageFrame frame, Connection conn) {
+    }
+
+    @Override
+    public void reQueue(MessageFrame frame, Connection conn) {
     }
 
     @Override

@@ -24,6 +24,66 @@ public class MessageFrame extends NSQFrame {
      */
     private byte[] messageBody;
 
+    /**
+     * @return the timestamp
+     */
+    public byte[] getTimestamp() {
+        return timestamp;
+    }
+
+    /**
+     * @param timestamp
+     *            the timestamp to set
+     */
+    public void setTimestamp(byte[] timestamp) {
+        this.timestamp = timestamp;
+    }
+
+    /**
+     * @return the attempts
+     */
+    public byte[] getAttempts() {
+        return attempts;
+    }
+
+    /**
+     * @param attempts
+     *            the attempts to set
+     */
+    public void setAttempts(byte[] attempts) {
+        this.attempts = attempts;
+    }
+
+    /**
+     * @return the messageID
+     */
+    public byte[] getMessageID() {
+        return messageID;
+    }
+
+    /**
+     * @param messageID
+     *            the messageID to set
+     */
+    public void setMessageID(byte[] messageID) {
+        this.messageID = messageID;
+    }
+
+    /**
+     * @return the messageBody
+     */
+    public byte[] getMessageBody() {
+        return messageBody;
+    }
+
+    /**
+     * @param messageBody
+     *            the messageBody to set
+     */
+    public void setMessageBody(byte[] messageBody) {
+        this.messageBody = messageBody;
+    }
+
     @Override
     public void setData(byte[] bytes) {
         super.setData(bytes);
@@ -43,4 +103,5 @@ public class MessageFrame extends NSQFrame {
     public String getMessage() {
         throw new UnsupportedOperationException();
     }
+
 }

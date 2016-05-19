@@ -3,6 +3,7 @@ package com.youzan.nsq.client.core;
 import java.io.Closeable;
 
 import com.youzan.nsq.client.Client;
+import com.youzan.nsq.client.network.frame.MessageFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 
 import io.netty.util.AttributeKey;
@@ -24,4 +25,10 @@ public interface ConsumerWorker extends Client, Closeable {
     void start();
 
     void incoming(final NSQFrame frame, final Connection conn);
+
+    void process4Client(final MessageFrame frame, final Connection conn);
+
+    void finish(final MessageFrame frame, final Connection conn);
+
+    void reQueue(final MessageFrame frame, final Connection conn);
 }

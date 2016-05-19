@@ -15,11 +15,8 @@ public class ConsumerWorkerTest {
         Address address = new Address("127.0.0.1", 4150);
         NSQConfig config = new NSQConfig();
         config.setTimeoutInSecond(60);
-        ConsumerWorker worker = new ConsumerWorkerImpl(address, config, (msg, ex) -> {
+        ConsumerWorker worker = new ConsumerWorkerImpl(address, config, (msg) -> {
             if (null != msg) {
-                if (null != ex) {
-                    return false;
-                }
                 return true;
             } else {
                 return false;

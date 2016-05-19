@@ -1,7 +1,6 @@
 package com.youzan.nsq.client.core;
 
 import com.youzan.nsq.client.entity.NSQMessage;
-import com.youzan.nsq.client.exception.NSQException;
 
 /**
  * 
@@ -17,8 +16,7 @@ public interface MessageHandler {
     /**
      * 
      * @param message
-     * @param exception
      */
-    boolean process(NSQMessage message, NSQException exception);
+    boolean process(NSQMessage message);
 
 }
