@@ -5,8 +5,6 @@ import java.io.UnsupportedEncodingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.youzan.nsq.client.core.command.NSQCommand;
-
 public class ResponseFrame extends NSQFrame {
     private static final Logger logger = LoggerFactory.getLogger(ResponseFrame.class);
 
@@ -21,7 +19,7 @@ public class ResponseFrame extends NSQFrame {
     @Override
     public String getMessage() {
         try {
-            return new String(super.getData(), NSQCommand.UTF8);
+            return new String(super.getData(), DEFAULT_CHARSET_NAME);
         } catch (UnsupportedEncodingException e) {
             logger.error("Exception", e);
         }

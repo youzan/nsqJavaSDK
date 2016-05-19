@@ -2,8 +2,6 @@ package com.youzan.nsq.client;
 
 import java.io.Closeable;
 
-import com.youzan.nsq.client.entity.NSQMessage;
-
 import io.netty.util.AttributeKey;
 
 public interface Producer extends Client, Closeable {
@@ -12,10 +10,6 @@ public interface Producer extends Client, Closeable {
 
     Producer start();
 
-    /**
-     * 
-     * @param msg
-     */
-    void pub(NSQMessage msg);
+    void pub(String topic, byte[] message);
 
 }

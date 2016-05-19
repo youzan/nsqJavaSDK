@@ -60,7 +60,7 @@ public class Identify implements NSQCommand {
     @Override
     public String toString() {
         try {
-            return new String(this.getBytes(), NSQCommand.UTF8);
+            return new String(this.getBytes(), NSQCommand.DEFAULT_CHARSET_NAME);
         } catch (UnsupportedEncodingException e) {
             logger.error("Exception", e);
         }

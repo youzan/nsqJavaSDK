@@ -2,8 +2,8 @@ package com.youzan.nsq.client.network.frame;
 
 public abstract class NSQFrame {
 
-    public static final String UTF8 = "UTF-8";
-    public static final String DEFAULT_CHARSET_NAME = UTF8;
+    public static final String ASCII = "US-ASCII";
+    public static final String DEFAULT_CHARSET_NAME = ASCII;
 
     public enum FrameType {
         RESPONSE_FRAME(0),//
@@ -20,6 +20,10 @@ public abstract class NSQFrame {
 
     private int size;
     private byte[] data;
+
+    public abstract FrameType getType();
+
+    public abstract String getMessage();
 
     public int getSize() {
         return size;
@@ -49,11 +53,4 @@ public abstract class NSQFrame {
                 return null;
         }
     }
-
-    public abstract FrameType getType();
-
-    /**
-     * @return
-     */
-    public abstract String getMessage();
 }

@@ -48,6 +48,12 @@ public class NSQConnection implements Connection {
     }
 
     @Override
+    public ChannelFuture command(NSQCommand cmd) {
+        final ByteBuf buf = channel.alloc().buffer().writeBytes(cmd.getBytes());
+        return channel.writeAndFlush(buf);
+    }
+
+    @Override
     public NSQFrame commandAndGetResponse(final NSQCommand command) throws TimeoutException {
         final long start = System.currentTimeMillis();
         try {
@@ -74,16 +80,11 @@ public class NSQConnection implements Connection {
             requests.poll(); // clear
             return frame;
         } catch (InterruptedException e) {
-            close(); // broken pipeline
+            close();
             Thread.currentThread().interrupt();
+            logger.error("Thread was interruped, probably shuthing down!", e);
         }
         return null;
-    }
-
-    @Override
-    public ChannelFuture command(NSQCommand cmd) {
-        final ByteBuf buf = channel.alloc().buffer().writeBytes(cmd.getBytes());
-        return channel.writeAndFlush(buf);
     }
 
     @Override
@@ -104,9 +105,9 @@ public class NSQConnection implements Connection {
             try {
                 responses.offer(frame, timeoutInSecond, TimeUnit.SECONDS);
             } catch (final InterruptedException e) {
-                Thread.currentThread().interrupt();
-                logger.error("Thread was interruped, probably shuthing down", e);
                 close();
+                Thread.currentThread().interrupt();
+                logger.error("Thread was interruped, probably shuthing down!", e);
             }
         }
     }

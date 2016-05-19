@@ -3,7 +3,6 @@ package com.youzan.nsq.client;
 import java.io.IOException;
 
 import com.youzan.nsq.client.entity.NSQConfig;
-import com.youzan.nsq.client.entity.NSQMessage;
 
 public class ProducerImplV2 implements Producer {
 
@@ -23,16 +22,6 @@ public class ProducerImplV2 implements Producer {
         throw new UnsupportedOperationException();
     }
 
-    /**
-     * 
-     * @param msg
-     */
-    @Override
-    public void pub(NSQMessage msg) {
-        // TODO - implement ProducerImplV2.pub
-        throw new UnsupportedOperationException();
-    }
-
     @Override
     public void close() throws IOException {
     }
@@ -40,6 +29,10 @@ public class ProducerImplV2 implements Producer {
     @Override
     public NSQConfig getConfig() {
         return this.config;
+    }
+
+    @Override
+    public void pub(String topic, byte[] message) {
     }
 
 }
