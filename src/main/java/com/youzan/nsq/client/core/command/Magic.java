@@ -16,6 +16,17 @@ import org.slf4j.LoggerFactory;
 public class Magic implements NSQCommand {
     private static final Logger logger = LoggerFactory.getLogger(Magic.class);
     private static final String MAGIC = "  V2";
+    private static final byte[] ASCII_MAGIC;
+
+    static {
+        byte[] tmp;
+        try {
+            tmp = MAGIC.getBytes(ASCII);
+        } catch (UnsupportedEncodingException e) {
+            tmp = MAGIC.getBytes();
+        }
+        ASCII_MAGIC = tmp;
+    }
 
     private static class Instance {
         // final
@@ -36,11 +47,6 @@ public class Magic implements NSQCommand {
 
     @Override
     public byte[] getBytes() {
-        try {
-            return MAGIC.getBytes(ASCII);
-        } catch (UnsupportedEncodingException e) {
-            logger.error("Exception", e);
-        }
-        return null;
+        return ASCII_MAGIC;
     }
 }

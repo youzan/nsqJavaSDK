@@ -4,9 +4,6 @@ public class NSQException extends Exception {
 
     private static final long serialVersionUID = 6759799779448168356L;
 
-    /**
-     * @param string
-     */
     public NSQException(String message) {
         super(message);
     }

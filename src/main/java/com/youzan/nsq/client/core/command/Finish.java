@@ -9,10 +9,10 @@ package com.youzan.nsq.client.core.command;
  *
  */
 public class Finish implements NSQCommand {
-    private final byte[] msgId;
+    private final byte[] messageID;
 
-    public Finish(byte[] msgId) {
-        this.msgId = msgId;
+    public Finish(byte[] messageID) {
+        this.messageID = messageID;
     }
 
     @Override

@@ -50,7 +50,7 @@ public class Identify implements NSQCommand {
         } catch (UnsupportedEncodingException e) {
             // Ugly Java
             logger.error("Exception", e);
-            return null;
+            bb.put(header.getBytes());
         }
         bb.putInt(size);
         bb.put(data);
@@ -60,11 +60,11 @@ public class Identify implements NSQCommand {
     @Override
     public String toString() {
         try {
-            return new String(this.getBytes(), NSQCommand.DEFAULT_CHARSET_NAME);
+            return new String(this.getBytes(), DEFAULT_CHARSET_NAME);
         } catch (UnsupportedEncodingException e) {
             logger.error("Exception", e);
+            return new String(this.getBytes());
         }
-        return null;
     }
 
 }

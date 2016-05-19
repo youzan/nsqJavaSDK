@@ -16,6 +16,17 @@ import org.slf4j.LoggerFactory;
 public class Nop implements NSQCommand {
     private static final Logger logger = LoggerFactory.getLogger(Nop.class);
     private static final String cmd = "NOP\n";
+    private static final byte[] BYTES_CMD;
+
+    static {
+        byte[] tmp;
+        try {
+            tmp = cmd.getBytes(DEFAULT_CHARSET_NAME);
+        } catch (UnsupportedEncodingException e) {
+            tmp = cmd.getBytes();
+        }
+        BYTES_CMD = tmp;
+    }
 
     private static class Instance {
         // final
@@ -36,12 +47,6 @@ public class Nop implements NSQCommand {
 
     @Override
     public byte[] getBytes() {
-        try {
-            return cmd.getBytes(DEFAULT_CHARSET_NAME);
-        } catch (UnsupportedEncodingException e) {
-            // Ugly Java
-            logger.error("Exception", e);
-        }
-        return null;
+        return BYTES_CMD;
     }
 }
