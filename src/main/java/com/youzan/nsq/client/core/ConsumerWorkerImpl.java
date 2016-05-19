@@ -14,6 +14,7 @@ import com.youzan.nsq.client.Client;
 import com.youzan.nsq.client.core.command.Identify;
 import com.youzan.nsq.client.core.command.Magic;
 import com.youzan.nsq.client.core.command.NSQCommand;
+import com.youzan.nsq.client.core.command.Nop;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.exception.NSQException;
@@ -24,6 +25,7 @@ import com.youzan.nsq.client.network.netty.NSQClientInitializer;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
@@ -61,6 +63,9 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
         this.eventLoopGroup = new NioEventLoopGroup(size);
 
         bootstrap = new Bootstrap();
+        bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
+        bootstrap.option(ChannelOption.SO_BACKLOG, Runtime.getRuntime().availableProcessors() - 1); // client-side
+        bootstrap.option(ChannelOption.SO_TIMEOUT, config.getTimeoutInSecond());
         bootstrap.group(eventLoopGroup);
         bootstrap.channel(NioSocketChannel.class);
         bootstrap.handler(new NSQClientInitializer());
@@ -151,9 +156,28 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
     }
 
     @Override
-    public void incoming(NSQFrame msg, Connection conn) {
+    public void incoming(NSQFrame frame, Connection conn) {
         // TODO now is testing
-        System.out.println(msg);
+        switch (frame.getType()) {
+            case RESPONSE_FRAME: {
+                final String resp = frame.getMessage();
+                if ("_heartbeat_".equals(resp)) {
+                    conn.command(Nop.getInstance());
+                    return;
+                } else {
+                }
+                break;
+            }
+            case ERROR_FRAME: {
+                break;
+            }
+            case MESSAGE_FRAME: {
+                break;
+            }
+            default: {
+                break;
+            }
+        }
     }
 
     @Override

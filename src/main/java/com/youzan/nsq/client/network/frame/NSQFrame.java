@@ -2,6 +2,19 @@ package com.youzan.nsq.client.network.frame;
 
 public abstract class NSQFrame {
 
+    public enum FrameType {
+        RESPONSE_FRAME(0),//
+        ERROR_FRAME(1),//
+        MESSAGE_FRAME(2), //
+        ;
+
+        private int type;
+
+        FrameType(int type) {
+            this.type = type;
+        }
+    }
+
     private int size;
     private byte[] data;
 
@@ -34,4 +47,7 @@ public abstract class NSQFrame {
         }
     }
 
+    public abstract FrameType getType();
+
+    public abstract String getMessage();
 }

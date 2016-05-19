@@ -10,9 +10,15 @@ import com.youzan.nsq.client.core.command.NSQCommand;
 public class ResponseFrame extends NSQFrame {
     private static final Logger logger = LoggerFactory.getLogger(ResponseFrame.class);
 
+    @Override
+    public FrameType getType() {
+        return FrameType.RESPONSE_FRAME;
+    }
+
     /**
      * @return
      */
+    @Override
     public String getMessage() {
         try {
             return new String(super.getData(), NSQCommand.UTF8);
@@ -26,4 +32,5 @@ public class ResponseFrame extends NSQFrame {
     public String toString() {
         return "Response: " + this.getMessage();
     }
+
 }

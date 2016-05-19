@@ -38,6 +38,9 @@ public class NSQConnection implements Connection {
      */
     public NSQConnection(Channel channel, int timeoutInSecond) {
         this.channel = channel;
+        if (timeoutInSecond <= 0) {
+            timeoutInSecond = 10; // explicit
+        }
         this.timeoutInSecond = timeoutInSecond;
         this.timeoutInMillisecond = timeoutInSecond << 10; // ~= * 1024
     }

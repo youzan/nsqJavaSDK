@@ -76,6 +76,9 @@ public class ConsumerImplV2 implements Consumer {
         throw new UnsupportedOperationException();
     }
 
+    private void connect() {
+    }
+
     @Override
     public NSQConfig getConfig() {
         return this.config;
