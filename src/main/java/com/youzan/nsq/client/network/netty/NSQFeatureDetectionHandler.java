@@ -4,6 +4,7 @@ import javax.net.ssl.SSLEngine;
 
 import com.youzan.nsq.client.Client;
 import com.youzan.nsq.client.core.Connection;
+import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
 
@@ -32,7 +33,7 @@ public class NSQFeatureDetectionHandler extends SimpleChannelInboundHandler<NSQF
             ChannelPipeline pipeline = ctx.channel().pipeline();
             final Connection con = ctx.channel().attr(Connection.STATE).get();
             final Client clientConfig = ctx.channel().attr(Client.STATE).get();
-            parseIdentify(response.getMessage());
+            parseIdentify(response.getMessage(), clientConfig.getConfig());
 
             if (response.getMessage().equals("OK")) {
                 if (finished) {
@@ -104,8 +105,8 @@ public class NSQFeatureDetectionHandler extends SimpleChannelInboundHandler<NSQF
         return false;
     }
 
-    private void parseIdentify(final String message) {
-        if (message.equals("OK")) {
+    private void parseIdentify(final String message, final NSQConfig config) {
+        if ("OK".equals(message)) {
             return;
         }
         if (message.contains("\"tls_v1\":true")) {
