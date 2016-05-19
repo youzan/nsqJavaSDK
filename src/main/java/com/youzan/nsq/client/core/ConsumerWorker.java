@@ -20,10 +20,21 @@ public interface ConsumerWorker extends Client, Closeable {
     public static final AttributeKey<ConsumerWorker> STATE = AttributeKey.valueOf("ConsumerWorker.State");
 
     /**
-     * create one connection pool and start working
+     * Create one connection pool and start working
      */
     void start();
 
+    /**
+     * Notify the NSQ-Server to turn off pushing some messages 
+     */
+    void sendBackoff();
+
+    /**
+     * Receive the frame of NSQ
+     * 
+     * @param frame
+     * @param conn
+     */
     void incoming(final NSQFrame frame, final Connection conn);
 
     void process4Client(final MessageFrame frame, final Connection conn);

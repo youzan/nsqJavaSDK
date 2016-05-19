@@ -220,6 +220,10 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
     }
 
     @Override
+    public void sendBackoff() {
+    }
+
+    @Override
     public void close() {
     }
 

@@ -58,15 +58,6 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     /**
-     * notify the NSQ-Server that turrning off pushing some messages 
-     */
-    @Override
-    public void backoff() {
-        // TODO - implement ConsumerImplV2.backoff
-        throw new UnsupportedOperationException();
-    }
-
-    /**
      * 
      * @param addresses
      */

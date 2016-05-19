@@ -4,8 +4,9 @@ import java.io.Closeable;
 import java.util.List;
 
 /**
+ * It have a exposure to the client. <br />
  * We use one connection to Because of the synchronized protocol and avoid the
- * complex handler when errors occur
+ * complex handler when errors occur.
  * 
  * @author zhaoxi (linzuxiong)
  * @email linzuxiong1988@gmail.com
@@ -14,11 +15,6 @@ import java.util.List;
 public interface Consumer extends Client, Closeable {
 
     Consumer start();
-
-    /**
-     * notify the NSQ-Server that turrning off pushing some messages 
-     */
-    void backoff();
 
     /**
      * 
