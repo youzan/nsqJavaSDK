@@ -3,10 +3,13 @@ package com.youzan.nsq.client.network.netty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.youzan.nsq.client.Client;
 import com.youzan.nsq.client.core.Connection;
 import com.youzan.nsq.client.core.ConsumerWorker;
 import com.youzan.nsq.client.network.frame.NSQFrame;
+import com.youzan.util.IOUtil;
 
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 
@@ -22,12 +25,7 @@ public class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         super.channelInactive(ctx);
-        final Connection conn = ctx.channel().attr(Connection.STATE).get();
-        if (null != conn) {
-            logger.info("Channel will be disconnected : {} .", conn);
-        } else {
-            logger.error("No connection set for {}", ctx.channel());
-        }
+        destory(ctx.channel());
     }
 
     /**
@@ -39,13 +37,7 @@ public class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         super.exceptionCaught(ctx, cause);
-        ctx.channel().close();
-        final Connection conn = ctx.channel().attr(Connection.STATE).get();
-        if (null != conn) {
-            conn.close();
-        } else {
-            logger.error("No connection set for {}", ctx.channel());
-        }
+        destory(ctx.channel());
     }
 
     /**
@@ -67,6 +59,32 @@ public class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
                 logger.error("No ConsumerWorker set for {}", ctx.channel());
             }
         }
+    }
+
+    /**
+     * Do it very very quietly!
+     * 
+     * @param channel
+     */
+    private void destory(final Channel channel) {
+        if (null == channel) {
+            return;
+        }
+        final Connection conn = channel.attr(Connection.STATE).get();
+        if (null != conn) {
+            IOUtil.closeQuietly(conn);
+        } else {
+            try {
+                channel.close();
+            } catch (Exception e) {
+                logger.error("Exception", e);
+            }
+            logger.error("No connection set for {}", channel);
+        }
+        // POST
+        channel.attr(Client.STATE).remove();
+        channel.attr(ConsumerWorker.STATE).remove();
+        channel.attr(Connection.STATE).remove();
     }
 
 }

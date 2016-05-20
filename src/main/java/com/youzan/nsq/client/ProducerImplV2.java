@@ -33,11 +33,11 @@ public class ProducerImplV2 implements Producer {
     }
 
     @Override
-    public void pub(String topic, byte[] message) {
+    public void publish(String topic, byte[] message) {
     }
 
     @Override
-    public void pubMulti(String topic, List<byte[]> messages) {
+    public void publishMulti(String topic, List<byte[]> messages) {
     }
 
 }

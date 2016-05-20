@@ -12,10 +12,10 @@ public class NSQClientInitializer extends ChannelInitializer<SocketChannel> {
         LengthFieldBasedFrameDecoder dec = new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, 0, Integer.BYTES);
         dec.setSingleDecode(true);
 
-        pipeline.addLast("LengthFieldBasedFrameDecoder", dec);
+        pipeline.addLast("LengthFieldBasedFrameDecoder", dec); // in
         pipeline.addLast("NSQDecoder", new NSQDecoder()); // in
         pipeline.addLast("NSQEncoder", new NSQEncoder()); // out
-        pipeline.addLast("FeatureDetectionHandler", new NSQFeatureDetectionHandler());
+        pipeline.addLast("FeatureDetectionHandler", new NSQFeatureDetectionHandler()); // in
         pipeline.addLast("NSQHandler", new NSQHandler()); // in
     }
 }

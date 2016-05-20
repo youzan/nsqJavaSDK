@@ -25,12 +25,12 @@ public class ConsumerImplV2 implements Consumer {
 
     private static final Logger logger = LoggerFactory.getLogger(ConsumerImplV2.class);
 
+    private final NSQConfig config;
+
     private volatile NSQLookupService migratingLookup = null;
     private final NSQLookupService lookup;
 
     private final List<ConsumerWorker> workers;
-
-    private final NSQConfig config;
 
     /**
      * 
@@ -54,16 +54,6 @@ public class ConsumerImplV2 implements Consumer {
     @Override
     public Consumer start() {
         // TODO - implement ConsumerImplV2.start
-        throw new UnsupportedOperationException();
-    }
-
-    /**
-     * 
-     * @param addresses
-     */
-    @Override
-    public void addLookupCluster(List<String> addresses) {
-        // TODO - implement ConsumerImplV2.addLookupCluster
         throw new UnsupportedOperationException();
     }
 

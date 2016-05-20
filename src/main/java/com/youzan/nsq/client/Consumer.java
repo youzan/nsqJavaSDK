@@ -1,7 +1,6 @@
 package com.youzan.nsq.client;
 
 import java.io.Closeable;
-import java.util.List;
 
 /**
  * It have a exposure to the client. <br />
@@ -15,11 +14,5 @@ import java.util.List;
 public interface Consumer extends Client, Closeable {
 
     Consumer start();
-
-    /**
-     * 
-     * @param addresses
-     */
-    void addLookupCluster(List<String> addresses);
 
 }
