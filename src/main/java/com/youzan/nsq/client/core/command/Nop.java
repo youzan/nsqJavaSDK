@@ -41,11 +41,6 @@ public class Nop implements NSQCommand {
     }
 
     @Override
-    public String getString() {
-        return cmd;
-    }
-
-    @Override
     public byte[] getBytes() {
         return BYTES_CMD;
     }

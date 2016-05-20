@@ -5,8 +5,6 @@ public interface NSQCommand {
     public static final String ASCII = "US-ASCII";
     public static final String DEFAULT_CHARSET_NAME = ASCII;
 
-    String getString();
-
     /**
      * Using binary data to send to NSQ-Server
      * 

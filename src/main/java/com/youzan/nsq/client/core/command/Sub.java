@@ -15,11 +15,6 @@ public class Sub implements NSQCommand {
     private static final Logger logger = LoggerFactory.getLogger(Sub.class);
 
     @Override
-    public String getString() {
-        return null;
-    }
-
-    @Override
     public byte[] getBytes() {
         return null;
     }

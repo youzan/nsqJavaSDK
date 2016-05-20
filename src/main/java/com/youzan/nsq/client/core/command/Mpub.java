@@ -15,11 +15,6 @@ public class Mpub implements NSQCommand {
     private static final Logger logger = LoggerFactory.getLogger(Mpub.class);
 
     @Override
-    public String getString() {
-        return null;
-    }
-
-    @Override
     public byte[] getBytes() {
         return null;
     }

@@ -35,12 +35,6 @@ public class Identify implements NSQCommand {
     }
 
     @Override
-    public String getString() {
-        // JDK8
-        return cmd + identifier;
-    }
-
-    @Override
     public byte[] getBytes() {
         final String header = cmd;
         final int size = data.length;

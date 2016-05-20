@@ -41,11 +41,6 @@ public class Magic implements NSQCommand {
     }
 
     @Override
-    public String getString() {
-        return MAGIC;
-    }
-
-    @Override
     public byte[] getBytes() {
         return ASCII_MAGIC;
     }

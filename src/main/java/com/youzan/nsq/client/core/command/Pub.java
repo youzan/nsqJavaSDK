@@ -31,11 +31,6 @@ public class Pub implements NSQCommand {
     }
 
     @Override
-    public String getString() {
-        return null;
-    }
-
-    @Override
     public byte[] getBytes() {
         return null;
     }
