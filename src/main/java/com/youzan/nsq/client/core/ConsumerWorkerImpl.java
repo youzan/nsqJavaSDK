@@ -25,6 +25,7 @@ import com.youzan.nsq.client.network.frame.MessageFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
 import com.youzan.nsq.client.network.netty.NSQClientInitializer;
+import com.youzan.util.IOUtil;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -137,6 +138,10 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
         }
 
         final Connection conn = new NSQConnection(channel, config.getTimeoutInSecond());
+        // It created Connection !!!
+        channel.attr(Client.STATE).set(this);
+        channel.attr(ConsumerWorker.STATE).set(this);
+        channel.attr(Connection.STATE).set(conn);
 
         // Send magic
         conn.command(Magic.getInstance());
@@ -146,19 +151,13 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
         try {
             final NSQFrame response = conn.commandAndGetResponse(ident);
             if (null == response) {
-                conn.close();
+                destoryConnection(conn, channel);
                 throw new NSQException("Bad Identify Response!");
             }  // !null => OK. Get the server's negotiation identify
         } catch (final TimeoutException e) {
-            logger.error("Exception", e);
-            conn.close();
+            destoryConnection(conn, channel);
             throw e;
         }
-
-        // POST
-        channel.attr(Client.STATE).set(this);
-        channel.attr(Connection.STATE).set(conn);
-        channel.attr(ConsumerWorker.STATE).set(this);
         return conn;
     }
 
@@ -221,6 +220,23 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
 
     @Override
     public void sendBackoff() {
+    }
+
+    /**
+     * Be quiet
+     * 
+     * @param conn
+     * @param channel
+     */
+    private void destoryConnection(final Connection conn, Channel channel) {
+        if (null != conn) {
+            IOUtil.closeQuietly(conn);
+        }
+        if (null != channel) {
+            channel.attr(Client.STATE).remove();
+            channel.attr(ConsumerWorker.STATE).remove();
+            channel.attr(Connection.STATE).remove();
+        }
     }
 
     @Override

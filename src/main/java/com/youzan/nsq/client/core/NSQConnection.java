@@ -96,6 +96,8 @@ public class NSQConnection implements Connection {
             // It is very important!
             channel.attr(Connection.STATE).remove();
             channel.close();
+        } else {
+            logger.error("No channel be setted?");
         }
     }
 

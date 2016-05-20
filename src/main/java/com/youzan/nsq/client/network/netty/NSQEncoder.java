@@ -5,6 +5,7 @@ import java.util.List;
 import com.youzan.nsq.client.core.command.NSQCommand;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToMessageEncoder;
@@ -18,8 +19,11 @@ public class NSQEncoder extends MessageToMessageEncoder<NSQCommand> {
         }
 
         if (message.getBytes() != null) {
-            if (message.getBytes().length > 0) {
-                out.add(message.getBytes());
+            final byte[] bs = message.getBytes();
+            if (bs.length > 0) {
+                final ByteBuf buf = ByteBufAllocator.DEFAULT.buffer(bs.length);
+                buf.writeBytes(bs);
+                out.add(buf);
             } else {
                 throw new IllegalStateException("NSQCommand isn't a right implementation!");
             }
