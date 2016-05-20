@@ -4,7 +4,8 @@
 package com.youzan.nsq.client.core.command;
 
 import java.io.UnsupportedEncodingException;
-import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,46 +20,30 @@ import com.youzan.nsq.client.entity.NSQConfig;
 public class Identify implements NSQCommand {
     private static final Logger logger = LoggerFactory.getLogger(Identify.class);
 
-    private static final String cmd = "IDENTIFY\n";
+    private final String cmd = "IDENTIFY\n";
     private final String identifier;
-    private byte[] data;
 
-    public Identify(NSQConfig config) {
+    private final List<byte[]> body = new ArrayList<>(1);
+
+    public Identify(NSQConfig config) throws UnsupportedEncodingException {
         this.identifier = config.identify();
-        try {
-            this.data = config.identify().getBytes(DEFAULT_CHARSET_NAME);
-        } catch (UnsupportedEncodingException e) {
-            // ignore
-            logger.error("Exception", e);
-            this.data = config.identify().getBytes();
-        }
+        byte[] tmp = identifier.getBytes(DEFAULT_CHARSET_NAME);
+        body.add(tmp);
     }
 
     @Override
     public byte[] getBytes() {
-        final String header = cmd;
-        final int size = data.length;
-        ByteBuffer bb = ByteBuffer.allocate(header.length() + 4 + size);
-        try {
-            bb.put(header.getBytes(DEFAULT_CHARSET_NAME));
-        } catch (UnsupportedEncodingException e) {
-            // Ugly Java
-            logger.error("Exception", e);
-            bb.put(header.getBytes());
-        }
-        bb.putInt(size);
-        bb.put(data);
-        return bb.array();
+        return null;
     }
 
     @Override
-    public String toString() {
-        try {
-            return new String(this.getBytes(), DEFAULT_CHARSET_NAME);
-        } catch (UnsupportedEncodingException e) {
-            logger.error("Exception", e);
-            return new String(this.getBytes());
-        }
+    public String getHeader() {
+        return cmd;
+    }
+
+    @Override
+    public List<byte[]> getBody() {
+        return this.body;
     }
 
 }

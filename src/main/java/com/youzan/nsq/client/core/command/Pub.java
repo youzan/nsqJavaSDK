@@ -3,6 +3,9 @@
  */
 package com.youzan.nsq.client.core.command;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,23 +18,31 @@ public class Pub implements NSQCommand {
     private static final Logger logger = LoggerFactory.getLogger(Pub.class);
 
     private final String topic;
-    private final int size;
-    private final byte[] data;
+
+    private final List<byte[]> body = new ArrayList<>(1);
 
     /**
      * @param topic
-     * @param size
      * @param data
      */
-    public Pub(String topic, int size, byte[] data) {
+    public Pub(String topic, byte[] data) {
         super();
         this.topic = topic;
-        this.size = size;
-        this.data = data;
+        body.add(data);
     }
 
     @Override
     public byte[] getBytes() {
         return null;
+    }
+
+    @Override
+    public String getHeader() {
+        return "PUB " + topic + LINE_SEPARATOR;
+    }
+
+    @Override
+    public List<byte[]> getBody() {
+        return this.body;
     }
 }

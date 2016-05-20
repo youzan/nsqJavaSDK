@@ -15,7 +15,6 @@ import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
 
-import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 
@@ -49,8 +48,7 @@ public class NSQConnection implements Connection {
 
     @Override
     public ChannelFuture command(NSQCommand cmd) {
-        final ByteBuf buf = channel.alloc().buffer().writeBytes(cmd.getBytes());
-        return channel.writeAndFlush(buf);
+        return channel.writeAndFlush(cmd);
     }
 
     @Override

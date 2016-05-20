@@ -13,8 +13,41 @@ public class NSQEncoder extends MessageToMessageEncoder<NSQCommand> {
 
     @Override
     protected void encode(ChannelHandlerContext ctx, NSQCommand message, List<Object> out) throws Exception {
-        ByteBuf buf = Unpooled.buffer();
-        buf.writeBytes(message.getBytes());
+        if (message == null) {
+            throw new NullPointerException("I can not encode Null-Pointer!");
+        }
+
+        if (message.getBytes() != null) {
+            if (message.getBytes().length > 0) {
+                out.add(message.getBytes());
+            } else {
+                throw new IllegalStateException("NSQCommand isn't a right implementation!");
+            }
+            return;
+        }
+
+        final ByteBuf buf = Unpooled.buffer();
+        buf.writeBytes(message.getHeader().getBytes(NSQCommand.DEFAULT_CHARSET_NAME));
+
+        final List<byte[]> body = message.getBody();
+        assert body != null;
+        // for MPUB messages.
+        if (body.size() > 1) {
+            // write total bodysize and message size
+            int bodySize = 4; // 4 for total messages int.
+            for (byte[] data : body) {
+                bodySize += 4; // message size
+                bodySize += data.length;
+            }
+            buf.writeInt(bodySize);
+            buf.writeInt(body.size());
+        }
+
+        for (byte[] data : body) {
+            buf.writeInt(data.length);
+            buf.writeBytes(data);
+        }
         out.add(buf);
+        return;
     }
 }

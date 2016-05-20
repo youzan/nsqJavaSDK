@@ -3,7 +3,8 @@ package com.youzan.nsq.client.network.frame;
 public abstract class NSQFrame {
 
     public static final String ASCII = "US-ASCII";
-    public static final String DEFAULT_CHARSET_NAME = ASCII;
+    public static final String UTF = "UTF-8";
+    public static final String DEFAULT_CHARSET_NAME = UTF;
 
     public enum FrameType {
         RESPONSE_FRAME(0),//
