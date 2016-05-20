@@ -32,8 +32,8 @@ public class NSQConfig implements java.io.Serializable {
      */
     private boolean ordered = true;
     private int connectionPoolSize = -1;
-    private String clientId;
-    private String hostname = "";
+    private final String clientId;
+    private final String hostname;
     private boolean featureNegotiation;
     private Integer heartbeatInterval;
     private Integer outputBufferSize = null;
@@ -160,26 +160,10 @@ public class NSQConfig implements java.io.Serializable {
     }
 
     /**
-     * @param clientId
-     *            the clientId to set
-     */
-    public void setClientId(String clientId) {
-        this.clientId = clientId;
-    }
-
-    /**
      * @return the hostname
      */
     public String getHostname() {
         return hostname;
-    }
-
-    /**
-     * @param hostname
-     *            the hostname to set
-     */
-    public void setHostname(String hostname) {
-        this.hostname = hostname;
     }
 
     /**

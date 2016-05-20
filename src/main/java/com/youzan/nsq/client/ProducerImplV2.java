@@ -1,6 +1,6 @@
 package com.youzan.nsq.client;
 
-import java.io.IOException;
+import java.util.List;
 
 import com.youzan.nsq.client.entity.NSQConfig;
 
@@ -23,7 +23,8 @@ public class ProducerImplV2 implements Producer {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
+        // How can we do, even if IOException occurs.
     }
 
     @Override
@@ -33,6 +34,10 @@ public class ProducerImplV2 implements Producer {
 
     @Override
     public void pub(String topic, byte[] message) {
+    }
+
+    @Override
+    public void pubMulti(String topic, List<byte[]> messages) {
     }
 
 }
