@@ -38,7 +38,7 @@ public class Pub implements NSQCommand {
 
     @Override
     public String getHeader() {
-        return "PUB " + topic + LINE_SEPARATOR;
+        return String.format("PUB %s\n", topic);
     }
 
     @Override

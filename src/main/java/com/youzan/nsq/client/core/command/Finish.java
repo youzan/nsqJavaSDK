@@ -22,7 +22,7 @@ public class Finish implements NSQCommand {
 
     public Finish(byte[] messageID) throws UnsupportedEncodingException {
         if (messageID == null || messageID.length <= 0) {
-            throw new IllegalArgumentException("Your input, messageID, is empty!");
+            throw new IllegalArgumentException("Your input messageID is empty!");
         }
 
         final byte[] cmd = "FIN ".getBytes(DEFAULT_CHARSET_NAME);

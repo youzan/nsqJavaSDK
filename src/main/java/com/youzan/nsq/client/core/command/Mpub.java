@@ -29,7 +29,7 @@ public class Mpub implements NSQCommand {
 
     @Override
     public String getHeader() {
-        return "MPUB " + topic + LINE_SEPARATOR;
+        return String.format("MPUB %s\n", topic);
     }
 
     @Override

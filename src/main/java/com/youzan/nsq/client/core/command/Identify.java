@@ -20,14 +20,10 @@ import com.youzan.nsq.client.entity.NSQConfig;
 public class Identify implements NSQCommand {
     private static final Logger logger = LoggerFactory.getLogger(Identify.class);
 
-    private final String cmd = "IDENTIFY\n";
-    private final String identifier;
-
     private final List<byte[]> body = new ArrayList<>(1);
 
     public Identify(NSQConfig config) throws UnsupportedEncodingException {
-        this.identifier = config.identify();
-        byte[] tmp = identifier.getBytes(DEFAULT_CHARSET_NAME);
+        byte[] tmp = config.identify().getBytes(DEFAULT_CHARSET_NAME);
         body.add(tmp);
     }
 
@@ -38,7 +34,7 @@ public class Identify implements NSQCommand {
 
     @Override
     public String getHeader() {
-        return cmd;
+        return "IDENTIFY\n";
     }
 
     @Override
