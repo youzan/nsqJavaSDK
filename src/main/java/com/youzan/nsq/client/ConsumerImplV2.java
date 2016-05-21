@@ -1,7 +1,5 @@
 package com.youzan.nsq.client;
 
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -15,7 +13,9 @@ import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.util.IOUtil;
 
 /**
- * Expose to Client Code
+ * Use {@code NSQConfig} to set the lookup cluster. <br />
+ * Expose to Client Code. Connect to one cluster(includes many brokers).
+ * 
  * 
  * @author zhaoxi (linzuxiong)
  * @email linzuxiong1988@gmail.com
@@ -30,31 +30,21 @@ public class ConsumerImplV2 implements Consumer {
     private volatile NSQLookupService migratingLookup = null;
     private final NSQLookupService lookup;
 
-    private final List<ConsumerWorker> workers;
+    private volatile List<ConsumerWorker> workers;
 
     /**
-     * 
      * @param config
      * @param handler
      */
     public ConsumerImplV2(NSQConfig config, MessageHandler handler) {
         this.config = config;
-
-        lookup = new NSQLookupServiceImpl(config.getLookupAddresses());
-        // TODO - implement ConsumerImplV2.Consumer
-        final int size = 0;
-        if (size >= Runtime.getRuntime().availableProcessors() * 5) {
-            logger.error("You set too large workers. In recommanded, your tuning should be reasonable.");
-        }
-        this.workers = new ArrayList<>(size);
-        for (int i = 0; i < size; i++) {
-        }
+        this.lookup = new NSQLookupServiceImpl(config.getLookupAddresses());
     }
 
     @Override
     public Consumer start() {
-        // TODO - implement ConsumerImplV2.start
-        throw new UnsupportedOperationException();
+        // TODO
+        return this;
     }
 
     private void connect() {
@@ -66,7 +56,7 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         for (ConsumerWorker w : workers) {
             IOUtil.closeQuietly(w);
         }

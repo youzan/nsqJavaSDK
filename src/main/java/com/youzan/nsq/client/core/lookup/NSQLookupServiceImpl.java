@@ -17,6 +17,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.exception.NSQLookupException;
 
+/**
+ * @author zhaoxi (linzuxiong)
+ * @email linzuxiong1988@gmail.com
+ *
+ */
 public class NSQLookupServiceImpl implements NSQLookupService {
 
     private static final long serialVersionUID = 1773482379917817275L;
@@ -36,7 +41,7 @@ public class NSQLookupServiceImpl implements NSQLookupService {
     /**
      * Load-Balancing Strategy: round-robin
      */
-    private int offset;
+    private volatile int offset;
 
     public void init() {
         final Random r = new Random(10000);
@@ -52,6 +57,7 @@ public class NSQLookupServiceImpl implements NSQLookupService {
             throw new IllegalArgumentException("Your input 'addresses' is blank!");
         }
         this.addresses = addresses;
+        Collections.sort(this.addresses);
         init();
     }
 
@@ -92,6 +98,9 @@ public class NSQLookupServiceImpl implements NSQLookupService {
      */
     @Override
     public SortedSet<Address> lookup(String topic, boolean writable) throws NSQLookupException {
+        if (null == topic || topic.isEmpty()) {
+            throw new NSQLookupException("Your input topic is blank!");
+        }
         final SortedSet<Address> nsqds = new TreeSet<>();
         /**
          * It is unnecessary to use Atomic/Lock for the variable
@@ -136,7 +145,7 @@ public class NSQLookupServiceImpl implements NSQLookupService {
     }
 
     /**
-     * @return the addresses
+     * @return the sorted lookupd's addresses
      */
     public List<String> getAddresses() {
         return addresses;

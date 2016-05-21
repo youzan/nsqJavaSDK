@@ -5,6 +5,13 @@ import java.util.SortedSet;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.exception.NSQLookupException;
 
+/**
+ * One lookup cluster
+ * 
+ * @author zhaoxi (linzuxiong)
+ * @email linzuxiong1988@gmail.com
+ *
+ */
 public interface NSQLookupService extends java.io.Serializable {
 
     /**

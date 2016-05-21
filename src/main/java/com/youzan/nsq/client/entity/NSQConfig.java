@@ -1,7 +1,5 @@
 package com.youzan.nsq.client.entity;
 
-import java.util.List;
-
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.util.HostUtil;
 import com.youzan.util.IPUtil;
@@ -9,6 +7,13 @@ import com.youzan.util.SystemUtil;
 
 import io.netty.handler.ssl.SslContext;
 
+/**
+ * One config to One cluster with specific topic
+ * 
+ * @author zhaoxi (linzuxiong)
+ * @email linzuxiong1988@gmail.com
+ *
+ */
 public class NSQConfig implements java.io.Serializable {
 
     private static final long serialVersionUID = 6624842850216901700L;
@@ -17,11 +22,12 @@ public class NSQConfig implements java.io.Serializable {
         NO_COMPRESSION, DEFLATE, SNAPPY
     }
 
-    private int timeoutInSecond = 10;
     /**
-     * the sorted Lookupd addresses
+     * One lookup cluster
      */
-    private List<String> lookupAddresses;
+    private String lookupAddresses;
+
+    private int timeoutInSecond = 10;
     private String topic;
     /**
      * In NSQ, it is a channel.
@@ -56,6 +62,23 @@ public class NSQConfig implements java.io.Serializable {
     }
 
     /**
+     * One lookup cluster
+     * 
+     * @return the lookupAddresses
+     */
+    public String getLookupAddresses() {
+        return lookupAddresses;
+    }
+
+    /**
+     * @param lookupAddresses
+     *            the lookupAddresses to set
+     */
+    public void setLookupAddresses(String lookupAddresses) {
+        this.lookupAddresses = lookupAddresses;
+    }
+
+    /**
      * @return the timeoutInSecond
      */
     public int getTimeoutInSecond() {
@@ -68,21 +91,6 @@ public class NSQConfig implements java.io.Serializable {
      */
     public void setTimeoutInSecond(int timeoutInSecond) {
         this.timeoutInSecond = timeoutInSecond;
-    }
-
-    /**
-     * @return the lookupAddresses
-     */
-    public List<String> getLookupAddresses() {
-        return lookupAddresses;
-    }
-
-    /**
-     * @param lookupAddresses
-     *            the lookupAddresses to set
-     */
-    public void setLookupAddresses(List<String> lookupAddresses) {
-        this.lookupAddresses = lookupAddresses;
     }
 
     /**

@@ -17,6 +17,13 @@ public class NSQLookupException extends NSQException {
     private static final Logger logger = LoggerFactory.getLogger(NSQLookupException.class);
 
     /**
+     * @param message
+     */
+    public NSQLookupException(String message) {
+        super(message);
+    }
+
+    /**
      * @param cause
      */
     public NSQLookupException(Throwable cause) {
@@ -25,9 +32,10 @@ public class NSQLookupException extends NSQException {
 
     /**
      * @param string
-     * @param e
+     * @param cause
      */
     public NSQLookupException(String message, Throwable cause) {
         super(message, cause);
     }
+
 }
