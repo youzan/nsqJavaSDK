@@ -1,5 +1,8 @@
 package com.youzan.nsq.client.entity;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.util.HostUtil;
 import com.youzan.util.IPUtil;
@@ -17,6 +20,7 @@ import io.netty.handler.ssl.SslContext;
 public class NSQConfig implements java.io.Serializable {
 
     private static final long serialVersionUID = 6624842850216901700L;
+    private static final Logger logger = LoggerFactory.getLogger(NSQConfig.class);
 
     public enum Compression {
         NO_COMPRESSION, DEFLATE, SNAPPY
@@ -37,7 +41,7 @@ public class NSQConfig implements java.io.Serializable {
      * The set of messages is ordered in one specific partition
      */
     private boolean ordered = true;
-    private int connectionPoolSize = -1;
+    private int connectionPoolSize = Runtime.getRuntime().availableProcessors() * 2;
     private final String clientId;
     private final String hostname;
     private boolean featureNegotiation;

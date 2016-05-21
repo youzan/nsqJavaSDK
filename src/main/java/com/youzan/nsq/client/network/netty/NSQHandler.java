@@ -50,6 +50,7 @@ public class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
         final Connection conn = ctx.channel().attr(Connection.STATE).get();
         final ConsumerWorker worker = ctx.channel().attr(ConsumerWorker.STATE).get();
         if (null != conn && null != worker) {
+            // TODO eventLoop if a exception occurs?
             ctx.channel().eventLoop().execute(() -> worker.incoming(msg, conn));
         } else {
             if (null == conn) {

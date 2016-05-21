@@ -1,6 +1,7 @@
 package com.youzan.nsq.client.core;
 
 import java.io.IOException;
+import java.util.concurrent.TimeoutException;
 
 import org.testng.annotations.Test;
 
@@ -15,7 +16,7 @@ public class ProducerTest {
     public static final String DEFAULT_CHARSET_NAME = "UTF-8";
 
     @Test
-    public void pub() throws NSQException, IOException {
+    public void pub() throws NSQException, IOException, TimeoutException {
         Address address = new Address("127.0.0.1", 4150);
         NSQConfig config = new NSQConfig();
         config.setTimeoutInSecond(60);

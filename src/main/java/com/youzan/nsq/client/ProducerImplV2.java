@@ -1,10 +1,16 @@
 package com.youzan.nsq.client;
 
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 
+import com.youzan.nsq.client.core.Connection;
+import com.youzan.nsq.client.core.command.Pub;
 import com.youzan.nsq.client.core.lookup.NSQLookupService;
 import com.youzan.nsq.client.core.lookup.NSQLookupServiceImpl;
 import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.nsq.client.exception.NSQException;
+import com.youzan.nsq.client.exception.NoConnectionException;
+import com.youzan.nsq.client.network.frame.NSQFrame;
 
 /**
  * Use {@code NSQConfig} to set the lookup cluster.
@@ -22,7 +28,6 @@ public class ProducerImplV2 implements Producer {
     private final NSQLookupService lookup;
 
     /**
-     * 
      * @param config
      */
     public ProducerImplV2(NSQConfig config) {
@@ -32,8 +37,28 @@ public class ProducerImplV2 implements Producer {
 
     @Override
     public Producer start() {
-        started = true;
+        if (!started) {
+            started = true;
+            createPools();
+        }
         return this;
+    }
+
+    /**
+     * Create some pools. <br />
+     * One pool to one broker.
+     */
+    private void createPools() {
+    }
+
+    /**
+     * TODO Get a connection for the ordered message handler
+     * 
+     * @return
+     * @throws NoConnectionException
+     */
+    protected Connection getConnection() throws NoConnectionException {
+        return null;
     }
 
     @Override
@@ -47,9 +72,33 @@ public class ProducerImplV2 implements Producer {
     }
 
     @Override
-    public void publish(String topic, byte[] message) {
+    public void publish(String topic, byte[] message) throws NSQException, TimeoutException {
         if (!started) {
             throw new IllegalStateException("Producer must be started before producing messages!");
+        }
+        final Connection conn = getConnection();
+        assert null != conn;
+
+        try {
+            final Pub command = new Pub(topic, message);
+            final NSQFrame resp = conn.commandAndGetResponse(command);
+            if (null != resp) {
+                switch (resp.getType()) {
+                    case RESPONSE_FRAME: {
+                        // TODO it is OK!
+                        return;
+                    }
+                    case ERROR_FRAME: {
+                        break;
+                    }
+                    default: {
+                        throw new NSQException("Client can not parse the frame type!");
+                    }
+                }
+            }
+        } finally {
+            // TODO: handle finally clause
+            // TODO return back to the pool
         }
     }
 
