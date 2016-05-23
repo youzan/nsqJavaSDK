@@ -34,7 +34,7 @@ import com.youzan.nsq.client.network.frame.NSQFrame;
 public class ProducerImplV2 implements Producer {
 
     private static final Logger logger = LoggerFactory.getLogger(ProducerImplV2.class);
-    private final Client simpleClient = new NSQSimpleClient();
+    private final Client simpleClient;
 
     private volatile boolean started = false;
     private ExecutorService executor = Executors.newCachedThreadPool();
@@ -52,6 +52,7 @@ public class ProducerImplV2 implements Producer {
     public ProducerImplV2(NSQConfig config) {
         this.config = config;
         this.lookup = new NSQLookupServiceImpl(config.getLookupAddresses());
+        this.simpleClient = new NSQSimpleClient(this.config);
     }
 
     @Override
@@ -83,6 +84,7 @@ public class ProducerImplV2 implements Producer {
     @Override
     public void close() {
         // How can we do, even if IOException occurs.
+        pool.close();
     }
 
     @Override
@@ -133,7 +135,7 @@ public class ProducerImplV2 implements Producer {
     }
 
     @Override
-    public void identify(Connection conn, NSQConfig config) throws NSQException {
+    public void identify(Connection conn) throws NSQException {
     }
 
 }

@@ -27,11 +27,9 @@ public interface Client {
      * <ul>
      * 
      * @param conn
-     * @param config
-     *            TODO
      * @throws NSQException
      */
-    void identify(final Connection conn, NSQConfig config) throws NSQException;
+    void identify(final Connection conn) throws NSQException;
 
     /**
      * Receive the frame of NSQ

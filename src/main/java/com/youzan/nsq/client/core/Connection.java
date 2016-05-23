@@ -22,10 +22,9 @@ public interface Connection extends Closeable {
 
     boolean isConnected();
 
-    /**
-     * @return
-     */
     boolean isIdentified();
+
+    void setIdentified(boolean identified);
 
     /**
      * synchronize the protocol packet

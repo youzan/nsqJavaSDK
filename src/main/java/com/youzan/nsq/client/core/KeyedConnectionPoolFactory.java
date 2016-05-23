@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.youzan.nsq.client.core.command.Magic;
+import com.youzan.nsq.client.core.command.Nop;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.exception.NoConnectionException;
@@ -89,8 +90,13 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
     @Override
     public boolean validateObject(Address addr, PooledObject<Connection> p) {
         final Connection conn = p.getObject();
-        if (null != conn) {
-            final ChannelFuture future = conn.command(Magic.getInstance());
+        if (null != conn && conn.isConnected()) {
+            final ChannelFuture future;
+            if (conn.isIdentified()) {
+                future = conn.command(Nop.getInstance());
+            } else {
+                future = conn.command(Magic.getInstance());
+            }
             return future.awaitUninterruptibly().isSuccess();
         }
         return false;

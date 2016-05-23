@@ -32,12 +32,13 @@ public class KeyedConnectionPoolFactoryTest {
         poolConfig.setMaxIdlePerKey(2);
         poolConfig.setMaxTotalPerKey(2);
         poolConfig.setMaxWaitMillis(1 * 1000);
+        poolConfig.setBlockWhenExhausted(false);
+        poolConfig.setTestWhileIdle(true);
 
         GenericKeyedObjectPool<Address, Connection> bigPool = new GenericKeyedObjectPool<>(
                 new KeyedConnectionPoolFactory(config), poolConfig);
         Address addr = new Address("127.0.0.1", 4150);
         Connection conn = bigPool.borrowObject(addr);
-        bigPool.returnObject(addr, conn);
 
         conn = bigPool.borrowObject(addr);
         bigPool.returnObject(addr, conn);

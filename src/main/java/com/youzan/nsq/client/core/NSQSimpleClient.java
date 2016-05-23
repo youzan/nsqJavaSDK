@@ -28,6 +28,12 @@ import com.youzan.util.IOUtil;
 public class NSQSimpleClient implements Client {
     private static final Logger logger = LoggerFactory.getLogger(NSQSimpleClient.class);
 
+    private final NSQConfig config;
+
+    public NSQSimpleClient(NSQConfig config) {
+        this.config = config;
+    }
+
     /**
      * See {@code Producer} and {@code Consumer}
      */
@@ -63,7 +69,7 @@ public class NSQSimpleClient implements Client {
     }
 
     @Override
-    public void identify(final Connection conn, NSQConfig config) throws NSQException {
+    public void identify(final Connection conn) throws NSQException {
         conn.command(Magic.getInstance());
         final NSQCommand ident = new Identify(config);
         try {
@@ -72,6 +78,7 @@ public class NSQSimpleClient implements Client {
                 IOUtil.closeQuietly(conn);
                 throw new NSQException("Bad Identify Response!");
             }
+            conn.setIdentified(true);
         } catch (final TimeoutException e) {
             IOUtil.closeQuietly(conn);
             throw new NSQException("Client Performance Issue", e);

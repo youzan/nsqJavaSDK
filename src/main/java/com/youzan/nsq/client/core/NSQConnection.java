@@ -26,6 +26,7 @@ import io.netty.channel.ChannelFuture;
 public class NSQConnection implements Connection {
     private static final Logger logger = LoggerFactory.getLogger(NSQConnection.class);
 
+    private volatile boolean identified = false;
     private final LinkedBlockingQueue<NSQCommand> requests = new LinkedBlockingQueue<>(1);
     private final LinkedBlockingQueue<NSQFrame> responses = new LinkedBlockingQueue<>(1);
     private final Channel channel;
@@ -85,9 +86,17 @@ public class NSQConnection implements Connection {
         return null;
     }
 
+    /**
+     * @param identified
+     *            the identified to set
+     */
+    public void setIdentified(boolean identified) {
+        this.identified = identified;
+    }
+
     @Override
     public boolean isIdentified() {
-        return false;
+        return this.identified;
     }
 
     @Override

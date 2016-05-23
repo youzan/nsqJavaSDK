@@ -246,7 +246,7 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
     }
 
     @Override
-    public void identify(Connection conn, NSQConfig config) {
+    public void identify(Connection conn) {
     }
 
 }

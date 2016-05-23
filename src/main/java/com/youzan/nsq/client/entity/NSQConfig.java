@@ -46,9 +46,12 @@ public class NSQConfig implements java.io.Serializable {
      * The set of messages is ordered in one specified partition
      */
     private boolean ordered = true;
-    private int connectionPoolSize = Runtime.getRuntime().availableProcessors() - 1;
     /**
+     * <pre>
      * Set the thread_pool_size for IO running.
+     * It is also used for Netty.
+     * In recommended, the size is (CPUs - 1) and bind CPU affinity.
+     * </pre>
      */
     private int threadPoolSize4IO = Runtime.getRuntime().availableProcessors() - 1;
     private final String clientId;
@@ -159,7 +162,6 @@ public class NSQConfig implements java.io.Serializable {
     }
 
     /**
-     *
      * @return the threadPoolSize4IO
      */
     public int getThreadPoolSize4IO() {
@@ -167,10 +169,6 @@ public class NSQConfig implements java.io.Serializable {
     }
 
     /**
-     * Set the thread_pool_size for IO running.<br />
-     * It is also used for Netty.<br />
-     * In recommended, the size is (CPUs - 1) and bind CPU affinity.
-     * 
      * @param threadPoolSize4IO
      *            the threadPoolSize4IO to set
      */

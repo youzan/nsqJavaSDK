@@ -28,7 +28,7 @@ import com.youzan.nsq.client.network.frame.NSQFrame;
 public class ConsumerImplV2 implements Consumer {
 
     private static final Logger logger = LoggerFactory.getLogger(ConsumerImplV2.class);
-    private final Client simpleClient = new NSQSimpleClient();
+    private final Client simpleClient;
 
     private volatile NSQLookupService migratingLookup = null;
     private final NSQLookupService lookup;
@@ -44,6 +44,7 @@ public class ConsumerImplV2 implements Consumer {
     public ConsumerImplV2(NSQConfig config, MessageHandler handler) {
         this.config = config;
         this.lookup = new NSQLookupServiceImpl(config.getLookupAddresses());
+        this.simpleClient = new NSQSimpleClient(this.config);
     }
 
     @Override
@@ -69,8 +70,8 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     @Override
-    public void identify(Connection conn, NSQConfig config) throws NSQException {
-        simpleClient.identify(conn, config);
+    public void identify(Connection conn) throws NSQException {
+        simpleClient.identify(conn);
     }
 
 }

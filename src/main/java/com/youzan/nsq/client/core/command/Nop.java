@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
  */
 public class Nop implements NSQCommand {
     private static final Logger logger = LoggerFactory.getLogger(Nop.class);
+
     private final String cmd = "NOP\n";
     private final byte[] bytesCMD;
 
