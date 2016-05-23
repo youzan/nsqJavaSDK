@@ -1,12 +1,18 @@
 package com.youzan.nsq.client;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
+
+import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
+import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 
 import com.youzan.nsq.client.core.Connection;
 import com.youzan.nsq.client.core.command.Pub;
 import com.youzan.nsq.client.core.lookup.NSQLookupService;
 import com.youzan.nsq.client.core.lookup.NSQLookupServiceImpl;
+import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NoConnectionException;
@@ -26,6 +32,10 @@ public class ProducerImplV2 implements Producer {
 
     private volatile NSQLookupService migratingLookup = null;
     private final NSQLookupService lookup;
+
+    private ExecutorService executor = Executors.newCachedThreadPool();
+    private GenericKeyedObjectPoolConfig poolConfig = null;
+    private GenericKeyedObjectPool<Address, Connection> pool = null;
 
     /**
      * @param config
