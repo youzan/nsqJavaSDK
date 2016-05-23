@@ -6,7 +6,6 @@ package com.youzan.nsq.client.core;
 import java.net.InetSocketAddress;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 import org.apache.commons.pool2.BaseKeyedPooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
@@ -14,15 +13,10 @@ import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.youzan.nsq.client.core.command.Identify;
 import com.youzan.nsq.client.core.command.Magic;
-import com.youzan.nsq.client.core.command.NSQCommand;
-import com.youzan.nsq.client.core.command.Nop;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
-import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NoConnectionException;
-import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.netty.NSQClientInitializer;
 
 import io.netty.bootstrap.Bootstrap;
@@ -35,6 +29,8 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.util.concurrent.Future;
 
 /**
+ * It is a big pool that consists of some sub-pools.
+ * 
  * @author zhaoxi (linzuxiong)
  * @email linzuxiong1988@gmail.com
  *
@@ -50,7 +46,7 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
 
     public KeyedConnectionPoolFactory(NSQConfig config) {
         this.config = config;
-        this.eventLoopGroup = new NioEventLoopGroup(config.getConnectionPoolSize());
+        this.eventLoopGroup = new NioEventLoopGroup(config.getThreadPoolSize4IO());
     }
 
     @Override
@@ -62,8 +58,6 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
             bootstrap = new Bootstrap();
             bootstraps.putIfAbsent(addr, bootstrap);
             bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
-            bootstrap.option(ChannelOption.SO_BACKLOG, Runtime.getRuntime().availableProcessors() - 1); // client-side
-            bootstrap.option(ChannelOption.SO_TIMEOUT, config.getTimeoutInSecond());
             bootstrap.group(eventLoopGroup);
             bootstrap.channel(NioSocketChannel.class);
             bootstrap.handler(new NSQClientInitializer());
@@ -84,22 +78,6 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
         // It created Connection !!!
         channel.attr(Connection.STATE).set(conn);
         assert conn != null;
-
-        // Send Magic
-        conn.command(Magic.getInstance());
-        // Send the identify. IF ok , THEN return conn. ELSE throws one
-        // exception
-        final NSQCommand ident = new Identify(config);
-        try {
-            final NSQFrame response = conn.commandAndGetResponse(ident);
-            if (null == response) {
-                conn.close();
-                throw new NSQException("Bad Identify Response!");
-            }  // !null => OK. Get the server's negotiation identify
-        } catch (final TimeoutException e) {
-            conn.close();
-            throw e;
-        }
         return conn;
     }
 
@@ -112,7 +90,7 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
     public boolean validateObject(Address addr, PooledObject<Connection> p) {
         final Connection conn = p.getObject();
         if (null != conn) {
-            final ChannelFuture future = conn.command(Nop.getInstance());
+            final ChannelFuture future = conn.command(Magic.getInstance());
             return future.awaitUninterruptibly().isSuccess();
         }
         return false;

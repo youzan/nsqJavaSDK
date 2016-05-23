@@ -7,8 +7,12 @@ import java.util.concurrent.TimeoutException;
 
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import com.youzan.nsq.client.core.Client;
 import com.youzan.nsq.client.core.Connection;
+import com.youzan.nsq.client.core.NSQSimpleClient;
 import com.youzan.nsq.client.core.command.Pub;
 import com.youzan.nsq.client.core.lookup.NSQLookupService;
 import com.youzan.nsq.client.core.lookup.NSQLookupServiceImpl;
@@ -29,13 +33,16 @@ import com.youzan.nsq.client.network.frame.NSQFrame;
  */
 public class ProducerImplV2 implements Producer {
 
+    private static final Logger logger = LoggerFactory.getLogger(ProducerImplV2.class);
+    private final Client simpleClient = new NSQSimpleClient();
+
     private volatile boolean started = false;
-    private final NSQConfig config;
+    private ExecutorService executor = Executors.newCachedThreadPool();
 
     private volatile NSQLookupService migratingLookup = null;
     private final NSQLookupService lookup;
 
-    private ExecutorService executor = Executors.newCachedThreadPool();
+    private final NSQConfig config;
     private GenericKeyedObjectPoolConfig poolConfig = null;
     private GenericKeyedObjectPool<Address, Connection> pool = null;
 
@@ -123,6 +130,10 @@ public class ProducerImplV2 implements Producer {
 
     @Override
     public void incoming(NSQFrame frame, Connection conn) {
+    }
+
+    @Override
+    public void identify(Connection conn, NSQConfig config) throws NSQException {
     }
 
 }

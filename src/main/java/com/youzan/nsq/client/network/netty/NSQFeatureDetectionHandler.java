@@ -32,8 +32,8 @@ public class NSQFeatureDetectionHandler extends SimpleChannelInboundHandler<NSQF
             ResponseFrame response = (ResponseFrame) msg;
             ChannelPipeline pipeline = ctx.channel().pipeline();
             final Connection con = ctx.channel().attr(Connection.STATE).get();
-            final Client clientConfig = ctx.channel().attr(Client.STATE).get();
-            parseIdentify(response.getMessage(), clientConfig.getConfig());
+            final Client client = ctx.channel().attr(Client.STATE).get();
+            parseIdentify(response.getMessage(), client.getConfig());
 
             if (response.getMessage().equals("OK")) {
                 if (finished) {
@@ -53,7 +53,7 @@ public class NSQFeatureDetectionHandler extends SimpleChannelInboundHandler<NSQF
                 return;
             }
             if (ssl) {
-                SSLEngine sslEngine = clientConfig.getConfig().getSslContext().newEngine(ctx.channel().alloc());
+                SSLEngine sslEngine = client.getConfig().getSslContext().newEngine(ctx.channel().alloc());
                 sslEngine.setUseClientMode(true);
                 SslHandler sslHandler = new SslHandler(sslEngine, false);
                 sslHandler.setSingleDecode(true);
@@ -63,7 +63,7 @@ public class NSQFeatureDetectionHandler extends SimpleChannelInboundHandler<NSQF
                 }
                 if (deflate) {
                     pipeline.addBefore("NSQEncoder", "DeflateEncoder", ZlibCodecFactory.newZlibEncoder(ZlibWrapper.NONE,
-                            clientConfig.getConfig().getDeflateLevel()));
+                            client.getConfig().getDeflateLevel()));
                 }
             }
             if (!ssl && snappy) {
@@ -72,7 +72,7 @@ public class NSQFeatureDetectionHandler extends SimpleChannelInboundHandler<NSQF
             }
             if (!ssl && deflate) {
                 pipeline.addBefore("NSQEncoder", "DeflateEncoder",
-                        ZlibCodecFactory.newZlibEncoder(ZlibWrapper.NONE, clientConfig.getConfig().getDeflateLevel()));
+                        ZlibCodecFactory.newZlibEncoder(ZlibWrapper.NONE, client.getConfig().getDeflateLevel()));
                 reinstallDefaultDecoder = installDeflateDecoder(pipeline, con);
             }
             if (response.getMessage().contains("version") && finished) {

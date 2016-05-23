@@ -23,6 +23,11 @@ public interface Connection extends Closeable {
     boolean isConnected();
 
     /**
+     * @return
+     */
+    boolean isIdentified();
+
+    /**
      * synchronize the protocol packet
      * 
      * @param command

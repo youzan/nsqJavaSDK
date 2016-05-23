@@ -13,6 +13,7 @@ public enum Response {
     OK("OK"), //
     _HEARTBEAT_("_heartbeat_"),//
     // Error Responses
+    E_BAD_PROTOCOL("E_BAD_PROTOCOL"),//
     E_INVALID("E_INVALID"),//
     E_BAD_TOPIC("E_BAD_TOPIC"), //
     E_BAD_MESSAGE("E_BAD_MESSAGE"), //

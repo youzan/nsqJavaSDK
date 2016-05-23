@@ -86,6 +86,11 @@ public class NSQConnection implements Connection {
     }
 
     @Override
+    public boolean isIdentified() {
+        return false;
+    }
+
+    @Override
     public boolean isConnected() {
         return channel.isActive();
     }
@@ -118,4 +123,5 @@ public class NSQConnection implements Connection {
     public void addErrorFrame(ErrorFrame frame) {
         responses.add(frame);
     }
+
 }

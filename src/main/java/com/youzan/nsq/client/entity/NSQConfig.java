@@ -34,7 +34,7 @@ public class NSQConfig implements java.io.Serializable {
     private String lookupAddresses;
 
     /**
-     * perform one action during specified timeout
+     * Perform one action during specified timeout
      */
     private int timeoutInSecond = 10;
     private String topic;
@@ -43,10 +43,14 @@ public class NSQConfig implements java.io.Serializable {
      */
     private String consumerName;
     /**
-     * The set of messages is ordered in one specific partition
+     * The set of messages is ordered in one specified partition
      */
     private boolean ordered = true;
     private int connectionPoolSize = Runtime.getRuntime().availableProcessors() - 1;
+    /**
+     * Set the thread_pool_size for IO running.
+     */
+    private int threadPoolSize4IO = Runtime.getRuntime().availableProcessors() - 1;
     private final String clientId;
     private final String hostname;
     private boolean featureNegotiation;
@@ -155,18 +159,23 @@ public class NSQConfig implements java.io.Serializable {
     }
 
     /**
-     * @return the connectionPoolSize
+     *
+     * @return the threadPoolSize4IO
      */
-    public int getConnectionPoolSize() {
-        return connectionPoolSize;
+    public int getThreadPoolSize4IO() {
+        return threadPoolSize4IO;
     }
 
     /**
-     * @param connectionPoolSize
-     *            the connectionPoolSize to set
+     * Set the thread_pool_size for IO running.<br />
+     * It is also used for Netty.<br />
+     * In recommended, the size is (CPUs - 1) and bind CPU affinity.
+     * 
+     * @param threadPoolSize4IO
+     *            the threadPoolSize4IO to set
      */
-    public void setConnectionPoolSize(int connectionPoolSize) {
-        this.connectionPoolSize = connectionPoolSize;
+    public void setThreadPoolSize4IO(int threadPoolSize4IO) {
+        this.threadPoolSize4IO = threadPoolSize4IO;
     }
 
     /**

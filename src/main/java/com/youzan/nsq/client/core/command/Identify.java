@@ -22,8 +22,15 @@ public class Identify implements NSQCommand {
 
     private final List<byte[]> body = new ArrayList<>(1);
 
-    public Identify(NSQConfig config) throws UnsupportedEncodingException {
-        byte[] tmp = config.identify().getBytes(DEFAULT_CHARSET_NAME);
+    public Identify(NSQConfig config) {
+        byte[] tmp;
+        try {
+            tmp = config.identify().getBytes(DEFAULT_CHARSET_NAME);
+        } catch (UnsupportedEncodingException e) {
+            // Ugly Java
+            logger.error("Exception", e);
+            tmp = config.identify().getBytes();
+        }
         body.add(tmp);
     }
 

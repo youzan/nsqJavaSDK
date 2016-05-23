@@ -118,7 +118,7 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
         if (config.isOrdered()) {
             size = 1;
         } else {
-            final int tmp = config.getConnectionPoolSize();
+            final int tmp = config.getThreadPoolSize4IO();
             size = tmp <= 0 ? Runtime.getRuntime().availableProcessors() * 2 : tmp;
         }
         return size;
@@ -243,6 +243,10 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
     @Override
     public void close() {
         eventLoopGroup.shutdownGracefully();
+    }
+
+    @Override
+    public void identify(Connection conn, NSQConfig config) {
     }
 
 }

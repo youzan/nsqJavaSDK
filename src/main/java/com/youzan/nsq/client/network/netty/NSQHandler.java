@@ -49,10 +49,15 @@ public class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
     @Override
     public void channelRead0(ChannelHandlerContext ctx, NSQFrame msg) {
         final Connection conn = ctx.channel().attr(Connection.STATE).get();
-        final ConsumerWorker worker = ctx.channel().attr(ConsumerWorker.STATE).get();
+        final Client worker = ctx.channel().attr(Client.STATE).get();
         if (null != conn && null != worker) {
-            // TODO eventLoop if a exception occurs?
-            ctx.channel().eventLoop().execute(() -> worker.incoming(msg, conn));
+            ctx.channel().eventLoop().execute(() -> {
+                try {
+                    worker.incoming(msg, conn);
+                } catch (Exception e) {
+                    logger.error("Exception", e);
+                }
+            });
         } else {
             if (null == conn) {
                 logger.error("No connection set for {}", ctx.channel());

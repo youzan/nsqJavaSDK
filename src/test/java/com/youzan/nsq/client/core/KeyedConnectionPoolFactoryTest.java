@@ -8,11 +8,41 @@ import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 
 public class KeyedConnectionPoolFactoryTest {
-    @Test
-    public void createBigPool() {
+    @Test(expectedExceptions = Exception.class)
+    public void createBigPoolFail() {
         NSQConfig config = null;
         GenericKeyedObjectPoolConfig poolConfig = null;
         GenericKeyedObjectPool<Address, Connection> bigPool = new GenericKeyedObjectPool<>(
                 new KeyedConnectionPoolFactory(config), poolConfig);
+    }
+
+    @Test
+    public void createBigPool() throws Exception {
+        final NSQConfig config = new NSQConfig();
+        final GenericKeyedObjectPoolConfig poolConfig = new GenericKeyedObjectPoolConfig();
+
+        config.setThreadPoolSize4IO(Runtime.getRuntime().availableProcessors() - 1);
+        config.setTimeoutInSecond(10);
+        // pool config
+        poolConfig.setFairness(false);
+        poolConfig.setTestOnBorrow(true);
+        poolConfig.setJmxEnabled(false);
+        poolConfig.setMinIdlePerKey(0);
+        poolConfig.setMinEvictableIdleTimeMillis(30 * 1000);
+        poolConfig.setMaxIdlePerKey(2);
+        poolConfig.setMaxTotalPerKey(2);
+        poolConfig.setMaxWaitMillis(1 * 1000);
+
+        GenericKeyedObjectPool<Address, Connection> bigPool = new GenericKeyedObjectPool<>(
+                new KeyedConnectionPoolFactory(config), poolConfig);
+        Address addr = new Address("127.0.0.1", 4150);
+        Connection conn = bigPool.borrowObject(addr);
+        bigPool.returnObject(addr, conn);
+
+        conn = bigPool.borrowObject(addr);
+        bigPool.returnObject(addr, conn);
+
+        conn = bigPool.borrowObject(addr);
+        bigPool.returnObject(addr, conn);
     }
 }
