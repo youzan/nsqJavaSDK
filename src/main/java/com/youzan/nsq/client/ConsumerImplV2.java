@@ -7,7 +7,6 @@ import org.slf4j.LoggerFactory;
 
 import com.youzan.nsq.client.core.Client;
 import com.youzan.nsq.client.core.Connection;
-import com.youzan.nsq.client.core.MessageHandler;
 import com.youzan.nsq.client.core.NSQSimpleClient;
 import com.youzan.nsq.client.core.lookup.NSQLookupService;
 import com.youzan.nsq.client.core.lookup.NSQLookupServiceImpl;

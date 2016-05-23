@@ -11,6 +11,11 @@ import com.youzan.nsq.client.core.Client;
  */
 public interface Consumer extends Client, Closeable {
 
+    /**
+     * Start to consume some messages
+     * 
+     * @return
+     */
     Consumer start();
 
 }

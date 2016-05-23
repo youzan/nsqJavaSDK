@@ -93,7 +93,7 @@ public class ProducerImplV2 implements Producer {
     }
 
     @Override
-    public void publish(String topic, byte[] message) throws NSQException, TimeoutException {
+    public void publish(String topic, byte[] message) throws NSQException {
         if (!started) {
             throw new IllegalStateException("Producer must be started before producing messages!");
         }
@@ -117,6 +117,9 @@ public class ProducerImplV2 implements Producer {
                     }
                 }
             }
+        } catch (TimeoutException e) {
+            logger.error("Exception", e);
+            throw new NSQException("Client Machine Performance Issue! Please check it!");
         } finally {
             // TODO: handle finally clause
             // TODO return back to the pool
