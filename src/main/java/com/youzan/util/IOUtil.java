@@ -11,13 +11,13 @@ public final class IOUtil {
     private static final Logger logger = LoggerFactory.getLogger(IOUtil.class);
 
     public static final String ASCII = "US-ASCII";
-    public static final String UTF = "UTF-8";
-    public static final String DEFAULT_CHARSET_NAME = UTF;
+    public static final String UTF8 = "UTF-8";
+    public static final String DEFAULT_CHARSET_NAME = UTF8;
 
     static {
         // detection
         try {
-            UTF.getBytes(UTF);
+            UTF8.getBytes(UTF8);
         } catch (UnsupportedEncodingException e) {
             logger.error("UTF-8 charset is not supported by your JVM?", e);
         }

@@ -90,6 +90,7 @@ public class NSQConnection implements Connection {
      * @param identified
      *            the identified to set
      */
+    @Override
     public void setIdentified(boolean identified) {
         this.identified = identified;
     }

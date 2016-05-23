@@ -20,12 +20,19 @@ public class Finish implements NSQCommand {
 
     private final byte[] data;
 
-    public Finish(byte[] messageID) throws UnsupportedEncodingException {
+    public Finish(byte[] messageID) {
         if (messageID == null || messageID.length <= 0) {
             throw new IllegalArgumentException("Your input messageID is empty!");
         }
 
-        final byte[] cmd = "FIN ".getBytes(DEFAULT_CHARSET_NAME);
+        byte[] cmd;
+        try {
+            cmd = "FIN ".getBytes(DEFAULT_CHARSET_NAME);
+        } catch (UnsupportedEncodingException e) {
+            // Ugly Java
+            logger.error("Exception", e);
+            cmd = "FIN ".getBytes();
+        }
         final ByteBuffer buf = ByteBuffer.allocate(cmd.length + messageID.length + 1);
 
         buf.put(cmd);

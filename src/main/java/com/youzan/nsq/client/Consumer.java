@@ -18,4 +18,9 @@ public interface Consumer extends Client, Closeable {
      */
     Consumer start();
 
+    /**
+     * Perform the action quietly.
+     */
+    @Override
+    void close();
 }

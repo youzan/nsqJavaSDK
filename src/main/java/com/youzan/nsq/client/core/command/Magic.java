@@ -34,6 +34,8 @@ public class Magic implements NSQCommand {
         try {
             tmp = cmd.getBytes(ASCII);
         } catch (UnsupportedEncodingException e) {
+            // Ugly Java
+            logger.error("Exception", e);
             tmp = cmd.getBytes();
         }
         asciiCMD = tmp;

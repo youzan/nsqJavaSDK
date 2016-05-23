@@ -1,7 +1,6 @@
 package com.youzan.nsq.client.core;
 
-import java.io.IOException;
-import java.util.concurrent.TimeoutException;
+import java.io.UnsupportedEncodingException;
 
 import org.testng.annotations.Test;
 
@@ -16,7 +15,7 @@ public class ProducerTest {
     public static final String DEFAULT_CHARSET_NAME = "UTF-8";
 
     @Test
-    public void pub() throws NSQException, IOException, TimeoutException {
+    public void pub() throws NSQException, UnsupportedEncodingException {
         NSQConfig config = new NSQConfig();
         config.setLookupAddresses("127.0.0.1:4161");
         config.setTimeoutInSecond(60);

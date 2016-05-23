@@ -13,8 +13,8 @@ import java.util.List;
 public interface NSQCommand {
 
     public static final String ASCII = "US-ASCII";
-    public static final String UTF = "UTF-8";
-    public static final String DEFAULT_CHARSET_NAME = UTF;
+    public static final String UTF8 = "UTF-8";
+    public static final String DEFAULT_CHARSET_NAME = UTF8;
 
     /**
      * The encoding between UTF-8 and US-ASCII is the same underlying

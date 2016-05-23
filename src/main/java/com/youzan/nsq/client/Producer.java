@@ -38,4 +38,9 @@ public interface Producer extends Client, Closeable {
      */
     void publishMulti(String topic, List<byte[]> messages) throws NSQException;
 
+    /**
+     * Perform the action quietly.
+     */
+    @Override
+    void close();
 }

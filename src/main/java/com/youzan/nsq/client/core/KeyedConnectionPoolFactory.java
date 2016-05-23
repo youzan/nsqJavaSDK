@@ -30,7 +30,10 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.util.concurrent.Future;
 
 /**
- * It is a big pool that consists of some sub-pools.
+ * <pre>
+ * It is a big pool that consists of some sub-pools. 
+ * Just handle TCP-Connection.
+ * </pre>
  * 
  * @author zhaoxi (linzuxiong)
  * @email linzuxiong1988@gmail.com
@@ -41,7 +44,6 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
     private static final Logger logger = LoggerFactory.getLogger(KeyedConnectionPoolFactory.class);
 
     private final NSQConfig config;
-
     private final EventLoopGroup eventLoopGroup;
     private final ConcurrentHashMap<Address, Bootstrap> bootstraps = new ConcurrentHashMap<>();
 
