@@ -44,7 +44,7 @@ public class ProducerImplV2 implements Producer {
 
     private final NSQConfig config;
     private GenericKeyedObjectPoolConfig poolConfig = null;
-    private GenericKeyedObjectPool<Address, Connection> pool = null;
+    private GenericKeyedObjectPool<Address, Connection> bigPool = null;
 
     /**
      * @param config
@@ -59,7 +59,7 @@ public class ProducerImplV2 implements Producer {
     public Producer start() {
         if (!started) {
             started = true;
-            createPools();
+            createBigPool();
         }
         return this;
     }
@@ -68,7 +68,7 @@ public class ProducerImplV2 implements Producer {
      * Create some pools. <br />
      * One pool to one broker.
      */
-    private void createPools() {
+    private void createBigPool() {
     }
 
     /**
@@ -84,7 +84,7 @@ public class ProducerImplV2 implements Producer {
     @Override
     public void close() {
         // How can we do, even if IOException occurs.
-        pool.close();
+        bigPool.close();
     }
 
     @Override

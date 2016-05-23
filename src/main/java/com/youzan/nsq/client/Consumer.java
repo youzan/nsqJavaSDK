@@ -19,7 +19,7 @@ public interface Consumer extends Client, Closeable {
     Consumer start();
 
     /**
-     * Perform the action quietly.
+     * Perform the action quietly. No exceptions.
      */
     @Override
     void close();

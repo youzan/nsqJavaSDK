@@ -34,8 +34,8 @@ public interface NSQLookupService extends java.io.Serializable {
      */
     SortedSet<Address> lookup(String topic, boolean writable) throws NSQLookupException;
 
-    boolean save();
-
-    boolean load();
-
+    /**
+     * No exceptions.
+     */
+    void close();
 }
