@@ -17,8 +17,8 @@ public class ProducerTest {
 
     @Test
     public void pub() throws NSQException, IOException, TimeoutException {
-        Address address = new Address("127.0.0.1", 4150);
         NSQConfig config = new NSQConfig();
+        config.setLookupAddresses("127.0.0.1:4161");
         config.setTimeoutInSecond(60);
         Producer p = new ProducerImplV2(config);
         p.start();
