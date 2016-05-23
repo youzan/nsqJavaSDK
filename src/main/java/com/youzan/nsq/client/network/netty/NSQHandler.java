@@ -3,7 +3,7 @@ package com.youzan.nsq.client.network.netty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.youzan.nsq.client.Client;
+import com.youzan.nsq.client.core.Client;
 import com.youzan.nsq.client.core.Connection;
 import com.youzan.nsq.client.core.ConsumerWorker;
 import com.youzan.nsq.client.network.frame.NSQFrame;
@@ -12,6 +12,7 @@ import com.youzan.util.IOUtil;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.handler.timeout.IdleStateEvent;
 
 public class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
 
@@ -59,6 +60,13 @@ public class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
             if (null == worker) {
                 logger.error("No ConsumerWorker set for {}", ctx.channel());
             }
+        }
+    }
+
+    @Override
+    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) {
+        if (evt instanceof IdleStateEvent) {
+            destory(ctx.channel());
         }
     }
 

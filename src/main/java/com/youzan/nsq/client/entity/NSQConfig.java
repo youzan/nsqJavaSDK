@@ -11,7 +11,9 @@ import com.youzan.util.SystemUtil;
 import io.netty.handler.ssl.SslContext;
 
 /**
- * One config to One cluster with specific topic
+ * One config to One cluster with specific topic. <br />
+ * It is used for Producer or Consumer , and not both two.
+ * 
  * 
  * @author zhaoxi (linzuxiong)
  * @email linzuxiong1988@gmail.com
@@ -31,6 +33,9 @@ public class NSQConfig implements java.io.Serializable {
      */
     private String lookupAddresses;
 
+    /**
+     * perform one action during specified timeout
+     */
     private int timeoutInSecond = 10;
     private String topic;
     /**
@@ -41,7 +46,7 @@ public class NSQConfig implements java.io.Serializable {
      * The set of messages is ordered in one specific partition
      */
     private boolean ordered = true;
-    private int connectionPoolSize = Runtime.getRuntime().availableProcessors() * 2;
+    private int connectionPoolSize = Runtime.getRuntime().availableProcessors() - 1;
     private final String clientId;
     private final String hostname;
     private boolean featureNegotiation;

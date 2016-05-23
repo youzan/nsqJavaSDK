@@ -5,11 +5,13 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.youzan.nsq.client.core.Connection;
 import com.youzan.nsq.client.core.ConsumerWorker;
 import com.youzan.nsq.client.core.MessageHandler;
 import com.youzan.nsq.client.core.lookup.NSQLookupService;
 import com.youzan.nsq.client.core.lookup.NSQLookupServiceImpl;
 import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.util.IOUtil;
 
 /**
@@ -60,6 +62,10 @@ public class ConsumerImplV2 implements Consumer {
         for (ConsumerWorker w : workers) {
             IOUtil.closeQuietly(w);
         }
+    }
+
+    @Override
+    public void incoming(NSQFrame frame, Connection conn) {
     }
 
 }

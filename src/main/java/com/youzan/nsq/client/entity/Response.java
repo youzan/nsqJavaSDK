@@ -27,4 +27,12 @@ public enum Response {
     Response(String content) {
         this.content = content;
     }
+
+    /**
+     * @return the content
+     */
+    public String getContent() {
+        return content;
+    }
+
 }

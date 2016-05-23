@@ -2,9 +2,7 @@ package com.youzan.nsq.client.core;
 
 import java.io.Closeable;
 
-import com.youzan.nsq.client.Client;
 import com.youzan.nsq.client.network.frame.MessageFrame;
-import com.youzan.nsq.client.network.frame.NSQFrame;
 
 import io.netty.util.AttributeKey;
 
@@ -28,14 +26,6 @@ public interface ConsumerWorker extends Client, Closeable {
      * Notify the NSQ-Server to turn off pushing some messages 
      */
     void sendBackoff();
-
-    /**
-     * Receive the frame of NSQ
-     * 
-     * @param frame
-     * @param conn
-     */
-    void incoming(final NSQFrame frame, final Connection conn);
 
     void process4Client(final MessageFrame frame, final Connection conn);
 

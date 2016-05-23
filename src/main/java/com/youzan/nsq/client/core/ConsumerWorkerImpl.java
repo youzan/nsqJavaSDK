@@ -10,7 +10,6 @@ import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.youzan.nsq.client.Client;
 import com.youzan.nsq.client.core.command.Identify;
 import com.youzan.nsq.client.core.command.Magic;
 import com.youzan.nsq.client.core.command.NSQCommand;
@@ -18,6 +17,7 @@ import com.youzan.nsq.client.core.command.Nop;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
+import com.youzan.nsq.client.entity.Response;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NoConnectionException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
@@ -36,7 +36,8 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 
 /**
- * Stand for one connection pool(client->one broker) underlying TCP.
+ * Use {@code NSQConfig} to set the lookup cluster.<br />
+ * This stands for one connection pool(client->one broker) underlying TCP?
  * 
  * @author zhaoxi (linzuxiong)
  * @email linzuxiong1988@gmail.com
@@ -166,7 +167,7 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
         switch (frame.getType()) {
             case RESPONSE_FRAME: {
                 final String resp = frame.getMessage();
-                if ("_heartbeat_".equals(resp)) {
+                if (Response._HEARTBEAT_.getContent().equals(resp)) {
                     conn.command(Nop.getInstance());
                     return;
                 } else {
@@ -241,6 +242,7 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
 
     @Override
     public void close() {
+        eventLoopGroup.shutdownGracefully();
     }
 
 }

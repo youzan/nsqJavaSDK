@@ -2,7 +2,7 @@ package com.youzan.nsq.client.network.netty;
 
 import javax.net.ssl.SSLEngine;
 
-import com.youzan.nsq.client.Client;
+import com.youzan.nsq.client.core.Client;
 import com.youzan.nsq.client.core.Connection;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.network.frame.NSQFrame;

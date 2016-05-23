@@ -19,7 +19,9 @@ import com.youzan.nsq.client.exception.NoConnectionException;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 
 /**
- * Use {@code NSQConfig} to set the lookup cluster.
+ * Use {@code NSQConfig} to set the lookup cluster.<br />
+ * It uses one connection pool(client->one broker) underlying TCP and uses
+ * {@code GenericKeyedObjectPool} which is composed of many sub-pools.
  * 
  * @author zhaoxi (linzuxiong)
  * @email linzuxiong1988@gmail.com
@@ -117,6 +119,10 @@ public class ProducerImplV2 implements Producer {
         if (!started) {
             throw new IllegalStateException("Producer must be started before producing messages!");
         }
+    }
+
+    @Override
+    public void incoming(NSQFrame frame, Connection conn) {
     }
 
 }
