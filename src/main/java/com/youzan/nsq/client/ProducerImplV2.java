@@ -1,6 +1,8 @@
 package com.youzan.nsq.client;
 
 import java.util.List;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
@@ -40,6 +42,10 @@ public class ProducerImplV2 implements Producer {
 
     private final NSQConfig config;
     private volatile NSQLookupService migratingLookup = null;
+    /**
+     * NSQd Servers
+     */
+    private final SortedSet<Address> dataNodes = new TreeSet<>();
     private final NSQLookupService lookup;
     private GenericKeyedObjectPoolConfig poolConfig = null;
     private KeyedConnectionPoolFactory factory;
@@ -61,6 +67,8 @@ public class ProducerImplV2 implements Producer {
     public Producer start() {
         if (!started) {
             started = true;
+            // TODO setting all of the configs
+            // TODO lookup NSQd
             createBigPool();
         }
         return this;
@@ -82,6 +90,7 @@ public class ProducerImplV2 implements Producer {
      * @throws NoConnectionException
      */
     protected Connection getNSQConnection() throws NoConnectionException {
+        // TODO getConnection from big pool. try the best. do a negotiation
         return null;
     }
 
@@ -89,6 +98,7 @@ public class ProducerImplV2 implements Producer {
     public void close() {
         factory.close();
         bigPool.close();
+        dataNodes.clear();
     }
 
     @Override
@@ -120,6 +130,7 @@ public class ProducerImplV2 implements Producer {
             throw new IllegalStateException("Producer must be started before producing messages!");
         }
         // TODO loop all NSQd when the connection attempt fails
+        // TODO try 2 times getNSQConnection. sleep(1 second)
         final Connection conn = getNSQConnection();
     }
 

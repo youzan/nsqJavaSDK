@@ -36,7 +36,7 @@ public class NSQConfig implements java.io.Serializable {
     /**
      * Perform one action during specified timeout
      */
-    private int timeoutInSecond = 10;
+    private int timeoutInSecond = 1;
     private String topic;
     /**
      * In NSQ, it is a channel.
@@ -56,6 +56,7 @@ public class NSQConfig implements java.io.Serializable {
     private int threadPoolSize4IO = Runtime.getRuntime().availableProcessors() - 1;
     private final String clientId;
     private final String hostname;
+    private int msgTimeoutInMillisecond;
     private boolean featureNegotiation;
     private Integer heartbeatInterval;
     private Integer outputBufferSize = null;
@@ -189,6 +190,21 @@ public class NSQConfig implements java.io.Serializable {
      */
     public String getHostname() {
         return hostname;
+    }
+
+    /**
+     * @return the msgTimeoutInMillisecond
+     */
+    public int getMsgTimeoutInMillisecond() {
+        return msgTimeoutInMillisecond;
+    }
+
+    /**
+     * @param msgTimeoutInMillisecond
+     *            the msgTimeoutInMillisecond to set
+     */
+    public void setMsgTimeoutInMillisecond(int msgTimeoutInMillisecond) {
+        this.msgTimeoutInMillisecond = msgTimeoutInMillisecond;
     }
 
     /**
@@ -359,7 +375,7 @@ public class NSQConfig implements java.io.Serializable {
         if (sampleRate != null) {
             buffer.append("\"sample_rate\":" + sampleRate.toString() + ",");
         }
-        buffer.append("\"msg_timeout\":" + Integer.valueOf(timeoutInSecond * 1000).toString() + ",");
+        buffer.append("\"msg_timeout\":" + msgTimeoutInMillisecond + ",");
         buffer.append("\"user_agent\": \"" + userAgent + "\"}");
         return buffer.toString();
     }
