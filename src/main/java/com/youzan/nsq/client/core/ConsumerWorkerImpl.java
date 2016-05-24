@@ -132,11 +132,11 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
 
         // Wait until the connection attempt succeeds or fails.
         if (!future.awaitUninterruptibly(config.getTimeoutInSecond(), TimeUnit.SECONDS)) {
-            throw new NoConnectionException("Could not connect to server!", future.cause());
+            throw new NoConnectionException(future.cause());
         }
         final Channel channel = future.channel();
         if (!future.isSuccess()) {
-            throw new NoConnectionException("Could not connect to server!", future.cause());
+            throw new NoConnectionException(future.cause());
         }
 
         final Connection conn = new NSQConnection(channel, config.getTimeoutInSecond());

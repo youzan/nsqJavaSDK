@@ -12,19 +12,15 @@ import com.youzan.nsq.client.network.frame.ResponseFrame;
 import io.netty.channel.ChannelFuture;
 import io.netty.util.AttributeKey;
 
-/**
- * This is for consumer to broker. Only one message can be transported
- * simultaneously.
- */
 public interface Connection extends Closeable {
 
     public static final AttributeKey<Connection> STATE = AttributeKey.valueOf("Connection.State");
 
     boolean isConnected();
 
-    boolean isIdentified();
+    boolean isHavingNegotiation();
 
-    void setIdentified(boolean identified);
+    void setHavingNegotiation(boolean havingNegotiation);
 
     /**
      * synchronize the protocol packet

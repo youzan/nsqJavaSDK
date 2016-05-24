@@ -32,4 +32,13 @@ public class ProducerTest {
         config.setTimeoutInSecond(60);
     }
 
+    @Test
+    public void newOneProducer() throws NSQException {
+        final NSQConfig config = new NSQConfig();
+        config.setLookupAddresses("127.0.0.1:4161");
+        final ProducerImplV2 p = new ProducerImplV2(config);
+        p.start();
+        p.close();
+    }
+
 }

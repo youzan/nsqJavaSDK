@@ -40,7 +40,7 @@ public class NSQSimpleClient implements Client {
      */
     @Override
     public NSQConfig getConfig() {
-        throw new UnsupportedOperationException();
+        return this.config;
     }
 
     @Override
@@ -79,7 +79,7 @@ public class NSQSimpleClient implements Client {
                 IOUtil.closeQuietly(conn);
                 throw new NSQException("Bad Identify Response! Close connection!");
             }
-            conn.setIdentified(true);
+            conn.setHavingNegotiation(true);
         } catch (final TimeoutException e) {
             IOUtil.closeQuietly(conn);
             throw new NSQException("Client Performance Issue! Close connection!", e);

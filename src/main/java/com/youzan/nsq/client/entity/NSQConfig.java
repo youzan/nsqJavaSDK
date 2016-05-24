@@ -71,6 +71,7 @@ public class NSQConfig implements java.io.Serializable {
     public NSQConfig() throws NSQException {
         try {
             hostname = HostUtil.getLocalIP();
+            // JDK8 , string contact is OK.
             clientId = "IP:" + IPUtil.ipv4(hostname) + ", PID:" + SystemUtil.getPID();
         } catch (Exception e) {
             throw new NSQException("System cann't get the IPv4!", e);

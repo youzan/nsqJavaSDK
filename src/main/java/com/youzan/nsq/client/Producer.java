@@ -27,10 +27,12 @@ public interface Producer extends Client, Closeable {
     void publish(String topic, byte[] message) throws NSQException;
 
     /**
-     * 生产一批的'消息'. 如果一批超过30条,那么SDK会给你按照FIFO顺序的分批(每批30条)发送出去! *
+     * 生产一批的'消息'. 如果一批超过30条,那么SDK会给你按照FIFO顺序的分批(每批30条)发送出去!
+     * 因此小于等于30条作为一批的消息,可以作为局部化的有顺序.
      * 
      * Use it to produce some 'messages' sending to MQ. When having too many
-     * messages, then split it into 30 messages/batch.
+     * messages, then split it into 30 messages/batch. When the size <= 30, the
+     * batch is ordered.
      * 
      * @param topic
      * @param messages

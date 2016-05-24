@@ -65,16 +65,15 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
             bootstrap.channel(NioSocketChannel.class);
             bootstrap.handler(new NSQClientInitializer());
         }
-        // Start the connection attempt.
         final ChannelFuture future = bootstrap.connect(new InetSocketAddress(addr.getHost(), addr.getPort()));
 
         // Wait until the connection attempt succeeds or fails.
         if (!future.awaitUninterruptibly(config.getTimeoutInSecond(), TimeUnit.SECONDS)) {
-            throw new NoConnectionException("Could not connect to server!", future.cause());
+            throw new NoConnectionException(future.cause());
         }
         final Channel channel = future.channel();
         if (!future.isSuccess()) {
-            throw new NoConnectionException("Could not connect to server!", future.cause());
+            throw new NoConnectionException(future.cause());
         }
 
         final Connection conn = new NSQConnection(channel, config.getTimeoutInSecond());
@@ -94,12 +93,14 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
         final Connection conn = p.getObject();
         if (null != conn && conn.isConnected()) {
             final ChannelFuture future;
-            if (conn.isIdentified()) {
+            if (conn.isHavingNegotiation()) {
                 future = conn.command(Nop.getInstance());
             } else {
                 future = conn.command(Magic.getInstance());
             }
-            return future.awaitUninterruptibly().isSuccess();
+            if (future.awaitUninterruptibly(1, TimeUnit.SECONDS)) {
+                return future.isSuccess();
+            }
         }
         return false;
     }

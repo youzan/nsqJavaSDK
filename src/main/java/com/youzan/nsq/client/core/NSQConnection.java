@@ -26,7 +26,7 @@ import io.netty.channel.ChannelFuture;
 public class NSQConnection implements Connection {
     private static final Logger logger = LoggerFactory.getLogger(NSQConnection.class);
 
-    private volatile boolean identified = false;
+    private boolean havingNegotiation = false;
     private final LinkedBlockingQueue<NSQCommand> requests = new LinkedBlockingQueue<>(1);
     private final LinkedBlockingQueue<NSQFrame> responses = new LinkedBlockingQueue<>(1);
     private final Channel channel;
@@ -47,6 +47,23 @@ public class NSQConnection implements Connection {
         this.timeoutInMillisecond = timeoutInSecond << 10; // ~= * 1024
     }
 
+    /**
+     * @return the havingNegotiation
+     */
+    @Override
+    public boolean isHavingNegotiation() {
+        return havingNegotiation;
+    }
+
+    /**
+     * @param havingNegotiation
+     *            the havingNegotiation to set
+     */
+    @Override
+    public void setHavingNegotiation(boolean havingNegotiation) {
+        this.havingNegotiation = havingNegotiation;
+    }
+
     @Override
     public ChannelFuture command(NSQCommand cmd) {
         return channel.writeAndFlush(cmd);
@@ -65,6 +82,7 @@ public class NSQConnection implements Connection {
             // write data
             final ChannelFuture future = command(command);
 
+            // wait to get the response
             timeout = timeoutInMillisecond - (start - System.currentTimeMillis());
             if (!future.await(timeout, TimeUnit.MILLISECONDS)) {
                 throw new TimeoutException("Command: " + command + " timedout");
@@ -81,23 +99,9 @@ public class NSQConnection implements Connection {
         } catch (InterruptedException e) {
             close();
             Thread.currentThread().interrupt();
-            logger.error("Thread was interruped, probably shuthing down!", e);
+            logger.error("Thread was interruped, probably shuthing down! Close connection!", e);
         }
         return null;
-    }
-
-    /**
-     * @param identified
-     *            the identified to set
-     */
-    @Override
-    public void setIdentified(boolean identified) {
-        this.identified = identified;
-    }
-
-    @Override
-    public boolean isIdentified() {
-        return this.identified;
     }
 
     @Override
