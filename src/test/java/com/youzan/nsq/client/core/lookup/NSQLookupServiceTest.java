@@ -3,16 +3,19 @@ package com.youzan.nsq.client.core.lookup;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.SortedSet;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
-import org.testng.log4testng.Logger;
 
+import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.exception.NSQLookupException;
 
 public class NSQLookupServiceTest {
-    private static final Logger logger = Logger.getLogger(NSQLookupServiceTest.class);
+    private static final Logger logger = LoggerFactory.getLogger(NSQLookupServiceTest.class);
 
     @DataProvider
     public Object[][] genIPs() {
@@ -51,7 +54,6 @@ public class NSQLookupServiceTest {
         NSQLookupServiceImpl srv = null;
         try {
             srv = new NSQLookupServiceImpl(ips);
-            System.out.println(srv.getAddresses());
             Assert.assertEquals(srv.getAddresses(), expected);
         } finally {
         }
@@ -60,6 +62,9 @@ public class NSQLookupServiceTest {
     @Test
     public void lookup() throws NSQLookupException {
         NSQLookupServiceImpl srv = new NSQLookupServiceImpl("127.0.0.1:4161");
-        srv.lookup("test", true);
+        SortedSet<Address> addresses = srv.lookup("test", true);
+        for (final Address addr : addresses) {
+            logger.info("Address : {}", addr);
+        }
     }
 }
