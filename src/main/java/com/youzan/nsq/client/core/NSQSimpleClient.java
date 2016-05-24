@@ -12,6 +12,7 @@ import com.youzan.nsq.client.core.command.Identify;
 import com.youzan.nsq.client.core.command.Magic;
 import com.youzan.nsq.client.core.command.NSQCommand;
 import com.youzan.nsq.client.core.command.Nop;
+import com.youzan.nsq.client.core.command.Rdy;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.Response;
 import com.youzan.nsq.client.exception.NSQException;
@@ -76,12 +77,17 @@ public class NSQSimpleClient implements Client {
             final NSQFrame response = conn.commandAndGetResponse(ident);
             if (null == response) {
                 IOUtil.closeQuietly(conn);
-                throw new NSQException("Bad Identify Response!");
+                throw new NSQException("Bad Identify Response! Close connection!");
             }
             conn.setIdentified(true);
         } catch (final TimeoutException e) {
             IOUtil.closeQuietly(conn);
-            throw new NSQException("Client Performance Issue", e);
+            throw new NSQException("Client Performance Issue! Close connection!", e);
         }
+    }
+
+    @Override
+    public void backoff(Connection conn) throws NSQException {
+        conn.command(new Rdy(0));
     }
 }

@@ -38,7 +38,9 @@ public class KeyedConnectionPoolFactoryTest {
         GenericKeyedObjectPool<Address, Connection> bigPool = new GenericKeyedObjectPool<>(
                 new KeyedConnectionPoolFactory(config), poolConfig);
         Address addr = new Address("127.0.0.1", 4150);
-        Connection conn = bigPool.borrowObject(addr);
+        Connection conn = null;
+        conn = bigPool.borrowObject(addr);
+        bigPool.returnObject(addr, conn);
 
         conn = bigPool.borrowObject(addr);
         bigPool.returnObject(addr, conn);

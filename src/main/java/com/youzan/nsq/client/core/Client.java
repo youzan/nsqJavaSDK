@@ -38,4 +38,6 @@ public interface Client {
      * @param conn
      */
     void incoming(final NSQFrame frame, final Connection conn) throws NSQException;
+
+    void backoff(final Connection conn) throws NSQException;
 }

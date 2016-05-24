@@ -250,4 +250,8 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
     public void identify(Connection conn) {
     }
 
+    @Override
+    public void backoff(Connection conn) throws NSQException {
+    }
+
 }

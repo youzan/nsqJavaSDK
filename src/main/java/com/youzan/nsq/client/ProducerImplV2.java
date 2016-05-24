@@ -141,4 +141,8 @@ public class ProducerImplV2 implements Producer {
     public void identify(Connection conn) throws NSQException {
     }
 
+    @Override
+    public void backoff(Connection conn) throws NSQException {
+    }
+
 }

@@ -73,4 +73,8 @@ public class ConsumerImplV2 implements Consumer {
         simpleClient.identify(conn);
     }
 
+    @Override
+    public void backoff(Connection conn) throws NSQException {
+    }
+
 }
