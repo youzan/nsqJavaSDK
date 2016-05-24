@@ -21,7 +21,7 @@ public class ProducerTest {
         config.setTimeoutInSecond(60);
         Producer p = new ProducerImplV2(config);
         p.start();
-        p.publish("test", "zhaoxi-test".getBytes(DEFAULT_CHARSET_NAME));
+        p.publish("zhaoxi-test".getBytes(DEFAULT_CHARSET_NAME));
         p.close();
     }
 

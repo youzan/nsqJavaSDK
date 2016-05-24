@@ -70,7 +70,7 @@ public class NSQSimpleClient implements Client {
     }
 
     @Override
-    public void identify(final Connection conn) throws NSQException {
+    public void negotiate(final Connection conn) throws NSQException {
         conn.command(Magic.getInstance());
         final NSQCommand ident = new Identify(config);
         try {

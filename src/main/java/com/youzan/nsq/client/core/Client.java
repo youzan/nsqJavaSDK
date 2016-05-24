@@ -29,7 +29,7 @@ public interface Client {
      * @param conn
      * @throws NSQException
      */
-    void identify(final Connection conn) throws NSQException;
+    void negotiate(final Connection conn) throws NSQException;
 
     /**
      * Receive the frame of NSQ

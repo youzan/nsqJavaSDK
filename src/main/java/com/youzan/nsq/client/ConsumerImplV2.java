@@ -69,8 +69,8 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     @Override
-    public void identify(Connection conn) throws NSQException {
-        simpleClient.identify(conn);
+    public void negotiate(Connection conn) throws NSQException {
+        simpleClient.negotiate(conn);
     }
 
     @Override

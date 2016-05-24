@@ -45,4 +45,7 @@ public interface Connection extends Closeable {
      * @param frame
      */
     void addErrorFrame(ErrorFrame frame);
+
+    @Override
+    void close();
 }

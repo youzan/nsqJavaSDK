@@ -247,7 +247,7 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
     }
 
     @Override
-    public void identify(Connection conn) {
+    public void negotiate(Connection conn) {
     }
 
     @Override
