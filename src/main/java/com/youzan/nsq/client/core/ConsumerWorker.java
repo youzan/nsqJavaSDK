@@ -22,9 +22,9 @@ public interface ConsumerWorker extends Client, Closeable {
      */
     void sendBackoff();
 
-    void process4Client(final MessageFrame frame, final Connection conn);
+    void process4Client(final MessageFrame frame, final NSQConnection conn);
 
-    void finish(final MessageFrame frame, final Connection conn);
+    void finish(final MessageFrame frame, final NSQConnection conn);
 
-    void reQueue(final MessageFrame frame, final Connection conn);
+    void reQueue(final MessageFrame frame, final NSQConnection conn);
 }

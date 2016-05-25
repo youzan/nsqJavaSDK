@@ -17,25 +17,29 @@ public class ProducerTest {
     @Test
     public void pub() throws NSQException, UnsupportedEncodingException {
         NSQConfig config = new NSQConfig();
+        config.setTopic("test");
         config.setLookupAddresses("127.0.0.1:4161");
-        config.setTimeoutInSecond(60);
+        config.setTimeoutInSecond(120);
+        config.setThreadPoolSize4IO(1);
         Producer p = new ProducerImplV2(config);
         p.start();
         p.publish("zhaoxi-test".getBytes(DEFAULT_CHARSET_NAME));
         p.close();
     }
 
-    @Test
+    // @Test
     public void pubMulti() throws NSQException {
         Address address = new Address("127.0.0.1", 4150);
         NSQConfig config = new NSQConfig();
+        config.setTopic("test");
         config.setTimeoutInSecond(60);
     }
 
-    @Test
+    // @Test
     public void newOneProducer() throws NSQException {
         final NSQConfig config = new NSQConfig();
         config.setLookupAddresses("127.0.0.1:4161");
+        config.setTopic("test");
         final ProducerImplV2 p = new ProducerImplV2(config);
         p.start();
         p.close();

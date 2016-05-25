@@ -29,7 +29,7 @@ public interface Client {
      * @param conn
      * @throws NSQException
      */
-    void negotiate(final Connection conn) throws NSQException;
+    void negotiate(final NSQConnection conn) throws NSQException;
 
     /**
      * Receive the frame of NSQ
@@ -37,7 +37,7 @@ public interface Client {
      * @param frame
      * @param conn
      */
-    void incoming(final NSQFrame frame, final Connection conn) throws NSQException;
+    void incoming(final NSQFrame frame, final NSQConnection conn) throws NSQException;
 
-    void backoff(final Connection conn) throws NSQException;
+    void backoff(final NSQConnection conn) throws NSQException;
 }

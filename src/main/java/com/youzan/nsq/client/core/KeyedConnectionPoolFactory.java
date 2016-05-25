@@ -39,7 +39,7 @@ import io.netty.util.concurrent.Future;
  * @email linzuxiong1988@gmail.com
  *
  */
-public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Address, Connection> {
+public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Address, NSQConnection> {
 
     private static final Logger logger = LoggerFactory.getLogger(KeyedConnectionPoolFactory.class);
 
@@ -53,7 +53,7 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
     }
 
     @Override
-    public Connection create(Address addr) throws Exception {
+    public NSQConnection create(Address addr) throws Exception {
         final Bootstrap bootstrap;
         if (bootstraps.containsKey(addr)) {
             bootstrap = bootstraps.get(addr);
@@ -76,21 +76,21 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
             throw new NoConnectionException(future.cause());
         }
 
-        final Connection conn = new NSQConnection(addr, channel, config.getTimeoutInSecond());
+        final NSQConnection conn = new NSQConnectionImpl(addr, channel, config.getTimeoutInSecond());
         // It created Connection !!!
-        channel.attr(Connection.STATE).set(conn);
+        channel.attr(NSQConnection.STATE).set(conn);
         assert conn != null;
         return conn;
     }
 
     @Override
-    public PooledObject<Connection> wrap(Connection conn) {
+    public PooledObject<NSQConnection> wrap(NSQConnection conn) {
         return new DefaultPooledObject<>(conn);
     }
 
     @Override
-    public boolean validateObject(Address addr, PooledObject<Connection> p) {
-        final Connection conn = p.getObject();
+    public boolean validateObject(Address addr, PooledObject<NSQConnection> p) {
+        final NSQConnection conn = p.getObject();
         if (null != conn && conn.isConnected()) {
             final ChannelFuture future;
             if (conn.isHavingNegotiation()) {
@@ -98,15 +98,16 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
             } else {
                 future = conn.command(Magic.getInstance());
             }
-            if (future.awaitUninterruptibly(1, TimeUnit.SECONDS)) {
-                return future.isSuccess();
-            }
+            return future.isSuccess();
+            // if (future.awaitUninterruptibly(1, TimeUnit.SECONDS)) {
+            // return future.isSuccess();
+            // }
         }
         return false;
     }
 
     @Override
-    public void destroyObject(Address addr, PooledObject<Connection> p) throws Exception {
+    public void destroyObject(Address addr, PooledObject<NSQConnection> p) throws Exception {
         p.getObject().close();
     }
 

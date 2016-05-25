@@ -46,7 +46,7 @@ public class NSQSimpleClient implements Client {
     }
 
     @Override
-    public void incoming(final NSQFrame frame, final Connection conn) {
+    public void incoming(final NSQFrame frame, final NSQConnection conn) {
         switch (frame.getType()) {
             case RESPONSE_FRAME: {
                 final String resp = frame.getMessage();
@@ -72,7 +72,7 @@ public class NSQSimpleClient implements Client {
     }
 
     @Override
-    public void negotiate(final Connection conn) throws NSQException {
+    public void negotiate(final NSQConnection conn) throws NSQException {
         conn.command(Magic.getInstance());
         final NSQCommand ident = new Identify(config);
         try {
@@ -89,7 +89,7 @@ public class NSQSimpleClient implements Client {
     }
 
     @Override
-    public void backoff(Connection conn) throws NSQException {
+    public void backoff(NSQConnection conn) throws NSQException {
         conn.command(new Rdy(0));
     }
 }

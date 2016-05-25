@@ -4,7 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.youzan.nsq.client.core.Client;
-import com.youzan.nsq.client.core.Connection;
+import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.ConsumerWorker;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.util.IOUtil;
@@ -48,7 +48,7 @@ public class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
      */
     @Override
     public void channelRead0(ChannelHandlerContext ctx, NSQFrame msg) {
-        final Connection conn = ctx.channel().attr(Connection.STATE).get();
+        final NSQConnection conn = ctx.channel().attr(NSQConnection.STATE).get();
         final Client worker = ctx.channel().attr(Client.STATE).get();
         if (null != conn && null != worker) {
             ctx.channel().eventLoop().execute(() -> {
@@ -84,7 +84,7 @@ public class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
         if (null == channel) {
             return;
         }
-        final Connection conn = channel.attr(Connection.STATE).get();
+        final NSQConnection conn = channel.attr(NSQConnection.STATE).get();
         if (null != conn) {
             IOUtil.closeQuietly(conn);
         } else {
@@ -98,7 +98,7 @@ public class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
         // POST
         channel.attr(Client.STATE).remove();
         channel.attr(ConsumerWorker.STATE).remove();
-        channel.attr(Connection.STATE).remove();
+        channel.attr(NSQConnection.STATE).remove();
     }
 
 }

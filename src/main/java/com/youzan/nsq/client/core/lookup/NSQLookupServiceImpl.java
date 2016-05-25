@@ -55,7 +55,7 @@ public class NSQLookupServiceImpl implements NSQLookupService {
 
         final Random r = new Random(10000);
         offset = r.nextInt(100);
-        this.checkLookupServers();
+        // this.checkLookupServers();
     }
 
     /**

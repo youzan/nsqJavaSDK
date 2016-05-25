@@ -125,7 +125,7 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
         return size;
     }
 
-    public Connection create(final Address addr) throws Exception {
+    public NSQConnection create(final Address addr) throws Exception {
         // Create one connection and connect to the broker
         // Start the connection attempt.
         final ChannelFuture future = bootstrap.connect(new InetSocketAddress(addr.getHost(), addr.getPort()));
@@ -139,11 +139,11 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
             throw new NoConnectionException(future.cause());
         }
 
-        final Connection conn = new NSQConnection(addr, channel, config.getTimeoutInSecond());
+        final NSQConnection conn = new NSQConnectionImpl(addr, channel, config.getTimeoutInSecond());
         // It created Connection !!!
         channel.attr(Client.STATE).set(this);
         channel.attr(ConsumerWorker.STATE).set(this);
-        channel.attr(Connection.STATE).set(conn);
+        channel.attr(NSQConnection.STATE).set(conn);
 
         // Send magic
         conn.command(Magic.getInstance());
@@ -164,7 +164,7 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
     }
 
     @Override
-    public void incoming(NSQFrame frame, Connection conn) {
+    public void incoming(NSQFrame frame, NSQConnection conn) {
         switch (frame.getType()) {
             case RESPONSE_FRAME: {
                 final String resp = frame.getMessage();
@@ -194,7 +194,7 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
     }
 
     @Override
-    public void process4Client(MessageFrame frame, Connection conn) {
+    public void process4Client(MessageFrame frame, NSQConnection conn) {
         // more exposure to client
         final NSQMessage message = new NSQMessage(frame.getTimestamp(), frame.getAttempts(), frame.getMessageID(),
                 frame.getMessageBody());
@@ -208,11 +208,11 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
     }
 
     @Override
-    public void finish(MessageFrame frame, Connection conn) {
+    public void finish(MessageFrame frame, NSQConnection conn) {
     }
 
     @Override
-    public void reQueue(MessageFrame frame, Connection conn) {
+    public void reQueue(MessageFrame frame, NSQConnection conn) {
     }
 
     @Override
@@ -230,14 +230,14 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
      * @param conn
      * @param channel
      */
-    private void destoryConnection(final Connection conn, Channel channel) {
+    private void destoryConnection(final NSQConnection conn, Channel channel) {
         if (null != conn) {
             IOUtil.closeQuietly(conn);
         }
         if (null != channel) {
             channel.attr(Client.STATE).remove();
             channel.attr(ConsumerWorker.STATE).remove();
-            channel.attr(Connection.STATE).remove();
+            channel.attr(NSQConnection.STATE).remove();
         }
     }
 
@@ -247,11 +247,11 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
     }
 
     @Override
-    public void negotiate(Connection conn) {
+    public void negotiate(NSQConnection conn) {
     }
 
     @Override
-    public void backoff(Connection conn) throws NSQException {
+    public void backoff(NSQConnection conn) throws NSQException {
     }
 
 }

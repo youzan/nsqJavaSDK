@@ -13,7 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.youzan.nsq.client.core.Client;
-import com.youzan.nsq.client.core.Connection;
+import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.KeyedConnectionPoolFactory;
 import com.youzan.nsq.client.core.NSQSimpleClient;
 import com.youzan.nsq.client.core.command.Pub;
@@ -59,7 +59,7 @@ public class ProducerImplV2 implements Producer {
     private final NSQLookupService lookup;
     private GenericKeyedObjectPoolConfig poolConfig = null;
     private KeyedConnectionPoolFactory factory;
-    private GenericKeyedObjectPool<Address, Connection> bigPool = null;
+    private GenericKeyedObjectPool<Address, NSQConnection> bigPool = null;
 
     /**
      * @param config
@@ -128,7 +128,7 @@ public class ProducerImplV2 implements Producer {
      * @return NSQConnection that is having done a negotiation
      * @throws NoConnectionException
      */
-    protected Connection getNSQConnection() throws NoConnectionException {
+    protected NSQConnection getNSQConnection() throws NoConnectionException {
         assert this.dataNodes != null && !this.dataNodes.isEmpty();
         final int size = this.dataNodes.size();
         if (size < 1) {
@@ -140,10 +140,11 @@ public class ProducerImplV2 implements Producer {
         while (c++ < retries) {
             final int index = (this.offset++ & Integer.MAX_VALUE) % size;
             Address addr = addrs[index];
-            Connection conn = null;
+            NSQConnection conn = null;
             try {
                 conn = this.bigPool.borrowObject(addr);
                 if (null != conn) {
+                    conn.setClient(this);
                     if (!conn.isHavingNegotiation()) {
                         this.negotiate(conn);
                     }
@@ -201,7 +202,7 @@ public class ProducerImplV2 implements Producer {
         final Pub pub = new Pub(this.getConfig().getTopic(), message);
         int c = 0;
         while (c++ < 2) { // 0,1
-            final Connection conn = getNSQConnection();
+            final NSQConnection conn = getNSQConnection();
             if (conn == null) {
                 throw new NSQDataNodeDownException();
             }
@@ -255,17 +256,17 @@ public class ProducerImplV2 implements Producer {
     }
 
     @Override
-    public void incoming(NSQFrame frame, Connection conn) throws NSQException {
+    public void incoming(NSQFrame frame, NSQConnection conn) throws NSQException {
         this.simpleClient.incoming(frame, conn);
     }
 
     @Override
-    public void negotiate(Connection conn) throws NSQException {
+    public void negotiate(NSQConnection conn) throws NSQException {
         this.simpleClient.negotiate(conn);
     }
 
     @Override
-    public void backoff(Connection conn) throws NSQException {
+    public void backoff(NSQConnection conn) throws NSQException {
         this.simpleClient.backoff(conn);
     }
 

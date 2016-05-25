@@ -21,6 +21,7 @@ public class ErrorFrame extends NSQFrame {
     @Override
     public void setData(byte[] data) {
         super.setData(data);
+        logger.debug("Message is {}", getMessage());
         error = Response.valueOf(getMessage().toUpperCase().trim());
     }
 

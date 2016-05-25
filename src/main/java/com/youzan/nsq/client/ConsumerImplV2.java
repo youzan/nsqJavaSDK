@@ -6,7 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.youzan.nsq.client.core.Client;
-import com.youzan.nsq.client.core.Connection;
+import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
 import com.youzan.nsq.client.core.lookup.NSQLookupService;
 import com.youzan.nsq.client.core.lookup.NSQLookupServiceImpl;
@@ -34,7 +34,7 @@ public class ConsumerImplV2 implements Consumer {
 
     private final NSQConfig config;
     private GenericKeyedObjectPoolConfig poolConfig = null;
-    private GenericKeyedObjectPool<Address, Connection> pool = null;
+    private GenericKeyedObjectPool<Address, NSQConnection> pool = null;
 
     /**
      * @param config
@@ -65,17 +65,17 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     @Override
-    public void incoming(NSQFrame frame, Connection conn) throws NSQException {
+    public void incoming(NSQFrame frame, NSQConnection conn) throws NSQException {
         this.simpleClient.incoming(frame, conn);
     }
 
     @Override
-    public void negotiate(Connection conn) throws NSQException {
+    public void negotiate(NSQConnection conn) throws NSQException {
         this.simpleClient.negotiate(conn);
     }
 
     @Override
-    public void backoff(Connection conn) throws NSQException {
+    public void backoff(NSQConnection conn) throws NSQException {
     }
 
 }
