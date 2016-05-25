@@ -5,6 +5,7 @@ import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.concurrent.TimeoutException;
 
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
@@ -20,9 +21,13 @@ import com.youzan.nsq.client.core.lookup.NSQLookupService;
 import com.youzan.nsq.client.core.lookup.NSQLookupServiceImpl;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.nsq.client.entity.Response;
 import com.youzan.nsq.client.exception.NSQDataNodeDownException;
 import com.youzan.nsq.client.exception.NSQException;
+import com.youzan.nsq.client.exception.NSQInvalidMessageException;
+import com.youzan.nsq.client.exception.NSQInvalidTopicException;
 import com.youzan.nsq.client.exception.NoConnectionException;
+import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.util.IOUtil;
 
@@ -188,37 +193,58 @@ public class ProducerImplV2 implements Producer {
         return this.config;
     }
 
-    private void doOncePublish(String topic, byte[] message, Connection conn) throws Exception {
-        final Pub command = new Pub(topic, message);
-        final NSQFrame resp = conn.commandAndGetResponse(command);
-        if (null != resp) {
-            switch (resp.getType()) {
-                case RESPONSE_FRAME: {
-                    return;
-                }
-                case ERROR_FRAME: {
-                    break;
-                }
-                default: {
-                    throw new NSQException("Client can not parse the frame type!");
-                }
-            }
-        }
-    }
-
     @Override
     public void publish(byte[] message) throws NSQException {
         if (!started) {
             throw new IllegalStateException("Producer must be started before producing messages!");
         }
-        // TODO loop all NSQd when the connection attempt fails
-        // TODO try 2 times getNSQConnection. sleep(1 second)
-        final Connection conn = getNSQConnection();
-        if (conn == null) {
-            throw new NSQDataNodeDownException();
-        } else {
-
+        final Pub pub = new Pub(this.getConfig().getTopic(), message);
+        int c = 0;
+        while (c++ < 2) { // 0,1
+            final Connection conn = getNSQConnection();
+            if (conn == null) {
+                throw new NSQDataNodeDownException();
+            }
+            NSQFrame resp = null;
+            try {
+                resp = conn.commandAndGetResponse(pub);
+            } catch (TimeoutException e) {
+                logger.error("Exception", e);
+            } finally {
+                this.bigPool.returnObject(conn.getAddress(), conn);
+            }
+            if (resp == null) {
+                continue;
+            }
+            s: switch (resp.getType()) {
+                case RESPONSE_FRAME: {
+                    String content = resp.getMessage();
+                    if (Response.OK.getContent().equals(content)) {
+                        return;
+                    }
+                    break s;
+                }
+                case ERROR_FRAME: {
+                    final ErrorFrame err = (ErrorFrame) resp;
+                    switch (err.getError()) {
+                        case E_BAD_TOPIC: {
+                            throw new NSQInvalidTopicException();
+                        }
+                        case E_BAD_MESSAGE: {
+                            throw new NSQInvalidMessageException();
+                        }
+                        default: {
+                            break s;
+                        }
+                    }
+                }
+                default: {
+                    break s;
+                }
+            } // end handling {@code Response}
+            sleep(c * 1000);
         }
+
     }
 
     @Override
@@ -229,7 +255,8 @@ public class ProducerImplV2 implements Producer {
     }
 
     @Override
-    public void incoming(NSQFrame frame, Connection conn) {
+    public void incoming(NSQFrame frame, Connection conn) throws NSQException {
+        this.simpleClient.incoming(frame, conn);
     }
 
     @Override

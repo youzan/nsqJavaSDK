@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.youzan.nsq.client.core.command.NSQCommand;
+import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
@@ -26,23 +27,29 @@ import io.netty.channel.ChannelFuture;
 public class NSQConnection implements Connection {
     private static final Logger logger = LoggerFactory.getLogger(NSQConnection.class);
 
-    private boolean havingNegotiation = false;
     private final LinkedBlockingQueue<NSQCommand> requests = new LinkedBlockingQueue<>(1);
     private final LinkedBlockingQueue<NSQFrame> responses = new LinkedBlockingQueue<>(1);
+
+    private boolean havingNegotiation = false;
+
+    private final Address address;
     private final Channel channel;
     private final int timeoutInSecond;
     private final long timeoutInMillisecond;
 
     /**
+     * @param address
      * @param channel
      *            It is already connected and alive so far.
      * @param timeoutInSecond
      */
-    public NSQConnection(Channel channel, int timeoutInSecond) {
-        this.channel = channel;
+    public NSQConnection(Address address, Channel channel, int timeoutInSecond) {
         if (timeoutInSecond <= 0) {
             timeoutInSecond = 10; // explicit
         }
+
+        this.address = address;
+        this.channel = channel;
         this.timeoutInSecond = timeoutInSecond;
         this.timeoutInMillisecond = timeoutInSecond << 10; // ~= * 1024
     }
@@ -136,6 +143,14 @@ public class NSQConnection implements Connection {
     @Override
     public void addErrorFrame(ErrorFrame frame) {
         responses.add(frame);
+    }
+
+    /**
+     * @return the address
+     */
+    @Override
+    public Address getAddress() {
+        return address;
     }
 
 }

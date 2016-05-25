@@ -11,7 +11,7 @@ public class ErrorFrame extends NSQFrame {
 
     private static final Logger logger = LoggerFactory.getLogger(ErrorFrame.class);
 
-    private Response content;
+    private Response error;
 
     @Override
     public FrameType getType() {
@@ -21,7 +21,7 @@ public class ErrorFrame extends NSQFrame {
     @Override
     public void setData(byte[] data) {
         super.setData(data);
-        content = Response.valueOf(getMessage().toUpperCase());
+        error = Response.valueOf(getMessage().toUpperCase().trim());
     }
 
     @Override
@@ -32,6 +32,13 @@ public class ErrorFrame extends NSQFrame {
             logger.error("Exception", e);
             return new String(getData()).trim();
         }
+    }
+
+    /**
+     * @return the err
+     */
+    public Response getError() {
+        return error;
     }
 
     @Override

@@ -65,12 +65,13 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     @Override
-    public void incoming(NSQFrame frame, Connection conn) {
+    public void incoming(NSQFrame frame, Connection conn) throws NSQException {
+        this.simpleClient.incoming(frame, conn);
     }
 
     @Override
     public void negotiate(Connection conn) throws NSQException {
-        simpleClient.negotiate(conn);
+        this.simpleClient.negotiate(conn);
     }
 
     @Override

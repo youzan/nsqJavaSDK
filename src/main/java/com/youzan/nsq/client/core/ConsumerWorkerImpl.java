@@ -139,7 +139,7 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
             throw new NoConnectionException(future.cause());
         }
 
-        final Connection conn = new NSQConnection(channel, config.getTimeoutInSecond());
+        final Connection conn = new NSQConnection(addr, channel, config.getTimeoutInSecond());
         // It created Connection !!!
         channel.attr(Client.STATE).set(this);
         channel.attr(ConsumerWorker.STATE).set(this);

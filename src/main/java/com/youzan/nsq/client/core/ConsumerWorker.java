@@ -4,8 +4,6 @@ import java.io.Closeable;
 
 import com.youzan.nsq.client.network.frame.MessageFrame;
 
-import io.netty.util.AttributeKey;
-
 /**
  * connect to one NSQd
  * 
@@ -14,9 +12,6 @@ import io.netty.util.AttributeKey;
  *
  */
 public interface ConsumerWorker extends Client, Closeable {
-
-    public static final AttributeKey<ConsumerWorker> STATE = AttributeKey.valueOf("ConsumerWorker.State");
-
     /**
      * Create one connection pool and start working
      */

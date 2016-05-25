@@ -76,7 +76,7 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
             throw new NoConnectionException(future.cause());
         }
 
-        final Connection conn = new NSQConnection(channel, config.getTimeoutInSecond());
+        final Connection conn = new NSQConnection(addr, channel, config.getTimeoutInSecond());
         // It created Connection !!!
         channel.attr(Connection.STATE).set(conn);
         assert conn != null;

@@ -22,6 +22,8 @@ import com.youzan.nsq.client.network.frame.ResponseFrame;
 import com.youzan.util.IOUtil;
 
 /**
+ * The intersection between {@code Producer} and {@code Consumer}.
+ * 
  * @author zhaoxi (linzuxiong)
  * @email linzuxiong1988@gmail.com
  *
