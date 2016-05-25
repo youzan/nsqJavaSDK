@@ -139,7 +139,7 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
             throw new NoConnectionException(future.cause());
         }
 
-        final NSQConnection conn = new NSQConnectionImpl(addr, channel, config.getTimeoutInSecond());
+        final NSQConnection conn = new NSQConnectionImpl(addr, channel, config);
         // It created Connection !!!
         channel.attr(Client.STATE).set(this);
         channel.attr(ConsumerWorker.STATE).set(this);
@@ -216,11 +216,6 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
     }
 
     @Override
-    public NSQConfig getConfig() {
-        return this.config;
-    }
-
-    @Override
     public void sendBackoff() {
     }
 
@@ -244,10 +239,6 @@ public class ConsumerWorkerImpl implements ConsumerWorker {
     @Override
     public void close() {
         eventLoopGroup.shutdownGracefully();
-    }
-
-    @Override
-    public void negotiate(NSQConnection conn) {
     }
 
     @Override

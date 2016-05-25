@@ -56,22 +56,12 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     @Override
-    public NSQConfig getConfig() {
-        return this.config;
-    }
-
-    @Override
     public void close() {
     }
 
     @Override
     public void incoming(NSQFrame frame, NSQConnection conn) throws NSQException {
         this.simpleClient.incoming(frame, conn);
-    }
-
-    @Override
-    public void negotiate(NSQConnection conn) throws NSQException {
-        this.simpleClient.negotiate(conn);
     }
 
     @Override

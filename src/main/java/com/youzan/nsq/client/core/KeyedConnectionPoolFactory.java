@@ -43,11 +43,14 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
     private static final Logger logger = LoggerFactory.getLogger(KeyedConnectionPoolFactory.class);
 
     private final NSQConfig config;
+    private final Client client;
+
     private final EventLoopGroup eventLoopGroup;
     private final ConcurrentHashMap<Address, Bootstrap> bootstraps = new ConcurrentHashMap<>();
 
-    public KeyedConnectionPoolFactory(NSQConfig config) {
+    public KeyedConnectionPoolFactory(NSQConfig config, Client client) {
         this.config = config;
+        this.client = client;
         this.eventLoopGroup = new NioEventLoopGroup(config.getThreadPoolSize4IO());
     }
 
@@ -75,9 +78,11 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
             throw new NoConnectionException(future.cause());
         }
 
-        final NSQConnection conn = new NSQConnectionImpl(addr, channel, config.getTimeoutInSecond());
+        final NSQConnection conn = new NSQConnectionImpl(addr, channel, config);
         // It created Connection !!!
         channel.attr(NSQConnection.STATE).set(conn);
+        conn.setClient(client);
+        conn.init();
         assert conn != null;
         return conn;
     }

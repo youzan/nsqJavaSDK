@@ -2,7 +2,6 @@ package com.youzan.nsq.client.network.netty;
 
 import javax.net.ssl.SSLEngine;
 
-import com.youzan.nsq.client.core.Client;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.network.frame.NSQFrame;
@@ -28,12 +27,12 @@ public class NSQFeatureDetectionHandler extends SimpleChannelInboundHandler<NSQF
     @Override
     protected void channelRead0(final ChannelHandlerContext ctx, final NSQFrame msg) throws Exception {
         final NSQConnection con = ctx.channel().attr(NSQConnection.STATE).get();
-        final Client client = ctx.channel().attr(Client.STATE).get();
+        final NSQConfig config = con.getConfig();
         boolean reinstallDefaultDecoder = true;
         if (msg instanceof ResponseFrame) {
             ResponseFrame response = (ResponseFrame) msg;
             ChannelPipeline pipeline = ctx.channel().pipeline();
-            parseIdentify(response.getMessage(), client.getConfig());
+            parseIdentify(response.getMessage(), config);
             if (response.getMessage().equals("OK")) {
                 if (finished) {
                     return;
@@ -52,7 +51,7 @@ public class NSQFeatureDetectionHandler extends SimpleChannelInboundHandler<NSQF
                 return;
             }
             if (ssl) {
-                SSLEngine sslEngine = client.getConfig().getSslContext().newEngine(ctx.channel().alloc());
+                SSLEngine sslEngine = config.getSslContext().newEngine(ctx.channel().alloc());
                 sslEngine.setUseClientMode(true);
                 SslHandler sslHandler = new SslHandler(sslEngine, false);
                 sslHandler.setSingleDecode(true);
@@ -62,7 +61,7 @@ public class NSQFeatureDetectionHandler extends SimpleChannelInboundHandler<NSQF
                 }
                 if (deflate) {
                     pipeline.addBefore("NSQEncoder", "DeflateEncoder",
-                            ZlibCodecFactory.newZlibEncoder(ZlibWrapper.NONE, client.getConfig().getDeflateLevel()));
+                            ZlibCodecFactory.newZlibEncoder(ZlibWrapper.NONE, config.getDeflateLevel()));
                 }
             }
             if (!ssl && snappy) {
@@ -71,13 +70,13 @@ public class NSQFeatureDetectionHandler extends SimpleChannelInboundHandler<NSQF
             }
             if (!ssl && deflate) {
                 pipeline.addBefore("NSQEncoder", "DeflateEncoder",
-                        ZlibCodecFactory.newZlibEncoder(ZlibWrapper.NONE, client.getConfig().getDeflateLevel()));
+                        ZlibCodecFactory.newZlibEncoder(ZlibWrapper.NONE, config.getDeflateLevel()));
                 reinstallDefaultDecoder = installDeflateDecoder(pipeline);
             }
             if (response.getMessage().contains("version") && finished) {
                 eject(reinstallDefaultDecoder, pipeline);
             }
-        }
+        } // see @{code ResponseFrame}
         ctx.fireChannelRead(msg);
     }
 

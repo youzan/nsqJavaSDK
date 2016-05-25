@@ -13,7 +13,7 @@ public class KeyedConnectionPoolFactoryTest {
         NSQConfig config = null;
         GenericKeyedObjectPoolConfig poolConfig = null;
         GenericKeyedObjectPool<Address, NSQConnection> bigPool = new GenericKeyedObjectPool<>(
-                new KeyedConnectionPoolFactory(config), poolConfig);
+                new KeyedConnectionPoolFactory(config, null), poolConfig);
     }
 
     @Test
@@ -36,7 +36,7 @@ public class KeyedConnectionPoolFactoryTest {
         poolConfig.setTestWhileIdle(true);
 
         GenericKeyedObjectPool<Address, NSQConnection> bigPool = new GenericKeyedObjectPool<>(
-                new KeyedConnectionPoolFactory(config), poolConfig);
+                new KeyedConnectionPoolFactory(config, null), poolConfig);
         Address addr = new Address("127.0.0.1", 4150);
         NSQConnection conn = null;
         conn = bigPool.borrowObject(addr);

@@ -70,7 +70,7 @@ public class ProducerImplV2 implements Producer {
 
         this.lookup = new NSQLookupServiceImpl(config.getLookupAddresses());
         this.simpleClient = new NSQSimpleClient(this.config);
-        this.factory = new KeyedConnectionPoolFactory(this.config);
+        this.factory = new KeyedConnectionPoolFactory(this.config, this);
     }
 
     @Override
@@ -89,7 +89,7 @@ public class ProducerImplV2 implements Producer {
             poolConfig.setBlockWhenExhausted(false);
             poolConfig.setTestWhileIdle(true);
             createBigPool();
-            final String topic = this.getConfig().getTopic();
+            final String topic = this.config.getTopic();
             if (topic == null || topic.isEmpty()) {
                 throw new NSQException("Please set topic name using {@code NSQConfig}");
             }
@@ -97,7 +97,7 @@ public class ProducerImplV2 implements Producer {
             int c = 0;
             while (c++ < retries) {
                 try {
-                    SortedSet<Address> nodes = this.lookup.lookup(this.getConfig().getTopic());
+                    SortedSet<Address> nodes = this.lookup.lookup(this.config.getTopic());
                     if (nodes != null && !nodes.isEmpty()) {
                         this.dataNodes.addAll(nodes);
                         break;
@@ -182,16 +182,11 @@ public class ProducerImplV2 implements Producer {
     }
 
     @Override
-    public NSQConfig getConfig() {
-        return this.config;
-    }
-
-    @Override
     public void publish(byte[] message) throws NSQException {
         if (!started) {
             throw new IllegalStateException("Producer must be started before producing messages!");
         }
-        final Pub pub = new Pub(this.getConfig().getTopic(), message);
+        final Pub pub = new Pub(this.config.getTopic(), message);
         int c = 0;
         while (c++ < 2) { // 0,1
             final NSQConnection conn = getNSQConnection();
@@ -250,11 +245,6 @@ public class ProducerImplV2 implements Producer {
     @Override
     public void incoming(NSQFrame frame, NSQConnection conn) throws NSQException {
         this.simpleClient.incoming(frame, conn);
-    }
-
-    @Override
-    public void negotiate(NSQConnection conn) throws NSQException {
-        this.simpleClient.negotiate(conn);
     }
 
     @Override

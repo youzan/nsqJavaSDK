@@ -3,14 +3,9 @@
  */
 package com.youzan.nsq.client.core;
 
-import java.util.concurrent.TimeoutException;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.youzan.nsq.client.core.command.Identify;
-import com.youzan.nsq.client.core.command.Magic;
-import com.youzan.nsq.client.core.command.NSQCommand;
 import com.youzan.nsq.client.core.command.Nop;
 import com.youzan.nsq.client.core.command.Rdy;
 import com.youzan.nsq.client.entity.NSQConfig;
@@ -19,7 +14,6 @@ import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
-import com.youzan.util.IOUtil;
 
 /**
  * The intersection between {@code Producer} and {@code Consumer}.
@@ -35,14 +29,6 @@ public class NSQSimpleClient implements Client {
 
     public NSQSimpleClient(NSQConfig config) {
         this.config = config;
-    }
-
-    /**
-     * See {@code Producer} and {@code Consumer}
-     */
-    @Override
-    public NSQConfig getConfig() {
-        return this.config;
     }
 
     @Override
@@ -69,22 +55,6 @@ public class NSQSimpleClient implements Client {
             }
         }
         return;
-    }
-
-    @Override
-    public void negotiate(final NSQConnection conn) throws NSQException {
-        conn.command(Magic.getInstance());
-        final NSQCommand ident = new Identify(config);
-        try {
-            final NSQFrame response = conn.commandAndGetResponse(ident);
-            if (null == response) {
-                IOUtil.closeQuietly(conn);
-                throw new NSQException("Bad Identify Response! Close connection!");
-            }
-        } catch (final TimeoutException e) {
-            IOUtil.closeQuietly(conn);
-            throw new NSQException("Client Performance Issue! Close connection!", e);
-        }
     }
 
     @Override

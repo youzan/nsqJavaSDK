@@ -6,6 +6,7 @@ import java.util.concurrent.TimeoutException;
 
 import com.youzan.nsq.client.core.command.NSQCommand;
 import com.youzan.nsq.client.entity.Address;
+import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
@@ -14,7 +15,10 @@ import io.netty.channel.ChannelFuture;
 import io.netty.util.AttributeKey;
 
 /**
- * NSQ Connection Definition
+ * <pre>
+ * NSQ Connection Definition.
+ * This is underlying Netty Pipeline with decoder and encoder.
+ * </pre>
  * 
  * @author zhaoxi (linzuxiong)
  * @email linzuxiong1988@gmail.com
@@ -24,15 +28,18 @@ public interface NSQConnection extends Closeable {
 
     public static final AttributeKey<NSQConnection> STATE = AttributeKey.valueOf("Connection.State");
 
-    /**
-     * 
-     */
-    void init();
+    Address getAddress();
+
+    NSQConfig getConfig();
 
     /**
-     * @return
+     * If any client wants to use my connection, then the client need to pass
+     * itself into me because of the usage of Netty.
+     * 
+     * @throws Exception
+     * 
      */
-    Address getAddress();
+    void init() throws Exception;
 
     /**
      * Netty. 异步/同步, 转换的上下文设置. Do it for encoder/decoder.

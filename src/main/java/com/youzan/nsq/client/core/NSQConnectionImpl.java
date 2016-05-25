@@ -10,11 +10,16 @@ import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.youzan.nsq.client.core.command.Identify;
+import com.youzan.nsq.client.core.command.Magic;
 import com.youzan.nsq.client.core.command.NSQCommand;
 import com.youzan.nsq.client.entity.Address;
+import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
+import com.youzan.util.IOUtil;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -34,28 +39,29 @@ public class NSQConnectionImpl implements NSQConnection {
 
     private final Address address;
     private final Channel channel;
+    private final NSQConfig config;
     private final int timeoutInSecond;
-    private final long timeoutInMillisecond;
+    private final long timeoutInMillisecond; // be approximate
 
     /**
      * @param address
      * @param channel
      *            It is already connected and alive so far.
-     * @param timeoutInSecond
+     * @param config
      */
-    public NSQConnectionImpl(Address address, Channel channel, int timeoutInSecond) {
-        if (timeoutInSecond <= 0) {
-            timeoutInSecond = 10; // explicit
-        }
-
+    public NSQConnectionImpl(Address address, Channel channel, NSQConfig config) {
         this.address = address;
         this.channel = channel;
-        this.timeoutInSecond = timeoutInSecond;
-        this.timeoutInMillisecond = timeoutInSecond << 10; // ~= * 1024
+        this.config = config;
+
+        final int timeout = config.getTimeoutInSecond() <= 0 ? 1 : config.getTimeoutInSecond();
+        this.timeoutInSecond = timeout;
+        this.timeoutInMillisecond = timeout << 10;
     }
 
     @Override
     public ChannelFuture command(NSQCommand cmd) {
+        // Use Netty Pipeline
         return channel.writeAndFlush(cmd);
     }
 
@@ -143,10 +149,30 @@ public class NSQConnectionImpl implements NSQConnection {
     }
 
     @Override
-    public void init() {
+    public void init() throws Exception {
         assert address != null;
         assert isConnected();
+
+        if (!havingNegotiation) {
+            command(Magic.getInstance());
+            final NSQCommand ident = new Identify(config);
+            try {
+                final NSQFrame response = commandAndGetResponse(ident);
+                if (null == response) {
+                    IOUtil.closeQuietly(this);
+                    throw new NSQException("Bad Identify Response! Close connection!");
+                }
+            } catch (final TimeoutException e) {
+                IOUtil.closeQuietly(this);
+                throw new NSQException("Client Performance Issue! Close connection!", e);
+            }
+        }
         assert havingNegotiation;
+    }
+
+    @Override
+    public NSQConfig getConfig() {
+        return null;
     }
 
 }
