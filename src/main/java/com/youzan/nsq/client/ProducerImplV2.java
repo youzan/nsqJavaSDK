@@ -5,6 +5,7 @@ import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
@@ -61,6 +62,9 @@ public class ProducerImplV2 implements Producer {
     private GenericKeyedObjectPoolConfig poolConfig = null;
     private KeyedConnectionPoolFactory factory;
     private GenericKeyedObjectPool<Address, NSQConnection> bigPool = null;
+
+    private final AtomicInteger success = new AtomicInteger(0);
+    private final AtomicInteger total = new AtomicInteger(0);
 
     /**
      * @param config
@@ -192,6 +196,10 @@ public class ProducerImplV2 implements Producer {
         if (!started) {
             throw new IllegalStateException("Producer must be started before producing messages!");
         }
+        if (message == null || message.length <= 0) {
+            throw new IllegalArgumentException("Your input is blank! Please check it!");
+        }
+        total.incrementAndGet();
         final Pub pub = new Pub(this.config.getTopic(), message);
         int c = 0; // be continuous
         while (c++ < 3) { // 0,1,2
@@ -216,6 +224,7 @@ public class ProducerImplV2 implements Producer {
                 case RESPONSE_FRAME: {
                     final String content = resp.getMessage();
                     if (Response.OK.getContent().equals(content)) {
+                        success.incrementAndGet();
                         return;
                     }
                     break s;
@@ -251,9 +260,8 @@ public class ProducerImplV2 implements Producer {
         if (messages == null || messages.isEmpty()) {
             throw new IllegalArgumentException("Your input is blank!");
         }
-
+        total.addAndGet(messages.size());
         final List<List<byte[]>> batches = Lists.partition(messages, 30);
-
         for (List<byte[]> batch : batches) {
             publishBatch(batch);
         }
@@ -294,6 +302,7 @@ public class ProducerImplV2 implements Producer {
                 case RESPONSE_FRAME: {
                     final String content = resp.getMessage();
                     if (Response.OK.getContent().equals(content)) {
+                        success.addAndGet(batch.size());
                         return;
                     }
                     break s;

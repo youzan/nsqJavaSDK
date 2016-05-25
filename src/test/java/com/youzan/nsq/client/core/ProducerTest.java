@@ -15,7 +15,6 @@ public class ProducerTest {
 
     @Test
     public void produceUsingSimpleProducer() throws NSQException, UnsupportedEncodingException {
-        // TODO
         NSQConfig config = new NSQConfig();
         config.setTopic("test");
         config.setLookupAddresses("127.0.0.1:4161");
