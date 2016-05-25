@@ -19,11 +19,11 @@ public class ResponseFrame extends NSQFrame {
     @Override
     public String getMessage() {
         try {
-            return new String(super.getData(), DEFAULT_CHARSET_NAME);
+            return new String(getData(), DEFAULT_CHARSET_NAME);
         } catch (UnsupportedEncodingException e) {
             logger.error("Exception", e);
+            return new String(getData());
         }
-        return null;
     }
 
     @Override
