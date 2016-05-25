@@ -5,7 +5,6 @@ import org.slf4j.LoggerFactory;
 
 import com.youzan.nsq.client.core.Client;
 import com.youzan.nsq.client.core.NSQConnection;
-import com.youzan.nsq.client.core.ConsumerWorker;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.util.IOUtil;
 
@@ -95,10 +94,6 @@ public class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
             }
             logger.error("No connection set for {}", channel);
         }
-        // POST
-        channel.attr(Client.STATE).remove();
-        channel.attr(ConsumerWorker.STATE).remove();
-        channel.attr(NSQConnection.STATE).remove();
     }
 
 }

@@ -15,11 +15,9 @@ import com.youzan.nsq.client.core.command.Magic;
 import com.youzan.nsq.client.core.command.NSQCommand;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
-import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
-import com.youzan.util.IOUtil;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -151,28 +149,24 @@ public class NSQConnectionImpl implements NSQConnection {
     @Override
     public void init() throws Exception {
         assert address != null;
+        assert config != null;
         assert isConnected();
 
         if (!havingNegotiation) {
             command(Magic.getInstance());
             final NSQCommand ident = new Identify(config);
-            try {
-                final NSQFrame response = commandAndGetResponse(ident);
-                if (null == response) {
-                    IOUtil.closeQuietly(this);
-                    throw new NSQException("Bad Identify Response! Close connection!");
-                }
-            } catch (final TimeoutException e) {
-                IOUtil.closeQuietly(this);
-                throw new NSQException("Client Performance Issue! Close connection!", e);
+            final NSQFrame response = commandAndGetResponse(ident);
+            if (null == response) {
+                throw new IllegalStateException("Bad Identify Response! Close connection!");
             }
+            havingNegotiation = true;
         }
         assert havingNegotiation;
     }
 
     @Override
     public NSQConfig getConfig() {
-        return null;
+        return config;
     }
 
 }

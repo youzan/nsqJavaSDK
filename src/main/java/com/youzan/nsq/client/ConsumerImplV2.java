@@ -48,7 +48,6 @@ public class ConsumerImplV2 implements Consumer {
 
     @Override
     public Consumer start() {
-        // TODO
         return this;
     }
 
