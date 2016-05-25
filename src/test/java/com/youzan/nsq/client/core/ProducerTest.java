@@ -1,7 +1,10 @@
 package com.youzan.nsq.client.core;
 
 import java.io.UnsupportedEncodingException;
+import java.util.Date;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
 
 import com.youzan.nsq.client.Producer;
@@ -11,6 +14,7 @@ import com.youzan.nsq.client.exception.NSQException;
 
 public class ProducerTest {
 
+    private static final Logger logger = LoggerFactory.getLogger(ProducerTest.class);
     public static final String DEFAULT_CHARSET_NAME = "UTF-8";
 
     @Test
@@ -22,7 +26,11 @@ public class ProducerTest {
         config.setThreadPoolSize4IO(1);
         Producer p = new ProducerImplV2(config);
         p.start();
-        p.publish("zhaoxi-test".getBytes(DEFAULT_CHARSET_NAME));
+        for (int i = 0; i < 1000; i++) {
+            p.publish(randomString().getBytes(DEFAULT_CHARSET_NAME));
+            logger.info("OK");
+            assert true;
+        }
         p.close();
     }
 
@@ -39,4 +47,7 @@ public class ProducerTest {
         p.close();
     }
 
+    private String randomString() {
+        return "Message" + new Date().getTime();
+    }
 }

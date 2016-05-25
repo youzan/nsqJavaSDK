@@ -67,6 +67,11 @@ public class ProducerImplV2 implements Producer {
     private final AtomicInteger total = new AtomicInteger(0);
 
     /**
+     * Record the client's publish time
+     */
+    private volatile long lastTimeInMillisOfClientRequest = System.currentTimeMillis();
+
+    /**
      * @param config
      */
     public ProducerImplV2(NSQConfig config) {
@@ -200,6 +205,7 @@ public class ProducerImplV2 implements Producer {
             throw new IllegalArgumentException("Your input is blank! Please check it!");
         }
         total.incrementAndGet();
+        lastTimeInMillisOfClientRequest = System.currentTimeMillis();
         final Pub pub = new Pub(this.config.getTopic(), message);
         int c = 0; // be continuous
         while (c++ < 3) { // 0,1,2
@@ -261,6 +267,7 @@ public class ProducerImplV2 implements Producer {
             throw new IllegalArgumentException("Your input is blank!");
         }
         total.addAndGet(messages.size());
+        lastTimeInMillisOfClientRequest = System.currentTimeMillis();
         final List<List<byte[]>> batches = Lists.partition(messages, 30);
         for (List<byte[]> batch : batches) {
             publishBatch(batch);
