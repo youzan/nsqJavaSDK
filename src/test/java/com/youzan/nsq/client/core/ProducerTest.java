@@ -6,7 +6,6 @@ import org.testng.annotations.Test;
 
 import com.youzan.nsq.client.Producer;
 import com.youzan.nsq.client.ProducerImplV2;
-import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.exception.NSQException;
 
@@ -14,8 +13,9 @@ public class ProducerTest {
 
     public static final String DEFAULT_CHARSET_NAME = "UTF-8";
 
-    // @Test
+    @Test
     public void produceUsingSimpleProducer() throws NSQException, UnsupportedEncodingException {
+        // TODO
         NSQConfig config = new NSQConfig();
         config.setTopic("test");
         config.setLookupAddresses("127.0.0.1:4161");
@@ -27,12 +27,8 @@ public class ProducerTest {
         p.close();
     }
 
-    // @Test
+    @Test
     public void pubMulti() throws NSQException {
-        Address address = new Address("127.0.0.1", 4150);
-        NSQConfig config = new NSQConfig();
-        config.setTopic("test");
-        config.setTimeoutInSecond(60);
     }
 
     @Test

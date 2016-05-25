@@ -79,7 +79,7 @@ public class ProducerImplV2 implements Producer {
             started = true;
             // setting all of the configs
             poolConfig.setFairness(false);
-            poolConfig.setTestOnBorrow(true);
+            poolConfig.setTestOnBorrow(false);
             poolConfig.setJmxEnabled(false);
             poolConfig.setMinIdlePerKey(1);
             poolConfig.setMinEvictableIdleTimeMillis(90 * 1000);
@@ -139,13 +139,12 @@ public class ProducerImplV2 implements Producer {
         int c = 0;
         while (c++ < retries) {
             final int index = (this.offset++ & Integer.MAX_VALUE) % size;
-            Address addr = addrs[index];
+            final Address addr = addrs[index];
+            logger.info("Load-Balancing algorithm is Round-Robin! Size: {} , Index: {}", size, index);
             NSQConnection conn = null;
             try {
                 conn = this.bigPool.borrowObject(addr);
-                if (null != conn) {
-                    this.bigPool.returnObject(addr, conn);
-                }
+                return conn;
             } catch (NoSuchElementException e) {
                 // Either the pool is too busy or NSQd is down.
                 logger.error("Exception", e);
