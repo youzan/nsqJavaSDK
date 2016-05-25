@@ -12,7 +12,6 @@ import com.youzan.nsq.client.core.lookup.NSQLookupService;
 import com.youzan.nsq.client.core.lookup.NSQLookupServiceImpl;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
-import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 
 /**
@@ -59,12 +58,12 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     @Override
-    public void incoming(NSQFrame frame, NSQConnection conn) throws NSQException {
-        this.simpleClient.incoming(frame, conn);
+    public void incoming(NSQFrame frame, NSQConnection conn) {
+        simpleClient.incoming(frame, conn);
     }
 
     @Override
-    public void backoff(NSQConnection conn) throws NSQException {
+    public void backoff(NSQConnection conn) {
+        simpleClient.backoff(conn);
     }
-
 }

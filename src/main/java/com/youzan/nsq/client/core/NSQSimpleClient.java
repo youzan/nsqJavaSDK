@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory;
 import com.youzan.nsq.client.core.command.Nop;
 import com.youzan.nsq.client.core.command.Rdy;
 import com.youzan.nsq.client.entity.Response;
-import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
@@ -54,7 +53,8 @@ public class NSQSimpleClient implements Client {
     }
 
     @Override
-    public void backoff(NSQConnection conn) throws NSQException {
+    public void backoff(NSQConnection conn) {
         conn.command(new Rdy(0));
     }
+
 }

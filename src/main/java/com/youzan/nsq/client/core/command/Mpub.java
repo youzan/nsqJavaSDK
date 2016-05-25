@@ -17,9 +17,11 @@ public class Mpub implements NSQCommand {
     private static final Logger logger = LoggerFactory.getLogger(Mpub.class);
 
     private final String topic;
+    private final List<byte[]> messages;
 
-    public Mpub(String topic) {
+    public Mpub(String topic, List<byte[]> messages) {
         this.topic = topic;
+        this.messages = messages;
     }
 
     @Override

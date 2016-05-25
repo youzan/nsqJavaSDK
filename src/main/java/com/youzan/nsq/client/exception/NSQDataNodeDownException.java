@@ -20,6 +20,6 @@ public class NSQDataNodeDownException extends NSQException {
      * 
      */
     public NSQDataNodeDownException() {
-        super("SDK has done its best effort! All of the data node servers are donw! Please check it!");
+        super("SDK has done its best effort! All of the data node servers are donw! Please check both the client and the server!");
     }
 }

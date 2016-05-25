@@ -15,6 +15,7 @@ import com.youzan.nsq.client.core.Client;
 import com.youzan.nsq.client.core.KeyedConnectionPoolFactory;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
+import com.youzan.nsq.client.core.command.Mpub;
 import com.youzan.nsq.client.core.command.Pub;
 import com.youzan.nsq.client.core.lookup.NSQLookupService;
 import com.youzan.nsq.client.core.lookup.NSQLookupServiceImpl;
@@ -29,6 +30,7 @@ import com.youzan.nsq.client.exception.NoConnectionException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.util.IOUtil;
+import com.youzan.util.Lists;
 
 /**
  * <pre>
@@ -228,7 +230,7 @@ public class ProducerImplV2 implements Producer {
                             throw new NSQInvalidMessageException();
                         }
                         default: {
-                            break s;
+                            throw new NSQException(err.getMessage());
                         }
                     }
                 }
@@ -238,7 +240,7 @@ public class ProducerImplV2 implements Producer {
             } // end handling {@code Response}
             sleep(c * 1000);
         }
-
+        throw new NSQDataNodeDownException();
     }
 
     @Override
@@ -246,16 +248,86 @@ public class ProducerImplV2 implements Producer {
         if (!started) {
             throw new IllegalStateException("Producer must be started before producing messages!");
         }
+        if (messages == null || messages.isEmpty()) {
+            throw new IllegalArgumentException("Your input is blank!");
+        }
+
+        final List<List<byte[]>> batches = Lists.partition(messages, 30);
+
+        for (List<byte[]> batch : batches) {
+            publishBatch(batch);
+        }
+
+    }
+
+    /**
+     * @param batch
+     * @throws NoConnectionException
+     * @throws NSQDataNodeDownException
+     * @throws NSQInvalidTopicException
+     * @throws NSQInvalidMessageException
+     * @throws NSQException
+     */
+    private void publishBatch(List<byte[]> batch) throws NoConnectionException, NSQDataNodeDownException,
+            NSQInvalidTopicException, NSQInvalidMessageException, NSQException {
+        final Mpub pub = new Mpub(this.config.getTopic(), batch);
+        int c = 0; // be continuous
+        while (c++ < 3) { // 0,1,2
+            final NSQConnection conn = getNSQConnection();
+            if (conn == null) {
+                // Fatal error. SDK cann't handle it.
+                throw new NSQDataNodeDownException();
+            }
+            NSQFrame resp = null;
+            try {
+                resp = conn.commandAndGetResponse(pub);
+            } catch (Exception e) {
+                // Continue to retry
+                logger.error("Exception", e);
+            } finally {
+                this.bigPool.returnObject(conn.getAddress(), conn);
+            }
+            if (resp == null) {
+                continue;
+            }
+            s: switch (resp.getType()) {
+                case RESPONSE_FRAME: {
+                    final String content = resp.getMessage();
+                    if (Response.OK.getContent().equals(content)) {
+                        return;
+                    }
+                    break s;
+                }
+                case ERROR_FRAME: {
+                    final ErrorFrame err = (ErrorFrame) resp;
+                    switch (err.getError()) {
+                        case E_BAD_TOPIC: {
+                            throw new NSQInvalidTopicException();
+                        }
+                        case E_BAD_MESSAGE: {
+                            throw new NSQInvalidMessageException();
+                        }
+                        default: {
+                            throw new NSQException(err.getMessage());
+                        }
+                    }
+                }
+                default: {
+                    break s;
+                }
+            } // end handling {@code Response}
+            sleep(c * 1000);
+        }
+        throw new NSQDataNodeDownException();
     }
 
     @Override
-    public void incoming(NSQFrame frame, NSQConnection conn) throws NSQException {
-        this.simpleClient.incoming(frame, conn);
+    public void incoming(NSQFrame frame, NSQConnection conn) {
+        simpleClient.incoming(frame, conn);
     }
 
     @Override
-    public void backoff(NSQConnection conn) throws NSQException {
-        this.simpleClient.backoff(conn);
+    public void backoff(NSQConnection conn) {
+        simpleClient.backoff(conn);
     }
-
 }

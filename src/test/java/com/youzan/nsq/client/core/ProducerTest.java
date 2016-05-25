@@ -19,7 +19,7 @@ public class ProducerTest {
         NSQConfig config = new NSQConfig();
         config.setTopic("test");
         config.setLookupAddresses("127.0.0.1:4161");
-        config.setTimeoutInSecond(120);
+        config.setTimeoutInSecond(1);
         config.setThreadPoolSize4IO(1);
         Producer p = new ProducerImplV2(config);
         p.start();
