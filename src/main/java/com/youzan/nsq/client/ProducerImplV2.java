@@ -5,7 +5,6 @@ import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.SortedSet;
 import java.util.TreeSet;
-import java.util.concurrent.TimeoutException;
 
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
@@ -79,7 +78,7 @@ public class ProducerImplV2 implements Producer {
             started = true;
             // setting all of the configs
             poolConfig.setFairness(false);
-            poolConfig.setTestOnBorrow(false);
+            poolConfig.setTestOnBorrow(true);
             poolConfig.setJmxEnabled(false);
             poolConfig.setMinIdlePerKey(1);
             poolConfig.setMinEvictableIdleTimeMillis(90 * 1000);
@@ -97,8 +96,9 @@ public class ProducerImplV2 implements Producer {
             int c = 0;
             while (c++ < retries) {
                 try {
-                    SortedSet<Address> nodes = this.lookup.lookup(this.config.getTopic());
+                    final SortedSet<Address> nodes = this.lookup.lookup(this.config.getTopic());
                     if (nodes != null && !nodes.isEmpty()) {
+                        this.dataNodes.clear();
                         this.dataNodes.addAll(nodes);
                         break;
                     }
@@ -140,7 +140,7 @@ public class ProducerImplV2 implements Producer {
         while (c++ < retries) {
             final int index = (this.offset++ & Integer.MAX_VALUE) % size;
             final Address addr = addrs[index];
-            logger.info("Load-Balancing algorithm is Round-Robin! Size: {} , Index: {}", size, index);
+            logger.info("Load-Balancing algorithm is Round-Robin! Size: {}, Index: {}", size, index);
             NSQConnection conn = null;
             try {
                 conn = this.bigPool.borrowObject(addr);
@@ -191,16 +191,18 @@ public class ProducerImplV2 implements Producer {
             throw new IllegalStateException("Producer must be started before producing messages!");
         }
         final Pub pub = new Pub(this.config.getTopic(), message);
-        int c = 0;
-        while (c++ < 2) { // 0,1
+        int c = 0; // be continuous
+        while (c++ < 3) { // 0,1,2
             final NSQConnection conn = getNSQConnection();
             if (conn == null) {
+                // Fatal error. SDK cann't handle it.
                 throw new NSQDataNodeDownException();
             }
             NSQFrame resp = null;
             try {
                 resp = conn.commandAndGetResponse(pub);
-            } catch (TimeoutException e) {
+            } catch (Exception e) {
+                // Continue to retry
                 logger.error("Exception", e);
             } finally {
                 this.bigPool.returnObject(conn.getAddress(), conn);
@@ -210,7 +212,7 @@ public class ProducerImplV2 implements Producer {
             }
             s: switch (resp.getType()) {
                 case RESPONSE_FRAME: {
-                    String content = resp.getMessage();
+                    final String content = resp.getMessage();
                     if (Response.OK.getContent().equals(content)) {
                         return;
                     }

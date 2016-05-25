@@ -58,7 +58,7 @@ public class NSQConfig implements java.io.Serializable {
     private int threadPoolSize4IO = Runtime.getRuntime().availableProcessors() - 1;
     private final String clientId;
     private final String hostname;
-    private int msgTimeoutInMillisecond;
+    private int msgTimeoutInMillisecond = 60 * 1000;
     private boolean featureNegotiation;
     private Integer heartbeatInterval;
     private Integer outputBufferSize = null;
@@ -377,7 +377,7 @@ public class NSQConfig implements java.io.Serializable {
         if (sampleRate != null) {
             buffer.append("\"sample_rate\":" + sampleRate.toString() + ",");
         }
-        buffer.append("\"msg_timeout\":" + msgTimeoutInMillisecond + ",");
+        buffer.append("\"msg_timeout\":" + String.valueOf(msgTimeoutInMillisecond) + ",");
         buffer.append("\"user_agent\": \"" + userAgent + "\"}");
         return buffer.toString();
     }
