@@ -3,7 +3,6 @@
  */
 package com.youzan.nsq.client.core;
 
-import java.net.InetSocketAddress;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -67,7 +66,7 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
             bootstrap.channel(NioSocketChannel.class);
             bootstrap.handler(new NSQClientInitializer());
         }
-        final ChannelFuture future = bootstrap.connect(new InetSocketAddress(addr.getHost(), addr.getPort()));
+        final ChannelFuture future = bootstrap.connect(addr.getHost(), addr.getPort());
 
         // Wait until the connection attempt succeeds or fails.
         if (!future.awaitUninterruptibly(config.getTimeoutInSecond(), TimeUnit.SECONDS)) {
@@ -75,15 +74,28 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
         }
         final Channel channel = future.channel();
         if (!future.isSuccess()) {
+            if (channel != null) {
+                channel.close();
+            }
             throw new NoConnectionException(future.cause());
         }
 
         final NSQConnection conn = new NSQConnectionImpl(addr, channel, config);
-        // It created Connection !!!
+        // Netty async+sync programming
         channel.attr(NSQConnection.STATE).set(conn);
-        conn.setClient(client);
-        conn.init();
-        assert conn != null;
+        channel.attr(Client.STATE).set(client);
+        try {
+            conn.init();
+        } catch (Exception e) {
+            conn.close();
+            logger.error("Creating a connection and having a negotiation fails!", e);
+            throw new NoConnectionException(e);
+        }
+
+        if (!conn.isConnected()) {
+            conn.close();
+            throw new NoConnectionException("Pool failed in connecting to NSQd!");
+        }
         return conn;
     }
 
@@ -96,11 +108,14 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
     public boolean validateObject(Address addr, PooledObject<NSQConnection> p) {
         final NSQConnection conn = p.getObject();
         if (null != conn && conn.isConnected()) {
-            final ChannelFuture future;
-            future = conn.command(Nop.getInstance());
-            if (future.awaitUninterruptibly(1, TimeUnit.SECONDS)) {
+            final ChannelFuture future = conn.command(Nop.getInstance());
+            if (future.awaitUninterruptibly(500, TimeUnit.MILLISECONDS)) {
                 return future.isSuccess();
             }
+            return false;
+        }
+        if (null != conn) {
+            return true;
         }
         return false;
     }
@@ -111,8 +126,10 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
     }
 
     public void close() {
-        bootstraps.clear();
-        if (!eventLoopGroup.isShuttingDown()) {
+        if (bootstraps != null) {
+            bootstraps.clear();
+        }
+        if (eventLoopGroup != null && !eventLoopGroup.isShuttingDown()) {
             Future<?> future = eventLoopGroup.shutdownGracefully(1, 2, TimeUnit.SECONDS);
         }
     }

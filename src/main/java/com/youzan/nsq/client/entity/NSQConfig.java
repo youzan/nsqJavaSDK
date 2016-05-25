@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.util.HostUtil;
 import com.youzan.util.IPUtil;
+import com.youzan.util.NotThreadSafe;
 import com.youzan.util.SystemUtil;
 
 import io.netty.handler.ssl.SslContext;
@@ -19,6 +20,7 @@ import io.netty.handler.ssl.SslContext;
  * @email linzuxiong1988@gmail.com
  *
  */
+@NotThreadSafe
 public class NSQConfig implements java.io.Serializable {
 
     private static final long serialVersionUID = 6624842850216901700L;

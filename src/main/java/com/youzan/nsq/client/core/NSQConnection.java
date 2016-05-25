@@ -36,17 +36,10 @@ public interface NSQConnection extends Closeable {
      * If any client wants to use my connection, then the client need to pass
      * itself into me because of the usage of Netty.
      * 
-     * @throws Exception
+     * @throws TimeoutException
      * 
      */
-    void init() throws Exception;
-
-    /**
-     * Netty. 异步/同步, 转换的上下文设置. Do it for encoder/decoder.
-     * 
-     * @param client
-     */
-    void setClient(Client client);
+    void init() throws TimeoutException;
 
     /**
      * @return

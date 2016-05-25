@@ -144,7 +144,6 @@ public class ProducerImplV2 implements Producer {
             try {
                 conn = this.bigPool.borrowObject(addr);
                 if (null != conn) {
-                    conn.setClient(this);
                     this.bigPool.returnObject(addr, conn);
                 }
             } catch (NoSuchElementException e) {
@@ -176,9 +175,15 @@ public class ProducerImplV2 implements Producer {
 
     @Override
     public void close() {
-        factory.close();
-        bigPool.close();
-        dataNodes.clear();
+        if (factory != null) {
+            factory.close();
+        }
+        if (bigPool != null) {
+            bigPool.close();
+        }
+        if (dataNodes != null && !dataNodes.isEmpty()) {
+            dataNodes.clear();
+        }
     }
 
     @Override

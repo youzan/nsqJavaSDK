@@ -44,7 +44,6 @@ public class NSQConnectionImpl implements NSQConnection {
     /**
      * @param address
      * @param channel
-     *            It is already connected and alive so far.
      * @param config
      */
     public NSQConnectionImpl(Address address, Channel channel, NSQConfig config) {
@@ -55,6 +54,23 @@ public class NSQConnectionImpl implements NSQConnection {
         final int timeout = config.getTimeoutInSecond() <= 0 ? 1 : config.getTimeoutInSecond();
         this.timeoutInSecond = timeout;
         this.timeoutInMillisecond = timeout << 10;
+    }
+
+    @Override
+    public void init() throws TimeoutException {
+        assert address != null;
+        assert config != null;
+        assert isConnected();
+        if (!havingNegotiation) {
+            command(Magic.getInstance());
+            final NSQCommand ident = new Identify(config);
+            final NSQFrame response = commandAndGetResponse(ident);
+            if (null == response) {
+                throw new IllegalStateException("Bad Identify Response! Close connection!");
+            }
+            havingNegotiation = true;
+        }
+        assert havingNegotiation;
     }
 
     @Override
@@ -69,7 +85,8 @@ public class NSQConnectionImpl implements NSQConnection {
         try {
             long timeout = timeoutInMillisecond - (0L);
             if (!requests.offer(command, timeoutInMillisecond, TimeUnit.MILLISECONDS)) {
-                throw new TimeoutException("Command: " + command + " timedout");
+                throw new TimeoutException(
+                        "The command is timeout. The command name is : " + command.getClass().getName());
             }
 
             responses.clear(); // clear
@@ -79,13 +96,14 @@ public class NSQConnectionImpl implements NSQConnection {
             // wait to get the response
             timeout = timeoutInMillisecond - (start - System.currentTimeMillis());
             if (!future.await(timeout, TimeUnit.MILLISECONDS)) {
-                throw new TimeoutException("Command: " + command + " timedout");
+                throw new TimeoutException(
+                        "The command is timeout. The command name is : " + command.getClass().getName());
             }
-
             timeout = timeoutInMillisecond - (start - System.currentTimeMillis());
             final NSQFrame frame = responses.poll(timeout, TimeUnit.MILLISECONDS);
             if (frame == null) {
-                throw new TimeoutException("Command: " + command + " timedout");
+                throw new TimeoutException(
+                        "The command is timeout. The command name is : " + command.getClass().getName());
             }
 
             requests.poll(); // clear
@@ -100,7 +118,7 @@ public class NSQConnectionImpl implements NSQConnection {
 
     @Override
     public boolean isConnected() {
-        return channel.isActive();
+        return channel.isActive() && havingNegotiation;
     }
 
     @Override
@@ -139,29 +157,6 @@ public class NSQConnectionImpl implements NSQConnection {
     @Override
     public Address getAddress() {
         return address;
-    }
-
-    @Override
-    public void setClient(Client client) {
-        channel.attr(Client.STATE).set(client);
-    }
-
-    @Override
-    public void init() throws Exception {
-        assert address != null;
-        assert config != null;
-        assert isConnected();
-
-        if (!havingNegotiation) {
-            command(Magic.getInstance());
-            final NSQCommand ident = new Identify(config);
-            final NSQFrame response = commandAndGetResponse(ident);
-            if (null == response) {
-                throw new IllegalStateException("Bad Identify Response! Close connection!");
-            }
-            havingNegotiation = true;
-        }
-        assert havingNegotiation;
     }
 
     @Override

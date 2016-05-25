@@ -14,8 +14,8 @@ public class ProducerTest {
 
     public static final String DEFAULT_CHARSET_NAME = "UTF-8";
 
-    @Test
-    public void pub() throws NSQException, UnsupportedEncodingException {
+    // @Test
+    public void produceUsingSimpleProducer() throws NSQException, UnsupportedEncodingException {
         NSQConfig config = new NSQConfig();
         config.setTopic("test");
         config.setLookupAddresses("127.0.0.1:4161");
@@ -35,13 +35,12 @@ public class ProducerTest {
         config.setTimeoutInSecond(60);
     }
 
-    // @Test
+    @Test
     public void newOneProducer() throws NSQException {
         final NSQConfig config = new NSQConfig();
         config.setLookupAddresses("127.0.0.1:4161");
         config.setTopic("test");
         final ProducerImplV2 p = new ProducerImplV2(config);
-        p.start();
         p.close();
     }
 
