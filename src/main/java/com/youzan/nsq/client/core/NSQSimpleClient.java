@@ -81,7 +81,6 @@ public class NSQSimpleClient implements Client {
                 IOUtil.closeQuietly(conn);
                 throw new NSQException("Bad Identify Response! Close connection!");
             }
-            conn.setHavingNegotiation(true);
         } catch (final TimeoutException e) {
             IOUtil.closeQuietly(conn);
             throw new NSQException("Client Performance Issue! Close connection!", e);

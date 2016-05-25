@@ -13,8 +13,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.youzan.nsq.client.core.Client;
-import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.KeyedConnectionPoolFactory;
+import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
 import com.youzan.nsq.client.core.command.Pub;
 import com.youzan.nsq.client.core.lookup.NSQLookupService;
@@ -145,14 +145,6 @@ public class ProducerImplV2 implements Producer {
                 conn = this.bigPool.borrowObject(addr);
                 if (null != conn) {
                     conn.setClient(this);
-                    if (!conn.isHavingNegotiation()) {
-                        this.negotiate(conn);
-                    }
-                    if (conn.isHavingNegotiation()) {
-                        return conn;
-                    } else {
-                        IOUtil.closeQuietly(conn);
-                    }
                     this.bigPool.returnObject(addr, conn);
                 }
             } catch (NoSuchElementException e) {

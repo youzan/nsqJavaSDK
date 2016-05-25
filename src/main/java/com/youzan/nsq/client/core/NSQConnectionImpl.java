@@ -54,23 +54,6 @@ public class NSQConnectionImpl implements NSQConnection {
         this.timeoutInMillisecond = timeoutInSecond << 10; // ~= * 1024
     }
 
-    /**
-     * @return the havingNegotiation
-     */
-    @Override
-    public boolean isHavingNegotiation() {
-        return havingNegotiation;
-    }
-
-    /**
-     * @param havingNegotiation
-     *            the havingNegotiation to set
-     */
-    @Override
-    public void setHavingNegotiation(boolean havingNegotiation) {
-        this.havingNegotiation = havingNegotiation;
-    }
-
     @Override
     public ChannelFuture command(NSQCommand cmd) {
         return channel.writeAndFlush(cmd);

@@ -13,7 +13,6 @@ import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.youzan.nsq.client.core.command.Magic;
 import com.youzan.nsq.client.core.command.Nop;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
@@ -93,15 +92,10 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
         final NSQConnection conn = p.getObject();
         if (null != conn && conn.isConnected()) {
             final ChannelFuture future;
-            if (conn.isHavingNegotiation()) {
-                future = conn.command(Nop.getInstance());
-            } else {
-                future = conn.command(Magic.getInstance());
+            future = conn.command(Nop.getInstance());
+            if (future.awaitUninterruptibly(1, TimeUnit.SECONDS)) {
+                return future.isSuccess();
             }
-            return future.isSuccess();
-            // if (future.awaitUninterruptibly(1, TimeUnit.SECONDS)) {
-            // return future.isSuccess();
-            // }
         }
         return false;
     }

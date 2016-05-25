@@ -24,6 +24,9 @@ public interface NSQConnection extends Closeable {
 
     public static final AttributeKey<NSQConnection> STATE = AttributeKey.valueOf("Connection.State");
 
+    /**
+     * 
+     */
     void init();
 
     /**
@@ -32,17 +35,16 @@ public interface NSQConnection extends Closeable {
     Address getAddress();
 
     /**
-     * Netty. 异步/同步, 转换的上下文设置
+     * Netty. 异步/同步, 转换的上下文设置. Do it for encoder/decoder.
      * 
      * @param client
      */
     void setClient(Client client);
 
+    /**
+     * @return
+     */
     boolean isConnected();
-
-    boolean isHavingNegotiation();
-
-    void setHavingNegotiation(boolean havingNegotiation);
 
     /**
      * synchronize the protocol packet
@@ -68,6 +70,9 @@ public interface NSQConnection extends Closeable {
      */
     void addErrorFrame(ErrorFrame frame);
 
+    /**
+     * Never throws any exception to the client. It is quiet.
+     */
     @Override
     void close();
 }
