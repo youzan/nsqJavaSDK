@@ -60,7 +60,7 @@ public class NSQConnectionImpl implements NSQConnection {
     public void init() throws TimeoutException {
         assert address != null;
         assert config != null;
-        assert isConnected();
+
         if (!havingNegotiation) {
             command(Magic.getInstance());
             final NSQCommand ident = new Identify(config);
@@ -71,6 +71,9 @@ public class NSQConnectionImpl implements NSQConnection {
             havingNegotiation = true;
         }
         assert havingNegotiation;
+        assert channel.isActive();
+        assert isConnected();
+        logger.info("Having initiate {} OK!", this);
     }
 
     @Override
@@ -128,6 +131,7 @@ public class NSQConnectionImpl implements NSQConnection {
             channel.attr(NSQConnection.STATE).remove();
             channel.attr(Client.STATE).remove();
             channel.close();
+            logger.info("Having closed {} OK!", this);
         } else {
             logger.error("No channel be setted?");
         }

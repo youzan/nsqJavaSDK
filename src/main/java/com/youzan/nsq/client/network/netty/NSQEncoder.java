@@ -13,13 +13,13 @@ import io.netty.handler.codec.MessageToMessageEncoder;
 public class NSQEncoder extends MessageToMessageEncoder<NSQCommand> {
 
     @Override
-    protected void encode(ChannelHandlerContext ctx, NSQCommand message, List<Object> out) throws Exception {
-        if (message == null) {
+    protected void encode(ChannelHandlerContext ctx, NSQCommand command, List<Object> out) throws Exception {
+        if (command == null) {
             throw new NullPointerException("I can not encode Null-Pointer!");
         }
 
-        if (message.getBytes() != null) {
-            final byte[] bs = message.getBytes();
+        if (command.getBytes() != null) {
+            final byte[] bs = command.getBytes();
             if (bs.length > 0) {
                 final ByteBuf buf = ByteBufAllocator.DEFAULT.buffer(bs.length);
                 buf.writeBytes(bs);
@@ -31,9 +31,9 @@ public class NSQEncoder extends MessageToMessageEncoder<NSQCommand> {
         }
 
         final ByteBuf buf = Unpooled.buffer();
-        buf.writeBytes(message.getHeader().getBytes(NSQCommand.DEFAULT_CHARSET_NAME));
+        buf.writeBytes(command.getHeader().getBytes(NSQCommand.DEFAULT_CHARSET_NAME));
 
-        final List<byte[]> body = message.getBody();
+        final List<byte[]> body = command.getBody();
         assert body != null;
         // for MPUB messages.
         if (body.size() > 1) {

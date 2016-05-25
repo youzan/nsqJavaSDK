@@ -69,7 +69,7 @@ public class ProducerImplV2 implements Producer {
         this.poolConfig = new GenericKeyedObjectPoolConfig();
 
         this.lookup = new NSQLookupServiceImpl(config.getLookupAddresses());
-        this.simpleClient = new NSQSimpleClient(this.config);
+        this.simpleClient = new NSQSimpleClient();
         this.factory = new KeyedConnectionPoolFactory(this.config, this);
     }
 

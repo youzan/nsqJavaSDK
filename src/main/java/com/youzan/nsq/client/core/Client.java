@@ -9,6 +9,8 @@ import com.youzan.nsq.client.network.frame.NSQFrame;
 import io.netty.util.AttributeKey;
 
 /**
+ * NSQ business processing.
+ * 
  * @author zhaoxi (linzuxiong)
  * @email linzuxiong1988@gmail.com
  *
@@ -17,7 +19,7 @@ public interface Client {
     public static final AttributeKey<Client> STATE = AttributeKey.valueOf("Client.State");
 
     /**
-     * Receive the frame of NSQ
+     * Receive the frame of NSQ.
      * 
      * @param frame
      * @param conn

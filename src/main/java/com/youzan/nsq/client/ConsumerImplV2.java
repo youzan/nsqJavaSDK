@@ -43,7 +43,7 @@ public class ConsumerImplV2 implements Consumer {
     public ConsumerImplV2(NSQConfig config, MessageHandler handler) {
         this.config = config;
         this.lookup = new NSQLookupServiceImpl(config.getLookupAddresses());
-        this.simpleClient = new NSQSimpleClient(this.config);
+        this.simpleClient = new NSQSimpleClient();
     }
 
     @Override

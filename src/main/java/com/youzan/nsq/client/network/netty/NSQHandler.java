@@ -62,7 +62,7 @@ public class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
                 logger.error("No connection set for {}", ctx.channel());
             }
             if (null == worker) {
-                logger.error("No ConsumerWorker set for {}", ctx.channel());
+                logger.error("No worker set for {}", ctx.channel());
             }
         }
     }

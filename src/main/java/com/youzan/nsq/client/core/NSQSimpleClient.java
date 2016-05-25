@@ -8,7 +8,6 @@ import org.slf4j.LoggerFactory;
 
 import com.youzan.nsq.client.core.command.Nop;
 import com.youzan.nsq.client.core.command.Rdy;
-import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.Response;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
@@ -25,10 +24,7 @@ import com.youzan.nsq.client.network.frame.ResponseFrame;
 public class NSQSimpleClient implements Client {
     private static final Logger logger = LoggerFactory.getLogger(NSQSimpleClient.class);
 
-    private final NSQConfig config;
-
-    public NSQSimpleClient(NSQConfig config) {
-        this.config = config;
+    public NSQSimpleClient() {
     }
 
     @Override
@@ -45,7 +41,7 @@ public class NSQSimpleClient implements Client {
                 break;
             }
             case ERROR_FRAME: {
-                // ErrorCallback ?
+                // TODO Error Callback?
                 conn.addErrorFrame((ErrorFrame) frame);
                 break;
             }
