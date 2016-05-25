@@ -71,6 +71,7 @@
 
     <root level="DEBUG">
         <appender-ref ref="STDOUT" />
+        <appender-ref ref="DEBUG" />
         <appender-ref ref="INFO" />
         <appender-ref ref="ERROR" />
     </root>
