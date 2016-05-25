@@ -151,7 +151,7 @@ public class ProducerImplV2 implements Producer {
         while (c++ < retries) {
             final int index = (this.offset++ & Integer.MAX_VALUE) % size;
             final Address addr = addrs[index];
-            logger.info("Load-Balancing algorithm is Round-Robin! Size: {}, Index: {}", size, index);
+            logger.debug("Load-Balancing algorithm is Round-Robin! Size: {}, Index: {}", size, index);
             NSQConnection conn = null;
             try {
                 conn = this.bigPool.borrowObject(addr);

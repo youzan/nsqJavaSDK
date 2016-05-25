@@ -92,7 +92,6 @@ public class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
             } catch (Exception e) {
                 logger.error("Exception", e);
             }
-            logger.error("No connection set for {}", channel);
         }
     }
 
