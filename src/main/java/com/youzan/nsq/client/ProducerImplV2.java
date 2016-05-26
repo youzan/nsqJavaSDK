@@ -47,9 +47,9 @@ import com.youzan.util.Lists;
 public class ProducerImplV2 implements Producer {
 
     private static final Logger logger = LoggerFactory.getLogger(ProducerImplV2.class);
-    private final Client simpleClient;
-
     private volatile boolean started = false;
+
+    private final Client simpleClient;
 
     private final NSQConfig config;
     private volatile NSQLookupService migratingLookup = null;
@@ -180,19 +180,6 @@ public class ProducerImplV2 implements Producer {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             logger.error("System is too busy! Please check it!", e);
-        }
-    }
-
-    @Override
-    public void close() {
-        if (factory != null) {
-            factory.close();
-        }
-        if (bigPool != null) {
-            bigPool.close();
-        }
-        if (dataNodes != null && !dataNodes.isEmpty()) {
-            dataNodes.clear();
         }
     }
 
@@ -345,5 +332,18 @@ public class ProducerImplV2 implements Producer {
     @Override
     public void backoff(NSQConnection conn) {
         simpleClient.backoff(conn);
+    }
+
+    @Override
+    public void close() {
+        if (factory != null) {
+            factory.close();
+        }
+        if (bigPool != null) {
+            bigPool.close();
+        }
+        if (dataNodes != null && !dataNodes.isEmpty()) {
+            dataNodes.clear();
+        }
     }
 }

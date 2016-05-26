@@ -55,7 +55,7 @@ public class NSQLookupServiceImpl implements NSQLookupService {
 
         final Random r = new Random(10000);
         offset = r.nextInt(100);
-        // this.checkLookupServers();
+        // checkLookupServers();
     }
 
     /**
@@ -66,7 +66,7 @@ public class NSQLookupServiceImpl implements NSQLookupService {
             throw new IllegalArgumentException("Your input 'addresses' is blank!");
         }
         Collections.sort(addresses);
-        this.setAddresses(addresses);
+        setAddresses(addresses);
         init();
     }
 
@@ -92,7 +92,7 @@ public class NSQLookupServiceImpl implements NSQLookupService {
         } else {
             tmpList = new ArrayList<>(0);
         }
-        this.setAddresses(tmpList);
+        setAddresses(tmpList);
         init();
     }
 
