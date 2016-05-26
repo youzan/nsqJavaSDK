@@ -2,7 +2,6 @@ package com.youzan.nsq.client;
 
 import java.util.Random;
 import java.util.SortedSet;
-import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
@@ -20,6 +19,7 @@ import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.network.frame.NSQFrame;
+import com.youzan.util.ConcurrentSortedSet;
 
 /**
  * Use {@code NSQConfig} to set the lookup cluster. <br />
@@ -42,11 +42,11 @@ public class ConsumerImplV2 implements Consumer {
     /**
      * NSQd Servers
      */
-    private final SortedSet<Address> dataNodes = new TreeSet<>();
+    private final ConcurrentSortedSet<Address> dataNodes = new ConcurrentSortedSet<>();
     private volatile int offset = 0;
     private final NSQLookupService lookup;
-    private GenericKeyedObjectPoolConfig poolConfig = null;
-    private KeyedConnectionPoolFactory factory;
+    private final GenericKeyedObjectPoolConfig poolConfig;
+    private final KeyedConnectionPoolFactory factory;
     private GenericKeyedObjectPool<Address, NSQConnection> bigPool = null;
 
     private final AtomicInteger success = new AtomicInteger(0);
@@ -72,20 +72,25 @@ public class ConsumerImplV2 implements Consumer {
 
     @Override
     public Consumer start() throws NSQException {
-        if (!started) {
-            started = true;
+        if (this.config.getConsumerName() == null || this.config.getConsumerName().isEmpty()) {
+            throw new IllegalArgumentException("Consumer Name is blank! Please check it!");
+        }
+        if (!this.started) {
+            this.started = true;
+
             // setting all of the configs
-            poolConfig.setFairness(false);
-            poolConfig.setTestOnBorrow(false);
-            poolConfig.setJmxEnabled(false);
-            poolConfig.setMinIdlePerKey(1);
-            poolConfig.setMinEvictableIdleTimeMillis(90 * 1000);
-            poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
-            poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());
-            poolConfig.setMaxWaitMillis(500); // aquire connection waiting time
-            poolConfig.setBlockWhenExhausted(false);
-            poolConfig.setTestWhileIdle(true);
-            createBigPool();
+            this.poolConfig.setFairness(false);
+            this.poolConfig.setTestOnBorrow(false);
+            this.poolConfig.setJmxEnabled(false);
+            this.poolConfig.setMinIdlePerKey(1);
+            this.poolConfig.setMinEvictableIdleTimeMillis(90 * 1000);
+            this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
+            this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());
+            // aquire connection waiting time
+            this.poolConfig.setMaxWaitMillis(500);
+            this.poolConfig.setBlockWhenExhausted(true);
+            this.poolConfig.setTestWhileIdle(true);
+
             final String topic = this.config.getTopic();
             if (topic == null || topic.isEmpty()) {
                 throw new NSQException("Please set topic name using {@code NSQConfig}");
@@ -95,8 +100,7 @@ public class ConsumerImplV2 implements Consumer {
                 try {
                     final SortedSet<Address> nodes = this.lookup.lookup(this.config.getTopic());
                     if (nodes != null && !nodes.isEmpty()) {
-                        this.dataNodes.clear();
-                        this.dataNodes.addAll(nodes);
+                        this.dataNodes.swap(nodes);
                         break;
                     }
                 } catch (Exception e) {
@@ -106,6 +110,7 @@ public class ConsumerImplV2 implements Consumer {
             }
             final Random r = new Random(10000);
             this.offset = r.nextInt(100);
+            createBigPool();
         }
         return this;
     }
@@ -116,6 +121,7 @@ public class ConsumerImplV2 implements Consumer {
     private void createBigPool() {
         this.bigPool = new GenericKeyedObjectPool<>(this.factory, this.poolConfig);
         assert this.bigPool != null;
+        // TODO new connection directly.
     }
 
     /**

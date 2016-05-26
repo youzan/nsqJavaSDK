@@ -95,6 +95,11 @@ public class ConcurrentSortedSet<T> {
         }
     }
 
+    /**
+     * Replace inner-data into the specified target.
+     * 
+     * @param target
+     */
     @SuppressWarnings("unchecked")
     public void swap(SortedSet<T> target) {
         if (target == null || target.isEmpty()) {

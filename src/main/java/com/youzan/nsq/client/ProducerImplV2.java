@@ -56,18 +56,18 @@ public class ProducerImplV2 implements Producer {
     /**
      * NSQd Servers
      */
-    private final ConcurrentSortedSet<Address> dataNodes = new ConcurrentSortedSet<Address>();
+    private final ConcurrentSortedSet<Address> dataNodes = new ConcurrentSortedSet<>();
     private volatile int offset = 0;
     private final NSQLookupService lookup;
-    private GenericKeyedObjectPoolConfig poolConfig = null;
-    private KeyedConnectionPoolFactory factory;
+    private final GenericKeyedObjectPoolConfig poolConfig;
+    private final KeyedConnectionPoolFactory factory;
     private GenericKeyedObjectPool<Address, NSQConnection> bigPool = null;
 
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger total = new AtomicInteger(0);
 
     /**
-     * Record the client's publish time
+     * Record the client's request time
      */
     private volatile long lastTimeInMillisOfClientRequest = System.currentTimeMillis();
 
@@ -99,7 +99,6 @@ public class ProducerImplV2 implements Producer {
             this.poolConfig.setMaxWaitMillis(500);
             this.poolConfig.setBlockWhenExhausted(false);
             this.poolConfig.setTestWhileIdle(true);
-            createBigPool();
             final String topic = this.config.getTopic();
             if (topic == null || topic.isEmpty()) {
                 throw new NSQException("Please set topic name using {@code NSQConfig}");
@@ -120,6 +119,7 @@ public class ProducerImplV2 implements Producer {
             }
             final Random r = new Random(10000);
             this.offset = r.nextInt(100);
+            createBigPool();
         }
         return this;
     }
