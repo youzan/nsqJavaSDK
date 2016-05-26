@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.SortedSet;
-import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
@@ -30,6 +29,7 @@ import com.youzan.nsq.client.exception.NSQInvalidTopicException;
 import com.youzan.nsq.client.exception.NoConnectionException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
+import com.youzan.util.ConcurrentSortedSet;
 import com.youzan.util.IOUtil;
 import com.youzan.util.Lists;
 
@@ -56,7 +56,7 @@ public class ProducerImplV2 implements Producer {
     /**
      * NSQd Servers
      */
-    private final SortedSet<Address> dataNodes = new TreeSet<>();
+    private final ConcurrentSortedSet<Address> dataNodes = new ConcurrentSortedSet<Address>();
     private volatile int offset = 0;
     private final NSQLookupService lookup;
     private GenericKeyedObjectPoolConfig poolConfig = null;
@@ -85,19 +85,20 @@ public class ProducerImplV2 implements Producer {
 
     @Override
     public Producer start() throws NSQException {
-        if (!started) {
-            started = true;
+        if (!this.started) {
+            this.started = true;
             // setting all of the configs
-            poolConfig.setFairness(false);
-            poolConfig.setTestOnBorrow(true);
-            poolConfig.setJmxEnabled(false);
-            poolConfig.setMinIdlePerKey(1);
-            poolConfig.setMinEvictableIdleTimeMillis(90 * 1000);
-            poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
-            poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());
-            poolConfig.setMaxWaitMillis(500); // aquire connection waiting time
-            poolConfig.setBlockWhenExhausted(false);
-            poolConfig.setTestWhileIdle(true);
+            this.poolConfig.setFairness(false);
+            this.poolConfig.setTestOnBorrow(true);
+            this.poolConfig.setJmxEnabled(false);
+            this.poolConfig.setMinIdlePerKey(1);
+            this.poolConfig.setMinEvictableIdleTimeMillis(90 * 1000);
+            this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
+            this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());
+            // aquire connection waiting time
+            this.poolConfig.setMaxWaitMillis(500);
+            this.poolConfig.setBlockWhenExhausted(false);
+            this.poolConfig.setTestWhileIdle(true);
             createBigPool();
             final String topic = this.config.getTopic();
             if (topic == null || topic.isEmpty()) {
@@ -109,8 +110,7 @@ public class ProducerImplV2 implements Producer {
                 try {
                     final SortedSet<Address> nodes = this.lookup.lookup(this.config.getTopic());
                     if (nodes != null && !nodes.isEmpty()) {
-                        this.dataNodes.clear();
-                        this.dataNodes.addAll(nodes);
+                        this.dataNodes.swap(nodes);
                         break;
                     }
                 } catch (Exception e) {
@@ -146,7 +146,7 @@ public class ProducerImplV2 implements Producer {
             throw new NoConnectionException("You still didn't start NSQd / lookup-topic / producer.start() ! ");
         }
         final int retries = size + 1;
-        final Address[] addrs = this.dataNodes.toArray(new Address[size]);
+        final Address[] addrs = this.dataNodes.newArray(new Address[size]);
         int c = 0;
         while (c++ < retries) {
             final int index = (this.offset++ & Integer.MAX_VALUE) % size;

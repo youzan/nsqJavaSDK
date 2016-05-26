@@ -21,7 +21,7 @@ import org.slf4j.LoggerFactory;
  *
  */
 @ThreadSafe
-public final class ConcurrentSortedSet<T> {
+public class ConcurrentSortedSet<T> {
     private static final long serialVersionUID = -4747846630389873940L;
     private static final Logger logger = LoggerFactory.getLogger(ConcurrentSortedSet.class);
 
@@ -32,47 +32,41 @@ public final class ConcurrentSortedSet<T> {
     private final WriteLock w = lock.writeLock();
 
     public ConcurrentSortedSet() {
-        while (w.tryLock()) {
-            try {
-                set = new TreeSet<>();
-                array = null;
-            } finally {
-                w.unlock();
-            }
+        w.lock();
+        try {
+            set = new TreeSet<>();
+            array = null;
+        } finally {
+            w.unlock();
         }
     }
 
     @SuppressWarnings("hiding")
     public <T> T[] newArray(T[] a) {
-        while (r.tryLock()) {
-            try {
-                return set.toArray(a);
-            } finally {
-                r.unlock();
-            }
+        r.lock();
+        try {
+            return set.toArray(a);
+        } finally {
+            r.unlock();
         }
-        return null;
     }
 
     @SuppressWarnings({ "hiding", "unchecked" })
     public <T> T[] getArray() {
-        while (r.tryLock()) {
-            try {
-                return (T[]) array;
-            } finally {
-                r.unlock();
-            }
+        r.lock();
+        try {
+            return (T[]) array;
+        } finally {
+            r.unlock();
         }
-        return null;
     }
 
     public void clear() {
-        while (w.tryLock()) {
-            try {
-                set.clear();
-            } finally {
-                w.unlock();
-            }
+        w.lock();
+        try {
+            set.clear();
+        } finally {
+            w.unlock();
         }
     }
 
@@ -106,7 +100,6 @@ public final class ConcurrentSortedSet<T> {
         if (target == null || target.isEmpty()) {
             throw new IllegalArgumentException("Your input is black!");
         }
-
         w.lock();
         final SortedSet<T> tmp = set;
         try {
@@ -117,5 +110,29 @@ public final class ConcurrentSortedSet<T> {
             w.unlock();
         }
         tmp.clear();
+    }
+
+    public void add(T e) {
+        if (e == null) {
+            return;
+        }
+        w.lock();
+        try {
+            set.add(e);
+        } finally {
+            w.unlock();
+        }
+    }
+
+    /**
+     * @return
+     */
+    public boolean isEmpty() {
+        r.lock();
+        try {
+            return set.isEmpty();
+        } finally {
+            r.unlock();
+        }
     }
 }

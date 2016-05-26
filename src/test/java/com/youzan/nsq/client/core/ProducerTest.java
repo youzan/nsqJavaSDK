@@ -26,7 +26,7 @@ public class ProducerTest {
         config.setThreadPoolSize4IO(1);
         Producer p = new ProducerImplV2(config);
         p.start();
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < 10000; i++) {
             p.publish(randomString().getBytes(DEFAULT_CHARSET_NAME));
             logger.info("OK");
             assert true;

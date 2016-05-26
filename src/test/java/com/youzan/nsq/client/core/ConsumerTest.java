@@ -15,6 +15,7 @@ public class ConsumerTest {
         config.setLookupAddresses("127.0.0.1:4161");
         config.setThreadPoolSize4IO(1);
         config.setMsgTimeoutInMillisecond(60 * 1000);
+        config.setConsumerName("consumer_is_zhaoxi");
         final ConsumerImplV2 consumer = new ConsumerImplV2(config, (message) -> {
             Assert.assertNotNull(message);
             return false;
