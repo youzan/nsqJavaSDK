@@ -1,5 +1,6 @@
 package com.youzan.nsq.client;
 
+import java.util.Random;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -17,6 +18,7 @@ import com.youzan.nsq.client.core.lookup.NSQLookupService;
 import com.youzan.nsq.client.core.lookup.NSQLookupServiceImpl;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 
 /**
@@ -51,7 +53,7 @@ public class ConsumerImplV2 implements Consumer {
     private final AtomicInteger total = new AtomicInteger(0);
 
     /**
-     * Record the client's publish time
+     * Record the client's request time
      */
     private volatile long lastTimeInMillisOfClientRequest = System.currentTimeMillis();
 
@@ -61,15 +63,49 @@ public class ConsumerImplV2 implements Consumer {
      */
     public ConsumerImplV2(NSQConfig config, MessageHandler handler) {
         this.config = config;
+        this.poolConfig = new GenericKeyedObjectPoolConfig();
+
         this.lookup = new NSQLookupServiceImpl(config.getLookupAddresses());
         this.simpleClient = new NSQSimpleClient();
+        this.factory = new KeyedConnectionPoolFactory(this.config, this);
     }
 
     @Override
-    public Consumer start() {
+    public Consumer start() throws NSQException {
         if (!started) {
             started = true;
+            // setting all of the configs
+            poolConfig.setFairness(false);
+            poolConfig.setTestOnBorrow(false);
+            poolConfig.setJmxEnabled(false);
+            poolConfig.setMinIdlePerKey(1);
+            poolConfig.setMinEvictableIdleTimeMillis(90 * 1000);
+            poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
+            poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());
+            poolConfig.setMaxWaitMillis(500); // aquire connection waiting time
+            poolConfig.setBlockWhenExhausted(false);
+            poolConfig.setTestWhileIdle(true);
             createBigPool();
+            final String topic = this.config.getTopic();
+            if (topic == null || topic.isEmpty()) {
+                throw new NSQException("Please set topic name using {@code NSQConfig}");
+            }
+            int c = 0;
+            while (c++ < 3) { // 0,1,2
+                try {
+                    final SortedSet<Address> nodes = this.lookup.lookup(this.config.getTopic());
+                    if (nodes != null && !nodes.isEmpty()) {
+                        this.dataNodes.clear();
+                        this.dataNodes.addAll(nodes);
+                        break;
+                    }
+                } catch (Exception e) {
+                    logger.error("Exception", e);
+                }
+                sleep(1000 * c);
+            }
+            final Random r = new Random(10000);
+            this.offset = r.nextInt(100);
         }
         return this;
     }
@@ -78,6 +114,20 @@ public class ConsumerImplV2 implements Consumer {
      * 
      */
     private void createBigPool() {
+        this.bigPool = new GenericKeyedObjectPool<>(this.factory, this.poolConfig);
+        assert this.bigPool != null;
+    }
+
+    /**
+     * @param millisecond
+     */
+    private void sleep(final int millisecond) {
+        try {
+            Thread.sleep(millisecond);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("System is too busy! Please check it!", e);
+        }
     }
 
     @Override
@@ -92,5 +142,14 @@ public class ConsumerImplV2 implements Consumer {
 
     @Override
     public void close() {
+        if (factory != null) {
+            factory.close();
+        }
+        if (bigPool != null) {
+            bigPool.close();
+        }
+        if (dataNodes != null && !dataNodes.isEmpty()) {
+            dataNodes.clear();
+        }
     }
 }
