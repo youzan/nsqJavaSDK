@@ -3,6 +3,9 @@ package com.youzan.nsq.client;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
@@ -22,6 +25,7 @@ import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.util.ConcurrentSortedSet;
+import com.youzan.util.NamedThreadFactory;
 
 /**
  * Use {@code NSQConfig} to set the lookup cluster. <br />
@@ -50,6 +54,9 @@ public class ConsumerImplV2 implements Consumer {
     private volatile long lastTimeInMillisOfClientRequest = System.currentTimeMillis();
 
     private final ConcurrentHashMap<Address, Set<NSQConnection>> holdingConnections = new ConcurrentHashMap<>();
+
+    private final ScheduledExecutorService scheduler = Executors
+            .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
 
     /**
      * @param config
@@ -80,7 +87,7 @@ public class ConsumerImplV2 implements Consumer {
             this.poolConfig.setTestOnBorrow(false);
             this.poolConfig.setJmxEnabled(false);
             this.poolConfig.setMinIdlePerKey(1);
-            this.poolConfig.setMinEvictableIdleTimeMillis(90 * 1000);
+            this.poolConfig.setMinEvictableIdleTimeMillis(180 * 1000);
             this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());
             // aquire connection waiting time
@@ -91,6 +98,9 @@ public class ConsumerImplV2 implements Consumer {
             final Random r = new Random(10000);
             this.offset = r.nextInt(100);
             createBigPool();
+            // POST
+            newConnections();
+            keepDataNodeConnections();
         }
     }
 
@@ -106,6 +116,22 @@ public class ConsumerImplV2 implements Consumer {
      * schedule action
      */
     private void keepDataNodeConnections() {
+        final Random random = new Random(10000);
+        final int delay = random.nextInt(120) + 120; // seconds
+        scheduler.scheduleWithFixedDelay(() -> {
+            try {
+                newConnections();
+            } catch (Exception e) {
+                logger.error("Exception", e);
+            }
+        }, delay, 1 * 60, TimeUnit.SECONDS);
+    }
+
+    /**
+     * 
+     */
+    private void newConnections() {
+        // TODO
     }
 
     /**

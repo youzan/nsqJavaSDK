@@ -78,7 +78,11 @@ public class NSQSimpleClient implements Client {
         final Random random = new Random(10000);
         final int delay = random.nextInt(120) + 120; // seconds
         scheduler.scheduleWithFixedDelay(() -> {
-            newDataNodes();
+            try {
+                newDataNodes();
+            } catch (Exception e) {
+                logger.error("Exception", e);
+            }
         }, delay, 1 * 60, TimeUnit.SECONDS);
     }
 
