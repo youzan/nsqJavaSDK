@@ -99,8 +99,8 @@ public class ConsumerImplV2 implements Consumer {
             this.offset = r.nextInt(100);
             createBigPool();
             // POST
-            newConnections();
-            keepDataNodeConnections();
+            connect();
+            keepConnecting();
         }
     }
 
@@ -114,12 +114,12 @@ public class ConsumerImplV2 implements Consumer {
     /**
      * schedule action
      */
-    private void keepDataNodeConnections() {
+    private void keepConnecting() {
         final Random random = new Random(10000);
         final int delay = random.nextInt(120) + 120; // seconds
         scheduler.scheduleWithFixedDelay(() -> {
             try {
-                newConnections();
+                connect();
             } catch (Exception e) {
                 logger.error("Exception", e);
             }
@@ -129,8 +129,9 @@ public class ConsumerImplV2 implements Consumer {
     /**
      * 
      */
-    private void newConnections() {
+    private void connect() {
         // TODO
+        final ConcurrentSortedSet<Address> dataNodes = getDataNodes();
     }
 
     /**
@@ -167,11 +168,12 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     private void cleanClose() {
-        holdingConnections.values().forEach((conns) -> {
-            for (NSQConnection c : conns) {
+        holdingConnections.values().parallelStream().forEach((conns) -> {
+            for (final NSQConnection c : conns) {
                 try {
                     backoff(c);
                     final NSQFrame frame = c.commandAndGetResponse(Close.getInstance());
+                    bigPool.returnObject(c.getAddress(), c);
                     if (frame != null && frame instanceof ErrorFrame) {
                         final Response err = ((ErrorFrame) frame).getError();
                         if (err != null) {
@@ -183,10 +185,11 @@ public class ConsumerImplV2 implements Consumer {
                 }
             }
         });
+        holdingConnections.clear();
     }
 
     @Override
     public ConcurrentSortedSet<Address> getDataNodes() {
-        return null;
+        return simpleClient.getDataNodes();
     }
 }

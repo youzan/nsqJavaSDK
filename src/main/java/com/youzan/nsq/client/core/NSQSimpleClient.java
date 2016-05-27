@@ -50,6 +50,7 @@ public class NSQSimpleClient implements Client {
         keepDataNodes();
     }
 
+    @Override
     public void start() {
         newDataNodes();
     }
@@ -71,9 +72,6 @@ public class NSQSimpleClient implements Client {
         }
     }
 
-    /**
-     * 
-     */
     private void keepDataNodes() {
         final Random random = new Random(10000);
         final int delay = random.nextInt(120) + 120; // seconds
@@ -100,7 +98,6 @@ public class NSQSimpleClient implements Client {
                 break;
             }
             case ERROR_FRAME: {
-                // TODO Error Callback?
                 conn.addErrorFrame((ErrorFrame) frame);
                 break;
             }

@@ -109,9 +109,6 @@ public class ConcurrentSortedSet<T> {
         }
     }
 
-    /**
-     * @return
-     */
     public boolean isEmpty() {
         r.lock();
         try {

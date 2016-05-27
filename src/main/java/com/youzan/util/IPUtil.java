@@ -42,24 +42,4 @@ public final class IPUtil {
         result.append(ipv4 & 0xFF);
         return result.toString();
     }
-
-    /**
-     * TODO
-     * 
-     * @param ipv6
-     * @return
-     */
-    public static long ipv6(String ipv6) {
-        return 0;
-    }
-
-    /**
-     * TODO
-     * 
-     * @param ipv6
-     * @return
-     */
-    public static String ipv6(long ipv6) {
-        return "";
-    }
 }

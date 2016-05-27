@@ -105,7 +105,7 @@ public class ProducerImplV2 implements Producer {
     }
 
     /**
-     * TODO Get a connection for the ordered message handler
+     * Get a connection for the ordered message handler
      * 
      * @return NSQConnection that is having done a negotiation
      * @throws NoConnectionException
