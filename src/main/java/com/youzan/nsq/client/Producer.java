@@ -12,6 +12,8 @@ import com.youzan.nsq.client.exception.NSQException;
  *
  */
 public interface Producer extends Client, Closeable {
+    @Override
+    void start() throws NSQException;
 
     /**
      * 生产单条的'消息'

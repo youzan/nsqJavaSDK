@@ -102,7 +102,6 @@ public class ProducerImplV2 implements Producer {
      */
     private void createBigPool() {
         this.bigPool = new GenericKeyedObjectPool<>(this.factory, this.poolConfig);
-        assert this.bigPool != null;
     }
 
     /**
@@ -121,12 +120,12 @@ public class ProducerImplV2 implements Producer {
         final Address[] addrs = dataNodes.newArray(new Address[size]);
         int c = 0;
         while (c++ < retries) {
-            final int index = (this.offset++ & Integer.MAX_VALUE) % size;
+            final int index = (offset++ & Integer.MAX_VALUE) % size;
             final Address addr = addrs[index];
             logger.debug("Load-Balancing algorithm is Round-Robin! Size: {}, Index: {}", size, index);
             NSQConnection conn = null;
             try {
-                conn = this.bigPool.borrowObject(addr);
+                conn = bigPool.borrowObject(addr);
                 return conn;
             } catch (NoSuchElementException e) {
                 // Either the pool is too busy or NSQd is down.
@@ -165,7 +164,7 @@ public class ProducerImplV2 implements Producer {
         }
         total.incrementAndGet();
         lastTimeInMillisOfClientRequest = System.currentTimeMillis();
-        final Pub pub = new Pub(this.config.getTopic(), message);
+        final Pub pub = new Pub(config.getTopic(), message);
         int c = 0; // be continuous
         while (c++ < 3) { // 0,1,2
             final NSQConnection conn = getNSQConnection();
@@ -180,7 +179,7 @@ public class ProducerImplV2 implements Producer {
                 // Continue to retry
                 logger.error("Exception", e);
             } finally {
-                this.bigPool.returnObject(conn.getAddress(), conn);
+                bigPool.returnObject(conn.getAddress(), conn);
             }
             if (resp == null) {
                 continue;
@@ -244,7 +243,7 @@ public class ProducerImplV2 implements Producer {
      */
     private void publishBatch(List<byte[]> batch) throws NoConnectionException, NSQDataNodeDownException,
             NSQInvalidTopicException, NSQInvalidMessageException, NSQException {
-        final Mpub pub = new Mpub(this.config.getTopic(), batch);
+        final Mpub pub = new Mpub(config.getTopic(), batch);
         int c = 0; // be continuous
         while (c++ < 3) { // 0,1,2
             final NSQConnection conn = getNSQConnection();
@@ -259,7 +258,7 @@ public class ProducerImplV2 implements Producer {
                 // Continue to retry
                 logger.error("Exception", e);
             } finally {
-                this.bigPool.returnObject(conn.getAddress(), conn);
+                bigPool.returnObject(conn.getAddress(), conn);
             }
             if (resp == null) {
                 continue;

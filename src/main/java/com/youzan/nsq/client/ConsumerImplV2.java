@@ -109,7 +109,6 @@ public class ConsumerImplV2 implements Consumer {
      */
     private void createBigPool() {
         this.bigPool = new GenericKeyedObjectPool<>(this.factory, this.poolConfig);
-        assert this.bigPool != null;
     }
 
     /**
