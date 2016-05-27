@@ -1,7 +1,9 @@
 package com.youzan.nsq.client;
 
 import java.util.Random;
+import java.util.Set;
 import java.util.SortedSet;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
@@ -34,9 +36,7 @@ public class ConsumerImplV2 implements Consumer {
 
     private static final Logger logger = LoggerFactory.getLogger(ConsumerImplV2.class);
     private volatile boolean started = false;
-
     private final Client simpleClient;
-
     private final NSQConfig config;
     private volatile NSQLookupService migratingLookup = null;
     /**
@@ -48,14 +48,14 @@ public class ConsumerImplV2 implements Consumer {
     private final GenericKeyedObjectPoolConfig poolConfig;
     private final KeyedConnectionPoolFactory factory;
     private GenericKeyedObjectPool<Address, NSQConnection> bigPool = null;
-
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger total = new AtomicInteger(0);
-
     /**
      * Record the client's request time
      */
     private volatile long lastTimeInMillisOfClientRequest = System.currentTimeMillis();
+
+    private final ConcurrentHashMap<Address, Set<NSQConnection>> holdingConnections = new ConcurrentHashMap<>();
 
     /**
      * @param config

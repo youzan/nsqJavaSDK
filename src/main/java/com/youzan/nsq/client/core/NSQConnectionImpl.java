@@ -168,4 +168,86 @@ public class NSQConnectionImpl implements NSQConnection {
         return config;
     }
 
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((address == null) ? 0 : address.hashCode());
+        result = prime * result + ((channel == null) ? 0 : channel.hashCode());
+        result = prime * result + ((config == null) ? 0 : config.hashCode());
+        result = prime * result + (havingNegotiation ? 1231 : 1237);
+        result = prime * result + ((requests == null) ? 0 : requests.hashCode());
+        result = prime * result + ((responses == null) ? 0 : responses.hashCode());
+        result = prime * result + (int) (timeoutInMillisecond ^ (timeoutInMillisecond >>> 32));
+        result = prime * result + timeoutInSecond;
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        NSQConnectionImpl other = (NSQConnectionImpl) obj;
+        if (address == null) {
+            if (other.address != null) {
+                return false;
+            }
+        } else if (!address.equals(other.address)) {
+            return false;
+        }
+        if (channel == null) {
+            if (other.channel != null) {
+                return false;
+            }
+        } else if (!channel.equals(other.channel)) {
+            return false;
+        }
+        if (config == null) {
+            if (other.config != null) {
+                return false;
+            }
+        } else if (!config.equals(other.config)) {
+            return false;
+        }
+        if (havingNegotiation != other.havingNegotiation) {
+            return false;
+        }
+        if (requests == null) {
+            if (other.requests != null) {
+                return false;
+            }
+        } else if (!requests.equals(other.requests)) {
+            return false;
+        }
+        if (responses == null) {
+            if (other.responses != null) {
+                return false;
+            }
+        } else if (!responses.equals(other.responses)) {
+            return false;
+        }
+        if (timeoutInMillisecond != other.timeoutInMillisecond) {
+            return false;
+        }
+        if (timeoutInSecond != other.timeoutInSecond) {
+            return false;
+        }
+        return true;
+    }
+
+    @Override
+    public String toString() {
+        // JDK8
+        return "NSQConnectionImpl [requests=" + requests + ", responses=" + responses + ", havingNegotiation="
+                + havingNegotiation + ", address=" + address + ", channel=" + channel + ", config=" + config
+                + ", timeoutInSecond=" + timeoutInSecond + ", timeoutInMillisecond=" + timeoutInMillisecond + "]";
+    }
+
 }

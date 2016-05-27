@@ -48,9 +48,7 @@ public class ProducerImplV2 implements Producer {
 
     private static final Logger logger = LoggerFactory.getLogger(ProducerImplV2.class);
     private volatile boolean started = false;
-
     private final Client simpleClient;
-
     private final NSQConfig config;
     private volatile NSQLookupService migratingLookup = null;
     /**
@@ -62,10 +60,8 @@ public class ProducerImplV2 implements Producer {
     private final GenericKeyedObjectPoolConfig poolConfig;
     private final KeyedConnectionPoolFactory factory;
     private GenericKeyedObjectPool<Address, NSQConnection> bigPool = null;
-
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger total = new AtomicInteger(0);
-
     /**
      * Record the client's request time
      */
