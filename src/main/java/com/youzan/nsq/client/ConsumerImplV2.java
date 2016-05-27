@@ -1,5 +1,6 @@
 package com.youzan.nsq.client;
 
+import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,7 +43,6 @@ public class ConsumerImplV2 implements Consumer {
     private volatile boolean started = false;
     private final Client simpleClient;
     private final NSQConfig config;
-    private volatile int offset = 0;
     private final GenericKeyedObjectPoolConfig poolConfig;
     private final KeyedConnectionPoolFactory factory;
     private GenericKeyedObjectPool<Address, NSQConnection> bigPool = null;
@@ -81,13 +81,12 @@ public class ConsumerImplV2 implements Consumer {
         }
         if (!this.started) {
             this.started = true;
-
             // setting all of the configs
-            this.poolConfig.setFairness(false);
+            this.poolConfig.setFairness(true);
             this.poolConfig.setTestOnBorrow(false);
             this.poolConfig.setJmxEnabled(false);
-            this.poolConfig.setMinIdlePerKey(1);
-            this.poolConfig.setMinEvictableIdleTimeMillis(180 * 1000);
+            this.poolConfig.setMinEvictableIdleTimeMillis(3600 * 1000);
+            this.poolConfig.setMinIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());
             // aquire connection waiting time
@@ -95,8 +94,6 @@ public class ConsumerImplV2 implements Consumer {
             this.poolConfig.setBlockWhenExhausted(true);
             this.poolConfig.setTestWhileIdle(true);
             this.simpleClient.start();
-            final Random r = new Random(10000);
-            this.offset = r.nextInt(100);
             createBigPool();
             // POST
             connect();
@@ -129,9 +126,76 @@ public class ConsumerImplV2 implements Consumer {
     /**
      * 
      */
+    /**
+     * 
+     */
     private void connect() {
-        // TODO
-        final ConcurrentSortedSet<Address> dataNodes = getDataNodes();
+        final Set<Address> broken = new HashSet<>(holdingConnections.keySet().size());
+        holdingConnections.values().parallelStream().forEach((conns) -> {
+            for (final NSQConnection c : conns) {
+                if (!c.isConnected()) {
+                    c.close();
+                    broken.add(c.getAddress());
+                }
+            }
+        });
+        broken.parallelStream().forEach((address) -> {
+            holdingConnections.remove(address);
+        });
+
+        final Set<Address> newDataNodes = getDataNodes().newSet();
+        final Set<Address> oldDataNodes = this.holdingConnections.keySet();
+
+        logger.debug("Prepare to connect new NSQd : {} ", newDataNodes);
+        if (newDataNodes.isEmpty()) {
+            logger.info("No NSQd! Why? Please check NSQ (both Lookup and DataNode) !");
+            return;
+        }
+        logger.info("Get new NSQd!");
+
+        /*
+         * =====================================================================
+         * Step 1:
+         * =====================================================================
+         */
+        // 交集: 新建Brokers
+        final Set<Address> retain = new HashSet<>(newDataNodes);
+        retain.retainAll(oldDataNodes);
+        if (retain.isEmpty()) {
+            logger.error("It can not get new DataNodes (NSQd)!");
+        }
+        retain.parallelStream().forEach((address) -> {
+            for (int i = 0; i < config.getThreadPoolSize4IO(); i++) {
+
+            }
+        });
+
+        /*
+         * =====================================================================
+         * Step 2:
+         * =====================================================================
+         */
+        // 以oldDataNodes为主的差集: 要删除的节点.
+        if (oldDataNodes.isEmpty()) {
+            return;
+        }
+        broken.clear();
+        broken.addAll(oldDataNodes);
+        if (broken.removeAll(newDataNodes)) {
+            broken.parallelStream().forEach((address) -> {
+                if (holdingConnections.containsKey(address)) {
+                    final Set<NSQConnection> conns = holdingConnections.get(address);
+                    if (conns != null) {
+                        conns.forEach((c) -> {
+                            c.close();
+                        });
+                    }
+                    holdingConnections.remove(address);
+                }
+            });
+        } else {
+            logger.error("It cann't remove broken brokers! Old: {} , New: {} .", oldDataNodes, newDataNodes);
+        }
     }
 
     /**

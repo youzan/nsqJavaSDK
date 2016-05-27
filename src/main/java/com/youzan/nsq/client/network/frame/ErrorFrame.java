@@ -37,7 +37,7 @@ public class ErrorFrame extends NSQFrame {
      */
     public Response getError() {
         final String content = getMessage();
-        if (null != content) {
+        if (null != content && !content.isEmpty()) {
             if (content.startsWith("E_INVALID ")) {
                 return Response.E_INVALID;
             }

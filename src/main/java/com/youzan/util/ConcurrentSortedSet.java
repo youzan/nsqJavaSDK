@@ -4,6 +4,8 @@
 package com.youzan.util;
 
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -116,5 +118,21 @@ public class ConcurrentSortedSet<T> {
         } finally {
             r.unlock();
         }
+    }
+
+    /**
+     * Never return null
+     * 
+     * @return
+     */
+    public Set<T> newSet() {
+        final HashSet<T> s = new HashSet<>();
+        r.lock();
+        try {
+            s.addAll(set);
+        } finally {
+            r.unlock();
+        }
+        return s;
     }
 }

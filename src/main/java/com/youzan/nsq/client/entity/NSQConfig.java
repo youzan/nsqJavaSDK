@@ -26,6 +26,8 @@ public class NSQConfig implements java.io.Serializable {
     private static final long serialVersionUID = 6624842850216901700L;
     private static final Logger logger = LoggerFactory.getLogger(NSQConfig.class);
 
+    private boolean havingMonitoring = false;
+
     public enum Compression {
         NO_COMPRESSION, DEFLATE, SNAPPY
     }
