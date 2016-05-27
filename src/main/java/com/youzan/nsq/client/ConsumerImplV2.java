@@ -19,6 +19,8 @@ import com.youzan.nsq.client.core.KeyedConnectionPoolFactory;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
 import com.youzan.nsq.client.core.command.Close;
+import com.youzan.nsq.client.core.command.Rdy;
+import com.youzan.nsq.client.core.command.Sub;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.Response;
@@ -153,10 +155,12 @@ public class ConsumerImplV2 implements Consumer {
         }
         logger.info("Get new NSQd!");
 
-        /*
+        /**
+         * <pre>
          * =====================================================================
-         * Step 1:
+         *                                Step 1:
          * =====================================================================
+         * </pre>
          */
         // 交集: 新建Brokers
         final Set<Address> retain = new HashSet<>(newDataNodes);
@@ -166,14 +170,32 @@ public class ConsumerImplV2 implements Consumer {
         }
         retain.parallelStream().forEach((address) -> {
             for (int i = 0; i < config.getThreadPoolSize4IO(); i++) {
-
+                NSQConnection newConn = null;
+                try {
+                    newConn = bigPool.borrowObject(address);
+                    initConn(newConn);
+                    if (holdingConnections.containsKey(address)) {
+                        final Set<NSQConnection> conns = holdingConnections.get(address);
+                        if (conns == null) {
+                            holdingConnections.putIfAbsent(address, new HashSet<>());
+                        }
+                        conns.add(newConn);
+                    }
+                } catch (Exception e) {
+                    logger.error("Exception", e);
+                } finally {
+                    if (newConn != null) {
+                        bigPool.returnObject(address, newConn);
+                    }
+                }
             }
         });
-
-        /*
+        /**
+         * <pre>
          * =====================================================================
-         * Step 2:
+         *                                Step 2:
          * =====================================================================
+         * </pre>
          */
         // 以oldDataNodes为主的差集: 要删除的节点.
         if (oldDataNodes.isEmpty()) {
@@ -196,6 +218,14 @@ public class ConsumerImplV2 implements Consumer {
         } else {
             logger.error("It cann't remove broken brokers! Old: {} , New: {} .", oldDataNodes, newDataNodes);
         }
+    }
+
+    /**
+     * @param newConn
+     */
+    private void initConn(NSQConnection newConn) {
+        newConn.command(new Sub(config.getTopic(), config.getConsumerName()));
+        newConn.command(new Rdy(Runtime.getRuntime().availableProcessors() - 1));
     }
 
     /**
