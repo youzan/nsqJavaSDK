@@ -125,12 +125,6 @@ public class ConsumerImplV2 implements Consumer {
         }, delay, 1 * 60, TimeUnit.SECONDS);
     }
 
-    /**
-     * 
-     */
-    /**
-     * 
-     */
     private void connect() {
         final Set<Address> broken = new HashSet<>(holdingConnections.keySet().size());
         holdingConnections.values().parallelStream().forEach((conns) -> {
@@ -155,12 +149,10 @@ public class ConsumerImplV2 implements Consumer {
         }
         logger.info("Get new NSQd!");
 
-        /**
-         * <pre>
+        /*-
          * =====================================================================
          *                                Step 1:
          * =====================================================================
-         * </pre>
          */
         // 交集: 新建Brokers
         final Set<Address> retain = new HashSet<>(newDataNodes);
@@ -190,12 +182,10 @@ public class ConsumerImplV2 implements Consumer {
                 }
             }
         });
-        /**
-         * <pre>
+        /*-
          * =====================================================================
          *                                Step 2:
          * =====================================================================
-         * </pre>
          */
         // 以oldDataNodes为主的差集: 要删除的节点.
         if (oldDataNodes.isEmpty()) {
