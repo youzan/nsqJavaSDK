@@ -26,7 +26,6 @@ public class ConcurrentSortedSet<T> {
     private static final Logger logger = LoggerFactory.getLogger(ConcurrentSortedSet.class);
 
     private SortedSet<T> set = null;
-    private T[] array = null;
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
     private final ReadLock r = lock.readLock();
     private final WriteLock w = lock.writeLock();
@@ -35,27 +34,15 @@ public class ConcurrentSortedSet<T> {
         w.lock();
         try {
             set = new TreeSet<>();
-            array = null;
         } finally {
             w.unlock();
         }
     }
 
-    @SuppressWarnings("hiding")
-    public <T> T[] newArray(T[] a) {
+    public T[] newArray(T[] a) {
         r.lock();
         try {
             return set.toArray(a);
-        } finally {
-            r.unlock();
-        }
-    }
-
-    @SuppressWarnings({ "hiding", "unchecked" })
-    public <T> T[] getArray() {
-        r.lock();
-        try {
-            return (T[]) array;
         } finally {
             r.unlock();
         }
@@ -79,17 +66,13 @@ public class ConcurrentSortedSet<T> {
         }
     }
 
-    @SuppressWarnings("unchecked")
     public boolean addAll(Collection<? extends T> c) {
         if (c == null || c.isEmpty()) {
             return true;
         }
         w.lock();
         try {
-            set.addAll(c);
-            Object[] a = set.toArray();
-            array = (T[]) a;
-            return true;
+            return set.addAll(c);
         } finally {
             w.unlock();
         }
@@ -100,7 +83,6 @@ public class ConcurrentSortedSet<T> {
      * 
      * @param target
      */
-    @SuppressWarnings("unchecked")
     public void swap(SortedSet<T> target) {
         if (target == null || target.isEmpty()) {
             throw new IllegalArgumentException("Your input is black!");
@@ -109,8 +91,6 @@ public class ConcurrentSortedSet<T> {
         final SortedSet<T> tmp = set;
         try {
             set = target;
-            Object[] a = set.toArray();
-            array = (T[]) a;
         } finally {
             w.unlock();
         }
