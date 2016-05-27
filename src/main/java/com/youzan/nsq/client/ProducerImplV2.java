@@ -3,7 +3,6 @@ package com.youzan.nsq.client;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Random;
-import java.util.SortedSet;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
@@ -17,8 +16,6 @@ import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
 import com.youzan.nsq.client.core.command.Mpub;
 import com.youzan.nsq.client.core.command.Pub;
-import com.youzan.nsq.client.core.lookup.NSQLookupService;
-import com.youzan.nsq.client.core.lookup.NSQLookupServiceImpl;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.Response;
@@ -50,13 +47,7 @@ public class ProducerImplV2 implements Producer {
     private volatile boolean started = false;
     private final Client simpleClient;
     private final NSQConfig config;
-    private volatile NSQLookupService migratingLookup = null;
-    /**
-     * NSQd Servers
-     */
-    private final ConcurrentSortedSet<Address> dataNodes = new ConcurrentSortedSet<>();
     private volatile int offset = 0;
-    private final NSQLookupService lookup;
     private final GenericKeyedObjectPoolConfig poolConfig;
     private final KeyedConnectionPoolFactory factory;
     private GenericKeyedObjectPool<Address, NSQConnection> bigPool = null;
@@ -74,13 +65,16 @@ public class ProducerImplV2 implements Producer {
         this.config = config;
         this.poolConfig = new GenericKeyedObjectPoolConfig();
 
-        this.lookup = new NSQLookupServiceImpl(config.getLookupAddresses());
-        this.simpleClient = new NSQSimpleClient();
+        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(), config.getTopic());
         this.factory = new KeyedConnectionPoolFactory(this.config, this);
     }
 
     @Override
-    public Producer start() throws NSQException {
+    public void start() throws NSQException {
+        final String topic = this.config.getTopic();
+        if (topic == null || topic.isEmpty()) {
+            throw new NSQException("Please set topic name using {@code NSQConfig}");
+        }
         if (!this.started) {
             this.started = true;
             // setting all of the configs
@@ -95,29 +89,11 @@ public class ProducerImplV2 implements Producer {
             this.poolConfig.setMaxWaitMillis(500);
             this.poolConfig.setBlockWhenExhausted(false);
             this.poolConfig.setTestWhileIdle(true);
-            final String topic = this.config.getTopic();
-            if (topic == null || topic.isEmpty()) {
-                throw new NSQException("Please set topic name using {@code NSQConfig}");
-            }
-            final int retries = 2;
-            int c = 0;
-            while (c++ < retries) {
-                try {
-                    final SortedSet<Address> nodes = this.lookup.lookup(this.config.getTopic());
-                    if (nodes != null && !nodes.isEmpty()) {
-                        this.dataNodes.swap(nodes);
-                        break;
-                    }
-                } catch (Exception e) {
-                    logger.error("Exception", e);
-                }
-                sleep(1000 * c);
-            }
+            this.simpleClient.start();
             final Random r = new Random(10000);
             this.offset = r.nextInt(100);
             createBigPool();
         }
-        return this;
     }
 
     /**
@@ -136,13 +112,13 @@ public class ProducerImplV2 implements Producer {
      * @throws NoConnectionException
      */
     protected NSQConnection getNSQConnection() throws NoConnectionException {
-        assert this.dataNodes != null && !this.dataNodes.isEmpty();
-        final int size = this.dataNodes.size();
+        final ConcurrentSortedSet<Address> dataNodes = getDataNodes();
+        final int size = dataNodes.size();
         if (size < 1) {
             throw new NoConnectionException("You still didn't start NSQd / lookup-topic / producer.start() ! ");
         }
         final int retries = size + 1;
-        final Address[] addrs = this.dataNodes.newArray(new Address[size]);
+        final Address[] addrs = dataNodes.newArray(new Address[size]);
         int c = 0;
         while (c++ < retries) {
             final int index = (this.offset++ & Integer.MAX_VALUE) % size;
@@ -338,8 +314,10 @@ public class ProducerImplV2 implements Producer {
         if (bigPool != null) {
             bigPool.close();
         }
-        if (dataNodes != null && !dataNodes.isEmpty()) {
-            dataNodes.clear();
-        }
+    }
+
+    @Override
+    public ConcurrentSortedSet<Address> getDataNodes() {
+        return simpleClient.getDataNodes();
     }
 }

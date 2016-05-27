@@ -18,7 +18,7 @@ public class KeyedConnectionPoolFactoryTest {
 
     @Test
     public void createBigPool() throws Exception {
-        final Client simpleClient = new NSQSimpleClient();
+        final Client simpleClient = new NSQSimpleClient("127.0.0.1:4161", "test");
         final NSQConfig config = new NSQConfig();
         final GenericKeyedObjectPoolConfig poolConfig = new GenericKeyedObjectPoolConfig();
 

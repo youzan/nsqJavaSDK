@@ -2,7 +2,6 @@ package com.youzan.nsq.client;
 
 import java.util.Random;
 import java.util.Set;
-import java.util.SortedSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -16,8 +15,6 @@ import com.youzan.nsq.client.core.KeyedConnectionPoolFactory;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
 import com.youzan.nsq.client.core.command.Close;
-import com.youzan.nsq.client.core.lookup.NSQLookupService;
-import com.youzan.nsq.client.core.lookup.NSQLookupServiceImpl;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.Response;
@@ -41,13 +38,7 @@ public class ConsumerImplV2 implements Consumer {
     private volatile boolean started = false;
     private final Client simpleClient;
     private final NSQConfig config;
-    private volatile NSQLookupService migratingLookup = null;
-    /**
-     * NSQd Servers
-     */
-    private final ConcurrentSortedSet<Address> dataNodes = new ConcurrentSortedSet<>();
     private volatile int offset = 0;
-    private final NSQLookupService lookup;
     private final GenericKeyedObjectPoolConfig poolConfig;
     private final KeyedConnectionPoolFactory factory;
     private GenericKeyedObjectPool<Address, NSQConnection> bigPool = null;
@@ -68,13 +59,16 @@ public class ConsumerImplV2 implements Consumer {
         this.config = config;
         this.poolConfig = new GenericKeyedObjectPoolConfig();
 
-        this.lookup = new NSQLookupServiceImpl(config.getLookupAddresses());
-        this.simpleClient = new NSQSimpleClient();
+        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(), config.getTopic());
         this.factory = new KeyedConnectionPoolFactory(this.config, this);
     }
 
     @Override
-    public Consumer start() throws NSQException {
+    public void start() throws NSQException {
+        final String topic = this.config.getTopic();
+        if (topic == null || topic.isEmpty()) {
+            throw new NSQException("Please set topic name using {@code NSQConfig}");
+        }
         if (this.config.getConsumerName() == null || this.config.getConsumerName().isEmpty()) {
             throw new IllegalArgumentException("Consumer Name is blank! Please check it!");
         }
@@ -93,29 +87,11 @@ public class ConsumerImplV2 implements Consumer {
             this.poolConfig.setMaxWaitMillis(500);
             this.poolConfig.setBlockWhenExhausted(true);
             this.poolConfig.setTestWhileIdle(true);
-
-            final String topic = this.config.getTopic();
-            if (topic == null || topic.isEmpty()) {
-                throw new NSQException("Please set topic name using {@code NSQConfig}");
-            }
-            int c = 0;
-            while (c++ < 3) { // 0,1,2
-                try {
-                    final SortedSet<Address> nodes = this.lookup.lookup(this.config.getTopic());
-                    if (nodes != null && !nodes.isEmpty()) {
-                        this.dataNodes.swap(nodes);
-                        break;
-                    }
-                } catch (Exception e) {
-                    logger.error("Exception", e);
-                }
-                sleep(1000 * c);
-            }
+            this.simpleClient.start();
             final Random r = new Random(10000);
             this.offset = r.nextInt(100);
             createBigPool();
         }
-        return this;
     }
 
     /**
@@ -126,7 +102,10 @@ public class ConsumerImplV2 implements Consumer {
         assert this.bigPool != null;
     }
 
-    private void keepDataNodeConnection() {
+    /**
+     * schedule action
+     */
+    private void keepDataNodeConnections() {
     }
 
     /**
@@ -160,15 +139,13 @@ public class ConsumerImplV2 implements Consumer {
         if (bigPool != null) {
             bigPool.close();
         }
-        if (dataNodes != null && !dataNodes.isEmpty()) {
-            dataNodes.clear();
-        }
     }
 
     private void cleanClose() {
         holdingConnections.values().forEach((conns) -> {
             for (NSQConnection c : conns) {
                 try {
+                    backoff(c);
                     final NSQFrame frame = c.commandAndGetResponse(Close.getInstance());
                     if (frame != null && frame instanceof ErrorFrame) {
                         final Response err = ((ErrorFrame) frame).getError();
@@ -181,5 +158,10 @@ public class ConsumerImplV2 implements Consumer {
                 }
             }
         });
+    }
+
+    @Override
+    public ConcurrentSortedSet<Address> getDataNodes() {
+        return null;
     }
 }

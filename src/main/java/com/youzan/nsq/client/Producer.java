@@ -13,8 +13,6 @@ import com.youzan.nsq.client.exception.NSQException;
  */
 public interface Producer extends Client, Closeable {
 
-    Producer start() throws NSQException;
-
     /**
      * 生产单条的'消息'
      * 

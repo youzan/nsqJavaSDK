@@ -3,7 +3,10 @@
  */
 package com.youzan.nsq.client.core;
 
+import com.youzan.nsq.client.entity.Address;
+import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.network.frame.NSQFrame;
+import com.youzan.util.ConcurrentSortedSet;
 
 import io.netty.util.AttributeKey;
 
@@ -16,6 +19,8 @@ import io.netty.util.AttributeKey;
  */
 public interface Client {
     public static final AttributeKey<Client> STATE = AttributeKey.valueOf("Client.State");
+
+    void start() throws NSQException;
 
     /**
      * Receive the frame of NSQ.
@@ -31,5 +36,10 @@ public interface Client {
      * @param conn
      */
     void backoff(final NSQConnection conn);
+
+    /**
+     * @return
+     */
+    ConcurrentSortedSet<Address> getDataNodes();
 
 }
