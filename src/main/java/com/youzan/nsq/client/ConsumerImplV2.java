@@ -15,11 +15,14 @@ import com.youzan.nsq.client.core.Client;
 import com.youzan.nsq.client.core.KeyedConnectionPoolFactory;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
+import com.youzan.nsq.client.core.command.Close;
 import com.youzan.nsq.client.core.lookup.NSQLookupService;
 import com.youzan.nsq.client.core.lookup.NSQLookupServiceImpl;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.nsq.client.entity.Response;
 import com.youzan.nsq.client.exception.NSQException;
+import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.util.ConcurrentSortedSet;
 
@@ -150,6 +153,7 @@ public class ConsumerImplV2 implements Consumer {
 
     @Override
     public void close() {
+        cleanClose();
         if (factory != null) {
             factory.close();
         }
@@ -159,5 +163,23 @@ public class ConsumerImplV2 implements Consumer {
         if (dataNodes != null && !dataNodes.isEmpty()) {
             dataNodes.clear();
         }
+    }
+
+    private void cleanClose() {
+        holdingConnections.values().forEach((conns) -> {
+            for (NSQConnection c : conns) {
+                try {
+                    final NSQFrame frame = c.commandAndGetResponse(Close.getInstance());
+                    if (frame != null && frame instanceof ErrorFrame) {
+                        final Response err = ((ErrorFrame) frame).getError();
+                        if (err != null) {
+                            logger.error(err.getContent());
+                        }
+                    }
+                } catch (Exception e) {
+                    logger.error("Exception", e);
+                }
+            }
+        });
     }
 }

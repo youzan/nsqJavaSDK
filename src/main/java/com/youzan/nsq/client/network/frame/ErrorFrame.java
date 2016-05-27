@@ -48,7 +48,6 @@ public class ErrorFrame extends NSQFrame {
                 return Response.E_BAD_MESSAGE;
             }
         }
-
         return null;
     }
 
