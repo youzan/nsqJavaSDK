@@ -25,9 +25,9 @@ import com.youzan.util.NamedThreadFactory;
  * @email linzuxiong1988@gmail.com
  *
  */
-public class NSQLookupServiceImpl implements NSQLookupService {
+public class LookupServiceImpl implements LookupService {
 
-    private static final Logger logger = LoggerFactory.getLogger(NSQLookupServiceImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(LookupServiceImpl.class);
     private static final long serialVersionUID = 1773482379917817275L;
 
     /**
@@ -57,7 +57,7 @@ public class NSQLookupServiceImpl implements NSQLookupService {
     /**
      * @param addresses
      */
-    public NSQLookupServiceImpl(List<String> addresses) {
+    public LookupServiceImpl(List<String> addresses) {
         if (addresses == null || addresses.isEmpty()) {
             throw new IllegalArgumentException("Your input 'addresses' is blank!");
         }
@@ -71,7 +71,7 @@ public class NSQLookupServiceImpl implements NSQLookupService {
      * 
      * @param addresses
      */
-    public NSQLookupServiceImpl(String addresses) {
+    public LookupServiceImpl(String addresses) {
         if (addresses == null || addresses.isEmpty()) {
             throw new IllegalArgumentException("Your input 'addresses' is blank!");
         }

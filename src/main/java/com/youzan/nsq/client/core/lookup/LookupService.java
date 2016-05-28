@@ -13,7 +13,7 @@ import com.youzan.nsq.client.exception.NSQLookupException;
  * @email linzuxiong1988@gmail.com
  *
  */
-public interface NSQLookupService extends java.io.Serializable {
+public interface LookupService extends java.io.Serializable {
 
     static final Random _r = new Random(10000);
 

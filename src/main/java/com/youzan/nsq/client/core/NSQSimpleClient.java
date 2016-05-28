@@ -13,8 +13,8 @@ import org.slf4j.LoggerFactory;
 
 import com.youzan.nsq.client.core.command.Nop;
 import com.youzan.nsq.client.core.command.Rdy;
-import com.youzan.nsq.client.core.lookup.NSQLookupService;
-import com.youzan.nsq.client.core.lookup.NSQLookupServiceImpl;
+import com.youzan.nsq.client.core.lookup.LookupService;
+import com.youzan.nsq.client.core.lookup.LookupServiceImpl;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.Response;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
@@ -34,8 +34,8 @@ public class NSQSimpleClient implements Client {
     private static final Logger logger = LoggerFactory.getLogger(NSQSimpleClient.class);
 
     private final String topic;;
-    private final NSQLookupService lookup;
-    private volatile NSQLookupService migratingLookup = null;
+    private final LookupService lookup;
+    private volatile LookupService migratingLookup = null;
     /**
      * NSQd Servers
      */
@@ -45,7 +45,7 @@ public class NSQSimpleClient implements Client {
 
     public NSQSimpleClient(final String lookupAddresses, final String topic) {
         this.topic = topic;
-        this.lookup = new NSQLookupServiceImpl(lookupAddresses);
+        this.lookup = new LookupServiceImpl(lookupAddresses);
         keepDataNodes();
     }
 

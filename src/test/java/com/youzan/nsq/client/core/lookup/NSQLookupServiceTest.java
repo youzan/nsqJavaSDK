@@ -38,9 +38,9 @@ public class NSQLookupServiceTest {
 
     @Test
     public void simpleInit() throws IOException {
-        NSQLookupServiceImpl srv = null;
+        LookupServiceImpl srv = null;
         try {
-            srv = new NSQLookupServiceImpl("10.232.120.12:6411");
+            srv = new LookupServiceImpl("10.232.120.12:6411");
             for (String addr : srv.getAddresses()) {
                 Assert.assertTrue(addr.split(":").length == 2);
                 Assert.assertEquals(addr, "10.232.120.12:6411");
@@ -51,9 +51,9 @@ public class NSQLookupServiceTest {
 
     @Test(dataProvider = "genIPs")
     public void testInit(String ips, List<String> expected) {
-        NSQLookupServiceImpl srv = null;
+        LookupServiceImpl srv = null;
         try {
-            srv = new NSQLookupServiceImpl(ips);
+            srv = new LookupServiceImpl(ips);
             Assert.assertEquals(srv.getAddresses(), expected);
         } finally {
         }
@@ -61,7 +61,7 @@ public class NSQLookupServiceTest {
 
     @Test
     public void lookup() throws NSQLookupException {
-        NSQLookupServiceImpl srv = new NSQLookupServiceImpl("127.0.0.1:4161");
+        LookupServiceImpl srv = new LookupServiceImpl("127.0.0.1:4161");
         SortedSet<Address> addresses = srv.lookup("test", true);
         for (final Address addr : addresses) {
             logger.info("Address : {}", addr);
