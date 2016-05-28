@@ -1,11 +1,17 @@
 package com.youzan.nsq.client;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -23,9 +29,11 @@ import com.youzan.nsq.client.core.command.Rdy;
 import com.youzan.nsq.client.core.command.Sub;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.entity.Response;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
+import com.youzan.nsq.client.network.frame.MessageFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.util.ConcurrentSortedSet;
 import com.youzan.util.NamedThreadFactory;
@@ -55,10 +63,25 @@ public class ConsumerImplV2 implements Consumer {
      */
     private volatile long lastTimeInMillisOfClientRequest = System.currentTimeMillis();
 
+    /*-
+     * =========================================================================
+     *                          
+     * =========================================================================
+     */
     private final ConcurrentHashMap<Address, Set<NSQConnection>> holdingConnections = new ConcurrentHashMap<>();
-
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
+
+    /*-
+     * =========================================================================
+     *                          Client delegate to me
+     * =========================================================================
+     */
+    private final MessageHandler handler;
+    private final ExecutorService executor = Executors.newFixedThreadPool(
+            Runtime.getRuntime().availableProcessors() * 2,
+            new NamedThreadFactory(this.getClass().getName() + "-ClientBusiness", Thread.MAX_PRIORITY));
+    private final Optional<ScheduledFuture<?>> timeout = Optional.empty();
 
     /**
      * @param config
@@ -66,8 +89,9 @@ public class ConsumerImplV2 implements Consumer {
      */
     public ConsumerImplV2(NSQConfig config, MessageHandler handler) {
         this.config = config;
-        this.poolConfig = new GenericKeyedObjectPoolConfig();
+        this.handler = handler;
 
+        this.poolConfig = new GenericKeyedObjectPoolConfig();
         this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(), config.getTopic());
         this.factory = new KeyedConnectionPoolFactory(this.config, this);
     }
@@ -147,40 +171,56 @@ public class ConsumerImplV2 implements Consumer {
             logger.info("No NSQd! Why? Please check NSQ (both Lookup and DataNode) !");
             return;
         }
-        logger.info("Get new NSQd!");
 
         /*-
          * =====================================================================
          *                                Step 1:
          * =====================================================================
          */
-        // 交集: 新建Brokers
-        final Set<Address> retain = new HashSet<>(newDataNodes);
-        retain.retainAll(oldDataNodes);
-        if (retain.isEmpty()) {
-            logger.error("It can not get new DataNodes (NSQd)!");
+        // 以newDataNodes为主的差集: 新建Brokers
+        final Set<Address> except1 = new HashSet<>(newDataNodes);
+        except1.removeAll(oldDataNodes);
+        if (except1.isEmpty()) {
+            logger.error("It can not get new DataNodes (NSQd). It will create a new pool next time!");
+            return;
         }
-        retain.parallelStream().forEach((address) -> {
+        except1.parallelStream().forEach((address) -> {
+            // create new pool(connect to one broker)
+            final List<NSQConnection> okConns = new ArrayList<>(config.getThreadPoolSize4IO());
             for (int i = 0; i < config.getThreadPoolSize4IO(); i++) {
                 NSQConnection newConn = null;
                 try {
                     newConn = bigPool.borrowObject(address);
-                    initConn(newConn);
-                    if (holdingConnections.containsKey(address)) {
-                        final Set<NSQConnection> conns = holdingConnections.get(address);
-                        if (conns == null) {
-                            holdingConnections.putIfAbsent(address, new HashSet<>());
-                        }
-                        conns.add(newConn);
+                    initConn(newConn); // subscribe
+                    if (!holdingConnections.containsKey(address)) {
+                        holdingConnections.putIfAbsent(address, new HashSet<>());
                     }
+                    final Set<NSQConnection> conns = holdingConnections.get(address);
+                    conns.add(newConn);
+
+                    okConns.add(newConn);
                 } catch (Exception e) {
                     logger.error("Exception", e);
-                } finally {
                     if (newConn != null) {
                         bigPool.returnObject(address, newConn);
                     }
                 }
             }
+            // finally
+            for (NSQConnection c : okConns) {
+                try {
+                    bigPool.returnObject(c.getAddress(), c);
+                } catch (Exception e) {
+                    logger.error("Exception", e);
+                }
+            }
+            if (okConns.size() == config.getThreadPoolSize4IO()) {
+                logger.info("It is good creating a pool for one broker.");
+            } else {
+                logger.info("Want the pool size {} , actually the size {}", config.getThreadPoolSize4IO(),
+                        okConns.size());
+            }
+            okConns.clear();
         });
         /*-
          * =====================================================================
@@ -188,26 +228,23 @@ public class ConsumerImplV2 implements Consumer {
          * =====================================================================
          */
         // 以oldDataNodes为主的差集: 要删除的节点.
-        if (oldDataNodes.isEmpty()) {
+        final Set<Address> except2 = new HashSet<>(oldDataNodes.size());
+        except2.removeAll(newDataNodes);
+        if (except2.isEmpty()) {
             return;
         }
-        broken.clear();
-        broken.addAll(oldDataNodes);
-        if (broken.removeAll(newDataNodes)) {
-            broken.parallelStream().forEach((address) -> {
-                if (holdingConnections.containsKey(address)) {
-                    final Set<NSQConnection> conns = holdingConnections.get(address);
-                    if (conns != null) {
-                        conns.forEach((c) -> {
-                            c.close();
-                        });
-                    }
-                    holdingConnections.remove(address);
+        except2.parallelStream().forEach((address) -> {
+            if (holdingConnections.containsKey(address)) {
+                final Set<NSQConnection> conns = holdingConnections.get(address);
+                if (conns != null) {
+                    conns.forEach((c) -> {
+                        backoff(c);
+                        c.close();
+                    });
                 }
-            });
-        } else {
-            logger.error("It cann't remove broken brokers! Old: {} , New: {} .", oldDataNodes, newDataNodes);
-        }
+            }
+            holdingConnections.remove(address);
+        });
     }
 
     /**
@@ -231,8 +268,36 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     @Override
-    public void incoming(NSQFrame frame, NSQConnection conn) {
+    public void incoming(final NSQFrame frame, final NSQConnection conn) {
+        if (frame instanceof MessageFrame) {
+            final MessageFrame msg = (MessageFrame) frame;
+            final NSQMessage message = new NSQMessage(msg.getTimestamp(), msg.getAttempts(), msg.getMessageID(),
+                    msg.getMessageBody());
+            processMessage(message, conn);
+            return;
+        }
         simpleClient.incoming(frame, conn);
+    }
+
+    protected void processMessage(final NSQMessage message, final NSQConnection conn) {
+        if (handler == null) {
+            logger.error("No MessageHandler then drop the message {}", message);
+            return;
+        }
+        try {
+            executor.execute(() -> {
+                final boolean ok = handler.process(message);
+                if (ok) {
+                    // TODO
+                    // finish
+                } else {
+                    // TODO
+                    // reQueue
+                }
+            });
+        } catch (RejectedExecutionException re) {
+        }
+        // TODO Halt Flow
     }
 
     @Override

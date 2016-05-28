@@ -13,9 +13,11 @@ public class NSQMessage {
     public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] messageBody) {
     }
 
-    // *************************************************************************
-    // For client , human message
-    // *************************************************************************
+    /*-
+     * =========================================================================
+     *                       For client , human message
+     * =========================================================================
+     */
     private String datetime; // yyyy-MMdd hh:mm:ss
 
 }

@@ -135,4 +135,14 @@ public class ConcurrentSortedSet<T> {
         }
         return s;
     }
+
+    @Override
+    public String toString() {
+        r.lock();
+        try {
+            return set.toString();
+        } finally {
+            r.unlock();
+        }
+    }
 }
