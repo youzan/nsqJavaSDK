@@ -107,10 +107,11 @@ public class ConsumerImplV2 implements Consumer {
         if (!this.started) {
             this.started = true;
             // setting all of the configs
+            this.poolConfig.setLifo(false);
             this.poolConfig.setFairness(true);
             this.poolConfig.setTestOnBorrow(false);
             this.poolConfig.setJmxEnabled(false);
-            this.poolConfig.setMinEvictableIdleTimeMillis(3600 * 1000);
+            this.poolConfig.setMinEvictableIdleTimeMillis(1000);
             this.poolConfig.setMinIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());
@@ -148,21 +149,19 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     private void connect() {
-        final Set<Address> broken = new HashSet<>(holdingConnections.keySet().size());
         holdingConnections.values().parallelStream().forEach((conns) -> {
             for (final NSQConnection c : conns) {
                 if (!c.isConnected()) {
                     c.close();
-                    broken.add(c.getAddress());
                 }
             }
         });
-        broken.parallelStream().forEach((address) -> {
-            holdingConnections.remove(address);
-        });
 
         final Set<Address> newDataNodes = getDataNodes().newSet();
-        final Set<Address> oldDataNodes = this.holdingConnections.keySet();
+        final Set<Address> oldDataNodes = new HashSet<>(this.holdingConnections.keySet());
+        if (newDataNodes.isEmpty() && oldDataNodes.isEmpty()) {
+            return;
+        }
         logger.debug("Prepare to connect new NSQd: {} , old NSQd: {} .", newDataNodes, oldDataNodes);
         /*-
          * =====================================================================
@@ -183,12 +182,13 @@ public class ConsumerImplV2 implements Consumer {
          *                    以oldDataNodes为主的差集: 删除Brokers
          * =====================================================================
          */
-        final Set<Address> except2 = new HashSet<>(oldDataNodes.size());
+        final Set<Address> except2 = new HashSet<>(oldDataNodes);
         except2.removeAll(newDataNodes);
         if (except2.isEmpty()) {
             logger.debug("No need to destory old NSQd connections!");
         } else {
             except2.parallelStream().forEach((address) -> {
+                bigPool.clear(address);
                 if (holdingConnections.containsKey(address)) {
                     final Set<NSQConnection> conns = holdingConnections.get(address);
                     if (conns != null) {
@@ -208,6 +208,12 @@ public class ConsumerImplV2 implements Consumer {
      */
     private void newConnections(final Set<Address> brokers) {
         brokers.parallelStream().forEach((address) -> {
+            try {
+                bigPool.clear(address);
+                bigPool.preparePool(address);
+            } catch (Exception e1) {
+                logger.error("Exception", e1);
+            }
             // create new pool(connect to one broker)
             final List<NSQConnection> okConns = new ArrayList<>(config.getThreadPoolSize4IO());
             for (int i = 0; i < config.getThreadPoolSize4IO(); i++) {

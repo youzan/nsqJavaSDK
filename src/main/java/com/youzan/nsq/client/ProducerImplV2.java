@@ -77,6 +77,7 @@ public class ProducerImplV2 implements Producer {
         if (!this.started) {
             this.started = true;
             // setting all of the configs
+            this.poolConfig.setLifo(true);
             this.poolConfig.setFairness(false);
             this.poolConfig.setTestOnBorrow(true);
             this.poolConfig.setJmxEnabled(false);
