@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -138,8 +137,7 @@ public class ConsumerImplV2 implements Consumer {
      * schedule action
      */
     private void keepConnecting() {
-        final Random random = new Random(10000);
-        final int delay = random.nextInt(120) + 120; // seconds
+        final int delay = _r.nextInt(120) + 60; // seconds
         scheduler.scheduleWithFixedDelay(() -> {
             try {
                 connect();
@@ -166,7 +164,7 @@ public class ConsumerImplV2 implements Consumer {
         final Set<Address> newDataNodes = getDataNodes().newSet();
         final Set<Address> oldDataNodes = this.holdingConnections.keySet();
 
-        logger.debug("Prepare to connect new NSQd : {} ", newDataNodes);
+        logger.debug("Prepare to connect new NSQd: {} , old NSQd: {} .", newDataNodes, oldDataNodes);
         if (newDataNodes.isEmpty()) {
             logger.info("No NSQd! Why? Please check NSQ (both Lookup and DataNode) !");
             return;
@@ -180,11 +178,42 @@ public class ConsumerImplV2 implements Consumer {
         // 以newDataNodes为主的差集: 新建Brokers
         final Set<Address> except1 = new HashSet<>(newDataNodes);
         except1.removeAll(oldDataNodes);
-        if (except1.isEmpty()) {
+        if (!except1.isEmpty()) {
+            newConnections(except1);
+        } else {
             logger.error("It can not get new DataNodes (NSQd). It will create a new pool next time!");
+        }
+        /*-
+         * =====================================================================
+         *                                Step 2:
+         * =====================================================================
+         */
+        // 以oldDataNodes为主的差集: 删除Brokers
+        final Set<Address> except2 = new HashSet<>(oldDataNodes.size());
+        except2.removeAll(newDataNodes);
+        if (except2.isEmpty()) {
+            logger.debug("No need to destory old NSQd connections!");
             return;
         }
-        except1.parallelStream().forEach((address) -> {
+        except2.parallelStream().forEach((address) -> {
+            if (holdingConnections.containsKey(address)) {
+                final Set<NSQConnection> conns = holdingConnections.get(address);
+                if (conns != null) {
+                    conns.forEach((c) -> {
+                        backoff(c);
+                        c.close();
+                    });
+                }
+            }
+            holdingConnections.remove(address);
+        });
+    }
+
+    /**
+     * @param brokers
+     */
+    private void newConnections(final Set<Address> brokers) {
+        brokers.parallelStream().forEach((address) -> {
             // create new pool(connect to one broker)
             final List<NSQConnection> okConns = new ArrayList<>(config.getThreadPoolSize4IO());
             for (int i = 0; i < config.getThreadPoolSize4IO(); i++) {
@@ -221,29 +250,6 @@ public class ConsumerImplV2 implements Consumer {
                         okConns.size());
             }
             okConns.clear();
-        });
-        /*-
-         * =====================================================================
-         *                                Step 2:
-         * =====================================================================
-         */
-        // 以oldDataNodes为主的差集: 要删除的节点.
-        final Set<Address> except2 = new HashSet<>(oldDataNodes.size());
-        except2.removeAll(newDataNodes);
-        if (except2.isEmpty()) {
-            return;
-        }
-        except2.parallelStream().forEach((address) -> {
-            if (holdingConnections.containsKey(address)) {
-                final Set<NSQConnection> conns = holdingConnections.get(address);
-                if (conns != null) {
-                    conns.forEach((c) -> {
-                        backoff(c);
-                        c.close();
-                    });
-                }
-            }
-            holdingConnections.remove(address);
         });
     }
 

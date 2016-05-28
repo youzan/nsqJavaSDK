@@ -1,5 +1,6 @@
 package com.youzan.nsq.client.core.lookup;
 
+import java.util.Random;
 import java.util.SortedSet;
 
 import com.youzan.nsq.client.entity.Address;
@@ -13,6 +14,8 @@ import com.youzan.nsq.client.exception.NSQLookupException;
  *
  */
 public interface NSQLookupService extends java.io.Serializable {
+
+    static final Random _r = new Random(10000);
 
     /**
      *

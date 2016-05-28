@@ -2,7 +2,6 @@ package com.youzan.nsq.client;
 
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
@@ -90,8 +89,7 @@ public class ProducerImplV2 implements Producer {
             this.poolConfig.setBlockWhenExhausted(false);
             this.poolConfig.setTestWhileIdle(true);
             this.simpleClient.start();
-            final Random r = new Random(10000);
-            this.offset = r.nextInt(100);
+            this.offset = _r.nextInt(100);
             createBigPool();
         }
     }

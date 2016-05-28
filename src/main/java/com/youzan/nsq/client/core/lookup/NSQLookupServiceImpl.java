@@ -4,7 +4,6 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Random;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.concurrent.Executors;
@@ -36,7 +35,6 @@ public class NSQLookupServiceImpl implements NSQLookupService {
      */
     private static final ObjectMapper mapper = new ObjectMapper()
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);;
-
     /**
      * the sorted lookupd's addresses
      */
@@ -52,9 +50,7 @@ public class NSQLookupServiceImpl implements NSQLookupService {
             scheduler = Executors
                     .newSingleThreadScheduledExecutor(new NamedThreadFactory("LookupChecker", Thread.MAX_PRIORITY));
         }
-
-        final Random r = new Random(10000);
-        offset = r.nextInt(100);
+        offset = _r.nextInt(100);
         checkLookupServers();
     }
 
@@ -119,8 +115,7 @@ public class NSQLookupServiceImpl implements NSQLookupService {
      * Asynchronized processing
      */
     public void checkLookupServers() {
-        final Random random = new Random(10000);
-        final int delay = random.nextInt(120); // seconds
+        final int delay = _r.nextInt(120) + 60; // seconds
         scheduler.scheduleWithFixedDelay(() -> {
             try {
                 if (this.addresses == null || this.addresses.isEmpty()) {

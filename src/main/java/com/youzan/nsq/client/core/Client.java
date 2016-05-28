@@ -3,6 +3,8 @@
  */
 package com.youzan.nsq.client.core;
 
+import java.util.Random;
+
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.network.frame.NSQFrame;
@@ -19,6 +21,8 @@ import io.netty.util.AttributeKey;
  */
 public interface Client {
     public static final AttributeKey<Client> STATE = AttributeKey.valueOf("Client.State");
+
+    static final Random _r = new Random(10000);
 
     void start() throws NSQException;
 

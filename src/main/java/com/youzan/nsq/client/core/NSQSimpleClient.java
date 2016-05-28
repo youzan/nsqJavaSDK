@@ -3,7 +3,6 @@
  */
 package com.youzan.nsq.client.core;
 
-import java.util.Random;
 import java.util.SortedSet;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -73,8 +72,7 @@ public class NSQSimpleClient implements Client {
     }
 
     private void keepDataNodes() {
-        final Random random = new Random(10000);
-        final int delay = random.nextInt(120) + 120; // seconds
+        final int delay = _r.nextInt(120) + 60; // seconds
         scheduler.scheduleWithFixedDelay(() -> {
             try {
                 newDataNodes();
