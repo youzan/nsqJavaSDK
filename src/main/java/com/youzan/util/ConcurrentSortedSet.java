@@ -86,8 +86,8 @@ public class ConcurrentSortedSet<T> {
      * @param target
      */
     public void swap(SortedSet<T> target) {
-        if (target == null || target.isEmpty()) {
-            throw new IllegalArgumentException("Your input is black!");
+        if (target == null) {
+            throw new IllegalArgumentException("Your input is null pointer!");
         }
         w.lock();
         final SortedSet<T> tmp = set;

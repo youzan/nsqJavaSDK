@@ -60,7 +60,7 @@ public class NSQSimpleClient implements Client {
         while (c++ < retries) {
             try {
                 final SortedSet<Address> nodes = this.lookup.lookup(this.topic);
-                if (nodes != null && !nodes.isEmpty()) {
+                if (nodes != null) {
                     this.dataNodes.swap(nodes);
                     break;
                 }

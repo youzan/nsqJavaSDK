@@ -22,9 +22,8 @@ public class ConsumerTest {
             return false;
         });
         consumer.start();
-
         try {
-            Thread.sleep(2 * 60 * 3600 * 1000);
+            Thread.sleep(3600 * 1000);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }

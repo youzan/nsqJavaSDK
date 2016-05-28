@@ -163,19 +163,13 @@ public class ConsumerImplV2 implements Consumer {
 
         final Set<Address> newDataNodes = getDataNodes().newSet();
         final Set<Address> oldDataNodes = this.holdingConnections.keySet();
-
         logger.debug("Prepare to connect new NSQd: {} , old NSQd: {} .", newDataNodes, oldDataNodes);
-        if (newDataNodes.isEmpty()) {
-            logger.info("No NSQd! Why? Please check NSQ (both Lookup and DataNode) !");
-            return;
-        }
-
         /*-
          * =====================================================================
          *                                Step 1:
+         *                    以newDataNodes为主的差集: 新建Brokers
          * =====================================================================
          */
-        // 以newDataNodes为主的差集: 新建Brokers
         final Set<Address> except1 = new HashSet<>(newDataNodes);
         except1.removeAll(oldDataNodes);
         if (!except1.isEmpty()) {
@@ -186,27 +180,27 @@ public class ConsumerImplV2 implements Consumer {
         /*-
          * =====================================================================
          *                                Step 2:
+         *                    以oldDataNodes为主的差集: 删除Brokers
          * =====================================================================
          */
-        // 以oldDataNodes为主的差集: 删除Brokers
         final Set<Address> except2 = new HashSet<>(oldDataNodes.size());
         except2.removeAll(newDataNodes);
         if (except2.isEmpty()) {
             logger.debug("No need to destory old NSQd connections!");
-            return;
-        }
-        except2.parallelStream().forEach((address) -> {
-            if (holdingConnections.containsKey(address)) {
-                final Set<NSQConnection> conns = holdingConnections.get(address);
-                if (conns != null) {
-                    conns.forEach((c) -> {
-                        backoff(c);
-                        c.close();
-                    });
+        } else {
+            except2.parallelStream().forEach((address) -> {
+                if (holdingConnections.containsKey(address)) {
+                    final Set<NSQConnection> conns = holdingConnections.get(address);
+                    if (conns != null) {
+                        conns.forEach((c) -> {
+                            backoff(c);
+                            c.close();
+                        });
+                    }
                 }
-            }
-            holdingConnections.remove(address);
-        });
+                holdingConnections.remove(address);
+            });
+        }
     }
 
     /**
@@ -244,7 +238,7 @@ public class ConsumerImplV2 implements Consumer {
                 }
             }
             if (okConns.size() == config.getThreadPoolSize4IO()) {
-                logger.info("It is good creating a pool for one broker.");
+                logger.info("Having created a pool for one broker, it feels good.");
             } else {
                 logger.info("Want the pool size {} , actually the size {}", config.getThreadPoolSize4IO(),
                         okConns.size());
@@ -296,9 +290,11 @@ public class ConsumerImplV2 implements Consumer {
                 if (ok) {
                     // TODO
                     // finish
+                    logger.debug(message.toString());
                 } else {
                     // TODO
                     // reQueue
+                    logger.debug(message.toString());
                 }
             });
         } catch (RejectedExecutionException re) {

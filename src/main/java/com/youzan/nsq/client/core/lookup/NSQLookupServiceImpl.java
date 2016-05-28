@@ -179,12 +179,12 @@ public class NSQLookupServiceImpl implements NSQLookupService {
                 nsqds.add(addr);
             }
             logger.debug("Server response info : {}", rootNode.toString());
+            return nsqds; // maybe it is empty
         } catch (Exception e) {
             final String tip = "SDK can't get the right lookup info.";
             logger.error(tip, e);
             throw new NSQLookupException(tip, e);
         }
-        return nsqds;
     }
 
     @Override
