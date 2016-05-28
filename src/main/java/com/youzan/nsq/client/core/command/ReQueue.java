@@ -14,22 +14,22 @@ import org.slf4j.LoggerFactory;
  * @email linzuxiong1988@gmail.com
  *
  */
-public class Finish implements NSQCommand {
-    private static final Logger logger = LoggerFactory.getLogger(Finish.class);
+public class ReQueue implements NSQCommand {
+    private static final Logger logger = LoggerFactory.getLogger(ReQueue.class);
 
-    private final byte[] data;
+    private byte[] data;
 
-    public Finish(byte[] messageID) {
+    public ReQueue(byte[] messageID, int timeout) {
         if (messageID == null || messageID.length <= 0) {
             throw new IllegalArgumentException("Your input messageID is empty!");
         }
         byte[] tmp;
         try {
-            final String d = String.format("FIN %s %d\n", new String(messageID, ASCII));
+            final String d = String.format("REQ %s %d\n", new String(messageID, ASCII), timeout);
             tmp = d.getBytes(DEFAULT_CHARSET_NAME);
         } catch (UnsupportedEncodingException e) {
             logger.error("Exception", e);
-            final String d = String.format("REQ %s %d\n", new String(messageID));
+            final String d = String.format("REQ %s %d\n", new String(messageID), timeout);
             tmp = d.getBytes();
         }
         this.data = tmp;
@@ -49,5 +49,4 @@ public class Finish implements NSQCommand {
     public List<byte[]> getBody() {
         return EMPTY_BODY;
     }
-
 }

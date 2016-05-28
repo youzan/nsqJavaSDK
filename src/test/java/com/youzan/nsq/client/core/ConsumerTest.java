@@ -14,12 +14,13 @@ public class ConsumerTest {
         final NSQConfig config = new NSQConfig();
         config.setLookupAddresses("127.0.0.1:4161");
         config.setThreadPoolSize4IO(1);
+        config.setTimeoutInSecond(120);
         config.setMsgTimeoutInMillisecond(120 * 1000);
         config.setTopic("test");
         config.setConsumerName("consumer_is_zhaoxi");
         final ConsumerImplV2 consumer = new ConsumerImplV2(config, (message) -> {
             Assert.assertNotNull(message);
-            return false;
+            return true;
         });
         consumer.start();
         try {

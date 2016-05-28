@@ -24,7 +24,10 @@ import com.youzan.nsq.client.core.KeyedConnectionPoolFactory;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
 import com.youzan.nsq.client.core.command.Close;
+import com.youzan.nsq.client.core.command.Finish;
+import com.youzan.nsq.client.core.command.NSQCommand;
 import com.youzan.nsq.client.core.command.Rdy;
+import com.youzan.nsq.client.core.command.ReQueue;
 import com.youzan.nsq.client.core.command.Sub;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
@@ -163,6 +166,9 @@ public class ConsumerImplV2 implements Consumer {
         if (newDataNodes.isEmpty() && oldDataNodes.isEmpty()) {
             return;
         }
+        if (newDataNodes.isEmpty()) {
+            logger.error("It can not get new DataNodes (NSQd). It will create a new pool next time!");
+        }
         /*-
          * =====================================================================
          *                                Step 1:
@@ -174,7 +180,7 @@ public class ConsumerImplV2 implements Consumer {
         if (!except1.isEmpty()) {
             newConnections(except1);
         } else {
-            logger.error("It can not get new DataNodes (NSQd). It will create a new pool next time!");
+            logger.debug("No need to create new NSQd connections!");
         }
         /*-
          * =====================================================================
@@ -295,17 +301,17 @@ public class ConsumerImplV2 implements Consumer {
         try {
             executor.execute(() -> {
                 final boolean ok = handler.process(message);
+                logger.debug("Having consume the message {} , client show great anxiety!", message.toString());
+                final NSQCommand cmd;
                 if (ok) {
-                    // TODO
-                    // finish
-                    logger.debug(message.toString());
+                    cmd = new Finish(message.getMessageID());
                 } else {
-                    // TODO
-                    // reQueue
-                    logger.debug(message.toString());
+                    cmd = new ReQueue(message.getMessageID(), 0);
                 }
+                conn.command(cmd);
             });
         } catch (RejectedExecutionException re) {
+            // TODO Halt Flow
         }
         // TODO Halt Flow
     }
