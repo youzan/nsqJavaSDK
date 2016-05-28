@@ -159,10 +159,10 @@ public class ConsumerImplV2 implements Consumer {
 
         final Set<Address> newDataNodes = getDataNodes().newSet();
         final Set<Address> oldDataNodes = new HashSet<>(this.holdingConnections.keySet());
+        logger.debug("Prepare to connect new NSQd: {} , old NSQd: {} .", newDataNodes, oldDataNodes);
         if (newDataNodes.isEmpty() && oldDataNodes.isEmpty()) {
             return;
         }
-        logger.debug("Prepare to connect new NSQd: {} , old NSQd: {} .", newDataNodes, oldDataNodes);
         /*-
          * =====================================================================
          *                                Step 1:
@@ -258,7 +258,9 @@ public class ConsumerImplV2 implements Consumer {
      */
     private void initConn(NSQConnection newConn) {
         newConn.command(new Sub(config.getTopic(), config.getConsumerName()));
-        newConn.command(new Rdy(Runtime.getRuntime().availableProcessors() - 1));
+        final int initRdy = Runtime.getRuntime().availableProcessors() - 1;
+        newConn.command(new Rdy(initRdy));
+        logger.info("Rdy {} message! It is new connection!", initRdy);
     }
 
     /**

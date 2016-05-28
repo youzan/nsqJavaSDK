@@ -42,7 +42,7 @@ public interface Client {
     void backoff(final NSQConnection conn);
 
     /**
-     * @return
+     * @return Always it is new.
      */
     ConcurrentSortedSet<Address> getDataNodes();
 
