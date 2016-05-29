@@ -152,10 +152,12 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     private void connect() {
+        final Set<Address> broken = new HashSet<>();
         holdingConnections.values().parallelStream().forEach((conns) -> {
             for (final NSQConnection c : conns) {
                 if (!c.isConnected()) {
                     c.close();
+                    broken.add(c.getAddress());
                 }
             }
         });
@@ -207,6 +209,15 @@ public class ConsumerImplV2 implements Consumer {
                 holdingConnections.remove(address);
             });
         }
+        /*-
+         * =====================================================================
+         *                                Step 3:
+         *                          干掉Broken Brokers.
+         * =====================================================================
+         */
+        broken.parallelStream().forEach((address) -> {
+            holdingConnections.remove(address);
+        });
     }
 
     /**
