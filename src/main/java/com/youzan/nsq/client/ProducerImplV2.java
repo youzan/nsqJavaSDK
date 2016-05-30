@@ -55,7 +55,7 @@ public class ProducerImplV2 implements Producer {
     /**
      * Record the client's request time
      */
-    private volatile long lastTimeInMillisOfClientRequest = System.currentTimeMillis();
+    private long lastTimeInMillisOfClientRequest = System.currentTimeMillis();
 
     /**
      * @param config

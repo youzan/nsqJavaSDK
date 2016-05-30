@@ -65,7 +65,7 @@ public class ConsumerImplV2 implements Consumer {
     /**
      * Record the client's request time
      */
-    private volatile long lastTimeInMillisOfClientRequest = System.currentTimeMillis();
+    private long lastTimeInMillisOfClientRequest = System.currentTimeMillis();
 
     /*-
      * =========================================================================
@@ -433,6 +433,8 @@ public class ConsumerImplV2 implements Consumer {
     @Override
     public void close() {
         closing = true;
+        started = false;
+
         cleanClose();
         if (factory != null) {
             factory.close();
@@ -440,6 +442,7 @@ public class ConsumerImplV2 implements Consumer {
         if (bigPool != null) {
             bigPool.close();
         }
+
     }
 
     private void cleanClose() {
