@@ -10,7 +10,7 @@ import com.youzan.nsq.client.exception.NSQException;
 public class ConsumerTest {
 
     @Test
-    public void consumeAndReQueue() throws NSQException {
+    public void consume() throws NSQException {
         final NSQConfig config = new NSQConfig();
         config.setLookupAddresses("127.0.0.1:4161");
         config.setThreadPoolSize4IO(1);
@@ -20,7 +20,7 @@ public class ConsumerTest {
         config.setConsumerName("consumer_is_zhaoxi");
         final ConsumerImplV2 consumer = new ConsumerImplV2(config, (message) -> {
             Assert.assertNotNull(message);
-            return false;
+            return true;
         });
         consumer.start();
         try {

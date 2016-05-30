@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory;
 public class ReQueue implements NSQCommand {
     private static final Logger logger = LoggerFactory.getLogger(ReQueue.class);
 
-    private byte[] data;
+    private final byte[] data;
 
     public ReQueue(byte[] messageID, int timeout) {
         if (messageID == null || messageID.length <= 0) {

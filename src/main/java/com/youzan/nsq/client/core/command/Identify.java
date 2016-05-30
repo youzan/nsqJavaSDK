@@ -22,7 +22,7 @@ public class Identify implements NSQCommand {
     private final List<byte[]> body = new ArrayList<>(1);
 
     public Identify(NSQConfig config) {
-        body.add(config.identify().getBytes(DEFAULT_CHARSET));
+        this.body.add(config.identify().getBytes(DEFAULT_CHARSET));
     }
 
     @Override

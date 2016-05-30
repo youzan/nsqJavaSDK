@@ -26,9 +26,8 @@ public class Pub implements NSQCommand {
      * @param data
      */
     public Pub(String topic, byte[] data) {
-        super();
         this.topic = topic;
-        body.add(data);
+        this.body.add(data);
     }
 
     @Override

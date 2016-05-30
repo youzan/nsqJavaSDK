@@ -349,7 +349,6 @@ public class ConsumerImplV2 implements Consumer {
                 try {
                     backoff(c);
                     final NSQFrame frame = c.commandAndGetResponse(Close.getInstance());
-                    bigPool.returnObject(c.getAddress(), c);
                     if (frame != null && frame instanceof ErrorFrame) {
                         final Response err = ((ErrorFrame) frame).getError();
                         if (err != null) {
