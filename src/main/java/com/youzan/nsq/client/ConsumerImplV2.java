@@ -114,7 +114,7 @@ public class ConsumerImplV2 implements Consumer {
             this.poolConfig.setFairness(true);
             this.poolConfig.setTestOnBorrow(false);
             this.poolConfig.setJmxEnabled(false);
-            this.poolConfig.setMinEvictableIdleTimeMillis(1000);
+            this.poolConfig.setMinEvictableIdleTimeMillis(24 * 3600 * 1000L);
             this.poolConfig.setMinIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());
