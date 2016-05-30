@@ -1,6 +1,7 @@
 package com.youzan.nsq.client;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -82,9 +83,12 @@ public class ConsumerImplV2 implements Consumer {
      */
     private final MessageHandler handler;
     private final ExecutorService executor = Executors.newFixedThreadPool(
-            Runtime.getRuntime().availableProcessors() * 2,
+            Runtime.getRuntime().availableProcessors() * 4,
             new NamedThreadFactory(this.getClass().getName() + "-ClientBusiness", Thread.MAX_PRIORITY));
-    private final Optional<ScheduledFuture<?>> timeout = Optional.empty();
+    private volatile Optional<ScheduledFuture<?>> timeout = Optional.empty();
+    private volatile long nextTimeout = 0;
+    private final int messagesPerBatch = 10;
+    private volatile boolean closing = false;
 
     /**
      * @param config
@@ -372,10 +376,53 @@ public class ConsumerImplV2 implements Consumer {
                     logger.error("Exception", e);
                 }
             });
+            if (nextTimeout > 0) {
+                updateTimeout(conn, message, -500);
+            }
         } catch (RejectedExecutionException re) {
-            // TODO Halt Flow
+            updateTimeout(conn, message, 500);
         }
-        // TODO Halt Flow
+        final long nowTotal = total.incrementAndGet();
+        if (nowTotal % messagesPerBatch > (messagesPerBatch / 2) && !closing) {
+            // request some more!
+            conn.command(new Rdy(messagesPerBatch));
+        }
+    }
+
+    /**
+     * @param conn
+     * @param message
+     * @param change
+     */
+    private void updateTimeout(final NSQConnection conn, final NSQMessage message, final int change) {
+        backoff(conn);
+        logger.debug("RDY 0! Halt Flow.");
+        if (timeout.isPresent()) {
+            timeout.get().cancel(true);
+        }
+        if (closing) {
+            return;
+        }
+        final Date newTimeout = calculateTimeoutDate(change);
+        if (newTimeout != null) {
+            timeout = Optional.of(scheduler.schedule(() -> {
+                conn.command(new Rdy(1)); // test the waters
+            }, 0, TimeUnit.MILLISECONDS));
+        }
+    }
+
+    /**
+     * @param change
+     * @return
+     */
+    private Date calculateTimeoutDate(final int change) {
+        if (System.currentTimeMillis() - nextTimeout + change > 50) {
+            nextTimeout += change;
+            return new Date();
+        } else {
+            nextTimeout = 0;
+            return null;
+        }
     }
 
     @Override
@@ -385,6 +432,7 @@ public class ConsumerImplV2 implements Consumer {
 
     @Override
     public void close() {
+        closing = true;
         cleanClose();
         if (factory != null) {
             factory.close();
