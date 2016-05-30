@@ -60,9 +60,11 @@ public class NSQConfig implements java.io.Serializable {
     private int threadPoolSize4IO = Runtime.getRuntime().availableProcessors() - 1;
     private final String clientId;
     private final String hostname;
-    private int msgTimeoutInMillisecond = 60 * 1000;
     private boolean featureNegotiation;
-    private Integer heartbeatInterval;
+
+    private int msgTimeoutInMillisecond = 60 * 1000;
+    private Integer heartbeatIntervalInMillisecond = null;
+
     private Integer outputBufferSize = null;
     private Integer outputBufferTimeout = null;
     private boolean tlsV1 = false;
@@ -212,6 +214,24 @@ public class NSQConfig implements java.io.Serializable {
     }
 
     /**
+     * @return the heartbeatIntervalInMillisecond
+     */
+    public Integer getHeartbeatIntervalInMillisecond() {
+        if (heartbeatIntervalInMillisecond == null) {
+            return Integer.valueOf(getMsgTimeoutInMillisecond() / 3);
+        }
+        return heartbeatIntervalInMillisecond;
+    }
+
+    /**
+     * @param heartbeatIntervalInMillisecond
+     *            the heartbeatIntervalInMillisecond to set
+     */
+    public void setHeartbeatIntervalInMillisecond(Integer heartbeatIntervalInMillisecond) {
+        this.heartbeatIntervalInMillisecond = heartbeatIntervalInMillisecond;
+    }
+
+    /**
      * @return the featureNegotiation
      */
     public boolean isFeatureNegotiation() {
@@ -224,21 +244,6 @@ public class NSQConfig implements java.io.Serializable {
      */
     public void setFeatureNegotiation(boolean featureNegotiation) {
         this.featureNegotiation = featureNegotiation;
-    }
-
-    /**
-     * @return the heartbeatInterval
-     */
-    public Integer getHeartbeatInterval() {
-        return heartbeatInterval;
-    }
-
-    /**
-     * @param heartbeatInterval
-     *            the heartbeatInterval to set
-     */
-    public void setHeartbeatInterval(Integer heartbeatInterval) {
-        this.heartbeatInterval = heartbeatInterval;
     }
 
     /**
@@ -355,9 +360,6 @@ public class NSQConfig implements java.io.Serializable {
         buffer.append("{\"client_id\":\"" + clientId + "\", ");
         buffer.append("\"hostname\":\"" + hostname + "\", ");
         buffer.append("\"feature_negotiation\": true, ");
-        if (heartbeatInterval != null) {
-            buffer.append("\"heartbeat_interval\":" + heartbeatInterval.toString() + ", ");
-        }
         if (outputBufferSize != null) {
             buffer.append("\"output_buffer_size\":" + outputBufferSize + ", ");
         }
@@ -378,6 +380,9 @@ public class NSQConfig implements java.io.Serializable {
         }
         if (sampleRate != null) {
             buffer.append("\"sample_rate\":" + sampleRate.toString() + ",");
+        }
+        if (getHeartbeatIntervalInMillisecond() != null) {
+            buffer.append("\"heartbeat_interval\":" + String.valueOf(getHeartbeatIntervalInMillisecond()) + ", ");
         }
         buffer.append("\"msg_timeout\":" + String.valueOf(msgTimeoutInMillisecond) + ",");
         buffer.append("\"user_agent\": \"" + userAgent + "\"}");

@@ -19,6 +19,11 @@ public class ReQueue implements NSQCommand {
 
     private final byte[] data;
 
+    /**
+     * @param messageID
+     * @param timeout
+     *            seconds
+     */
     public ReQueue(byte[] messageID, int timeout) {
         if (messageID == null || messageID.length <= 0) {
             throw new IllegalArgumentException("Your input messageID is empty!");
