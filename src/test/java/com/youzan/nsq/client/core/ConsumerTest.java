@@ -20,7 +20,7 @@ public class ConsumerTest {
         config.setConsumerName("consumer_is_zhaoxi");
         final ConsumerImplV2 consumer = new ConsumerImplV2(config, (message) -> {
             Assert.assertNotNull(message);
-            return true;
+            return false;
         });
         consumer.start();
         try {

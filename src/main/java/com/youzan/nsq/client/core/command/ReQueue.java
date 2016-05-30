@@ -24,10 +24,10 @@ public class ReQueue implements NSQCommand {
             throw new IllegalArgumentException("Your input messageID is empty!");
         }
         final byte[] cmd = "REQ ".getBytes(DEFAULT_CHARSET);
-        final ByteBuffer bb = ByteBuffer.allocate(cmd.length + messageID.length);
+        final byte[] timeoutBytes = String.valueOf(timeout).getBytes(DEFAULT_CHARSET);
+        final ByteBuffer bb = ByteBuffer.allocate(cmd.length + messageID.length + 1 + timeoutBytes.length + 1);
         // REQ <message_id> <timeout>\n
-        bb.put(cmd).put(messageID).put(SPACE).put(String.valueOf(timeout).getBytes(DEFAULT_CHARSET))
-                .put(LINE_SEPARATOR);
+        bb.put(cmd).put(messageID).put(SPACE).put(timeoutBytes).put(LINE_SEPARATOR);
         this.data = bb.array();
     }
 
