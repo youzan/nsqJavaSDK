@@ -3,7 +3,6 @@
  */
 package com.youzan.nsq.client.core.command;
 
-import java.io.UnsupportedEncodingException;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -17,8 +16,7 @@ import org.slf4j.LoggerFactory;
 public class Magic implements NSQCommand {
     private static final Logger logger = LoggerFactory.getLogger(Magic.class);
 
-    private final String cmd = "  V2";
-    private final byte[] asciiCMD;
+    private final byte[] data;
 
     private static class Instance {
         // final
@@ -30,20 +28,12 @@ public class Magic implements NSQCommand {
     }
 
     private Magic() {
-        byte[] tmp;
-        try {
-            tmp = cmd.getBytes(ASCII);
-        } catch (UnsupportedEncodingException e) {
-            // Ugly Java
-            logger.error("Exception", e);
-            tmp = cmd.getBytes();
-        }
-        asciiCMD = tmp;
+        this.data = "  V2".getBytes(ASCII);
     }
 
     @Override
     public byte[] getBytes() {
-        return asciiCMD;
+        return data;
     }
 
     @Override

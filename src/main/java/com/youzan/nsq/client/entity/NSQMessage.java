@@ -1,6 +1,5 @@
 package com.youzan.nsq.client.entity;
 
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
@@ -9,13 +8,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.youzan.nsq.client.core.command.Close;
+import com.youzan.util.IOUtil;
 
 public class NSQMessage {
     private static final Logger logger = LoggerFactory.getLogger(Close.class);
 
-    public static final String ASCII = "US-ASCII";
-    public static final String UTF8 = "UTF-8";
-    public static final String DEFAULT_CHARSET_NAME = UTF8;
     private final byte[] timestamp;
     private final byte[] attempts;
     private final byte[] messageID;
@@ -34,17 +31,10 @@ public class NSQMessage {
         this.attempts = attempts;
         this.messageID = messageID;
         this.messageBody = messageBody;
+        // Readable
         this.datetime = new Date(TimeUnit.NANOSECONDS.toMillis(toLong(timestamp)));
         this.readableAttempts = toUnsignedShort(attempts);
-
-        String tmp;
-        try {
-            tmp = new String(messageID, ASCII);
-        } catch (UnsupportedEncodingException e) {
-            logger.error("Exception", e);
-            tmp = new String(messageID);
-        }
-        this.readableMsgID = tmp;
+        this.readableMsgID = new String(messageID, IOUtil.ASCII);
     }
 
     /**
@@ -93,12 +83,7 @@ public class NSQMessage {
             return readableContent;
         }
         if (messageBody != null && messageBody.length > 0) {
-            try {
-                readableContent = new String(messageBody, UTF8);
-            } catch (UnsupportedEncodingException e) {
-                logger.error("Exception", e);
-                readableContent = new String(messageBody);
-            }
+            readableContent = new String(messageBody, IOUtil.DEFAULT_CHARSET);
         }
         return readableContent;
     }

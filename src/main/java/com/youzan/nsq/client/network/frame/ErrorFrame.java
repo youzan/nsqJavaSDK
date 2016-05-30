@@ -1,7 +1,5 @@
 package com.youzan.nsq.client.network.frame;
 
-import java.io.UnsupportedEncodingException;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,12 +22,7 @@ public class ErrorFrame extends NSQFrame {
 
     @Override
     public String getMessage() {
-        try {
-            return new String(getData(), DEFAULT_CHARSET_NAME).trim();
-        } catch (UnsupportedEncodingException e) {
-            logger.error("Exception", e);
-            return new String(getData()).trim();
-        }
+        return new String(getData(), DEFAULT_CHARSET).trim();
     }
 
     /**

@@ -18,7 +18,7 @@ public class NSQDecoder extends MessageToMessageDecoder<ByteBuf> {
         NSQFrame frame = NSQFrame.newInstance(frameType);
         if (frame == null) {
             // uhh, bad response from server.. what should we do?
-            final String tip = String.format("Bad frame id from server (%d). It will be  disconnected!", frameType);
+            final String tip = String.format("Bad frame id from server (%d). It will be disconnected!", frameType);
             throw new NSQException(tip);
         }
         frame.setSize(size);

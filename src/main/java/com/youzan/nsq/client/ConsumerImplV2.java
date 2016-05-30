@@ -312,7 +312,7 @@ public class ConsumerImplV2 implements Consumer {
         try {
             executor.execute(() -> {
                 final boolean ok = handler.process(message);
-                logger.debug("Having consume the message {} , client show great anxiety!", message.toString());
+                logger.debug("Having consume the message {} , client showed great anxiety!", message.toString());
                 final NSQCommand cmd;
                 if (ok) {
                     cmd = new Finish(message.getMessageID());

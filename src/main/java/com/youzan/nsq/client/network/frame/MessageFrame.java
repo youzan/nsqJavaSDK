@@ -4,9 +4,11 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 
 public class MessageFrame extends NSQFrame {
-    // *************************************************************************
-    // NSQ the message format
-    // *************************************************************************
+    /*-
+     * =========================================================================
+     *                       NSQ the message format
+     * =========================================================================
+     */
     /**
      * 8-byte : nanosecond timestamp (int64)
      */
@@ -23,6 +25,11 @@ public class MessageFrame extends NSQFrame {
      * N-byte : (binary)
      */
     private byte[] messageBody;
+    /*-
+     * =========================================================================
+     *                       NSQ the message format -- Ending
+     * =========================================================================
+     */
 
     /**
      * @return the timestamp

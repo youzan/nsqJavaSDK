@@ -1,5 +1,8 @@
 package com.youzan.nsq.client.network.frame;
 
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -7,9 +10,9 @@ public abstract class NSQFrame {
 
     private static final Logger logger = LoggerFactory.getLogger(NSQFrame.class);
 
-    public static final String ASCII = "US-ASCII";
-    public static final String UTF = "UTF-8";
-    public static final String DEFAULT_CHARSET_NAME = UTF;
+    public static final Charset ASCII = StandardCharsets.US_ASCII;
+    public static final Charset UTF8 = StandardCharsets.UTF_8;
+    public static final Charset DEFAULT_CHARSET = UTF8;
 
     public enum FrameType {
         RESPONSE_FRAME(0),//

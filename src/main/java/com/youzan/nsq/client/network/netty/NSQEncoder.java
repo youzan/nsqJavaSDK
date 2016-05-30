@@ -17,7 +17,6 @@ public class NSQEncoder extends MessageToMessageEncoder<NSQCommand> {
         if (command == null) {
             throw new NullPointerException("I can not encode Null-Pointer!");
         }
-
         if (command.getBytes() != null) {
             final byte[] bs = command.getBytes();
             if (bs.length > 0) {
@@ -30,8 +29,9 @@ public class NSQEncoder extends MessageToMessageEncoder<NSQCommand> {
             return;
         }
 
+        // Header + Body
         final ByteBuf buf = Unpooled.buffer();
-        buf.writeBytes(command.getHeader().getBytes(NSQCommand.DEFAULT_CHARSET_NAME));
+        buf.writeBytes(command.getHeader().getBytes(NSQCommand.DEFAULT_CHARSET));
 
         final List<byte[]> body = command.getBody();
         assert body != null;

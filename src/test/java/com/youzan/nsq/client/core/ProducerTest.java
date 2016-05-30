@@ -11,11 +11,11 @@ import com.youzan.nsq.client.Producer;
 import com.youzan.nsq.client.ProducerImplV2;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.exception.NSQException;
+import com.youzan.util.IOUtil;
 
 public class ProducerTest {
 
     private static final Logger logger = LoggerFactory.getLogger(ProducerTest.class);
-    public static final String DEFAULT_CHARSET_NAME = "UTF-8";
 
     @Test
     public void produceUsingSimpleProducer() throws NSQException, UnsupportedEncodingException {
@@ -27,7 +27,7 @@ public class ProducerTest {
         Producer p = new ProducerImplV2(config);
         p.start();
         for (int i = 0; i < 10000; i++) {
-            p.publish(randomString().getBytes(DEFAULT_CHARSET_NAME));
+            p.publish(randomString().getBytes(IOUtil.DEFAULT_CHARSET));
             logger.info("OK");
             assert true;
         }

@@ -3,7 +3,7 @@
  */
 package com.youzan.nsq.client.core.command;
 
-import java.io.UnsupportedEncodingException;
+import java.nio.ByteBuffer;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -23,16 +23,12 @@ public class ReQueue implements NSQCommand {
         if (messageID == null || messageID.length <= 0) {
             throw new IllegalArgumentException("Your input messageID is empty!");
         }
-        byte[] tmp;
-        try {
-            final String d = String.format("REQ %s %d\n", new String(messageID, ASCII), timeout);
-            tmp = d.getBytes(DEFAULT_CHARSET_NAME);
-        } catch (UnsupportedEncodingException e) {
-            logger.error("Exception", e);
-            final String d = String.format("REQ %s %d\n", new String(messageID), timeout);
-            tmp = d.getBytes();
-        }
-        this.data = tmp;
+        final byte[] cmd = "REQ ".getBytes(DEFAULT_CHARSET);
+        final ByteBuffer bb = ByteBuffer.allocate(cmd.length + messageID.length);
+        // REQ <message_id> <timeout>\n
+        bb.put(cmd).put(messageID).put(SPACE).put(String.valueOf(timeout).getBytes(DEFAULT_CHARSET))
+                .put(LINE_SEPARATOR);
+        this.data = bb.array();
     }
 
     @Override
