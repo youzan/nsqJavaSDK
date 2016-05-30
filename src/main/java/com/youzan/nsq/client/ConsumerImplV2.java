@@ -243,6 +243,15 @@ public class ConsumerImplV2 implements Consumer {
                 logger.error("Exception", e);
             }
         });
+        /*-
+         * =====================================================================
+         *                                Step 4:
+         *                          Clean up local resources
+         * =====================================================================
+         */
+        broken.clear();
+        except1.clear();
+        except2.clear();
     }
 
     /**
