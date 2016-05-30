@@ -38,6 +38,7 @@ import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.MessageFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.util.ConcurrentSortedSet;
+import com.youzan.util.IOUtil;
 import com.youzan.util.NamedThreadFactory;
 
 /**
@@ -155,9 +156,13 @@ public class ConsumerImplV2 implements Consumer {
         final Set<Address> broken = new HashSet<>();
         holdingConnections.values().parallelStream().forEach((conns) -> {
             for (final NSQConnection c : conns) {
-                if (!c.isConnected()) {
-                    c.close();
-                    broken.add(c.getAddress());
+                try {
+                    if (!c.isConnected()) {
+                        c.close();
+                        broken.add(c.getAddress());
+                    }
+                } catch (Exception e) {
+                    logger.error("Exception occurs while detecting broken connections!", e);
                 }
             }
         });
@@ -196,13 +201,21 @@ public class ConsumerImplV2 implements Consumer {
             logger.debug("No need to destory old NSQd connections!");
         } else {
             except2.parallelStream().forEach((address) -> {
+                if (address == null) {
+                    return;
+                }
                 bigPool.clear(address);
                 if (holdingConnections.containsKey(address)) {
                     final Set<NSQConnection> conns = holdingConnections.get(address);
                     if (conns != null) {
                         conns.forEach((c) -> {
-                            backoff(c);
-                            c.close();
+                            try {
+                                backoff(c);
+                            } catch (Exception e) {
+                                logger.error("It can not backoff the connection!", e);
+                            } finally {
+                                IOUtil.closeQuietly(c);
+                            }
                         });
                     }
                 }
@@ -216,7 +229,15 @@ public class ConsumerImplV2 implements Consumer {
          * =====================================================================
          */
         broken.parallelStream().forEach((address) -> {
-            holdingConnections.remove(address);
+            if (address == null) {
+                return;
+            }
+            try {
+                holdingConnections.remove(address);
+                bigPool.clear(address);
+            } catch (Exception e) {
+                logger.error("Exception", e);
+            }
         });
     }
 
@@ -226,48 +247,62 @@ public class ConsumerImplV2 implements Consumer {
     private void newConnections(final Set<Address> brokers) {
         brokers.parallelStream().forEach((address) -> {
             try {
-                bigPool.clear(address);
-                bigPool.preparePool(address);
-            } catch (Exception e1) {
-                logger.error("Exception", e1);
+                newConnections4OneBroker(address);
+            } catch (Exception e) {
+                logger.error("Exception", e);
             }
-            // create new pool(connect to one broker)
-            final List<NSQConnection> okConns = new ArrayList<>(config.getThreadPoolSize4IO());
-            for (int i = 0; i < config.getThreadPoolSize4IO(); i++) {
-                NSQConnection newConn = null;
-                try {
-                    newConn = bigPool.borrowObject(address);
-                    initConn(newConn); // subscribe
-                    if (!holdingConnections.containsKey(address)) {
-                        holdingConnections.putIfAbsent(address, new HashSet<>());
-                    }
-                    final Set<NSQConnection> conns = holdingConnections.get(address);
-                    conns.add(newConn);
-
-                    okConns.add(newConn);
-                } catch (Exception e) {
-                    logger.error("Exception", e);
-                    if (newConn != null) {
-                        bigPool.returnObject(address, newConn);
-                    }
-                }
-            }
-            // finally
-            for (NSQConnection c : okConns) {
-                try {
-                    bigPool.returnObject(c.getAddress(), c);
-                } catch (Exception e) {
-                    logger.error("Exception", e);
-                }
-            }
-            if (okConns.size() == config.getThreadPoolSize4IO()) {
-                logger.info("Having created a pool for one broker, it feels good.");
-            } else {
-                logger.info("Want the pool size {} , actually the size {}", config.getThreadPoolSize4IO(),
-                        okConns.size());
-            }
-            okConns.clear();
         });
+    }
+
+    /**
+     * @param address
+     */
+    private void newConnections4OneBroker(Address address) {
+        if (address == null) {
+            logger.error("Your input address is blank!");
+            return;
+        }
+        try {
+            bigPool.clear(address);
+            bigPool.preparePool(address);
+        } catch (Exception e) {
+            logger.error("Exception", e);
+        }
+        // create new pool(connect to one broker)
+        final List<NSQConnection> okConns = new ArrayList<>(config.getThreadPoolSize4IO());
+        for (int i = 0; i < config.getThreadPoolSize4IO(); i++) {
+            NSQConnection newConn = null;
+            try {
+                newConn = bigPool.borrowObject(address);
+                initConn(newConn); // subscribe
+                if (!holdingConnections.containsKey(address)) {
+                    holdingConnections.putIfAbsent(address, new HashSet<>());
+                }
+                final Set<NSQConnection> conns = holdingConnections.get(address);
+                conns.add(newConn);
+
+                okConns.add(newConn);
+            } catch (Exception e) {
+                logger.error("Exception", e);
+                if (newConn != null) {
+                    bigPool.returnObject(address, newConn);
+                }
+            }
+        }
+        // finally
+        for (NSQConnection c : okConns) {
+            try {
+                bigPool.returnObject(c.getAddress(), c);
+            } catch (Exception e) {
+                logger.error("Exception", e);
+            }
+        }
+        if (okConns.size() == config.getThreadPoolSize4IO()) {
+            logger.info("Having created a pool for one broker, it feels good.");
+        } else {
+            logger.info("Want the pool size {} , actually the size {}", config.getThreadPoolSize4IO(), okConns.size());
+        }
+        okConns.clear();
     }
 
     /**
@@ -357,6 +392,8 @@ public class ConsumerImplV2 implements Consumer {
                     }
                 } catch (Exception e) {
                     logger.error("Exception", e);
+                } finally {
+                    IOUtil.closeQuietly(c);
                 }
             }
         });
