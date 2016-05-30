@@ -350,28 +350,8 @@ public class ConsumerImplV2 implements Consumer {
         }
         try {
             executor.execute(() -> {
-                logger.debug("Having consume the message {} , client showed great anxiety!", message.toString());
-                boolean ok = false;
-                int c = 0;
-                while (c++ < 2 && !ok) {
-                    try {
-                        ok = handler.process(message);
-                    } catch (Exception e) {
-                        ok = false;
-                        logger.error("Exception", e);
-                    }
-                }
                 try {
-                    final NSQCommand cmd;
-                    if (ok) {
-                        cmd = new Finish(message.getMessageID());
-                    } else {
-                        cmd = new ReQueue(message.getMessageID(), 60);
-                        if (message.getReadableAttempts() > 10) {
-                            logger.info("Processing 10 times is still a failure!");
-                        }
-                    }
-                    conn.command(cmd);
+                    consume(message, conn);
                 } catch (Exception e) {
                     logger.error("Exception", e);
                 }
@@ -384,9 +364,36 @@ public class ConsumerImplV2 implements Consumer {
         }
         final long nowTotal = total.incrementAndGet();
         if (nowTotal % messagesPerBatch > (messagesPerBatch / 2) && !closing) {
-            // request some more!
             conn.command(new Rdy(messagesPerBatch));
         }
+    }
+
+    /**
+     * @param message
+     * @param conn
+     */
+    private void consume(final NSQMessage message, final NSQConnection conn) {
+        logger.debug("Having consume the message {} , client showed great anxiety!", message.toString());
+        boolean ok = false;
+        int c = 0;
+        while (c++ < 2 && !ok) {
+            try {
+                ok = handler.process(message);
+            } catch (Exception e) {
+                ok = false;
+                logger.error("Exception", e);
+            }
+        }
+        final NSQCommand cmd;
+        if (ok) {
+            cmd = new Finish(message.getMessageID());
+        } else {
+            cmd = new ReQueue(message.getMessageID(), 60);
+            if (message.getReadableAttempts() > 10) {
+                logger.error("Processing 10 times is still a failure!");
+            }
+        }
+        conn.command(cmd);
     }
 
     /**
