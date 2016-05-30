@@ -298,7 +298,7 @@ public class ConsumerImplV2 implements Consumer {
             }
         }
         if (okConns.size() == config.getThreadPoolSize4IO()) {
-            logger.info("Having created a pool for one broker, it feels good.");
+            logger.info("Having created a pool for one broker, it felt good.");
         } else {
             logger.info("Want the pool size {} , actually the size {}", config.getThreadPoolSize4IO(), okConns.size());
         }
