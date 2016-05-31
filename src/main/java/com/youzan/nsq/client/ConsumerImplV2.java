@@ -324,9 +324,8 @@ public class ConsumerImplV2 implements Consumer {
      */
     private void initConn(NSQConnection newConn) {
         newConn.command(new Sub(config.getTopic(), config.getConsumerName()));
-        final int initRdy = Runtime.getRuntime().availableProcessors() - 1;
-        newConn.command(new Rdy(initRdy));
-        logger.info("Rdy {} message! It is new connection!", initRdy);
+        newConn.command(new Rdy(messagesPerBatch));
+        logger.info("Rdy {} message! It is new connection!", messagesPerBatch);
     }
 
     /**
