@@ -204,14 +204,15 @@ public class ProducerImplV2 implements Producer {
                             throw new NSQInvalidMessageException();
                         }
                         case E_FAILED_ON_NOT_LEADER: {
-                            retries++;
-                            continue conn;
                         }
                         case E_FAILED_ON_NOT_WRITABLE: {
-                            retries++;
-                            continue conn;
                         }
                         case E_TOPIC_NOT_EXIST: {
+                            final Address address = conn.getAddress();
+                            if (address != null) {
+                                factory.clear(address);
+                                bigPool.clear(address);
+                            }
                             retries++;
                             continue conn;
                         }
