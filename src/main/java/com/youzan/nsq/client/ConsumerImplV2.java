@@ -238,6 +238,7 @@ public class ConsumerImplV2 implements Consumer {
             }
             try {
                 holdingConnections.remove(address);
+                factory.clear(address);
                 bigPool.clear(address);
             } catch (Exception e) {
                 logger.error("Exception", e);

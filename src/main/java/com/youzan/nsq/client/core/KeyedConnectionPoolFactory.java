@@ -125,6 +125,10 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
         p.getObject().close();
     }
 
+    public void clear(Address addr) {
+        bootstraps.remove(addr);
+    }
+
     public void close() {
         if (bootstraps != null) {
             bootstraps.clear();

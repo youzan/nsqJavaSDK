@@ -133,6 +133,8 @@ public class ProducerImplV2 implements Producer {
                 logger.error("Exception", e);
                 IOUtil.closeQuietly(conn);
             }
+            factory.clear(addr);
+            bigPool.clear(addr);
             // End one round so that let system wait 1 second
             if (c == size) {
                 sleep(1000);
