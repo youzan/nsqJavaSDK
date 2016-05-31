@@ -166,8 +166,8 @@ public class ProducerImplV2 implements Producer {
         total.incrementAndGet();
         lastTimeInMillisOfClientRequest = System.currentTimeMillis();
         final Pub pub = new Pub(config.getTopic(), message);
-        int c = 0; // be continuous
-        while (c++ < 3) { // 0,1,2
+        int c = 0, retries = 2; // be continuous
+        conn: while (c++ < retries) { // 0,1,2
             final NSQConnection conn = getNSQConnection();
             if (conn == null) {
                 // Fatal error. SDK cann't handle it.
@@ -202,6 +202,18 @@ public class ProducerImplV2 implements Producer {
                         }
                         case E_BAD_MESSAGE: {
                             throw new NSQInvalidMessageException();
+                        }
+                        case E_FAILED_ON_NOT_LEADER: {
+                            retries++;
+                            continue conn;
+                        }
+                        case E_FAILED_ON_NOT_WRITABLE: {
+                            retries++;
+                            continue conn;
+                        }
+                        case E_TOPIC_NOT_EXIST: {
+                            retries++;
+                            continue conn;
                         }
                         default: {
                             throw new NSQException(err.getMessage());

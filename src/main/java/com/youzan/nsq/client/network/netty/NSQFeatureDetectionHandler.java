@@ -2,8 +2,12 @@ package com.youzan.nsq.client.network.netty;
 
 import javax.net.ssl.SSLEngine;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
 
@@ -18,6 +22,9 @@ import io.netty.handler.codec.compression.ZlibWrapper;
 import io.netty.handler.ssl.SslHandler;
 
 public class NSQFeatureDetectionHandler extends SimpleChannelInboundHandler<NSQFrame> {
+
+    private static final Logger logger = LoggerFactory.getLogger(ErrorFrame.class);
+
     private boolean ssl;
     private boolean compression;
     private boolean snappy;
@@ -31,6 +38,7 @@ public class NSQFeatureDetectionHandler extends SimpleChannelInboundHandler<NSQF
         boolean reinstallDefaultDecoder = true;
         if (msg instanceof ResponseFrame) {
             ResponseFrame response = (ResponseFrame) msg;
+            logger.debug("NSQConfig , receiving message: {}", msg);
             ChannelPipeline pipeline = ctx.channel().pipeline();
             parseIdentify(response.getMessage(), config);
             if (response.getMessage().equals("OK")) {

@@ -13,6 +13,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
@@ -38,6 +39,7 @@ import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.MessageFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
+import com.youzan.nsq.client.network.frame.NSQFrame.FrameType;
 import com.youzan.util.ConcurrentSortedSet;
 import com.youzan.util.IOUtil;
 import com.youzan.util.NamedThreadFactory;
@@ -297,7 +299,7 @@ public class ConsumerImplV2 implements Consumer {
 
                 okConns.add(newConn);
             } catch (Exception e) {
-                logger.error("Exception", e);
+                logger.error("Exception: {}", address, e);
                 if (newConn != null) {
                     bigPool.returnObject(address, newConn);
                 }
@@ -321,9 +323,33 @@ public class ConsumerImplV2 implements Consumer {
 
     /**
      * @param newConn
+     * @throws TimeoutException
+     * @throws NSQException
      */
-    private void initConn(NSQConnection newConn) {
-        newConn.command(new Sub(config.getTopic(), config.getConsumerName()));
+    private void initConn(NSQConnection newConn) throws TimeoutException, NSQException {
+        final NSQFrame frame = newConn.commandAndGetResponse(new Sub(config.getTopic(), config.getConsumerName()));
+        if (frame != null && frame.getType() == FrameType.ERROR_FRAME) {
+            final ErrorFrame err = (ErrorFrame) frame;
+            if (err != null) {
+                final Address address = newConn.getAddress();
+                switch (err.getError()) {
+                    case E_FAILED_ON_NOT_LEADER: {
+                    }
+                    case E_FAILED_ON_NOT_WRITABLE: {
+                    }
+                    case E_TOPIC_NOT_EXIST: {
+                        if (address != null) {
+                            holdingConnections.remove(address);
+                            factory.clear(address);
+                            bigPool.clear(address);
+                        }
+                    }
+                    default: {
+                        throw new NSQException("Unkown response error!");
+                    }
+                }
+            }
+        }
         newConn.command(new Rdy(messagesPerBatch));
         logger.info("Rdy {} message! It is new connection!", messagesPerBatch);
     }
@@ -466,7 +492,7 @@ public class ConsumerImplV2 implements Consumer {
                 try {
                     backoff(c);
                     final NSQFrame frame = c.commandAndGetResponse(Close.getInstance());
-                    if (frame != null && frame instanceof ErrorFrame) {
+                    if (frame != null && frame.getType() == FrameType.ERROR_FRAME) {
                         final Response err = ((ErrorFrame) frame).getError();
                         if (err != null) {
                             logger.error(err.getContent());

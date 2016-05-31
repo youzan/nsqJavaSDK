@@ -40,6 +40,15 @@ public class ErrorFrame extends NSQFrame {
             if (content.startsWith("E_BAD_MESSAGE")) {
                 return Response.E_BAD_MESSAGE;
             }
+            if (content.startsWith("E_FAILED_ON_NOT_LEADER")) {
+                return Response.E_FAILED_ON_NOT_LEADER;
+            }
+            if (content.startsWith("E_FAILED_ON_NOT_WRITABLE")) {
+                return Response.E_FAILED_ON_NOT_WRITABLE;
+            }
+            if (content.startsWith("E_TOPIC_NOT_EXIST")) {
+                return Response.E_TOPIC_NOT_EXIST;
+            }
         }
         return null;
     }
