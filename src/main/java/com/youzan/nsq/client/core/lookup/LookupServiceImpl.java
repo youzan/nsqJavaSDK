@@ -51,7 +51,7 @@ public class LookupServiceImpl implements LookupService {
                     .newSingleThreadScheduledExecutor(new NamedThreadFactory("LookupChecker", Thread.MAX_PRIORITY));
         }
         offset = _r.nextInt(100);
-        // checkLookupServers();
+        checkLookupServers();
     }
 
     /**

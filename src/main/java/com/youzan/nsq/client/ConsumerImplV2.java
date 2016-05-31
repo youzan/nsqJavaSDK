@@ -366,10 +366,10 @@ public class ConsumerImplV2 implements Consumer {
                 }
             });
             if (nextTimeout > 0) {
-                updateTimeout(conn, message, -500);
+                updateTimeout(conn, -500);
             }
         } catch (RejectedExecutionException re) {
-            updateTimeout(conn, message, 500);
+            updateTimeout(conn, 500);
         }
         final long nowTotal = total.incrementAndGet();
         if (nowTotal % messagesPerBatch > (messagesPerBatch / 2) && !closing) {
@@ -407,10 +407,9 @@ public class ConsumerImplV2 implements Consumer {
 
     /**
      * @param conn
-     * @param message
      * @param change
      */
-    private void updateTimeout(final NSQConnection conn, final NSQMessage message, final int change) {
+    private void updateTimeout(final NSQConnection conn, final int change) {
         backoff(conn);
         logger.debug("RDY 0! Halt Flow.");
         if (timeout.isPresent()) {
