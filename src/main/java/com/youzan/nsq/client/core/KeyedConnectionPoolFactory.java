@@ -88,8 +88,7 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
             conn.init();
         } catch (Exception e) {
             conn.close();
-            logger.error("Creating a connection and having a negotiation fails!", e);
-            throw new NoConnectionException(e);
+            throw new NoConnectionException("Creating a connection and having a negotiation fails!", e);
         }
 
         if (!conn.isConnected()) {

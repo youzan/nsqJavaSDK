@@ -182,7 +182,6 @@ public class LookupServiceImpl implements LookupService {
             return nsqds; // maybe it is empty
         } catch (Exception e) {
             final String tip = "SDK can't get the right lookup info.";
-            logger.error(tip, e);
             throw new NSQLookupException(tip, e);
         }
     }

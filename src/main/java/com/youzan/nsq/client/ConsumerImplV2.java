@@ -129,11 +129,11 @@ public class ConsumerImplV2 implements Consumer {
             this.poolConfig.setMaxWaitMillis(500);
             this.poolConfig.setBlockWhenExhausted(true);
             this.poolConfig.setTestWhileIdle(true);
-            this.simpleClient.start();
             createBigPool();
             // POST
             connect();
             keepConnecting();
+            this.simpleClient.start();
         }
     }
 
@@ -416,7 +416,7 @@ public class ConsumerImplV2 implements Consumer {
                 ok = handler.process(message);
             } catch (Exception e) {
                 ok = false;
-                logger.error("Exception", e);
+                logger.error("Current Retries: {}, Exception occurs...", c, e);
             }
         }
         final NSQCommand cmd;

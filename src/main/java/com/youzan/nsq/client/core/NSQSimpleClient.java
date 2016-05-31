@@ -65,7 +65,7 @@ public class NSQSimpleClient implements Client {
                     break;
                 }
             } catch (Exception e) {
-                logger.error("Exception", e);
+                logger.error("Current Retry: {} . Exception occurs...", c, e);
             }
             sleep(1000 * c);
         }

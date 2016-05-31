@@ -89,9 +89,9 @@ public class ProducerImplV2 implements Producer {
             this.poolConfig.setMaxWaitMillis(500);
             this.poolConfig.setBlockWhenExhausted(false);
             this.poolConfig.setTestWhileIdle(true);
-            this.simpleClient.start();
             this.offset = _r.nextInt(100);
             createBigPool();
+            this.simpleClient.start();
         }
     }
 
@@ -128,9 +128,9 @@ public class ProducerImplV2 implements Producer {
                 return conn;
             } catch (NoSuchElementException e) {
                 // Either the pool is too busy or NSQd is down.
-                logger.error("Exception", e);
+                logger.error("Current Retries: {}, Exception occurs...", c, e);
             } catch (Exception e) {
-                logger.error("Exception", e);
+                logger.error("Current Retries: {}, Exception occurs...", c, e);
                 IOUtil.closeQuietly(conn);
             }
             factory.clear(addr);
@@ -178,7 +178,7 @@ public class ProducerImplV2 implements Producer {
                 resp = conn.commandAndGetResponse(pub);
             } catch (Exception e) {
                 // Continue to retry
-                logger.error("Exception", e);
+                logger.error("Current Retries: {}, Exception occurs...", c, e);
             } finally {
                 bigPool.returnObject(conn.getAddress(), conn);
             }
@@ -270,7 +270,7 @@ public class ProducerImplV2 implements Producer {
                 resp = conn.commandAndGetResponse(pub);
             } catch (Exception e) {
                 // Continue to retry
-                logger.error("Exception", e);
+                logger.error("Current Retries: {}, Exception occurs...", c, e);
             } finally {
                 bigPool.returnObject(conn.getAddress(), conn);
             }

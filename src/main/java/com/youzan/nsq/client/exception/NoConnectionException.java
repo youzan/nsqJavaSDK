@@ -25,4 +25,12 @@ public class NoConnectionException extends NSQException {
     public NoConnectionException(String message) {
         super(message);
     }
+
+    /**
+     * @param message
+     * @param cause
+     */
+    public NoConnectionException(String message, Exception cause) {
+        super(message, cause);
+    }
 }
