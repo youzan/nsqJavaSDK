@@ -14,6 +14,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
@@ -90,7 +91,7 @@ public class ConsumerImplV2 implements Consumer {
     private volatile Optional<ScheduledFuture<?>> timeout = Optional.empty();
     private volatile long nextTimeout = 0;
     private final int messagesPerBatch = 10;
-    private volatile boolean closing = false;
+    private final AtomicBoolean closing = new AtomicBoolean(false);
 
     /**
      * @param config
@@ -398,7 +399,7 @@ public class ConsumerImplV2 implements Consumer {
             updateTimeout(conn, 500);
         }
         final long nowTotal = total.incrementAndGet();
-        if (nowTotal % messagesPerBatch > (messagesPerBatch / 2) && !closing) {
+        if (nowTotal % messagesPerBatch > (messagesPerBatch / 2) && closing.get() == false) {
             conn.command(new Rdy(messagesPerBatch));
         }
     }
@@ -443,7 +444,7 @@ public class ConsumerImplV2 implements Consumer {
         if (timeout.isPresent()) {
             timeout.get().cancel(true);
         }
-        if (closing) {
+        if (closing.get()) {
             return;
         }
         final Date newTimeout = calculateTimeoutDate(change);
@@ -475,7 +476,7 @@ public class ConsumerImplV2 implements Consumer {
 
     @Override
     public void close() {
-        closing = true;
+        closing.set(true);
         started = false;
 
         cleanClose();
