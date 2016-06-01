@@ -96,7 +96,9 @@ public class NSQSimpleClient implements Client {
                 break;
             }
             case ERROR_FRAME: {
-                conn.addErrorFrame((ErrorFrame) frame);
+                final ErrorFrame err = (ErrorFrame) frame;
+                conn.addErrorFrame(err);
+                logger.error("Unknow ERROR_FRAME: {}", err);
                 break;
             }
             default: {
