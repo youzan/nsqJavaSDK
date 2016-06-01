@@ -17,8 +17,8 @@ public class NSQEncoder extends MessageToMessageEncoder<NSQCommand> {
         if (command == null) {
             throw new NullPointerException("I can not encode Null-Pointer!");
         }
-        if (command.getBytes() != null) {
-            final byte[] bs = command.getBytes();
+        final byte[] bs = command.getBytes();
+        if (bs != null) {
             if (bs.length > 0) {
                 final ByteBuf buf = ByteBufAllocator.DEFAULT.buffer(bs.length);
                 buf.writeBytes(bs);

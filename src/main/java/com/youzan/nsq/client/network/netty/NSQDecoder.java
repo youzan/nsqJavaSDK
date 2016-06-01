@@ -15,15 +15,15 @@ public class NSQDecoder extends MessageToMessageDecoder<ByteBuf> {
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
         final int size = in.readInt();
         final int frameType = in.readInt();
-        NSQFrame frame = NSQFrame.newInstance(frameType);
+        final NSQFrame frame = NSQFrame.newInstance(frameType);
         if (frame == null) {
             // uhh, bad response from server.. what should we do?
             final String tip = String.format("Bad frame id from server (%d). It will be disconnected!", frameType);
             throw new NSQException(tip);
         }
         frame.setSize(size);
-        final ByteBuf bytes = in.readBytes(size - 4);
-        frame.setData(bytes.array());
+        final ByteBuf body = in.readBytes(size - 4);
+        frame.setData(body.array());
         out.add(frame);
     }
 }
