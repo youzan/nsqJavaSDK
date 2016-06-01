@@ -41,7 +41,13 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
 
     private static final Logger logger = LoggerFactory.getLogger(KeyedConnectionPoolFactory.class);
 
+    /**
+     * Connection/Pool configurations
+     */
     private final NSQConfig config;
+    /**
+     * Because of the protocol initialization
+     */
     private final Client client;
 
     private final EventLoopGroup eventLoopGroup;
@@ -106,6 +112,8 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
     @Override
     public boolean validateObject(Address addr, PooledObject<NSQConnection> p) {
         final NSQConnection conn = p.getObject();
+        // another implementation : use client.heartbeat,or called
+        // client.validateConnection
         if (null != conn && conn.isConnected()) {
             final ChannelFuture future = conn.command(Nop.getInstance());
             if (future.awaitUninterruptibly(500, TimeUnit.MILLISECONDS)) {
