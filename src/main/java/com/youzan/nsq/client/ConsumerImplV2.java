@@ -408,12 +408,13 @@ public class ConsumerImplV2 implements Consumer {
      * @param conn
      */
     private void consume(final NSQMessage message, final NSQConnection conn) {
-        logger.debug("Having consume the message {} , client showed great anxiety!", message.toString());
+        logger.debug("Having consumed the message {} , client showed great anxiety!", message.toString());
         boolean ok = false;
         int c = 0;
-        while (c++ < 2 && !ok) {
+        while (c++ < 2) { // 0, 1
             try {
                 ok = handler.process(message);
+                break;
             } catch (Exception e) {
                 ok = false;
                 logger.error("Current Retries: {}, Exception occurs...", c, e);
@@ -422,10 +423,11 @@ public class ConsumerImplV2 implements Consumer {
         final NSQCommand cmd;
         if (ok) {
             cmd = new Finish(message.getMessageID());
+            logger.debug("Finish it {}", message);
         } else {
             cmd = new ReQueue(message.getMessageID(), 60);
             if (message.getReadableAttempts() > 10) {
-                logger.error("Processing 10 times is still a failure!");
+                logger.error("Processing 10 times is still a failure! {}", message);
             }
         }
         conn.command(cmd);

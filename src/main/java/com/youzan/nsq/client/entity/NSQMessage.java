@@ -130,6 +130,8 @@ public class NSQMessage {
 
     @Override
     public String toString() {
-        return readableMsgID;
+        return "NSQMessage [readableMsgID=" + readableMsgID + ", datetime=" + datetime + ", readableAttempts="
+                + readableAttempts + ", readableContent=" + readableContent + "]";
     }
+
 }
