@@ -414,21 +414,26 @@ public class ConsumerImplV2 implements Consumer {
         int c = 0;
         while (c++ < 2) { // 0, 1
             try {
-                ok = handler.process(message);
+                handler.process(message);
+                ok = true;
                 break;
             } catch (Exception e) {
                 ok = false;
                 logger.error("Current Retries: {}, Exception occurs...", c, e);
             }
         }
+        // The client commands requeue into NSQd.
+        final Integer timeout = message.getNextConsumingInSecond();
         final NSQCommand cmd;
-        if (ok) {
-            cmd = new Finish(message.getMessageID());
-            logger.debug("Finish it {}", message);
-        } else {
-            cmd = new ReQueue(message.getMessageID(), 60);
+        if (timeout != null) {
+            cmd = new ReQueue(message.getMessageID(), message.getNextConsumingInSecond());
             if (message.getReadableAttempts() > 10) {
                 logger.error("Processing 10 times is still a failure! {}", message);
+            }
+        } else {
+            cmd = new Finish(message.getMessageID());
+            if (!ok) {
+                logger.error("{} , exception occurs but you don't catch it!", message);
             }
         }
         conn.command(cmd);

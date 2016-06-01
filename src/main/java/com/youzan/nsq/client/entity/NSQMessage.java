@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.youzan.nsq.client.core.command.Close;
+import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.util.IOUtil;
 
 public class NSQMessage {
@@ -73,7 +74,14 @@ public class NSQMessage {
     private final Date datetime;
     private final int readableAttempts;
     private final String readableMsgID;
-    private String readableContent;
+    private String readableContent = "";
+    private Integer nextConsumingInSecond = Integer.MIN_VALUE;
+    // 1 seconds
+    static int _MIN_NEXT_CONSUMING_IN_SECOND = 1;
+    // 180 days
+    static int _MAX_NEXT_CONSUMING_IN_SECOND = 180 * 24 * 3600;
+    // 3 minutes
+    static int _DEFAULT_NEXT_CONSUMING_IN_SECOND = 3 * 60;
 
     /**
      * @return the readableContent
@@ -126,6 +134,32 @@ public class NSQMessage {
 
     private int toUnsignedShort(byte[] bytes) {
         return (bytes[0] << 8 | bytes[1] & 0xFF) & 0xFFFF;
+    }
+
+    /**
+     * @return the nextConsumingInSecond
+     */
+    public Integer getNextConsumingInSecond() {
+        return nextConsumingInSecond;
+    }
+
+    /**
+     * @param nextConsumingInSecond
+     *            1s <= the nextConsumingInSecond to set <= 180 days
+     */
+    public void setNextConsumingInSecond(Integer nextConsumingInSecond) throws NSQException {
+        if (nextConsumingInSecond != null) {
+            final int timeout = nextConsumingInSecond.intValue();
+            if (timeout < _MIN_NEXT_CONSUMING_IN_SECOND) {
+                throw new IllegalArgumentException(
+                        "Message.nextConsumingInSecond is illegal. It is too small." + _MIN_NEXT_CONSUMING_IN_SECOND);
+            }
+            if (timeout > _MAX_NEXT_CONSUMING_IN_SECOND) {
+                throw new IllegalArgumentException(
+                        "Message.nextConsumingInSecond is illegal. It is too big." + _MAX_NEXT_CONSUMING_IN_SECOND);
+            }
+            this.nextConsumingInSecond = nextConsumingInSecond;
+        }
     }
 
     @Override

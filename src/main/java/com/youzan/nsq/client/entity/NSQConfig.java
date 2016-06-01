@@ -66,7 +66,7 @@ public class NSQConfig implements java.io.Serializable {
     private Integer heartbeatIntervalInMillisecond = null;
 
     private Integer outputBufferSize = null;
-    private Integer outputBufferTimeout = null;
+    private Integer outputBufferTimeoutInMillisecond = null;
     private boolean tlsV1 = false;
     private Integer deflateLevel = null;
     private Integer sampleRate = null;
@@ -262,10 +262,40 @@ public class NSQConfig implements java.io.Serializable {
     }
 
     /**
+     * @return the outputBufferTimeoutInMillisecond
+     */
+    public Integer getOutputBufferTimeoutInMillisecond() {
+        return outputBufferTimeoutInMillisecond;
+    }
+
+    /**
+     * @param outputBufferTimeoutInMillisecond
+     *            the outputBufferTimeoutInMillisecond to set
+     */
+    public void setOutputBufferTimeoutInMillisecond(Integer outputBufferTimeoutInMillisecond) {
+        this.outputBufferTimeoutInMillisecond = outputBufferTimeoutInMillisecond;
+    }
+
+    /**
      * @return the userAgent
      */
     public String getUserAgent() {
         return userAgent;
+    }
+
+    /**
+     * @return the havingMonitoring
+     */
+    public boolean isHavingMonitoring() {
+        return havingMonitoring;
+    }
+
+    /**
+     * @param havingMonitoring
+     *            the havingMonitoring to set
+     */
+    public void setHavingMonitoring(boolean havingMonitoring) {
+        this.havingMonitoring = havingMonitoring;
     }
 
     public SslContext getSslContext() {
@@ -278,21 +308,6 @@ public class NSQConfig implements java.io.Serializable {
         }
         tlsV1 = true;
         this.sslContext = sslContext;
-    }
-
-    /**
-     * @return the outputBufferTimeout
-     */
-    public Integer getOutputBufferTimeout() {
-        return outputBufferTimeout;
-    }
-
-    /**
-     * @param outputBufferTimeout
-     *            the outputBufferTimeout to set
-     */
-    public void setOutputBufferTimeout(Integer outputBufferTimeout) {
-        this.outputBufferTimeout = outputBufferTimeout;
     }
 
     /**
@@ -363,8 +378,8 @@ public class NSQConfig implements java.io.Serializable {
         if (outputBufferSize != null) {
             buffer.append("\"output_buffer_size\":" + outputBufferSize + ", ");
         }
-        if (outputBufferTimeout != null) {
-            buffer.append("\"output_buffer_timeout\":" + outputBufferTimeout.toString() + ", ");
+        if (outputBufferTimeoutInMillisecond != null) {
+            buffer.append("\"output_buffer_timeout\":" + outputBufferTimeoutInMillisecond.toString() + ", ");
         }
         if (tlsV1) {
             buffer.append("\"tls_v1\":" + tlsV1 + ", ");

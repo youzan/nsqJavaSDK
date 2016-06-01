@@ -21,15 +21,14 @@ public class ReQueue implements NSQCommand {
 
     /**
      * @param messageID
-     * @param timeout
-     *            seconds
+     * @param timeoutInSecond
      */
-    public ReQueue(byte[] messageID, int timeout) {
+    public ReQueue(byte[] messageID, int timeoutInSecond) {
         if (messageID == null || messageID.length <= 0) {
             throw new IllegalArgumentException("Your input messageID is empty!");
         }
         final byte[] cmd = "REQ ".getBytes(DEFAULT_CHARSET);
-        final byte[] timeoutBytes = String.valueOf(timeout).getBytes(DEFAULT_CHARSET);
+        final byte[] timeoutBytes = String.valueOf(timeoutInSecond * 1000).getBytes(DEFAULT_CHARSET);
         final ByteBuffer bb = ByteBuffer.allocate(cmd.length + messageID.length + 1 + timeoutBytes.length + 1);
         // REQ <message_id> <timeout>\n
         bb.put(cmd).put(messageID).put(SPACE).put(timeoutBytes).put(LINE_SEPARATOR);

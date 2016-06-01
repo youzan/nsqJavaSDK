@@ -13,13 +13,10 @@ import com.youzan.nsq.client.entity.NSQMessage;
 public interface MessageHandler {
 
     /**
-     * Business Handler
+     * Business Processing. Retry 2 times when exceptions in SDK.
      * 
      * @param message
-     * @return If return false, then reQueue to MQ. If return true, then ACK to
-     *         MQ. If any exception occurs, then reQueue to MQ too or giving up
-     *         doing a reQueue( SDK will do logging).
      */
-    boolean process(NSQMessage message);
+    void process(NSQMessage message);
 
 }
