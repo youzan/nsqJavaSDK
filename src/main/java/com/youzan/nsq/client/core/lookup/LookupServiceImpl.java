@@ -125,15 +125,17 @@ public class LookupServiceImpl implements LookupService {
                 final String lookupd = this.addresses.get(index);
                 final String url = String.format("http://%s/listlookup", lookupd);
                 final JsonNode rootNode = mapper.readTree(new URL(url));
-                final JsonNode nodes = rootNode.get("lookupnodes");
+                JsonNode t = rootNode.get("data");
+                final JsonNode nodes = rootNode.get("data").get("lookupdnodes");
                 if (null == nodes) {
                     logger.error("NSQ Server do response without any lookupd!");
+                    return;
                 }
                 final List<String> newLookupds = new ArrayList<>(nodes.size());
                 for (JsonNode node : nodes) {
                     final int id = node.get("ID").asInt();
                     final String host = node.get("NodeIP").asText();
-                    final int port = node.get("TcpPort").asInt();
+                    final int port = node.get("HttpPort").asInt();
                     String addr = host + ":" + port;
                     newLookupds.add(addr);
                 }

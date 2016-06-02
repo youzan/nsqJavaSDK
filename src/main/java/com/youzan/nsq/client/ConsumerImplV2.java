@@ -130,11 +130,15 @@ public class ConsumerImplV2 implements Consumer {
             this.poolConfig.setMaxWaitMillis(500);
             this.poolConfig.setBlockWhenExhausted(true);
             this.poolConfig.setTestWhileIdle(true);
+            try {
+                this.simpleClient.start();
+            } catch (Exception e) {
+                logger.error("Exception", e);
+            }
             createBigPool();
             // POST
             connect();
             keepConnecting();
-            this.simpleClient.start();
         }
     }
 

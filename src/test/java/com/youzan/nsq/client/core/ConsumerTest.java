@@ -12,11 +12,12 @@ import com.youzan.nsq.client.exception.NSQException;
 public class ConsumerTest {
 
     private static final Logger logger = LoggerFactory.getLogger(ConsumerTest.class);
+    private static final String lookup = "10.9.80.209:4161";
 
     @Test
     public void consumeOK() throws NSQException {
         final NSQConfig config = new NSQConfig();
-        config.setLookupAddresses("127.0.0.1:4161");
+        config.setLookupAddresses(lookup);
         config.setThreadPoolSize4IO(1);
         config.setTimeoutInSecond(120);
         config.setMsgTimeoutInMillisecond(120 * 1000);
@@ -34,10 +35,10 @@ public class ConsumerTest {
         consumer.close();
     }
 
-    @Test
+    // @Test
     public void consumeAndRequeue() throws NSQException {
         final NSQConfig config = new NSQConfig();
-        config.setLookupAddresses("127.0.0.1:4161");
+        config.setLookupAddresses(lookup);
         config.setThreadPoolSize4IO(1);
         config.setTimeoutInSecond(120);
         config.setMsgTimeoutInMillisecond(120 * 1000);
@@ -46,7 +47,7 @@ public class ConsumerTest {
         final ConsumerImplV2 consumer = new ConsumerImplV2(config, (message) -> {
             Assert.assertNotNull(message);
             try {
-                message.setNextConsumingInSecond(10);
+                message.setNextConsumingInSecond(null);
             } catch (NSQException e) {
                 logger.error("Exception", e);
             }

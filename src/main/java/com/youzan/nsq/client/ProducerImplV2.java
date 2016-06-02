@@ -90,8 +90,12 @@ public class ProducerImplV2 implements Producer {
             this.poolConfig.setBlockWhenExhausted(false);
             this.poolConfig.setTestWhileIdle(true);
             this.offset = _r.nextInt(100);
+            try {
+                this.simpleClient.start();
+            } catch (Exception e) {
+                logger.error("Exception", e);
+            }
             createBigPool();
-            this.simpleClient.start();
         }
     }
 

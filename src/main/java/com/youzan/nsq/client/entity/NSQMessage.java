@@ -35,7 +35,6 @@ public class NSQMessage {
         // Readable
         this.datetime = new Date(TimeUnit.NANOSECONDS.toMillis(toLong(timestamp)));
         this.readableAttempts = toUnsignedShort(attempts);
-        this.readableMsgID = new String(messageID, IOUtil.ASCII);
     }
 
     /**
@@ -73,9 +72,8 @@ public class NSQMessage {
      */
     private final Date datetime;
     private final int readableAttempts;
-    private final String readableMsgID;
     private String readableContent = "";
-    private Integer nextConsumingInSecond = Integer.MIN_VALUE;
+    private Integer nextConsumingInSecond = null;
     // 1 seconds
     static int _MIN_NEXT_CONSUMING_IN_SECOND = 1;
     // 180 days
@@ -118,13 +116,6 @@ public class NSQMessage {
         return readableAttempts;
     }
 
-    /**
-     * @return the readableMsgID
-     */
-    public String getReadableMsgID() {
-        return readableMsgID;
-    }
-
     private long toLong(byte[] bytes) {
         final ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
         buffer.put(bytes);
@@ -164,7 +155,7 @@ public class NSQMessage {
 
     @Override
     public String toString() {
-        return "NSQMessage [readableMsgID=" + readableMsgID + ", datetime=" + datetime + ", readableAttempts="
+        return "NSQMessage [messageID=" + messageID + ", datetime=" + datetime + ", readableAttempts="
                 + readableAttempts + ", readableContent=" + readableContent + "]";
     }
 

@@ -17,18 +17,22 @@ public class ProducerTest {
 
     private static final Logger logger = LoggerFactory.getLogger(ProducerTest.class);
 
+    private static final String lookup = "10.9.80.209:4161";
+
     @Test
     public void produceUsingSimpleProducer() throws NSQException, UnsupportedEncodingException {
         NSQConfig config = new NSQConfig();
         config.setTopic("test");
-        config.setLookupAddresses("127.0.0.1:4161");
-        config.setTimeoutInSecond(1);
+        config.setLookupAddresses(lookup);
+        config.setTimeoutInSecond(60);
+        config.setMsgTimeoutInMillisecond(60 * 1000);
         config.setThreadPoolSize4IO(1);
-        Producer p = new ProducerImplV2(config);
+        final Producer p = new ProducerImplV2(config);
         p.start();
         for (int i = 0; i < 1000; i++) {
             p.publish(randomString().getBytes(IOUtil.DEFAULT_CHARSET));
             logger.info("OK");
+            sleep(200);
             assert true;
         }
         p.close();
@@ -38,10 +42,10 @@ public class ProducerTest {
     public void pubMulti() throws NSQException {
     }
 
-    @Test
+    // @Test
     public void newOneProducer() throws NSQException {
         final NSQConfig config = new NSQConfig();
-        config.setLookupAddresses("127.0.0.1:4161");
+        config.setLookupAddresses(lookup);
         config.setTopic("test");
         final ProducerImplV2 p = new ProducerImplV2(config);
         p.close();
@@ -49,5 +53,17 @@ public class ProducerTest {
 
     private String randomString() {
         return "Message" + new Date().getTime();
+    }
+
+    /**
+     * @param millisecond
+     */
+    private void sleep(final int millisecond) {
+        try {
+            Thread.sleep(millisecond);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("System is too busy! Please check it!", e);
+        }
     }
 }
