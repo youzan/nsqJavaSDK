@@ -12,14 +12,15 @@ import com.youzan.nsq.client.exception.NSQException;
 public class ConsumerTest {
 
     private static final Logger logger = LoggerFactory.getLogger(ConsumerTest.class);
-    private static final String lookup = "10.9.80.209:4161";
+    // private static final String lookup = "10.9.80.209:4161";
+    private static final String lookup = "127.0.0.1:4161";
 
     @Test
     public void consumeOK() throws NSQException {
         final NSQConfig config = new NSQConfig();
         config.setLookupAddresses(lookup);
         config.setThreadPoolSize4IO(1);
-        config.setTimeoutInSecond(120);
+        config.setTimeoutInSecond(60);
         config.setMsgTimeoutInMillisecond(120 * 1000);
         config.setTopic("test");
         config.setConsumerName("consumer_is_zhaoxi");

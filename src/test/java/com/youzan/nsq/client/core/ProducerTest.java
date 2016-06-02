@@ -17,7 +17,8 @@ public class ProducerTest {
 
     private static final Logger logger = LoggerFactory.getLogger(ProducerTest.class);
 
-    private static final String lookup = "10.9.80.209:4161";
+    // private static final String lookup = "10.9.80.209:4161";
+    private static final String lookup = "127.0.0.1:4161";
 
     @Test
     public void produceUsingSimpleProducer() throws NSQException, UnsupportedEncodingException {

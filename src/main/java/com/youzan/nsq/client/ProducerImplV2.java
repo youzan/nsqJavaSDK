@@ -190,6 +190,7 @@ public class ProducerImplV2 implements Producer {
                     // broker is down
                     factory.clear(addr);
                     bigPool.clear(addr);
+                    dataNodes.remove(addr);
                 }
                 logger.error("CurrentRetries: {}, Address: {}, Exception occurs...", c, addr, e);
             } catch (Exception e) {
@@ -238,7 +239,8 @@ public class ProducerImplV2 implements Producer {
             try {
                 final NSQFrame frame = conn.commandAndGetResponse(pub);
                 incoming(frame, conn);
-                logger.debug("Get frame {} after published. CurrentRetries: {} ", frame, c);
+                logger.debug("Get frame ,{}, after published. CurrentRetries: {} ", frame, c);
+                return;
             } catch (Exception e) {
                 // Continue to retry
                 logger.error("CurrentRetries: {}, Exception occurs...", c, e);
@@ -290,6 +292,7 @@ public class ProducerImplV2 implements Producer {
             try {
                 final NSQFrame frame = conn.commandAndGetResponse(pub);
                 incoming(frame, conn);
+                return;
             } catch (Exception e) {
                 // Continue to retry
                 logger.error("CurrentRetries: {}, Exception occurs...", c, e);
