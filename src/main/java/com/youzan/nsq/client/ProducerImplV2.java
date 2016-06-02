@@ -306,9 +306,11 @@ public class ProducerImplV2 implements Producer {
             final ErrorFrame err = (ErrorFrame) frame;
             switch (err.getError()) {
                 case E_BAD_TOPIC: {
+                    conn.addErrorFrame(err);
                     throw new NSQInvalidTopicException();
                 }
                 case E_BAD_MESSAGE: {
+                    conn.addErrorFrame(err);
                     throw new NSQInvalidMessageException();
                 }
                 case E_FAILED_ON_NOT_LEADER: {
@@ -316,6 +318,7 @@ public class ProducerImplV2 implements Producer {
                 case E_FAILED_ON_NOT_WRITABLE: {
                 }
                 case E_TOPIC_NOT_EXIST: {
+                    conn.addErrorFrame(err);
                     final Address address = conn.getAddress();
                     if (address != null) {
                         factory.clear(address);
