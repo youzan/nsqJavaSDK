@@ -31,8 +31,9 @@ public interface Client {
      * 
      * @param frame
      * @param conn
+     * @throws NSQException
      */
-    void incoming(final NSQFrame frame, final NSQConnection conn);
+    void incoming(final NSQFrame frame, final NSQConnection conn) throws NSQException;
 
     /**
      * No messages will be sent to the client.

@@ -2,6 +2,9 @@ package com.youzan.nsq.client;
 
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
@@ -17,17 +20,19 @@ import com.youzan.nsq.client.core.command.Mpub;
 import com.youzan.nsq.client.core.command.Pub;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
-import com.youzan.nsq.client.entity.Response;
-import com.youzan.nsq.client.exception.NSQDataNodeDownException;
+import com.youzan.nsq.client.exception.NSQDataNodesDownException;
 import com.youzan.nsq.client.exception.NSQException;
+import com.youzan.nsq.client.exception.NSQInvalidDataNodeException;
 import com.youzan.nsq.client.exception.NSQInvalidMessageException;
 import com.youzan.nsq.client.exception.NSQInvalidTopicException;
 import com.youzan.nsq.client.exception.NoConnectionException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
+import com.youzan.nsq.client.network.frame.NSQFrame.FrameType;
 import com.youzan.util.ConcurrentSortedSet;
 import com.youzan.util.IOUtil;
 import com.youzan.util.Lists;
+import com.youzan.util.NamedThreadFactory;
 
 /**
  * <pre>
@@ -56,6 +61,10 @@ public class ProducerImplV2 implements Producer {
      * Record the client's request time
      */
     private long lastTimeInMillisOfClientRequest = System.currentTimeMillis();
+
+    private final ConcurrentSortedSet<Address> dataNodes = new ConcurrentSortedSet<>();
+    private final ScheduledExecutorService scheduler = Executors
+            .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
 
     /**
      * @param config
@@ -87,15 +96,41 @@ public class ProducerImplV2 implements Producer {
             this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());
             // aquire connection waiting time
             this.poolConfig.setMaxWaitMillis(500);
-            this.poolConfig.setBlockWhenExhausted(false);
+            this.poolConfig.setBlockWhenExhausted(true);
             this.poolConfig.setTestWhileIdle(true);
             this.offset = _r.nextInt(100);
             try {
                 this.simpleClient.start();
+                newDataNodes();
             } catch (Exception e) {
                 logger.error("Exception", e);
             }
             createBigPool();
+            checkDataNodes();
+        }
+    }
+
+    /**
+     * 
+     */
+    private void checkDataNodes() {
+        final int delay = _r.nextInt(60) + 60; // seconds
+        scheduler.scheduleWithFixedDelay(() -> {
+            try {
+                newDataNodes();
+            } catch (Exception e) {
+                logger.error("Exception", e);
+            }
+        }, delay, 1 * 30, TimeUnit.SECONDS);
+    }
+
+    /**
+     * 
+     */
+    private void newDataNodes() {
+        ConcurrentSortedSet<Address> nodes = this.simpleClient.getDataNodes();
+        if (nodes != null) {
+            this.dataNodes.swap(nodes.newSortedSet());
         }
     }
 
@@ -108,40 +143,58 @@ public class ProducerImplV2 implements Producer {
     }
 
     /**
-     * Get a connection for the ordered message handler
+     * Get a connection foreach every broker in one loop because I don't believe
+     * that every broker is down or every pool is busy.
+     * 
+     * TODO Get a connection for the ordered message handler.
+     * 
      * 
      * @return NSQConnection that is having done a negotiation
      * @throws NoConnectionException
      */
     protected NSQConnection getNSQConnection() throws NoConnectionException {
         final ConcurrentSortedSet<Address> dataNodes = getDataNodes();
-        final int size = dataNodes.size();
-        if (size < 1) {
+        if (dataNodes.isEmpty()) {
             throw new NoConnectionException("You still didn't start NSQd / lookup-topic / producer.start() ! ");
         }
-        final int retries = size + 1;
+        final int size = dataNodes.size();
         final Address[] addrs = dataNodes.newArray(new Address[size]);
-        int c = 0;
-        while (c++ < retries) {
-            final int index = (offset++ & Integer.MAX_VALUE) % size;
-            final Address addr = addrs[index];
-            logger.debug("Load-Balancing algorithm is Round-Robin! Size: {}, Index: {}", size, index);
+        int c = 0, index = (this.offset++);
+        while (c++ < size) {
+            // current broker | next broker when have a try again
+            final int effectedIndex = (index++ & Integer.MAX_VALUE) % size;
+            logger.debug("Load-Balancing algorithm is Round-Robin! Size: {}, Index: {}", size, effectedIndex);
+            final Address addr = addrs[effectedIndex];
             NSQConnection conn = null;
             try {
                 conn = bigPool.borrowObject(addr);
                 return conn;
             } catch (NoSuchElementException e) {
-                // Either the pool is too busy or NSQd is down.
-                logger.error("Current Retries: {}, Exception occurs...", c, e);
+                // Either the pool is too busy or broker is down.
+                // So ugly handler
+                final boolean exhausted;
+                final String poolTip = e.getMessage();
+                if (poolTip != null) {
+                    final String tmp = poolTip.trim().toLowerCase();
+                    if (tmp.startsWith("pool exhausted")) {
+                        exhausted = true;
+                    } else if (tmp.contains("exhausted")) {
+                        exhausted = true;
+                    } else {
+                        exhausted = false;
+                    }
+                } else {
+                    exhausted = false;
+                }
+                if (!exhausted) {
+                    // broker is down
+                    factory.clear(addr);
+                    bigPool.clear(addr);
+                }
+                logger.error("CurrentRetries: {}, Address: {}, Exception occurs...", c, addr, e);
             } catch (Exception e) {
-                logger.error("Current Retries: {}, Exception occurs...", c, e);
+                logger.error("CurrentRetries: {}, Address: {}, Exception occurs...", c, addr, e);
                 IOUtil.closeQuietly(conn);
-            }
-            factory.clear(addr);
-            bigPool.clear(addr);
-            // End one round so that let system wait 1 second
-            if (c == size) {
-                sleep(1000);
             }
         }
         return null;
@@ -167,71 +220,34 @@ public class ProducerImplV2 implements Producer {
         if (message == null || message.length <= 0) {
             throw new IllegalArgumentException("Your input is blank! Please check it!");
         }
+        logger.debug("Begin to publish.");
         total.incrementAndGet();
         lastTimeInMillisOfClientRequest = System.currentTimeMillis();
         final Pub pub = new Pub(config.getTopic(), message);
-        int c = 0, retries = 2; // be continuous
-        conn: while (c++ < retries) { // 0,1,2
+        int c = 0, retries = 6; // be continuous
+        while (c++ < retries) {
+            if (c > 1) {
+                logger.debug("Sleep. CurrentRetries: {}", c);
+                sleep(c * 1000);
+            }
             final NSQConnection conn = getNSQConnection();
             if (conn == null) {
-                // Fatal error. SDK cann't handle it.
-                throw new NSQDataNodeDownException();
+                continue;
             }
-            NSQFrame resp = null;
+            logger.debug("Get NSQConnection OK! CurrentRetries: {}", c);
             try {
-                resp = conn.commandAndGetResponse(pub);
+                final NSQFrame frame = conn.commandAndGetResponse(pub);
+                incoming(frame, conn);
+                logger.debug("Get frame {} after published. CurrentRetries: {} ", frame, c);
             } catch (Exception e) {
                 // Continue to retry
-                logger.error("Current Retries: {}, Exception occurs...", c, e);
+                logger.error("CurrentRetries: {}, Exception occurs...", c, e);
+                continue;
             } finally {
                 bigPool.returnObject(conn.getAddress(), conn);
             }
-            if (resp == null) {
-                continue;
-            }
-            s: switch (resp.getType()) {
-                case RESPONSE_FRAME: {
-                    final String content = resp.getMessage();
-                    if (Response.OK.getContent().equals(content)) {
-                        success.incrementAndGet();
-                        return;
-                    }
-                    break s;
-                }
-                case ERROR_FRAME: {
-                    final ErrorFrame err = (ErrorFrame) resp;
-                    switch (err.getError()) {
-                        case E_BAD_TOPIC: {
-                            throw new NSQInvalidTopicException();
-                        }
-                        case E_BAD_MESSAGE: {
-                            throw new NSQInvalidMessageException();
-                        }
-                        case E_FAILED_ON_NOT_LEADER: {
-                        }
-                        case E_FAILED_ON_NOT_WRITABLE: {
-                        }
-                        case E_TOPIC_NOT_EXIST: {
-                            final Address address = conn.getAddress();
-                            if (address != null) {
-                                factory.clear(address);
-                                bigPool.clear(address);
-                            }
-                            retries++;
-                            continue conn;
-                        }
-                        default: {
-                            throw new NSQException(err.getMessage());
-                        }
-                    }
-                }
-                default: {
-                    break s;
-                }
-            } // end handling {@code Response}
-            sleep(c * 1000);
         }
-        throw new NSQDataNodeDownException();
+        throw new NSQDataNodesDownException();
     }
 
     @Override
@@ -248,73 +264,71 @@ public class ProducerImplV2 implements Producer {
         for (List<byte[]> batch : batches) {
             publishBatch(batch);
         }
-
     }
 
     /**
      * @param batch
      * @throws NoConnectionException
-     * @throws NSQDataNodeDownException
+     * @throws NSQDataNodesDownException
      * @throws NSQInvalidTopicException
      * @throws NSQInvalidMessageException
      * @throws NSQException
      */
-    private void publishBatch(List<byte[]> batch) throws NoConnectionException, NSQDataNodeDownException,
+    private void publishBatch(List<byte[]> batch) throws NoConnectionException, NSQDataNodesDownException,
             NSQInvalidTopicException, NSQInvalidMessageException, NSQException {
         final Mpub pub = new Mpub(config.getTopic(), batch);
         int c = 0; // be continuous
-        while (c++ < 3) { // 0,1,2
+        while (c++ < 6) {
+            if (c > 1) {
+                logger.debug("Sleep. CurrentRetries: {}", c);
+                sleep(c * 1000);
+            }
             final NSQConnection conn = getNSQConnection();
             if (conn == null) {
-                // Fatal error. SDK cann't handle it.
-                throw new NSQDataNodeDownException();
+                continue;
             }
-            NSQFrame resp = null;
             try {
-                resp = conn.commandAndGetResponse(pub);
+                final NSQFrame frame = conn.commandAndGetResponse(pub);
+                incoming(frame, conn);
             } catch (Exception e) {
                 // Continue to retry
-                logger.error("Current Retries: {}, Exception occurs...", c, e);
+                logger.error("CurrentRetries: {}, Exception occurs...", c, e);
             } finally {
                 bigPool.returnObject(conn.getAddress(), conn);
             }
-            if (resp == null) {
-                continue;
-            }
-            s: switch (resp.getType()) {
-                case RESPONSE_FRAME: {
-                    final String content = resp.getMessage();
-                    if (Response.OK.getContent().equals(content)) {
-                        success.addAndGet(batch.size());
-                        return;
-                    }
-                    break s;
-                }
-                case ERROR_FRAME: {
-                    final ErrorFrame err = (ErrorFrame) resp;
-                    switch (err.getError()) {
-                        case E_BAD_TOPIC: {
-                            throw new NSQInvalidTopicException();
-                        }
-                        case E_BAD_MESSAGE: {
-                            throw new NSQInvalidMessageException();
-                        }
-                        default: {
-                            throw new NSQException(err.getMessage());
-                        }
-                    }
-                }
-                default: {
-                    break s;
-                }
-            } // end handling {@code Response}
-            sleep(c * 1000);
         }
-        throw new NSQDataNodeDownException();
+        throw new NSQDataNodesDownException();
     }
 
     @Override
-    public void incoming(NSQFrame frame, NSQConnection conn) {
+    public void incoming(NSQFrame frame, NSQConnection conn) throws NSQException {
+        if (frame.getType() == FrameType.ERROR_FRAME) {
+            final ErrorFrame err = (ErrorFrame) frame;
+            switch (err.getError()) {
+                case E_BAD_TOPIC: {
+                    throw new NSQInvalidTopicException();
+                }
+                case E_BAD_MESSAGE: {
+                    throw new NSQInvalidMessageException();
+                }
+                case E_FAILED_ON_NOT_LEADER: {
+                }
+                case E_FAILED_ON_NOT_WRITABLE: {
+                }
+                case E_TOPIC_NOT_EXIST: {
+                    final Address address = conn.getAddress();
+                    if (address != null) {
+                        factory.clear(address);
+                        bigPool.clear(address);
+                        dataNodes.remove(address);
+                    }
+                    throw new NSQInvalidDataNodeException();
+                }
+                default: {
+                    break;
+                }
+            }
+        }
         simpleClient.incoming(frame, conn);
     }
 
@@ -335,6 +349,6 @@ public class ProducerImplV2 implements Producer {
 
     @Override
     public ConcurrentSortedSet<Address> getDataNodes() {
-        return simpleClient.getDataNodes();
+        return dataNodes;
     }
 }

@@ -35,6 +35,7 @@ public class NSQMessage {
         // Readable
         this.datetime = new Date(TimeUnit.NANOSECONDS.toMillis(toLong(timestamp)));
         this.readableAttempts = toUnsignedShort(attempts);
+        this.readableMsgID = newHexString(this.messageID);
     }
 
     /**
@@ -72,6 +73,7 @@ public class NSQMessage {
      */
     private final Date datetime;
     private final int readableAttempts;
+    private final String readableMsgID;
     private String readableContent = "";
     private Integer nextConsumingInSecond = null;
     // 1 seconds
@@ -153,9 +155,17 @@ public class NSQMessage {
         }
     }
 
+    public String newHexString(byte[] bs) {
+        final StringBuffer result = new StringBuffer(bs.length * 2);
+        for (byte b : bs) {
+            result.append(String.format("%02X", b));
+        }
+        return result.toString();
+    }
+
     @Override
     public String toString() {
-        return "NSQMessage [messageID=" + messageID + ", datetime=" + datetime + ", readableAttempts="
+        return "NSQMessage [messageID=" + readableMsgID + ", datetime=" + datetime + ", readableAttempts="
                 + readableAttempts + ", readableContent=" + readableContent + "]";
     }
 

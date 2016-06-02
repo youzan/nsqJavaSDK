@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -72,7 +73,7 @@ public class ConsumerImplV2 implements Consumer {
 
     /*-
      * =========================================================================
-     *                          
+     * 
      * =========================================================================
      */
     private final ConcurrentHashMap<Address, Set<NSQConnection>> holdingConnections = new ConcurrentHashMap<>();
@@ -178,8 +179,8 @@ public class ConsumerImplV2 implements Consumer {
             }
         });
 
-        final Set<Address> newDataNodes = getDataNodes().newSet();
-        final Set<Address> oldDataNodes = new HashSet<>(this.holdingConnections.keySet());
+        final Set<Address> newDataNodes = getDataNodes().newSortedSet();
+        final Set<Address> oldDataNodes = new TreeSet<>(this.holdingConnections.keySet());
         logger.debug("Prepare to connect new NSQd: {}, old NSQd: {} .", newDataNodes, oldDataNodes);
         if (newDataNodes.isEmpty() && oldDataNodes.isEmpty()) {
             return;
@@ -372,7 +373,7 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     @Override
-    public void incoming(final NSQFrame frame, final NSQConnection conn) {
+    public void incoming(final NSQFrame frame, final NSQConnection conn) throws NSQException {
         if (frame instanceof MessageFrame) {
             final MessageFrame msg = (MessageFrame) frame;
             final NSQMessage message = new NSQMessage(msg.getTimestamp(), msg.getAttempts(), msg.getMessageID(),
@@ -416,14 +417,14 @@ public class ConsumerImplV2 implements Consumer {
         logger.debug("Having consumed the message {}, client showed great anxiety!", message.toString());
         boolean ok = false;
         int c = 0;
-        while (c++ < 2) { // 0, 1
+        while (c++ < 2) {
             try {
                 handler.process(message);
                 ok = true;
                 break;
             } catch (Exception e) {
                 ok = false;
-                logger.error("Current Retries: {}, Exception occurs...", c, e);
+                logger.error("CurrentRetries: {}, Exception occurs...", c, e);
             }
         }
         // The client commands requeue into NSQd.

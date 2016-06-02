@@ -23,9 +23,10 @@ public class Main {
      * @throws UnsupportedEncodingException
      */
     public static void main(String[] args) throws UnsupportedEncodingException {
+        byte[] bs = new byte[] { (byte) 0xFF, 0x00, (byte) 0x01 };
+
         System.out.println("bytes: " + 0x00 + " " + 0xFF);
         System.out.println("bytes: " + 0x00 + " " + 0xFFFF);
-
         final byte delimiter = '\n';
         System.out.println(delimiter);
         final byte[] utf = "\n".getBytes("UTF-8");

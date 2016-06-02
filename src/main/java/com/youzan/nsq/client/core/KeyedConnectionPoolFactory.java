@@ -3,6 +3,7 @@
  */
 package com.youzan.nsq.client.core;
 
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -134,6 +135,10 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
 
     public void clear(Address addr) {
         bootstraps.remove(addr);
+    }
+
+    public Set<Address> getAddress() {
+        return null;
     }
 
     public void close() {

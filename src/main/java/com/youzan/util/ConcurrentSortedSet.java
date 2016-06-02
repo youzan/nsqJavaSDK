@@ -4,8 +4,6 @@
 package com.youzan.util;
 
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -33,12 +31,7 @@ public class ConcurrentSortedSet<T> {
     private final WriteLock w = lock.writeLock();
 
     public ConcurrentSortedSet() {
-        w.lock();
-        try {
-            set = new TreeSet<>();
-        } finally {
-            w.unlock();
-        }
+        set = new TreeSet<>();
     }
 
     public T[] newArray(T[] a) {
@@ -111,6 +104,18 @@ public class ConcurrentSortedSet<T> {
         }
     }
 
+    /**
+     * @param address
+     */
+    public void remove(T e) {
+        w.lock();
+        try {
+            set.remove(e);
+        } finally {
+            w.unlock();
+        }
+    }
+
     public boolean isEmpty() {
         r.lock();
         try {
@@ -125,8 +130,8 @@ public class ConcurrentSortedSet<T> {
      * 
      * @return
      */
-    public Set<T> newSet() {
-        final HashSet<T> s = new HashSet<>();
+    public SortedSet<T> newSortedSet() {
+        final SortedSet<T> s = new TreeSet<>(set);
         r.lock();
         try {
             s.addAll(set);

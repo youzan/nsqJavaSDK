@@ -17,6 +17,7 @@ import com.youzan.nsq.client.core.lookup.LookupService;
 import com.youzan.nsq.client.core.lookup.LookupServiceImpl;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.Response;
+import com.youzan.nsq.client.exception.NSQLookupException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
@@ -51,23 +52,10 @@ public class NSQSimpleClient implements Client {
 
     @Override
     public void start() {
-        newDataNodes();
-    }
-
-    private void newDataNodes() {
-        final int retries = 2;
-        int c = 0;
-        while (c++ < retries) {
-            try {
-                final SortedSet<Address> nodes = this.lookup.lookup(this.topic);
-                if (nodes != null) {
-                    this.dataNodes.swap(nodes);
-                    break;
-                }
-            } catch (Exception e) {
-                logger.error("Current Retry: {} . Exception occurs...", c, e);
-            }
-            sleep(1000 * c);
+        try {
+            newDataNodes();
+        } catch (Exception e) {
+            logger.error("Exception", e);
         }
     }
 
@@ -80,6 +68,13 @@ public class NSQSimpleClient implements Client {
                 logger.error("Exception", e);
             }
         }, delay, 1 * 60, TimeUnit.SECONDS);
+    }
+
+    private void newDataNodes() throws NSQLookupException {
+        final SortedSet<Address> nodes = this.lookup.lookup(this.topic);
+        if (nodes != null) {
+            this.dataNodes.swap(nodes);
+        }
     }
 
     @Override
