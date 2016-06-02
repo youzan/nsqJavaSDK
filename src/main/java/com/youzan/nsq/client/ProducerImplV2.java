@@ -188,9 +188,9 @@ public class ProducerImplV2 implements Producer {
                 }
                 if (!exhausted) {
                     // broker is down
-                    factory.clear(addr);
-                    bigPool.clear(addr);
-                    dataNodes.remove(addr);
+                    this.factory.clear(addr);
+                    this.bigPool.clear(addr);
+                    this.dataNodes.remove(addr);
                 }
                 logger.error("CurrentRetries: {}, Address: {}, Exception occurs...", c, addr, e);
             } catch (Exception e) {
@@ -225,8 +225,8 @@ public class ProducerImplV2 implements Producer {
         total.incrementAndGet();
         lastTimeInMillisOfClientRequest = System.currentTimeMillis();
         final Pub pub = new Pub(config.getTopic(), message);
-        int c = 0, retries = 6; // be continuous
-        while (c++ < retries) {
+        int c = 0; // be continuous
+        while (c++ < 6) {
             if (c > 1) {
                 logger.debug("Sleep. CurrentRetries: {}", c);
                 sleep(c * 1000);
@@ -239,7 +239,7 @@ public class ProducerImplV2 implements Producer {
             try {
                 final NSQFrame frame = conn.commandAndGetResponse(pub);
                 incoming(frame, conn);
-                logger.debug("Get frame ,{}, after published. CurrentRetries: {} ", frame, c);
+                logger.debug("Get frame, {}, after published. CurrentRetries: {} ", frame, c);
                 return;
             } catch (Exception e) {
                 // Continue to retry
@@ -264,7 +264,7 @@ public class ProducerImplV2 implements Producer {
         lastTimeInMillisOfClientRequest = System.currentTimeMillis();
         final List<List<byte[]>> batches = Lists.partition(messages, 30);
         for (List<byte[]> batch : batches) {
-            publishBatch(batch);
+            publishSmallBatch(batch);
         }
     }
 
@@ -276,7 +276,7 @@ public class ProducerImplV2 implements Producer {
      * @throws NSQInvalidMessageException
      * @throws NSQException
      */
-    private void publishBatch(List<byte[]> batch) throws NoConnectionException, NSQDataNodesDownException,
+    private void publishSmallBatch(List<byte[]> batch) throws NoConnectionException, NSQDataNodesDownException,
             NSQInvalidTopicException, NSQInvalidMessageException, NSQException {
         final Mpub pub = new Mpub(config.getTopic(), batch);
         int c = 0; // be continuous
@@ -324,9 +324,9 @@ public class ProducerImplV2 implements Producer {
                     conn.addErrorFrame(err);
                     final Address address = conn.getAddress();
                     if (address != null) {
-                        factory.clear(address);
-                        bigPool.clear(address);
-                        dataNodes.remove(address);
+                        this.factory.clear(address);
+                        this.bigPool.clear(address);
+                        this.dataNodes.remove(address);
                     }
                     throw new NSQInvalidDataNodeException();
                 }
