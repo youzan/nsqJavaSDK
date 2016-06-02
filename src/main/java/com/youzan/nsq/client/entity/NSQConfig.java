@@ -13,7 +13,7 @@ import io.netty.handler.ssl.SslContext;
 
 /**
  * One config to One cluster with specific topic. <br />
- * It is used for Producer or Consumer , and not both two.
+ * It is used for Producer or Consumer, and not both two.
  * 
  * 
  * @author zhaoxi (linzuxiong)
@@ -78,7 +78,7 @@ public class NSQConfig implements java.io.Serializable {
     public NSQConfig() throws NSQException {
         try {
             hostname = HostUtil.getLocalIP();
-            // JDK8 , string contact is OK.
+            // JDK8, string contact is OK.
             clientId = "IP:" + IPUtil.ipv4(hostname) + ", PID:" + SystemUtil.getPID();
         } catch (Exception e) {
             throw new NSQException("System cann't get the IPv4!", e);

@@ -38,7 +38,7 @@ public class NSQFeatureDetectionHandler extends SimpleChannelInboundHandler<NSQF
         boolean reinstallDefaultDecoder = true;
         if (msg instanceof ResponseFrame) {
             ResponseFrame response = (ResponseFrame) msg;
-            logger.debug("NSQConfig , receiving message: {}", msg);
+            logger.debug("NSQConfig, receiving message: {}", msg);
             ChannelPipeline pipeline = ctx.channel().pipeline();
             parseIdentify(response.getMessage(), config);
             if (response.getMessage().equals("OK")) {

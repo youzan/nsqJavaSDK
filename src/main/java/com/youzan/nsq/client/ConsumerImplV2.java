@@ -176,7 +176,7 @@ public class ConsumerImplV2 implements Consumer {
 
         final Set<Address> newDataNodes = getDataNodes().newSet();
         final Set<Address> oldDataNodes = new HashSet<>(this.holdingConnections.keySet());
-        logger.debug("Prepare to connect new NSQd: {} , old NSQd: {} .", newDataNodes, oldDataNodes);
+        logger.debug("Prepare to connect new NSQd: {}, old NSQd: {} .", newDataNodes, oldDataNodes);
         if (newDataNodes.isEmpty() && oldDataNodes.isEmpty()) {
             return;
         }
@@ -317,7 +317,7 @@ public class ConsumerImplV2 implements Consumer {
         if (okConns.size() == config.getThreadPoolSize4IO()) {
             logger.info("Having created a pool for one broker, it felt good.");
         } else {
-            logger.info("Want the pool size {} , actually the size {}", config.getThreadPoolSize4IO(), okConns.size());
+            logger.info("Want the pool size {}, actually the size {}", config.getThreadPoolSize4IO(), okConns.size());
         }
         okConns.clear();
     }
@@ -409,7 +409,7 @@ public class ConsumerImplV2 implements Consumer {
      * @param conn
      */
     private void consume(final NSQMessage message, final NSQConnection conn) {
-        logger.debug("Having consumed the message {} , client showed great anxiety!", message.toString());
+        logger.debug("Having consumed the message {}, client showed great anxiety!", message.toString());
         boolean ok = false;
         int c = 0;
         while (c++ < 2) { // 0, 1
@@ -433,7 +433,7 @@ public class ConsumerImplV2 implements Consumer {
         } else {
             cmd = new Finish(message.getMessageID());
             if (!ok) {
-                logger.error("{} , exception occurs but you don't catch it!", message);
+                logger.error("{}, exception occurs but you don't catch it!", message);
             }
         }
         conn.command(cmd);

@@ -68,7 +68,7 @@ public class NSQMessage {
 
     /*-
      * =========================================================================
-     *                       For client , human message
+     *                       For client, human message
      * =========================================================================
      */
     private final Date datetime;
