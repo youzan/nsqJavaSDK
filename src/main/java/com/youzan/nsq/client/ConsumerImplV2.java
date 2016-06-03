@@ -38,6 +38,7 @@ import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.entity.Response;
 import com.youzan.nsq.client.exception.NSQException;
+import com.youzan.nsq.client.exception.NSQInvalidDataNodeException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.MessageFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
@@ -347,21 +348,18 @@ public class ConsumerImplV2 implements Consumer {
         final NSQFrame frame = newConn.commandAndGetResponse(new Sub(config.getTopic(), config.getConsumerName()));
         if (frame != null && frame.getType() == FrameType.ERROR_FRAME) {
             final ErrorFrame err = (ErrorFrame) frame;
-            if (err != null) {
-                final Address address = newConn.getAddress();
-                switch (err.getError()) {
-                    case E_FAILED_ON_NOT_LEADER: {
-                    }
-                    case E_FAILED_ON_NOT_WRITABLE: {
-                    }
-                    case E_TOPIC_NOT_EXIST: {
-                        if (address != null) {
-                            clearDataNode(address);
-                        }
-                    }
-                    default: {
-                        throw new NSQException("Unkown response error!");
-                    }
+            switch (err.getError()) {
+                case E_FAILED_ON_NOT_LEADER: {
+                }
+                case E_FAILED_ON_NOT_WRITABLE: {
+                }
+                case E_TOPIC_NOT_EXIST: {
+                    clearDataNode(newConn.getAddress());
+                    logger.error("Adress: {}, Frame: {}", newConn.getAddress(), frame);
+                    throw new NSQInvalidDataNodeException();
+                }
+                default: {
+                    throw new NSQException("Unkown response error!");
                 }
             }
         }
@@ -371,7 +369,7 @@ public class ConsumerImplV2 implements Consumer {
 
     @Override
     public void incoming(final NSQFrame frame, final NSQConnection conn) throws NSQException {
-        if (frame instanceof MessageFrame) {
+        if (frame != null && frame.getType() == FrameType.MESSAGE_FRAME) {
             final MessageFrame msg = (MessageFrame) frame;
             final NSQMessage message = new NSQMessage(msg.getTimestamp(), msg.getAttempts(), msg.getMessageID(),
                     msg.getMessageBody());

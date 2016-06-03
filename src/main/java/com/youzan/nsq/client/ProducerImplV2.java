@@ -201,14 +201,14 @@ public class ProducerImplV2 implements Producer {
                 continue;
             }
             logger.debug("Get NSQConnection OK! CurrentRetries: {}", c);
-            NSQFrame frame = null;
             try {
-                frame = conn.commandAndGetResponse(pub);
+                final NSQFrame frame = conn.commandAndGetResponse(pub);
+                // delegate to method: incomming(...)
                 logger.debug("Get frame, {}, after published. CurrentRetries: {} ", frame, c);
                 return;
             } catch (Exception e) {
                 // Continue to retry
-                logger.error("CurrentRetries: {}, RawMessage: {}, Frame:{}, Exception occurs...", c, message, frame, e);
+                logger.error("CurrentRetries: {}, RawMessage: {}, Exception occurs...", c, message, e);
                 continue;
             } finally {
                 bigPool.returnObject(conn.getAddress(), conn);
@@ -256,7 +256,6 @@ public class ProducerImplV2 implements Producer {
             }
             try {
                 final NSQFrame frame = conn.commandAndGetResponse(pub);
-                incoming(frame, conn);
                 return;
             } catch (Exception e) {
                 // Continue to retry
@@ -274,11 +273,9 @@ public class ProducerImplV2 implements Producer {
             final ErrorFrame err = (ErrorFrame) frame;
             switch (err.getError()) {
                 case E_BAD_TOPIC: {
-                    conn.addErrorFrame(err);
                     throw new NSQInvalidTopicException();
                 }
                 case E_BAD_MESSAGE: {
-                    conn.addErrorFrame(err);
                     throw new NSQInvalidMessageException();
                 }
                 case E_FAILED_ON_NOT_LEADER: {
@@ -286,16 +283,12 @@ public class ProducerImplV2 implements Producer {
                 case E_FAILED_ON_NOT_WRITABLE: {
                 }
                 case E_TOPIC_NOT_EXIST: {
-                    conn.addErrorFrame(err);
-                    final Address address = conn.getAddress();
-                    if (address != null) {
-                        clearDataNode(address);
-                    }
-                    logger.error("Adress: {}, Frame: {}", address, frame);
+                    clearDataNode(conn.getAddress());
+                    logger.error("Adress: {}, Frame: {}", conn.getAddress(), frame);
                     throw new NSQInvalidDataNodeException();
                 }
                 default: {
-                    break;
+                    throw new NSQException("Unkown response error!");
                 }
             }
         }
