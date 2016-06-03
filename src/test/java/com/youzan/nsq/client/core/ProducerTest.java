@@ -17,16 +17,16 @@ public class ProducerTest {
 
     private static final Logger logger = LoggerFactory.getLogger(ProducerTest.class);
 
-    // Integrated Testing
-    // private static final String lookup = "10.9.80.209:4161";
-    private static final String lookup = "127.0.0.1:4161";
+    // Integration Testing
+    private static final String lookup = "10.9.80.209:4161";
+    // private static final String lookup = "127.0.0.1:4161";
 
     @Test
     public void produceUsingSimpleProducer() throws NSQException, UnsupportedEncodingException {
         NSQConfig config = new NSQConfig();
         config.setTopic("test");
         config.setLookupAddresses(lookup);
-        config.setTimeoutInSecond(60);
+        config.setTimeoutInSecond(1);
         config.setMsgTimeoutInMillisecond(60 * 1000);
         config.setThreadPoolSize4IO(1);
         final Producer p = new ProducerImplV2(config);

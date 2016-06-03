@@ -140,6 +140,7 @@ public class LookupServiceImpl implements LookupService {
         final int index = ((offset++) & Integer.MAX_VALUE) % this.addresses.size();
         final String lookupd = this.addresses.get(index);
         final String url = String.format("http://%s/listlookup", lookupd);
+        logger.debug("Size: {}, Index: {}, URL: {}", this.addresses.size(), index, url);
         final JsonNode rootNode = mapper.readTree(new URL(url));
         JsonNode t = rootNode.get("data");
         final JsonNode nodes = rootNode.get("data").get("lookupdnodes");
