@@ -30,6 +30,11 @@ public interface Client {
 
     static final Random _r = new Random(10000);
 
+    /**
+     * For NSQd(data-node).
+     */
+    static final int _INTERVAL_IN_SECOND = 10;
+
     void start() throws NSQException;
 
     /**

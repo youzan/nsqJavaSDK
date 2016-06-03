@@ -162,7 +162,7 @@ public class ConsumerImplV2 implements Consumer {
             } catch (Exception e) {
                 logger.error("Exception", e);
             }
-        }, delay, 1 * 60, TimeUnit.SECONDS);
+        }, delay, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
     }
 
     private void connect() {
