@@ -68,7 +68,7 @@ public class NSQSimpleClient implements Client {
             } catch (Exception e) {
                 logger.error("Exception", e);
             }
-        }, delay, 1 * 60, TimeUnit.SECONDS);
+        }, delay, 10, TimeUnit.SECONDS);
     }
 
     private void newDataNodes() throws NSQLookupException {

@@ -49,6 +49,9 @@ public class ErrorFrame extends NSQFrame {
             if (content.startsWith("E_TOPIC_NOT_EXIST")) {
                 return Response.E_TOPIC_NOT_EXIST;
             }
+            if (content.startsWith("E_PUB_FAILED")) {
+                return Response.E_PUB_FAILED;
+            }
         }
         return null;
     }

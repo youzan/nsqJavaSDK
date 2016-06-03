@@ -201,14 +201,14 @@ public class ProducerImplV2 implements Producer {
                 continue;
             }
             logger.debug("Get NSQConnection OK! CurrentRetries: {}", c);
+            NSQFrame frame = null;
             try {
-                final NSQFrame frame = conn.commandAndGetResponse(pub);
-                incoming(frame, conn);
+                frame = conn.commandAndGetResponse(pub);
                 logger.debug("Get frame, {}, after published. CurrentRetries: {} ", frame, c);
                 return;
             } catch (Exception e) {
                 // Continue to retry
-                logger.error("CurrentRetries: {}, Exception occurs...", c, e);
+                logger.error("CurrentRetries: {}, RawMessage: {}, Frame:{}, Exception occurs...", c, message, frame, e);
                 continue;
             } finally {
                 bigPool.returnObject(conn.getAddress(), conn);
@@ -291,6 +291,7 @@ public class ProducerImplV2 implements Producer {
                     if (address != null) {
                         clearDataNode(address);
                     }
+                    logger.error("Adress: {}, Frame: {}", address, frame);
                     throw new NSQInvalidDataNodeException();
                 }
                 default: {

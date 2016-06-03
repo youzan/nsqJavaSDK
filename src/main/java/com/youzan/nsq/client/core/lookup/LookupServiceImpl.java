@@ -1,5 +1,7 @@
 package com.youzan.nsq.client.core.lookup;
 
+import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -13,6 +15,7 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -51,7 +54,7 @@ public class LookupServiceImpl implements LookupService {
                     .newSingleThreadScheduledExecutor(new NamedThreadFactory("LookupChecker", Thread.MAX_PRIORITY));
         }
         offset = _r.nextInt(100);
-        checkLookupServers();
+        keepLookupServers();
     }
 
     /**
@@ -114,38 +117,47 @@ public class LookupServiceImpl implements LookupService {
     /**
      * Asynchronized processing
      */
-    public void checkLookupServers() {
+    public void keepLookupServers() {
         final int delay = _r.nextInt(120) + 60; // seconds
         scheduler.scheduleWithFixedDelay(() -> {
             try {
-                if (this.addresses == null || this.addresses.isEmpty()) {
-                    return;
-                }
-                final int index = ((offset++) & Integer.MAX_VALUE) % this.addresses.size();
-                final String lookupd = this.addresses.get(index);
-                final String url = String.format("http://%s/listlookup", lookupd);
-                final JsonNode rootNode = mapper.readTree(new URL(url));
-                JsonNode t = rootNode.get("data");
-                final JsonNode nodes = rootNode.get("data").get("lookupdnodes");
-                if (null == nodes) {
-                    logger.error("NSQ Server do response without any lookupd!");
-                    return;
-                }
-                final List<String> newLookupds = new ArrayList<>(nodes.size());
-                for (JsonNode node : nodes) {
-                    final int id = node.get("ID").asInt();
-                    final String host = node.get("NodeIP").asText();
-                    final int port = node.get("HttpPort").asInt();
-                    String addr = host + ":" + port;
-                    newLookupds.add(addr);
-                }
-                if (!newLookupds.isEmpty()) {
-                    this.addresses = newLookupds;
-                }
+                newLookupServers();
             } catch (Exception e) {
                 logger.error("Exception", e);
             }
-        }, delay, 1 * 60, TimeUnit.SECONDS);
+        }, delay, 60, TimeUnit.SECONDS);
+    }
+
+    /**
+     * @throws IOException
+     * @throws JsonProcessingException
+     * @throws MalformedURLException
+     */
+    private void newLookupServers() throws IOException, JsonProcessingException, MalformedURLException {
+        if (this.addresses == null || this.addresses.isEmpty()) {
+            return;
+        }
+        final int index = ((offset++) & Integer.MAX_VALUE) % this.addresses.size();
+        final String lookupd = this.addresses.get(index);
+        final String url = String.format("http://%s/listlookup", lookupd);
+        final JsonNode rootNode = mapper.readTree(new URL(url));
+        JsonNode t = rootNode.get("data");
+        final JsonNode nodes = rootNode.get("data").get("lookupdnodes");
+        if (null == nodes) {
+            logger.error("NSQ Server do response without any lookupd!");
+            return;
+        }
+        final List<String> newLookupds = new ArrayList<>(nodes.size());
+        for (JsonNode node : nodes) {
+            final int id = node.get("ID").asInt();
+            final String host = node.get("NodeIP").asText();
+            final int port = node.get("HttpPort").asInt();
+            String addr = host + ":" + port;
+            newLookupds.add(addr);
+        }
+        if (!newLookupds.isEmpty()) {
+            this.addresses = newLookupds;
+        }
     }
 
     @Override
