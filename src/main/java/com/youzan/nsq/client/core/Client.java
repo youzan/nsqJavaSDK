@@ -5,6 +5,9 @@ package com.youzan.nsq.client.core;
 
 import java.util.Random;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.network.frame.NSQFrame;
@@ -20,7 +23,10 @@ import io.netty.util.AttributeKey;
  *
  */
 public interface Client {
-    public static final AttributeKey<Client> STATE = AttributeKey.valueOf("Client.State");
+
+    static final Logger logger = LoggerFactory.getLogger(Client.class);
+
+    static final AttributeKey<Client> STATE = AttributeKey.valueOf("Client.State");
 
     static final Random _r = new Random(10000);
 
@@ -46,5 +52,16 @@ public interface Client {
      * @return Always it is new.
      */
     ConcurrentSortedSet<Address> getDataNodes();
+
+    void clearDataNode(Address address);
+
+    default void sleep(final int millisecond) {
+        try {
+            Thread.sleep(millisecond);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Your machine is too busy! Please check it!");
+        }
+    }
 
 }

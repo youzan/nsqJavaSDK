@@ -2,9 +2,6 @@ package com.youzan.nsq.client;
 
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
@@ -32,7 +29,6 @@ import com.youzan.nsq.client.network.frame.NSQFrame.FrameType;
 import com.youzan.util.ConcurrentSortedSet;
 import com.youzan.util.IOUtil;
 import com.youzan.util.Lists;
-import com.youzan.util.NamedThreadFactory;
 
 /**
  * <pre>
@@ -61,10 +57,6 @@ public class ProducerImplV2 implements Producer {
      * Record the client's request time
      */
     private long lastTimeInMillisOfClientRequest = System.currentTimeMillis();
-
-    private final ConcurrentSortedSet<Address> dataNodes = new ConcurrentSortedSet<>();
-    private final ScheduledExecutorService scheduler = Executors
-            .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
 
     /**
      * @param config
@@ -101,36 +93,10 @@ public class ProducerImplV2 implements Producer {
             this.offset = _r.nextInt(100);
             try {
                 this.simpleClient.start();
-                newDataNodes();
             } catch (Exception e) {
                 logger.error("Exception", e);
             }
             createBigPool();
-            checkDataNodes();
-        }
-    }
-
-    /**
-     * 
-     */
-    private void checkDataNodes() {
-        final int delay = _r.nextInt(60) + 60; // seconds
-        scheduler.scheduleWithFixedDelay(() -> {
-            try {
-                newDataNodes();
-            } catch (Exception e) {
-                logger.error("Exception", e);
-            }
-        }, delay, 1 * 30, TimeUnit.SECONDS);
-    }
-
-    /**
-     * 
-     */
-    private void newDataNodes() {
-        ConcurrentSortedSet<Address> nodes = this.simpleClient.getDataNodes();
-        if (nodes != null) {
-            this.dataNodes.swap(nodes.newSortedSet());
         }
     }
 
@@ -188,9 +154,7 @@ public class ProducerImplV2 implements Producer {
                 }
                 if (!exhausted) {
                     // broker is down
-                    this.factory.clear(addr);
-                    this.bigPool.clear(addr);
-                    this.dataNodes.remove(addr);
+                    clearDataNode(addr);
                 }
                 logger.error("CurrentRetries: {}, Address: {}, Exception occurs...", c, addr, e);
             } catch (Exception e) {
@@ -202,15 +166,16 @@ public class ProducerImplV2 implements Producer {
     }
 
     /**
-     * @param millisecond
+     * @param address
      */
-    private void sleep(final int millisecond) {
-        try {
-            Thread.sleep(millisecond);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            logger.error("System is too busy! Please check it!", e);
+    @Override
+    public void clearDataNode(final Address address) {
+        if (address == null) {
+            return;
         }
+        factory.clear(address);
+        bigPool.clear(address);
+        simpleClient.clearDataNode(address);
     }
 
     @Override
@@ -229,7 +194,7 @@ public class ProducerImplV2 implements Producer {
         while (c++ < 6) {
             if (c > 1) {
                 logger.debug("Sleep. CurrentRetries: {}", c);
-                sleep(c * 1000);
+                sleep((1 << (c - 1)) * 1000);
             }
             final NSQConnection conn = getNSQConnection();
             if (conn == null) {
@@ -305,7 +270,7 @@ public class ProducerImplV2 implements Producer {
 
     @Override
     public void incoming(NSQFrame frame, NSQConnection conn) throws NSQException {
-        if (frame.getType() == FrameType.ERROR_FRAME) {
+        if (frame != null && frame.getType() == FrameType.ERROR_FRAME) {
             final ErrorFrame err = (ErrorFrame) frame;
             switch (err.getError()) {
                 case E_BAD_TOPIC: {
@@ -324,9 +289,7 @@ public class ProducerImplV2 implements Producer {
                     conn.addErrorFrame(err);
                     final Address address = conn.getAddress();
                     if (address != null) {
-                        this.factory.clear(address);
-                        this.bigPool.clear(address);
-                        this.dataNodes.remove(address);
+                        clearDataNode(address);
                     }
                     throw new NSQInvalidDataNodeException();
                 }
@@ -355,6 +318,6 @@ public class ProducerImplV2 implements Producer {
 
     @Override
     public ConcurrentSortedSet<Address> getDataNodes() {
-        return dataNodes;
+        return simpleClient.getDataNodes();
     }
 }

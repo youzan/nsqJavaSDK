@@ -17,6 +17,7 @@ import com.youzan.nsq.client.core.lookup.LookupService;
 import com.youzan.nsq.client.core.lookup.LookupServiceImpl;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.Response;
+import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQLookupException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
@@ -78,7 +79,7 @@ public class NSQSimpleClient implements Client {
     }
 
     @Override
-    public void incoming(final NSQFrame frame, final NSQConnection conn) {
+    public void incoming(final NSQFrame frame, final NSQConnection conn) throws NSQException {
         switch (frame.getType()) {
             case RESPONSE_FRAME: {
                 final String resp = frame.getMessage();
@@ -93,8 +94,7 @@ public class NSQSimpleClient implements Client {
             case ERROR_FRAME: {
                 final ErrorFrame err = (ErrorFrame) frame;
                 conn.addErrorFrame(err);
-                logger.error("Unknow ERROR_FRAME: {}", err);
-                break;
+                throw new NSQException("Unknow ErrorFrame! " + err);
             }
             default: {
                 logger.error("Invalid Frame Type.");
@@ -114,16 +114,12 @@ public class NSQSimpleClient implements Client {
         return dataNodes;
     }
 
-    /**
-     * @param millisecond
-     */
-    private void sleep(final int millisecond) {
-        try {
-            Thread.sleep(millisecond);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            logger.error("System is too busy! Please check it!", e);
+    @Override
+    public void clearDataNode(Address address) {
+        if (address == null) {
+            return;
         }
+        dataNodes.remove(address);
     }
 
 }

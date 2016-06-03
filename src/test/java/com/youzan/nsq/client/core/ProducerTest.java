@@ -37,7 +37,7 @@ public class ProducerTest {
                 logger.error("Exception", e);
             }
             logger.info("OK");
-            sleep(200);
+            sleep(300);
             assert true;
         }
         p.close();

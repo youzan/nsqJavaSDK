@@ -245,9 +245,7 @@ public class ConsumerImplV2 implements Consumer {
                 return;
             }
             try {
-                holdingConnections.remove(address);
-                factory.clear(address);
-                bigPool.clear(address);
+                clearDataNode(address);
             } catch (Exception e) {
                 logger.error("Exception", e);
             }
@@ -261,6 +259,19 @@ public class ConsumerImplV2 implements Consumer {
         broken.clear();
         except1.clear();
         except2.clear();
+    }
+
+    /**
+     * @param address
+     */
+    @Override
+    public void clearDataNode(Address address) {
+        if (address == null) {
+            return;
+        }
+        holdingConnections.remove(address);
+        factory.clear(address);
+        bigPool.clear(address);
     }
 
     /**
@@ -345,9 +356,7 @@ public class ConsumerImplV2 implements Consumer {
                     }
                     case E_TOPIC_NOT_EXIST: {
                         if (address != null) {
-                            holdingConnections.remove(address);
-                            factory.clear(address);
-                            bigPool.clear(address);
+                            clearDataNode(address);
                         }
                     }
                     default: {
@@ -358,18 +367,6 @@ public class ConsumerImplV2 implements Consumer {
         }
         newConn.command(new Rdy(messagesPerBatch));
         logger.info("Rdy {} message! It is new connection!", messagesPerBatch);
-    }
-
-    /**
-     * @param millisecond
-     */
-    private void sleep(final int millisecond) {
-        try {
-            Thread.sleep(millisecond);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            logger.error("System is too busy! Please check it!", e);
-        }
     }
 
     @Override
