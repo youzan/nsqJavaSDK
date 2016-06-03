@@ -26,6 +26,15 @@ public interface Producer extends Client, Closeable {
     void publish(byte[] message) throws NSQException;
 
     /**
+     * @see publish(message:byte[])
+     * 
+     * @param message
+     * @throws NSQException
+     */
+    @Deprecated
+    void publish(String message) throws NSQException;
+
+    /**
      * 生产一批的'消息'. 如果一批超过30条,那么SDK会给你按照FIFO顺序的分批(每批30条)发送出去!
      * 因此小于等于30条作为一批的消息,可以作为局部化的有顺序.
      * 

@@ -74,7 +74,7 @@ public class NSQMessage {
     private final Date datetime;
     private final int readableAttempts;
     private final String readableMsgID;
-    private String readableContent = "";
+    private String readableContent = null;
     private Integer nextConsumingInSecond = null;
     // 1 seconds
     static int _MIN_NEXT_CONSUMING_IN_SECOND = 1;
@@ -92,6 +92,8 @@ public class NSQMessage {
         }
         if (messageBody != null && messageBody.length > 0) {
             readableContent = new String(messageBody, IOUtil.DEFAULT_CHARSET);
+        } else {
+            readableContent = "";
         }
         return readableContent;
     }

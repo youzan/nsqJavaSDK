@@ -9,4 +9,11 @@ public class NSQInvalidMessageException extends NSQException {
         super(Response.E_BAD_MESSAGE + " !!! Maybe SDK bug!");
     }
 
+    /**
+     * @param message
+     */
+    public NSQInvalidMessageException(String message) {
+        super(message);
+    }
+
 }

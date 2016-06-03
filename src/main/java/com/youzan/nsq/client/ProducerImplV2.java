@@ -168,14 +168,13 @@ public class ProducerImplV2 implements Producer {
     /**
      * @param address
      */
+
     @Override
-    public void clearDataNode(final Address address) {
-        if (address == null) {
-            return;
+    public void publish(String message) throws NSQException {
+        if (message == null || message.isEmpty()) {
+            throw new NSQInvalidMessageException("Your input is blank!");
         }
-        factory.clear(address);
-        bigPool.clear(address);
-        simpleClient.clearDataNode(address);
+        publish(message.getBytes(IOUtil.DEFAULT_CHARSET));
     }
 
     @Override
@@ -298,6 +297,16 @@ public class ProducerImplV2 implements Producer {
     @Override
     public void backoff(NSQConnection conn) {
         simpleClient.backoff(conn);
+    }
+
+    @Override
+    public void clearDataNode(final Address address) {
+        if (address == null) {
+            return;
+        }
+        factory.clear(address);
+        bigPool.clear(address);
+        simpleClient.clearDataNode(address);
     }
 
     @Override
