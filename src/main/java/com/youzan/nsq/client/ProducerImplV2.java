@@ -207,7 +207,8 @@ public class ProducerImplV2 implements Producer {
                 return;
             } catch (Exception e) {
                 // Continue to retry
-                logger.error("CurrentRetries: {}, RawMessage: {}, Exception occurs...", c, message, e);
+                logger.error("CurrentRetries: {}, Address: {}, RawMessage: {}, Exception occurs...", c,
+                        conn.getAddress(), message, e);
                 continue;
             } finally {
                 bigPool.returnObject(conn.getAddress(), conn);
