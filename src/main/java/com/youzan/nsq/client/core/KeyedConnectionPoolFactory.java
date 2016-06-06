@@ -18,6 +18,7 @@ import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.exception.NoConnectionException;
 import com.youzan.nsq.client.network.netty.NSQClientInitializer;
+import com.youzan.util.IOUtil;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -95,12 +96,12 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
         try {
             conn.init();
         } catch (Exception e) {
-            conn.close();
+            IOUtil.closeQuietly(conn);
             throw new NoConnectionException("Creating a connection and having a negotiation fails!", e);
         }
 
         if (!conn.isConnected()) {
-            conn.close();
+            IOUtil.closeQuietly(conn);
             throw new NoConnectionException("Pool failed in connecting to NSQd!");
         }
         return conn;
@@ -113,23 +114,23 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
 
     @Override
     public boolean validateObject(Address addr, PooledObject<NSQConnection> p) {
-        logger.debug("validate {} connection!", addr);
+        logger.debug("Validate {} connection!", addr);
         final NSQConnection conn = p.getObject();
-        logger.debug("validate {} connection! getObject", addr);
+        logger.debug("Validate {} connection! GetObject is OK.", addr);
         // another implementation : use client.heartbeat,or called
         // client.validateConnection
         if (null != conn && conn.isConnected()) {
-            logger.debug("validate {} connection! Conn is connected.", addr);
+            logger.debug("Validate {} connection! Conn is connected.", addr);
             final ChannelFuture future = conn.command(Nop.getInstance());
             if (future.awaitUninterruptibly(500, TimeUnit.MILLISECONDS)) {
-                final boolean res = future.isSuccess();
-                logger.debug("validate {} connection! Nop's result is {}.", addr, res);
-                return res;
+                final boolean validated = future.isSuccess();
+                logger.debug("Validate {} connection! Nop's validated is {}.", addr, validated);
+                return validated;
             }
-            logger.debug("validate {} connection! Nop is over, but timeout.", addr);
+            logger.debug("Validate {} connection! Nop is over, but timeout.", addr);
             return false;
         }
-        logger.debug("validate {} connection! Conn is false.", addr);
+        logger.debug("Validate {} connection! Conn is false.", addr);
         return false;
     }
 

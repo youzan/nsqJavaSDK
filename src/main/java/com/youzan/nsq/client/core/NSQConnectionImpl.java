@@ -131,6 +131,7 @@ public class NSQConnectionImpl implements NSQConnection {
             channel.attr(NSQConnection.STATE).remove();
             channel.attr(Client.STATE).remove();
             channel.close();
+            havingNegotiation = false;
             logger.info("Having closed {} OK!", this);
         } else {
             logger.error("No channel be setted?");
