@@ -83,8 +83,9 @@ public class ProducerImplV2 implements Producer {
             this.poolConfig.setTestOnBorrow(true);
             this.poolConfig.setTestOnReturn(true);
             this.poolConfig.setTestWhileIdle(true);
-            this.poolConfig.setMinEvictableIdleTimeMillis(10 * 1000);
-            this.poolConfig.setTimeBetweenEvictionRunsMillis(10 * 1000);
+            // 时效要求高的,让 Idle * 1.5 <= CheckPeriod
+            this.poolConfig.setMinEvictableIdleTimeMillis((int) 1.5 * 60 * 1000);
+            this.poolConfig.setTimeBetweenEvictionRunsMillis(3 * 60 * 1000);
             this.poolConfig.setJmxEnabled(false);
             this.poolConfig.setMinIdlePerKey(1);
             this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());

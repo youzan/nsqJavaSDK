@@ -123,15 +123,18 @@ public class ConsumerImplV2 implements Consumer {
             this.poolConfig.setLifo(false);
             this.poolConfig.setFairness(true);
             this.poolConfig.setTestOnBorrow(false);
+            this.poolConfig.setTestOnReturn(false);
+            this.poolConfig.setTestWhileIdle(true);
             this.poolConfig.setJmxEnabled(false);
-            this.poolConfig.setMinEvictableIdleTimeMillis(24 * 3600 * 1000L);
+            // 时效要求不高的, 让CheckPeriod短, 让Idle长
+            this.poolConfig.setMinEvictableIdleTimeMillis(24 * 60 * 1000);
+            this.poolConfig.setTimeBetweenEvictionRunsMillis(3 * 60 * 1000);
             this.poolConfig.setMinIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());
             // aquire connection waiting time
             this.poolConfig.setMaxWaitMillis(500);
             this.poolConfig.setBlockWhenExhausted(true);
-            this.poolConfig.setTestWhileIdle(true);
             try {
                 this.simpleClient.start();
             } catch (Exception e) {
