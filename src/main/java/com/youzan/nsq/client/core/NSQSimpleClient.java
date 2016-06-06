@@ -94,7 +94,11 @@ public class NSQSimpleClient implements Client {
             }
             case ERROR_FRAME: {
                 final ErrorFrame err = (ErrorFrame) frame;
-                conn.addErrorFrame(err);
+                try {
+                    conn.addErrorFrame(err);
+                } catch (Exception e) {
+                    logger.error("Exception", e);
+                }
             }
             default: {
                 logger.error("Invalid Frame Type. Frame: {}", frame);
