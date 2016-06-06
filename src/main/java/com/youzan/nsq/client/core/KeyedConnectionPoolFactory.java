@@ -62,6 +62,7 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
 
     @Override
     public NSQConnection create(Address addr) throws Exception {
+        logger.debug("Create a {} connection.", addr);
         final Bootstrap bootstrap;
         if (bootstraps.containsKey(addr)) {
             bootstrap = bootstraps.get(addr);
@@ -112,19 +113,23 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
 
     @Override
     public boolean validateObject(Address addr, PooledObject<NSQConnection> p) {
+        logger.debug("validate {} connection!", addr);
         final NSQConnection conn = p.getObject();
+        logger.debug("validate {} connection! getObject", addr);
         // another implementation : use client.heartbeat,or called
         // client.validateConnection
         if (null != conn && conn.isConnected()) {
+            logger.debug("validate {} connection! Conn is connected.", addr);
             final ChannelFuture future = conn.command(Nop.getInstance());
             if (future.awaitUninterruptibly(500, TimeUnit.MILLISECONDS)) {
-                return future.isSuccess();
+                final boolean res = future.isSuccess();
+                logger.debug("validate {} connection! Nop's result is {}.", addr, res);
+                return res;
             }
+            logger.debug("validate {} connection! Nop is over, but timeout.", addr);
             return false;
         }
-        if (null != conn) {
-            return true;
-        }
+        logger.debug("validate {} connection! Conn is false.", addr);
         return false;
     }
 

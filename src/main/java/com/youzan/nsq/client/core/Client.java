@@ -33,7 +33,7 @@ public interface Client {
     /**
      * For NSQd(data-node).
      */
-    static final int _INTERVAL_IN_SECOND = 10;
+    static final int _INTERVAL_IN_SECOND = 5;
 
     void start() throws NSQException;
 

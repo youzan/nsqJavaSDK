@@ -81,15 +81,17 @@ public class ProducerImplV2 implements Producer {
             this.poolConfig.setLifo(true);
             this.poolConfig.setFairness(false);
             this.poolConfig.setTestOnBorrow(true);
+            this.poolConfig.setTestOnReturn(true);
+            this.poolConfig.setTestWhileIdle(true);
+            this.poolConfig.setMinEvictableIdleTimeMillis(10 * 1000);
+            this.poolConfig.setTimeBetweenEvictionRunsMillis(10 * 1000);
             this.poolConfig.setJmxEnabled(false);
             this.poolConfig.setMinIdlePerKey(1);
-            this.poolConfig.setMinEvictableIdleTimeMillis(90 * 1000);
             this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());
             // aquire connection waiting time
             this.poolConfig.setMaxWaitMillis(500);
             this.poolConfig.setBlockWhenExhausted(true);
-            this.poolConfig.setTestWhileIdle(true);
             this.offset = _r.nextInt(100);
             try {
                 this.simpleClient.start();
@@ -129,10 +131,12 @@ public class ProducerImplV2 implements Producer {
         while (c++ < size) {
             // current broker | next broker when have a try again
             final int effectedIndex = (index++ & Integer.MAX_VALUE) % size;
-            logger.debug("Load-Balancing algorithm is Round-Robin! Size: {}, Index: {}", size, effectedIndex);
             final Address addr = addrs[effectedIndex];
+            logger.debug("Load-Balancing algorithm is Round-Robin! Size: {}, Index: {}. Got {} .", size, effectedIndex,
+                    addr);
             NSQConnection conn = null;
             try {
+                logger.debug("Begin to borrowObject {} .", addr);
                 conn = bigPool.borrowObject(addr);
                 return conn;
             } catch (NoSuchElementException e) {
@@ -206,6 +210,7 @@ public class ProducerImplV2 implements Producer {
                 logger.debug("Get frame, {}, after published. CurrentRetries: {} ", frame, c);
                 return;
             } catch (Exception e) {
+                IOUtil.closeQuietly(conn);
                 // Continue to retry
                 logger.error("CurrentRetries: {}, Address: {}, RawMessage: {}, Exception occurs...", c,
                         conn.getAddress(), message, e);
@@ -258,8 +263,10 @@ public class ProducerImplV2 implements Producer {
                 final NSQFrame frame = conn.commandAndGetResponse(pub);
                 return;
             } catch (Exception e) {
+                IOUtil.closeQuietly(conn);
                 // Continue to retry
                 logger.error("CurrentRetries: {}, Exception occurs...", c, e);
+                continue;
             } finally {
                 bigPool.returnObject(conn.getAddress(), conn);
             }
