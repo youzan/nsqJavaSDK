@@ -30,7 +30,8 @@ public class NoConnectionException extends NSQException {
      * @param message
      * @param cause
      */
-    public NoConnectionException(String message, Exception cause) {
+    public NoConnectionException(String message, Throwable cause) {
         super(message, cause);
     }
+
 }

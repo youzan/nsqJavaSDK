@@ -389,6 +389,7 @@ public class ConsumerImplV2 implements Consumer {
                 try {
                     consume(message, conn);
                 } catch (Exception e) {
+                    IOUtil.closeQuietly(conn);
                     logger.error("Exception", e);
                 }
             });

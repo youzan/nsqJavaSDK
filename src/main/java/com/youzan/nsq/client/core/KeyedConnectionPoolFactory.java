@@ -85,7 +85,7 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
             if (channel != null) {
                 channel.close();
             }
-            throw new NoConnectionException(future.cause());
+            throw new NoConnectionException("Connect " + addr + " is wrong.", future.cause());
         }
 
         final NSQConnection conn = new NSQConnectionImpl(addr, channel, config);
