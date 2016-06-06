@@ -83,10 +83,10 @@ public class ProducerImplV2 implements Producer {
             this.poolConfig.setTestOnBorrow(true);
             this.poolConfig.setTestOnReturn(true);
             this.poolConfig.setTestWhileIdle(true);
+            this.poolConfig.setJmxEnabled(false);
             // 时效要求高的,让 Idle * 1.5 <= CheckPeriod
             this.poolConfig.setMinEvictableIdleTimeMillis((int) 1.5 * 60 * 1000);
             this.poolConfig.setTimeBetweenEvictionRunsMillis(3 * 60 * 1000);
-            this.poolConfig.setJmxEnabled(false);
             this.poolConfig.setMinIdlePerKey(1);
             this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());
@@ -163,8 +163,8 @@ public class ProducerImplV2 implements Producer {
                 }
                 logger.error("CurrentRetries: {}, Address: {}, Exception occurs...", c, addr, e);
             } catch (Exception e) {
-                logger.error("CurrentRetries: {}, Address: {}, Exception occurs...", c, addr, e);
                 IOUtil.closeQuietly(conn);
+                logger.error("CurrentRetries: {}, Address: {}, Exception occurs...", c, addr, e);
             }
         }
         return null;
@@ -208,7 +208,7 @@ public class ProducerImplV2 implements Producer {
             try {
                 final NSQFrame frame = conn.commandAndGetResponse(pub);
                 // delegate to method: incomming(...)
-                logger.debug("Get frame, {}, after published. CurrentRetries: {} ", frame, c);
+                logger.debug("===OK=== Get frame, {}, after published. CurrentRetries: {} ", frame, c);
                 return;
             } catch (Exception e) {
                 IOUtil.closeQuietly(conn);

@@ -158,7 +158,7 @@ public class ConsumerImplV2 implements Consumer {
      * schedule action
      */
     private void keepConnecting() {
-        final int delay = _r.nextInt(120) + 60; // seconds
+        final int delay = _r.nextInt(60) + 45; // seconds
         scheduler.scheduleWithFixedDelay(() -> {
             try {
                 connect();
@@ -413,7 +413,6 @@ public class ConsumerImplV2 implements Consumer {
      * @param conn
      */
     private void consume(final NSQMessage message, final NSQConnection conn) {
-        logger.debug("Having consumed the message {}, client showed great anxiety!", message.toString());
         boolean ok = false;
         int c = 0;
         while (c++ < 2) {
@@ -459,7 +458,9 @@ public class ConsumerImplV2 implements Consumer {
         final Date newTimeout = calculateTimeoutDate(change);
         if (newTimeout != null) {
             timeout = Optional.of(scheduler.schedule(() -> {
+                logger.debug("Rdy 1 ...");
                 conn.command(new Rdy(1)); // test the waters
+                logger.debug("Rdy 1 OK.");
             }, 0, TimeUnit.MILLISECONDS));
         }
     }

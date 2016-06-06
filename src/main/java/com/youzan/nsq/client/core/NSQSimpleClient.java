@@ -61,7 +61,7 @@ public class NSQSimpleClient implements Client {
     }
 
     private void keepDataNodes() {
-        final int delay = _r.nextInt(120) + 60; // seconds
+        final int delay = _r.nextInt(60) + 45; // seconds
         scheduler.scheduleWithFixedDelay(() -> {
             try {
                 newDataNodes();

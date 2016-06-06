@@ -118,7 +118,7 @@ public class LookupServiceImpl implements LookupService {
      * Asynchronized processing
      */
     public void keepLookupServers() {
-        final int delay = _r.nextInt(120) + 60; // seconds
+        final int delay = _r.nextInt(60) + 45; // seconds
         scheduler.scheduleWithFixedDelay(() -> {
             try {
                 newLookupServers();

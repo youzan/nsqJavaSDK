@@ -1,5 +1,7 @@
 package com.youzan.nsq.client.core;
 
+import java.util.Random;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -24,8 +26,17 @@ public class ConsumerTest {
         config.setMsgTimeoutInMillisecond(120 * 1000);
         config.setTopic("test");
         config.setConsumerName("consumer_is_zhaoxi");
+
+        Random r = new Random(100);
         final ConsumerImplV2 consumer = new ConsumerImplV2(config, (message) -> {
             Assert.assertNotNull(message);
+            if (r.nextInt(10) % 7 == 0) {
+                try {
+                    message.setNextConsumingInSecond(30);
+                } catch (Exception e) {
+                    logger.error("Exception", e);
+                }
+            }
         });
         consumer.start();
         try {

@@ -33,7 +33,7 @@ public interface Client {
     /**
      * For NSQd(data-node).
      */
-    static final int _INTERVAL_IN_SECOND = 5;
+    static final int _INTERVAL_IN_SECOND = 10;
 
     void start() throws NSQException;
 
@@ -61,6 +61,7 @@ public interface Client {
     void clearDataNode(Address address);
 
     default void sleep(final int millisecond) {
+        logger.debug("Sleep {} millisecond.", millisecond);
         try {
             Thread.sleep(millisecond);
         } catch (InterruptedException e) {
