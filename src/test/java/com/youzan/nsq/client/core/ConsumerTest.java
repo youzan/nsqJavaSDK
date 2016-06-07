@@ -21,29 +21,25 @@ public class ConsumerTest {
     public void consumeOK() throws NSQException {
         final NSQConfig config = new NSQConfig();
         config.setLookupAddresses(lookup);
-        config.setThreadPoolSize4IO(1);
-        config.setTimeoutInSecond(1);
+        config.setTimeoutInSecond(2);
+        config.setThreadPoolSize4IO(2);
         config.setMsgTimeoutInMillisecond(120 * 1000);
         config.setTopic("test");
         config.setConsumerName("consumer_is_zhaoxi");
 
-        Random r = new Random(100);
+        final Random r = new Random(100);
         final ConsumerImplV2 consumer = new ConsumerImplV2(config, (message) -> {
             Assert.assertNotNull(message);
-            if (r.nextInt(10) % 7 == 0) {
-                try {
-                    message.setNextConsumingInSecond(30);
-                } catch (Exception e) {
-                    logger.error("Exception", e);
-                }
-            }
+            sleep(10);
+            // if (r.nextInt(100) % 10 == 0) {
+            // try {
+            // message.setNextConsumingInSecond(30);
+            // } catch (Exception e) {
+            // logger.error("Exception", e);
+            // }
+            // }
         });
-        consumer.start();
-        try {
-            Thread.sleep(3600 * 1000);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        sleep(3600 * 2 * 1000);
         consumer.close();
     }
 
@@ -65,12 +61,20 @@ public class ConsumerTest {
             }
         });
         consumer.start();
+        sleep(3600 * 2 * 1000);
+        consumer.close();
+    }
+
+    /**
+     * @param millisecond
+     */
+    private void sleep(final int millisecond) {
         try {
-            Thread.sleep(3600 * 1000);
+            Thread.sleep(millisecond);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            logger.error("System is too busy! Please check it!", e);
         }
-        consumer.close();
     }
 
 }

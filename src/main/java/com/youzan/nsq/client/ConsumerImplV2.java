@@ -127,8 +127,8 @@ public class ConsumerImplV2 implements Consumer {
             this.poolConfig.setTestWhileIdle(true);
             this.poolConfig.setJmxEnabled(false);
             // 时效要求不高的, 让CheckPeriod短, 让Idle长
-            this.poolConfig.setMinEvictableIdleTimeMillis(24 * 60 * 60 * 1000);
-            this.poolConfig.setTimeBetweenEvictionRunsMillis(5 * 60 * 1000);
+            this.poolConfig.setMinEvictableIdleTimeMillis(60 * 1000);
+            this.poolConfig.setTimeBetweenEvictionRunsMillis(2 * 60 * 1000);
             this.poolConfig.setMinIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());

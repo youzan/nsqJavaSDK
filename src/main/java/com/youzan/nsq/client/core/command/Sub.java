@@ -22,7 +22,7 @@ public class Sub implements NSQCommand {
     public Sub(final String topic, final String channel) {
         final byte[] cmd = "SUB ".getBytes(DEFAULT_CHARSET);
         final byte[] topicBytes = topic.getBytes(DEFAULT_CHARSET);
-        final byte[] channelBytes = topic.getBytes(DEFAULT_CHARSET);
+        final byte[] channelBytes = channel.getBytes(DEFAULT_CHARSET);
         final ByteBuffer bb = ByteBuffer.allocate(cmd.length + topicBytes.length + 1 + channelBytes.length + 1);
         // SUB <topic_name> <channel_name>\n
         bb.put(cmd).put(topicBytes).put(SPACE).put(channelBytes).put(LINE_SEPARATOR);

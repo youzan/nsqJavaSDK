@@ -26,9 +26,9 @@ public class ProducerTest {
         NSQConfig config = new NSQConfig();
         config.setTopic("test");
         config.setLookupAddresses(lookup);
-        config.setTimeoutInSecond(1);
+        config.setTimeoutInSecond(2);
+        config.setThreadPoolSize4IO(2);
         config.setMsgTimeoutInMillisecond(60 * 1000);
-        config.setThreadPoolSize4IO(1);
         final Producer p = new ProducerImplV2(config);
         p.start();
         for (int i = 0; i < 1000000; i++) {
@@ -38,7 +38,6 @@ public class ProducerTest {
                 logger.error("Exception", e);
             }
             logger.info("OK");
-            sleep(3000);
             assert true;
         }
         p.close();
