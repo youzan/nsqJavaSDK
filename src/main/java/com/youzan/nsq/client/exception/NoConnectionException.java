@@ -16,7 +16,7 @@ public class NoConnectionException extends NSQException {
      * @param cause
      */
     public NoConnectionException(Throwable cause) {
-        super("The system can not get one connection cause of too busy! Please check it!", cause);
+        super("It can not the remote address! Please check it (maybe the network is wrong)!", cause);
     }
 
     /**
