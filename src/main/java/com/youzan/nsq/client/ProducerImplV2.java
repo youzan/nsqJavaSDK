@@ -81,7 +81,7 @@ public class ProducerImplV2 implements Producer {
             this.poolConfig.setLifo(true);
             this.poolConfig.setFairness(false);
             this.poolConfig.setTestOnBorrow(true);
-            this.poolConfig.setTestOnReturn(true);
+            this.poolConfig.setTestOnReturn(false);
             this.poolConfig.setTestWhileIdle(true);
             this.poolConfig.setJmxEnabled(false);
             // 时效要求高的,让 Idle * 1.5 <= CheckPeriod

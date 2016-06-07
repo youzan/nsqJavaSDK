@@ -123,7 +123,7 @@ public class ConsumerImplV2 implements Consumer {
             this.poolConfig.setLifo(false);
             this.poolConfig.setFairness(true);
             this.poolConfig.setTestOnBorrow(false);
-            this.poolConfig.setTestOnReturn(false);
+            this.poolConfig.setTestOnReturn(true);
             this.poolConfig.setTestWhileIdle(true);
             this.poolConfig.setJmxEnabled(false);
             // 时效要求不高的, 让CheckPeriod短, 让Idle长
@@ -322,14 +322,16 @@ public class ConsumerImplV2 implements Consumer {
                 if (!holdingConnections.containsKey(address)) {
                     holdingConnections.putIfAbsent(address, new HashSet<>());
                 }
-                final Set<NSQConnection> conns = holdingConnections.get(address);
-                conns.add(newConn);
-
+                holdingConnections.get(address).add(newConn);
                 okConns.add(newConn);
             } catch (Exception e) {
                 logger.error("Exception: {}", address, e);
                 if (newConn != null) {
+                    IOUtil.closeQuietly(newConn);
                     bigPool.returnObject(address, newConn);
+                    if (holdingConnections.get(address) != null) {
+                        holdingConnections.get(address).remove(newConn);
+                    }
                 }
             }
         }
