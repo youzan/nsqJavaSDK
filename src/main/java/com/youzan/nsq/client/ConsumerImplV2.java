@@ -254,6 +254,7 @@ public class ConsumerImplV2 implements Consumer {
                 logger.error("Exception", e);
             }
         });
+        logger.debug("Clear broken {}", broken);
         /*-
          * =====================================================================
          *                                Step 4:
