@@ -116,9 +116,6 @@ public class ProducerImplV2 implements Producer {
      * Get a connection foreach every broker in one loop because I don't believe
      * that every broker is down or every pool is busy.
      * 
-     * TODO Get a connection for the ordered message handler.
-     * 
-     * 
      * @return NSQConnection that is having done a negotiation
      * @throws NoConnectionException
      */
