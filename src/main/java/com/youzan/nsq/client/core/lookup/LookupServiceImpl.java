@@ -185,6 +185,7 @@ public class LookupServiceImpl implements LookupService {
         final String lookupd = this.addresses.get(index);
         final String url = String.format("http://%s/lookup?topic=%s&access=%s", lookupd, topic, writable ? "w" : "r"); // readable
         try {
+            logger.debug("Begin to lookup for getting NSQd...");
             final JsonNode rootNode = mapper.readTree(new URL(url));
             final JsonNode producers = rootNode.get("data").get("producers");
             for (JsonNode node : producers) {

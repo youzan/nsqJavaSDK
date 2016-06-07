@@ -101,6 +101,7 @@ public class ProducerImplV2 implements Producer {
             }
             createBigPool();
         }
+        logger.debug("Producer is started.");
     }
 
     /**

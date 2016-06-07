@@ -39,6 +39,7 @@ public class ConsumerTest {
             // }
             // }
         });
+        consumer.start();
         sleep(3600 * 2 * 1000);
         consumer.close();
     }

@@ -78,8 +78,8 @@ public class ConsumerImplV2 implements Consumer {
      * =========================================================================
      */
     private final ConcurrentHashMap<Address, Set<NSQConnection>> holdingConnections = new ConcurrentHashMap<>();
-    private final ScheduledExecutorService scheduler = Executors
-            .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2,
+            new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
 
     /*-
      * =========================================================================
@@ -140,10 +140,14 @@ public class ConsumerImplV2 implements Consumer {
             } catch (Exception e) {
                 logger.error("Exception", e);
             }
+            logger.debug("Begin to createBigPool");
             createBigPool();
             // POST
+            logger.debug("Begin to connect");
             connect();
+            logger.debug("Begin to keepConnecting");
             keepConnecting();
+            logger.debug("Started.");
         }
     }
 
@@ -161,7 +165,9 @@ public class ConsumerImplV2 implements Consumer {
         final int delay = _r.nextInt(60) + 45; // seconds
         scheduler.scheduleWithFixedDelay(() -> {
             try {
+                logger.debug("Begin to keepConnecting.................");
                 connect();
+                logger.debug("It's done to keepConnecting.");
             } catch (Exception e) {
                 logger.error("Exception", e);
             }
@@ -459,9 +465,13 @@ public class ConsumerImplV2 implements Consumer {
         final Date newTimeout = calculateTimeoutDate(change);
         if (newTimeout != null) {
             timeout = Optional.of(scheduler.schedule(() -> {
-                logger.debug("Rdy 1 ...");
-                conn.command(new Rdy(1)); // test the waters
-                logger.debug("Rdy 1 OK.");
+                try {
+                    logger.debug("Rdy 1 ...");
+                    conn.command(new Rdy(1)); // test the waters
+                    logger.debug("Rdy 1 OK.");
+                } catch (Exception e) {
+                    logger.error("Exception", e);
+                }
             }, 0, TimeUnit.MILLISECONDS));
         }
     }
