@@ -1,6 +1,7 @@
 package com.youzan.nsq.client.core;
 
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,6 +15,8 @@ import com.youzan.nsq.client.exception.NSQException;
 public class ConsumerTest {
 
     private static final Logger logger = LoggerFactory.getLogger(ConsumerTest.class);
+
+    // Integration Testing
     private static final String lookup = "10.9.80.209:4161";
     // private static final String lookup = "127.0.0.1:4161";
 
@@ -21,27 +24,24 @@ public class ConsumerTest {
     public void consumeOK() throws NSQException {
         final NSQConfig config = new NSQConfig();
         config.setLookupAddresses(lookup);
-        config.setTimeoutInSecond(2);
+        config.setTimeoutInSecond(3);
         config.setThreadPoolSize4IO(2);
         config.setMsgTimeoutInMillisecond(120 * 1000);
         config.setTopic("test");
         config.setConsumerName("consumer_is_zhaoxi");
 
         final Random r = new Random(100);
+        final AtomicLong sucess = new AtomicLong(0L), total = new AtomicLong(0L);
+        final long end = (int) System.currentTimeMillis() + 1 * 3600 * 1000L;
         final ConsumerImplV2 consumer = new ConsumerImplV2(config, (message) -> {
             Assert.assertNotNull(message);
-            sleep(10);
-            // if (r.nextInt(100) % 10 == 0) {
-            // try {
-            // message.setNextConsumingInSecond(30);
-            // } catch (Exception e) {
-            // logger.error("Exception", e);
-            // }
-            // }
+            total.incrementAndGet();
+            sucess.incrementAndGet();
         });
         consumer.start();
-        sleep(3600 * 2 * 1000);
+        sleep((3600 + 1200) * 1000L);
         consumer.close();
+        logger.info("Total : {}", total);
     }
 
     // @Test
@@ -69,7 +69,7 @@ public class ConsumerTest {
     /**
      * @param millisecond
      */
-    private void sleep(final int millisecond) {
+    private void sleep(final long millisecond) {
         try {
             Thread.sleep(millisecond);
         } catch (InterruptedException e) {

@@ -206,10 +206,10 @@ public class ConsumerImplV2 implements Consumer {
          */
         final Set<Address> except1 = new HashSet<>(newDataNodes);
         except1.removeAll(oldDataNodes);
-        if (!except1.isEmpty()) {
-            newConnections(except1);
-        } else {
+        if (except1.isEmpty()) {
             logger.debug("No need to create new NSQd connections!");
+        } else {
+            newConnections(except1);
         }
         /*-
          * =====================================================================
@@ -412,7 +412,8 @@ public class ConsumerImplV2 implements Consumer {
             updateTimeout(conn, 500);
         }
         final long nowTotal = total.incrementAndGet();
-        if (nowTotal % messagesPerBatch > (messagesPerBatch / 2) && closing.get() == false) {
+        logger.debug("============nowTotal {}", nowTotal);
+        if ((nowTotal % messagesPerBatch) > (messagesPerBatch / 2) && closing.get() == false) {
             conn.command(new Rdy(messagesPerBatch));
         }
     }

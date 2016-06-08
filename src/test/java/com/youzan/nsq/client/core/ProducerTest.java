@@ -26,22 +26,28 @@ public class ProducerTest {
         NSQConfig config = new NSQConfig();
         config.setTopic("test");
         config.setLookupAddresses(lookup);
-        config.setTimeoutInSecond(2);
+        config.setTimeoutInSecond(3);
         config.setThreadPoolSize4IO(2);
         config.setMsgTimeoutInMillisecond(60 * 1000);
         final Producer p = new ProducerImplV2(config);
         p.start();
-        for (int i = 0; i < 1000000; i++) {
+
+        long sucess = 0L, total = 0L;
+        final long end = System.currentTimeMillis() + 1 * 3600 * 1000L;
+        while (System.currentTimeMillis() <= end) {
             try {
+                total++;
                 p.publish(randomString().getBytes(IOUtil.DEFAULT_CHARSET));
+                sucess++;
             } catch (Exception e) {
                 logger.error("Exception", e);
             }
             logger.info("OK");
-            sleep(50);
+            sleep(5);
             assert true;
         }
         p.close();
+        logger.info("Total: {} , Sucess: {}", total, sucess);
     }
 
     @Test
@@ -64,7 +70,7 @@ public class ProducerTest {
     /**
      * @param millisecond
      */
-    private void sleep(final int millisecond) {
+    private void sleep(final long millisecond) {
         try {
             Thread.sleep(millisecond);
         } catch (InterruptedException e) {

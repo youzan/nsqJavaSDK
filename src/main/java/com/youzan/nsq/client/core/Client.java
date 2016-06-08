@@ -60,7 +60,7 @@ public interface Client {
 
     void clearDataNode(Address address);
 
-    default void sleep(final int millisecond) {
+    default void sleep(final long millisecond) {
         logger.debug("Sleep {} millisecond.", millisecond);
         try {
             Thread.sleep(millisecond);
