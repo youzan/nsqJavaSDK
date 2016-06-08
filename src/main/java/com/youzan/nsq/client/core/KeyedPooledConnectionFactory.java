@@ -32,16 +32,16 @@ import io.netty.util.concurrent.Future;
 /**
  * <pre>
  * It is a big pool that consists of some sub-pools. 
- * Just handle TCP-Connection.
+ * Just handle TCP-Connection Object.
  * </pre>
  * 
  * @author zhaoxi (linzuxiong)
  * @email linzuxiong1988@gmail.com
  *
  */
-public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Address, NSQConnection> {
+public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<Address, NSQConnection> {
 
-    private static final Logger logger = LoggerFactory.getLogger(KeyedConnectionPoolFactory.class);
+    private static final Logger logger = LoggerFactory.getLogger(KeyedPooledConnectionFactory.class);
 
     /**
      * Connection/Pool configurations
@@ -55,7 +55,7 @@ public class KeyedConnectionPoolFactory extends BaseKeyedPooledObjectFactory<Add
     private final EventLoopGroup eventLoopGroup;
     private final ConcurrentHashMap<Address, Bootstrap> bootstraps = new ConcurrentHashMap<>();
 
-    public KeyedConnectionPoolFactory(NSQConfig config, Client client) {
+    public KeyedPooledConnectionFactory(NSQConfig config, Client client) {
         this.config = config;
         this.client = client;
         this.eventLoopGroup = new NioEventLoopGroup(config.getThreadPoolSize4IO());

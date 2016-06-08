@@ -10,7 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.youzan.nsq.client.core.Client;
-import com.youzan.nsq.client.core.KeyedConnectionPoolFactory;
+import com.youzan.nsq.client.core.KeyedPooledConnectionFactory;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
 import com.youzan.nsq.client.core.command.Mpub;
@@ -49,7 +49,7 @@ public class ProducerImplV2 implements Producer {
     private final NSQConfig config;
     private volatile int offset = 0;
     private final GenericKeyedObjectPoolConfig poolConfig;
-    private final KeyedConnectionPoolFactory factory;
+    private final KeyedPooledConnectionFactory factory;
     private GenericKeyedObjectPool<Address, NSQConnection> bigPool = null;
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger total = new AtomicInteger(0);
@@ -66,7 +66,7 @@ public class ProducerImplV2 implements Producer {
         this.poolConfig = new GenericKeyedObjectPoolConfig();
 
         this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(), config.getTopic());
-        this.factory = new KeyedConnectionPoolFactory(this.config, this);
+        this.factory = new KeyedPooledConnectionFactory(this.config, this);
     }
 
     @Override
@@ -85,8 +85,8 @@ public class ProducerImplV2 implements Producer {
             this.poolConfig.setTestWhileIdle(true);
             this.poolConfig.setJmxEnabled(false);
             // 时效要求高的,让 Idle * 1.5 <= CheckPeriod
-            this.poolConfig.setMinEvictableIdleTimeMillis((int) 1.5 * 60 * 1000);
-            this.poolConfig.setTimeBetweenEvictionRunsMillis(3 * 60 * 1000);
+            this.poolConfig.setMinEvictableIdleTimeMillis(60 * 1000);
+            this.poolConfig.setTimeBetweenEvictionRunsMillis(2 * 60 * 1000);
             this.poolConfig.setMinIdlePerKey(1);
             this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());

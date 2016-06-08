@@ -24,7 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.youzan.nsq.client.core.Client;
-import com.youzan.nsq.client.core.KeyedConnectionPoolFactory;
+import com.youzan.nsq.client.core.KeyedPooledConnectionFactory;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
 import com.youzan.nsq.client.core.command.Close;
@@ -63,7 +63,7 @@ public class ConsumerImplV2 implements Consumer {
     private final Client simpleClient;
     private final NSQConfig config;
     private final GenericKeyedObjectPoolConfig poolConfig;
-    private final KeyedConnectionPoolFactory factory;
+    private final KeyedPooledConnectionFactory factory;
     private GenericKeyedObjectPool<Address, NSQConnection> bigPool = null;
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger total = new AtomicInteger(0);
@@ -105,7 +105,7 @@ public class ConsumerImplV2 implements Consumer {
 
         this.poolConfig = new GenericKeyedObjectPoolConfig();
         this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(), config.getTopic());
-        this.factory = new KeyedConnectionPoolFactory(this.config, this);
+        this.factory = new KeyedPooledConnectionFactory(this.config, this);
     }
 
     @Override
@@ -127,7 +127,7 @@ public class ConsumerImplV2 implements Consumer {
             this.poolConfig.setTestWhileIdle(true);
             this.poolConfig.setJmxEnabled(false);
             // 时效要求不高的, 让CheckPeriod短, 让Idle长
-            this.poolConfig.setMinEvictableIdleTimeMillis(60 * 1000);
+            this.poolConfig.setMinEvictableIdleTimeMillis(4 * 60 * 1000);
             this.poolConfig.setTimeBetweenEvictionRunsMillis(2 * 60 * 1000);
             this.poolConfig.setMinIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
@@ -414,6 +414,7 @@ public class ConsumerImplV2 implements Consumer {
         final long nowTotal = total.incrementAndGet();
         logger.debug("============nowTotal {}", nowTotal);
         if ((nowTotal % messagesPerBatch) > (messagesPerBatch / 2) && closing.get() == false) {
+            logger.debug("ReSend Rdy...");
             conn.command(new Rdy(messagesPerBatch));
         }
     }
