@@ -47,6 +47,8 @@ import com.youzan.util.ConcurrentSortedSet;
 import com.youzan.util.IOUtil;
 import com.youzan.util.NamedThreadFactory;
 
+import io.netty.channel.ChannelFuture;
+
 /**
  * Use {@code NSQConfig} to set the lookup cluster. <br />
  * Expose to Client Code. Connect to one cluster(includes many brokers).
@@ -87,13 +89,15 @@ public class ConsumerImplV2 implements Consumer {
      * =========================================================================
      */
     private final MessageHandler handler;
-    private final ExecutorService executor = Executors.newFixedThreadPool(
-            Runtime.getRuntime().availableProcessors() * 4,
+    private final int WORKER_SIZE = Runtime.getRuntime().availableProcessors() * 4;
+    private final ExecutorService executor = Executors.newFixedThreadPool(WORKER_SIZE,
             new NamedThreadFactory(this.getClass().getName() + "-ClientBusiness", Thread.MAX_PRIORITY));
     private volatile Optional<ScheduledFuture<?>> timeout = Optional.empty();
     private volatile long nextTimeout = 0;
     private final int messagesPerBatch = 10;
     private final AtomicBoolean closing = new AtomicBoolean(false);
+
+    private final NSQCommand DEFAULT_RDY = new Rdy(messagesPerBatch);
 
     /**
      * @param config
@@ -375,7 +379,7 @@ public class ConsumerImplV2 implements Consumer {
                 }
             }
         }
-        newConn.command(new Rdy(messagesPerBatch));
+        newConn.command(DEFAULT_RDY);
         logger.info("Rdy {} message! It is new connection!", messagesPerBatch);
     }
 
@@ -415,7 +419,7 @@ public class ConsumerImplV2 implements Consumer {
         logger.debug("============nowTotal {}", nowTotal);
         if ((nowTotal % messagesPerBatch) > (messagesPerBatch / 2) && closing.get() == false) {
             logger.debug("ReSend Rdy...");
-            conn.command(new Rdy(messagesPerBatch));
+            conn.command(DEFAULT_RDY);
         }
     }
 
@@ -539,5 +543,14 @@ public class ConsumerImplV2 implements Consumer {
     @Override
     public ConcurrentSortedSet<Address> getDataNodes() {
         return simpleClient.getDataNodes();
+    }
+
+    @Override
+    public boolean validateHeartbeat(NSQConnection conn) {
+        final ChannelFuture future = conn.command(DEFAULT_RDY);
+        if (future.awaitUninterruptibly(500, TimeUnit.MILLISECONDS)) {
+            return future.isSuccess();
+        }
+        return false;
     }
 }

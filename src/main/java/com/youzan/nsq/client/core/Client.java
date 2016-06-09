@@ -70,4 +70,5 @@ public interface Client {
         }
     }
 
+    boolean validateHeartbeat(final NSQConnection conn);
 }

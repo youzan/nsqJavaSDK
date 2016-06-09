@@ -11,6 +11,7 @@ import com.youzan.util.IOUtil;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 
 public class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
@@ -70,7 +71,11 @@ public class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) {
         if (evt instanceof IdleStateEvent) {
-            destory(ctx.channel());
+            if (((IdleStateEvent) evt).state() == IdleState.READER_IDLE) {
+                final NSQConnection conn = ctx.channel().attr(NSQConnection.STATE).get();
+                final Client worker = ctx.channel().attr(Client.STATE).get();
+                worker.validateHeartbeat(conn);
+            }
         }
     }
 

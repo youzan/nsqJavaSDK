@@ -330,4 +330,9 @@ public class ProducerImplV2 implements Producer {
     public ConcurrentSortedSet<Address> getDataNodes() {
         return simpleClient.getDataNodes();
     }
+
+    @Override
+    public boolean validateHeartbeat(NSQConnection conn) {
+        return simpleClient.validateHeartbeat(conn);
+    }
 }

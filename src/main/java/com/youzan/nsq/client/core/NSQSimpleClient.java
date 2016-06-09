@@ -25,6 +25,8 @@ import com.youzan.nsq.client.network.frame.ResponseFrame;
 import com.youzan.util.ConcurrentSortedSet;
 import com.youzan.util.NamedThreadFactory;
 
+import io.netty.channel.ChannelFuture;
+
 /**
  * The intersection between {@code Producer} and {@code Consumer}.
  * 
@@ -125,6 +127,15 @@ public class NSQSimpleClient implements Client {
             return;
         }
         dataNodes.remove(address);
+    }
+
+    @Override
+    public boolean validateHeartbeat(NSQConnection conn) {
+        final ChannelFuture future = conn.command(Nop.getInstance());
+        if (future.awaitUninterruptibly(500, TimeUnit.MILLISECONDS)) {
+            return future.isSuccess();
+        }
+        return false;
     }
 
 }

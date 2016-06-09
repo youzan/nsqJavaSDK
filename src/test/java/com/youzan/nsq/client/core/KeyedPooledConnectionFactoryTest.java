@@ -7,7 +7,7 @@ import org.testng.annotations.Test;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 
-public class KeyedConnectionPoolFactoryTest {
+public class KeyedPooledConnectionFactoryTest {
     @Test(expectedExceptions = Exception.class)
     public void createBigPoolFail() {
         NSQConfig config = null;

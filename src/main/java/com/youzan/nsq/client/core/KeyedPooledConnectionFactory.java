@@ -13,7 +13,6 @@ import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.youzan.nsq.client.core.command.Nop;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.exception.NoConnectionException;
@@ -114,21 +113,11 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
 
     @Override
     public boolean validateObject(Address addr, PooledObject<NSQConnection> p) {
-        logger.debug("Validate {} connection!", addr);
         final NSQConnection conn = p.getObject();
-        logger.debug("Validate {} connection! GetObject is OK.", addr);
         // another implementation : use client.heartbeat,or called
         // client.validateConnection
         if (null != conn && conn.isConnected()) {
-            logger.debug("Validate {} connection! Conn is connected.", addr);
-            final ChannelFuture future = conn.command(Nop.getInstance());
-            if (future.awaitUninterruptibly(500, TimeUnit.MILLISECONDS)) {
-                final boolean validated = future.isSuccess();
-                logger.debug("Validate {} connection! Nop's validated is {}.", addr, validated);
-                return validated;
-            }
-            logger.debug("Validate {} connection! Nop is over, but timeout.", addr);
-            return false;
+            return client.validateHeartbeat(conn);
         }
         logger.debug("Validate {} connection! Conn is false.", addr);
         return false;
