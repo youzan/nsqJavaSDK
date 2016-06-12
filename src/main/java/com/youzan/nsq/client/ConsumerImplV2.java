@@ -80,8 +80,8 @@ public class ConsumerImplV2 implements Consumer {
      * =========================================================================
      */
     private final ConcurrentHashMap<Address, Set<NSQConnection>> holdingConnections = new ConcurrentHashMap<>();
-    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2,
-            new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
+    private final ScheduledExecutorService scheduler = Executors
+            .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
 
     /*-
      * =========================================================================
@@ -413,7 +413,7 @@ public class ConsumerImplV2 implements Consumer {
                 updateTimeout(conn, -500);
             }
         } catch (RejectedExecutionException re) {
-            updateTimeout(conn, 500);
+            updateTimeout(conn, 1000);
         }
         final long nowTotal = total.incrementAndGet();
         logger.debug("============nowTotal {}", nowTotal);
