@@ -414,6 +414,7 @@ public class ConsumerImplV2 implements Consumer {
             }
         } catch (RejectedExecutionException re) {
             updateTimeout(conn, 1000);
+            conn.command(new ReQueue(message.getMessageID(), 3));
         }
         final long nowTotal = total.incrementAndGet();
         logger.debug("============nowTotal {}", nowTotal);
@@ -462,13 +463,13 @@ public class ConsumerImplV2 implements Consumer {
      * @param change
      */
     private void updateTimeout(final NSQConnection conn, final int change) {
-        backoff(conn);
         logger.debug("RDY 0! Halt Flow.");
-        if (timeout.isPresent()) {
-            timeout.get().cancel(true);
-        }
+        backoff(conn);
         if (closing.get()) {
             return;
+        }
+        if (timeout.isPresent()) {
+            timeout.get().cancel(true);
         }
         final Date newTimeout = calculateTimeoutDate(change);
         if (newTimeout != null) {
