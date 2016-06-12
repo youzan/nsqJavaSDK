@@ -73,7 +73,7 @@ public class NSQConnectionImpl implements NSQConnection {
         assert havingNegotiation;
         assert channel.isActive();
         assert isConnected();
-        logger.info("Having initiate {} OK!", this);
+        logger.info("Having initiated {}", this);
     }
 
     @Override

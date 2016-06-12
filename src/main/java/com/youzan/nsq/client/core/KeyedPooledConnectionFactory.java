@@ -62,7 +62,7 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
 
     @Override
     public NSQConnection create(Address addr) throws Exception {
-        logger.debug("Create a {} connection.", addr);
+        logger.debug("Begin to create a connection, the address is {}", addr);
         final Bootstrap bootstrap;
         if (bootstraps.containsKey(addr)) {
             bootstrap = bootstraps.get(addr);

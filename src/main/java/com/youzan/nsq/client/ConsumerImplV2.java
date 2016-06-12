@@ -144,14 +144,11 @@ public class ConsumerImplV2 implements Consumer {
             } catch (Exception e) {
                 logger.error("Exception", e);
             }
-            logger.debug("Begin to createBigPool");
             createBigPool();
             // POST
-            logger.debug("Begin to connect");
             connect();
-            logger.debug("Begin to keepConnecting");
             keepConnecting();
-            logger.debug("Started.");
+            logger.info("The consumer is started.");
         }
     }
 
@@ -169,9 +166,7 @@ public class ConsumerImplV2 implements Consumer {
         final int delay = _r.nextInt(60) + 45; // seconds
         scheduler.scheduleWithFixedDelay(() -> {
             try {
-                logger.debug("Begin to keepConnecting.................");
                 connect();
-                logger.debug("It's done to keepConnecting.");
             } catch (Exception e) {
                 logger.error("Exception", e);
             }
@@ -195,12 +190,13 @@ public class ConsumerImplV2 implements Consumer {
 
         final Set<Address> newDataNodes = getDataNodes().newSortedSet();
         final Set<Address> oldDataNodes = new TreeSet<>(this.holdingConnections.keySet());
-        logger.debug("Prepare to connect new NSQd: {}, old NSQd: {} .", newDataNodes, oldDataNodes);
+        logger.debug("Prepare to connect new data-nodes(NSQd): {}, old data-nodes(NSQd): {}", newDataNodes,
+                oldDataNodes);
         if (newDataNodes.isEmpty() && oldDataNodes.isEmpty()) {
             return;
         }
         if (newDataNodes.isEmpty()) {
-            logger.error("It can not get new DataNodes (NSQd). It will create a new pool next time!");
+            logger.error("Get the current new DataNodes (NSQd). It will create a new pool next time!");
         }
         /*-
          * =====================================================================
@@ -211,7 +207,7 @@ public class ConsumerImplV2 implements Consumer {
         final Set<Address> except1 = new HashSet<>(newDataNodes);
         except1.removeAll(oldDataNodes);
         if (except1.isEmpty()) {
-            logger.debug("No need to create new NSQd connections!");
+            // logger.debug("No need to create new NSQd connections!");
         } else {
             newConnections(except1);
         }
@@ -224,7 +220,7 @@ public class ConsumerImplV2 implements Consumer {
         final Set<Address> except2 = new HashSet<>(oldDataNodes);
         except2.removeAll(newDataNodes);
         if (except2.isEmpty()) {
-            logger.debug("No need to destory old NSQd connections!");
+            // logger.debug("No need to destory old NSQd connections!");
         } else {
             except2.parallelStream().forEach((address) -> {
                 if (address == null) {
@@ -264,7 +260,6 @@ public class ConsumerImplV2 implements Consumer {
                 logger.error("Exception", e);
             }
         });
-        logger.debug("Clear broken {}", broken);
         /*-
          * =====================================================================
          *                                Step 4:
@@ -380,7 +375,6 @@ public class ConsumerImplV2 implements Consumer {
             }
         }
         newConn.command(DEFAULT_RDY);
-        logger.info("Rdy {} message! It is new connection!", messagesPerBatch);
     }
 
     @Override
@@ -417,9 +411,7 @@ public class ConsumerImplV2 implements Consumer {
             conn.command(new ReQueue(message.getMessageID(), 3));
         }
         final long nowTotal = total.incrementAndGet();
-        logger.debug("============nowTotal {}", nowTotal);
         if ((nowTotal % messagesPerBatch) > (messagesPerBatch / 2) && closing.get() == false) {
-            logger.debug("ReSend Rdy...");
             conn.command(DEFAULT_RDY);
         }
     }
