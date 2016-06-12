@@ -122,7 +122,7 @@ public class ProducerImplV2 implements Producer {
     protected NSQConnection getNSQConnection() throws NoConnectionException {
         final ConcurrentSortedSet<Address> dataNodes = getDataNodes();
         if (dataNodes.isEmpty()) {
-            throw new NoConnectionException("You still didn't start NSQd / lookup-topic / producer.start() ! ");
+            throw new NoConnectionException("You still didn't start NSQd / lookup-topic / producer.start() !");
         }
         final int size = dataNodes.size();
         final Address[] addrs = dataNodes.newArray(new Address[size]);
@@ -131,11 +131,11 @@ public class ProducerImplV2 implements Producer {
             // current broker | next broker when have a try again
             final int effectedIndex = (index++ & Integer.MAX_VALUE) % size;
             final Address addr = addrs[effectedIndex];
-            logger.debug("Load-Balancing algorithm is Round-Robin! Size: {}, Index: {}. Got {} .", size, effectedIndex,
+            logger.debug("Load-Balancing algorithm is Round-Robin! Size: {}, Index: {}. Got {}", size, effectedIndex,
                     addr);
             NSQConnection conn = null;
             try {
-                logger.debug("Begin to borrowObject {} .", addr);
+                logger.debug("Begin to borrowObject from the address: {}", addr);
                 conn = bigPool.borrowObject(addr);
                 return conn;
             } catch (NoSuchElementException e) {
@@ -188,7 +188,6 @@ public class ProducerImplV2 implements Producer {
         if (message == null || message.length <= 0) {
             throw new IllegalArgumentException("Your input is blank! Please check it!");
         }
-        logger.debug("Begin to publish.");
         total.incrementAndGet();
         lastTimeInMillisOfClientRequest = System.currentTimeMillis();
         final Pub pub = new Pub(config.getTopic(), message);
@@ -202,11 +201,10 @@ public class ProducerImplV2 implements Producer {
             if (conn == null) {
                 continue;
             }
-            logger.debug("Get NSQConnection OK! CurrentRetries: {}", c);
+            logger.debug("Having acquired a NSQConnection! CurrentRetries: {}", c);
             try {
                 final NSQFrame frame = conn.commandAndGetResponse(pub);
                 // delegate to method: incomming(...)
-                logger.debug("===OK=== Get frame, {}, after published. CurrentRetries: {} ", frame, c);
                 return;
             } catch (Exception e) {
                 IOUtil.closeQuietly(conn);
@@ -260,6 +258,7 @@ public class ProducerImplV2 implements Producer {
             }
             try {
                 final NSQFrame frame = conn.commandAndGetResponse(pub);
+                // delegate to method: incomming(...)
                 return;
             } catch (Exception e) {
                 IOUtil.closeQuietly(conn);
