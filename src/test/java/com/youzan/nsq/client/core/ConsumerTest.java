@@ -41,7 +41,7 @@ public class ConsumerTest {
         consumer.start();
         sleep((3600 + 1200) * 1000L);
         consumer.close();
-        logger.info("Total : {}", total);
+        logger.info("Total: {}", total);
     }
 
     // @Test
