@@ -409,6 +409,7 @@ public class ConsumerImplV2 implements Consumer {
         } catch (RejectedExecutionException re) {
             updateTimeout(conn, 1000);
             conn.command(new ReQueue(message.getMessageID(), 3));
+            logger.info("Do a re-queue. MessageID:{}", message.getMessageID());
         }
         final long nowTotal = total.incrementAndGet();
         if ((nowTotal % messagesPerBatch) > (messagesPerBatch / 2) && closing.get() == false) {
@@ -438,6 +439,7 @@ public class ConsumerImplV2 implements Consumer {
         final NSQCommand cmd;
         if (timeout != null) {
             cmd = new ReQueue(message.getMessageID(), message.getNextConsumingInSecond());
+            logger.info("Do a re-queue. MessageID:{}", message.getMessageID());
             if (message.getReadableAttempts() > 10) {
                 logger.error("Processing 10 times is still a failure! {}", message);
             }
