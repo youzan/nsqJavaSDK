@@ -34,9 +34,9 @@ import io.netty.util.concurrent.Future;
  * Just handle TCP-Connection Object.
  * </pre>
  * 
- * @author zhaoxi (linzuxiong)
- * @email linzuxiong1988@gmail.com
+ * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  *
+ * 
  */
 public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<Address, NSQConnection> {
 

@@ -9,9 +9,9 @@ import com.youzan.nsq.client.exception.NSQLookupException;
 /**
  * One lookup cluster
  * 
- * @author zhaoxi (linzuxiong)
- * @email linzuxiong1988@gmail.com
+ * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  *
+ * 
  */
 public interface LookupService extends java.io.Serializable {
 
@@ -22,8 +22,10 @@ public interface LookupService extends java.io.Serializable {
      * lookup the writable NSQd (DataNode)
      * 
      * @param topic
+     *            a topic name
      * @return ordered NSQd-Server's addresses
      * @throws NSQLookupException
+     *             if an error occurs
      */
     SortedSet<Address> lookup(String topic) throws NSQLookupException;
 
@@ -31,9 +33,12 @@ public interface LookupService extends java.io.Serializable {
      * lookup the writable/non-writable NSQd (DataNode)
      * 
      * @param topic
+     *            a topic name
      * @param writable
+     *            set it boolean value
      * @return ordered NSQd-Server's addresses
      * @throws NSQLookupException
+     *             if an error occurs
      */
     SortedSet<Address> lookup(String topic, boolean writable) throws NSQLookupException;
 

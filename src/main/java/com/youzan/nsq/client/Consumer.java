@@ -6,9 +6,7 @@ import com.youzan.nsq.client.core.Client;
 import com.youzan.nsq.client.exception.NSQException;
 
 /**
- * @author zhaoxi (linzuxiong)
- * @email linzuxiong1988@gmail.com
- *
+ * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
 public interface Consumer extends Client, Closeable {
     @Override

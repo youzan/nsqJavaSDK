@@ -9,11 +9,6 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * @author zhaoxi (linzuxiong)
- * @email linzuxiong1988@gmail.com
- *
- */
 public class ReQueue implements NSQCommand {
     private static final Logger logger = LoggerFactory.getLogger(ReQueue.class);
 
@@ -21,7 +16,9 @@ public class ReQueue implements NSQCommand {
 
     /**
      * @param messageID
+     *            the specified ID that passes to NSQd
      * @param timeoutInSecond
+     *            the next consuming timeout
      */
     public ReQueue(byte[] messageID, int timeoutInSecond) {
         if (messageID == null || messageID.length <= 0) {

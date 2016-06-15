@@ -4,8 +4,8 @@
 /**
  * Share the same @{code NSQConfig }
  * 
- * @author zhaoxi (linzuxiong)
- * @email linzuxiong1988@gmail.com
+ * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
+ * 
  * 
  */
 package com.youzan.nsq.client;

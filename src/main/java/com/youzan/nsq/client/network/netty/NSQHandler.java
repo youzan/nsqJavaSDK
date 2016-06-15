@@ -19,9 +19,10 @@ public class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
     private static final Logger logger = LoggerFactory.getLogger(NSQHandler.class);
 
     /**
-     * 
      * @param ctx
+     *            ChannelHandlerContext
      * @throws Exception
+     *             if an error occurs
      */
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
@@ -30,10 +31,12 @@ public class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
     }
 
     /**
-     * 
      * @param ctx
+     *            ChannelHandlerContext
      * @param cause
+     *            Throwable
      * @throws Exception
+     *             if an error occurs
      */
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
@@ -42,9 +45,10 @@ public class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
     }
 
     /**
-     * 
      * @param ctx
+     *            ChannelHandlerContext
      * @param msg
+     *            a {@code NSQFrame}
      */
     @Override
     public void channelRead0(ChannelHandlerContext ctx, NSQFrame msg) {

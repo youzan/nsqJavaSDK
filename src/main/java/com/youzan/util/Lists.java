@@ -15,9 +15,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * @author zhaoxi (linzuxiong)
- * @email linzuxiong1988@gmail.com
+ * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  *
+ * 
  */
 public class Lists {
     private static final Logger logger = LoggerFactory.getLogger(Lists.class);
@@ -69,6 +69,14 @@ public class Lists {
      * Returns the base-2 logarithm of {@code x}, rounded according to the
      * specified rounding mode.
      *
+     * @param p
+     *            the size
+     * @param q
+     *            the small batch size
+     * @param mode
+     *            RoundingMode
+     * 
+     * @return batches
      * @throws IllegalArgumentException
      *             if {@code x <= 0}
      * @throws ArithmeticException

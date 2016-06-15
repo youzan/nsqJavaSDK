@@ -24,9 +24,9 @@ import com.youzan.nsq.client.exception.NSQLookupException;
 import com.youzan.util.NamedThreadFactory;
 
 /**
- * @author zhaoxi (linzuxiong)
- * @email linzuxiong1988@gmail.com
+ * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  *
+ * 
  */
 public class LookupServiceImpl implements LookupService {
 
@@ -59,6 +59,7 @@ public class LookupServiceImpl implements LookupService {
 
     /**
      * @param addresses
+     *            the NSQ-Lookupd addresses
      */
     public LookupServiceImpl(List<String> addresses) {
         if (addresses == null || addresses.isEmpty()) {
@@ -70,9 +71,8 @@ public class LookupServiceImpl implements LookupService {
     }
 
     /**
-     * Give me NSQ-Lookupd addresses
-     * 
      * @param addresses
+     *            the NSQ-Lookupd address
      */
     public LookupServiceImpl(String addresses) {
         if (addresses == null || addresses.isEmpty()) {
@@ -166,11 +166,6 @@ public class LookupServiceImpl implements LookupService {
         return lookup(topic, true);
     }
 
-    /**
-     * @param topic
-     * @param writable
-     * @return the NSQd addresses. The count must be not too large.
-     */
     @Override
     public SortedSet<Address> lookup(String topic, boolean writable) throws NSQLookupException {
         if (null == topic || topic.isEmpty()) {

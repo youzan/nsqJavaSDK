@@ -23,9 +23,13 @@ public class NSQMessage {
      * all the parameters is the NSQ message format!
      * 
      * @param timestamp
+     *            the raw bytes from the data-node
      * @param attempts
+     *            the raw bytes from the data-node
      * @param messageID
+     *            the raw bytes from the data-node
      * @param messageBody
+     *            the raw bytes from the data-node
      */
     public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] messageBody) {
         this.timestamp = timestamp;
@@ -140,7 +144,10 @@ public class NSQMessage {
 
     /**
      * @param nextConsumingInSecond
-     *            1s <= the nextConsumingInSecond to set <= 180 days
+     *            1s less-equals the nextConsumingInSecond to set less-equals
+     *            180 days
+     * @throws NSQException
+     *             if an invalid parameter error occurs
      */
     public void setNextConsumingInSecond(Integer nextConsumingInSecond) throws NSQException {
         if (nextConsumingInSecond != null) {

@@ -8,9 +8,9 @@ import java.util.List;
 /**
  * Only one way of implementation
  * 
- * @author zhaoxi (linzuxiong)
- * @email linzuxiong1988@gmail.com
+ * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  *
+ * 
  */
 public interface NSQCommand {
 

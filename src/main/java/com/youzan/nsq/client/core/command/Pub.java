@@ -10,9 +10,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * @author zhaoxi (linzuxiong)
- * @email linzuxiong1988@gmail.com
+ * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  *
+ * 
  */
 public class Pub implements NSQCommand {
     private static final Logger logger = LoggerFactory.getLogger(Pub.class);
@@ -23,7 +23,9 @@ public class Pub implements NSQCommand {
 
     /**
      * @param topic
+     *            the producer sets a topic name
      * @param data
+     *            the producer publishes a raw message
      */
     public Pub(String topic, byte[] data) {
         this.topic = topic;

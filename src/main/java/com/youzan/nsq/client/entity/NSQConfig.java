@@ -12,13 +12,13 @@ import com.youzan.util.SystemUtil;
 import io.netty.handler.ssl.SslContext;
 
 /**
- * One config to One cluster with specific topic. <br />
+ * One config to One cluster with specific topic. <br>
  * It is used for Producer or Consumer, and not both two.
  * 
  * 
- * @author zhaoxi (linzuxiong)
- * @email linzuxiong1988@gmail.com
+ * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  *
+ * 
  */
 @NotThreadSafe
 public class NSQConfig implements java.io.Serializable {

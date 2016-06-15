@@ -23,9 +23,9 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 
 /**
- * @author zhaoxi (linzuxiong)
- * @email linzuxiong1988@gmail.com
+ * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  *
+ * 
  */
 public class NSQConnectionImpl implements NSQConnection {
     private static final Logger logger = LoggerFactory.getLogger(NSQConnectionImpl.class);
@@ -41,11 +41,6 @@ public class NSQConnectionImpl implements NSQConnection {
     private final int timeoutInSecond;
     private final long timeoutInMillisecond; // be approximate
 
-    /**
-     * @param address
-     * @param channel
-     * @param config
-     */
     public NSQConnectionImpl(Address address, Channel channel, NSQConfig config) {
         this.address = address;
         this.channel = channel;

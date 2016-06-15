@@ -50,13 +50,10 @@ import com.youzan.util.NamedThreadFactory;
 import io.netty.channel.ChannelFuture;
 
 /**
- * Use {@code NSQConfig} to set the lookup cluster. <br />
  * Expose to Client Code. Connect to one cluster(includes many brokers).
  * 
+ * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  * 
- * @author zhaoxi (linzuxiong)
- * @email linzuxiong1988@gmail.com
- *
  */
 public class ConsumerImplV2 implements Consumer {
 
@@ -101,7 +98,9 @@ public class ConsumerImplV2 implements Consumer {
 
     /**
      * @param config
+     *            NSQConfig
      * @param handler
+     *            the client code sets it
      */
     public ConsumerImplV2(NSQConfig config, MessageHandler handler) {
         this.config = config;
@@ -273,6 +272,7 @@ public class ConsumerImplV2 implements Consumer {
 
     /**
      * @param address
+     *            the data-node(NSQd)'s address
      */
     @Override
     public void clearDataNode(Address address) {
@@ -286,6 +286,7 @@ public class ConsumerImplV2 implements Consumer {
 
     /**
      * @param brokers
+     *            the data-node(NSQd)'s addresses
      */
     private void newConnections(final Set<Address> brokers) {
         brokers.parallelStream().forEach((address) -> {

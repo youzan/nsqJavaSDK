@@ -6,9 +6,9 @@ package com.youzan.util;
 import java.lang.annotation.Documented;
 
 /**
- * @author zhaoxi (linzuxiong)
- * @email linzuxiong1988@gmail.com
+ * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  *
+ * 
  */
 @Documented
 public @interface ThreadSafe {

@@ -10,8 +10,8 @@ import org.apache.commons.validator.routines.InetAddressValidator;
 /**
  * IPv4 is 32 bit unsigned.
  * 
- * @author zhaoxi (linzuxiong)
- * @email linzuxiong1988@gmail.com
+ * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
+ * 
  */
 public final class IPUtil {
 

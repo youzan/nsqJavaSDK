@@ -12,10 +12,6 @@ public class NSQException extends Exception {
         super(cause);
     }
 
-    /**
-     * @param message
-     * @param cause
-     */
     public NSQException(String message, Throwable cause) {
         super(message, cause);
     }

@@ -18,9 +18,9 @@ import io.netty.util.AttributeKey;
 /**
  * NSQ business processing.
  * 
- * @author zhaoxi (linzuxiong)
- * @email linzuxiong1988@gmail.com
+ * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  *
+ * 
  */
 public interface Client {
 
@@ -41,8 +41,11 @@ public interface Client {
      * Receive the frame of NSQ.
      * 
      * @param frame
+     *            NSQFrame to be handled
      * @param conn
+     *            NSQConnection
      * @throws NSQException
+     *             Client code should be catch
      */
     void incoming(final NSQFrame frame, final NSQConnection conn) throws NSQException;
 
@@ -50,6 +53,7 @@ public interface Client {
      * No messages will be sent to the client.
      * 
      * @param conn
+     *            NSQConnection
      */
     void backoff(final NSQConnection conn);
 

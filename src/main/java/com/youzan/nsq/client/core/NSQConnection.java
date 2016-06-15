@@ -1,7 +1,6 @@
 package com.youzan.nsq.client.core;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 
 import com.youzan.nsq.client.core.command.NSQCommand;
@@ -20,9 +19,9 @@ import io.netty.util.AttributeKey;
  * This is underlying Netty Pipeline with decoder and encoder.
  * </pre>
  * 
- * @author zhaoxi (linzuxiong)
- * @email linzuxiong1988@gmail.com
+ * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  *
+ * 
  */
 public interface NSQConnection extends Closeable {
 
@@ -37,37 +36,27 @@ public interface NSQConnection extends Closeable {
      * itself into me because of the usage of Netty.
      * 
      * @throws TimeoutException
-     * 
+     *             a timeout error
      */
     void init() throws TimeoutException;
 
-    /**
-     * @return
-     */
     boolean isConnected();
 
     /**
      * synchronize the protocol packet
      * 
      * @param command
-     * @throws IOException
+     *            a {@code NSQCommand}
+     * @return a {@code NSQFrame} after send a request
+     * @throws TimeoutException
+     *             a timed out error
      */
     NSQFrame commandAndGetResponse(final NSQCommand command) throws TimeoutException;
 
-    /**
-     * @param command
-     * @return
-     */
     ChannelFuture command(final NSQCommand command);
 
-    /**
-     * @param frame
-     */
     void addResponseFrame(ResponseFrame frame);
 
-    /**
-     * @param frame
-     */
     void addErrorFrame(ErrorFrame frame);
 
     /**

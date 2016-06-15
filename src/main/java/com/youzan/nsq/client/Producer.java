@@ -7,9 +7,9 @@ import com.youzan.nsq.client.core.Client;
 import com.youzan.nsq.client.exception.NSQException;
 
 /**
- * @author zhaoxi (linzuxiong)
- * @email linzuxiong1988@gmail.com
+ * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  *
+ * 
  */
 public interface Producer extends Client, Closeable {
     @Override
@@ -21,15 +21,18 @@ public interface Producer extends Client, Closeable {
      * Use it to produce only one 'message' sending to MQ.
      * 
      * @param message
+     *            the client sets it that is be published
      * @throws NSQException
+     *             if an error occurs
      */
     void publish(byte[] message) throws NSQException;
 
     /**
-     * @see publish(message:byte[])
-     * 
      * @param message
+     *            the client sets it that is be published
      * @throws NSQException
+     *             if an error occurs
+     * @see publish through byte[]
      */
     @Deprecated
     void publish(String message) throws NSQException;
@@ -39,11 +42,13 @@ public interface Producer extends Client, Closeable {
      * 因此小于等于30条作为一批的消息,可以作为局部化的有顺序.
      * 
      * Use it to produce some 'messages' sending to MQ. When having too many
-     * messages, then split it into 30 messages/batch. When the size <= 30, the
-     * messages within a batch is ordered.
+     * messages, then split it into 30 messages/batch. When the size less-equals
+     * 30, the messages within a batch is ordered.
      * 
      * @param messages
+     *            the client sets it that is be published
      * @throws NSQException
+     *             if an error occurs
      */
     void publishMulti(List<byte[]> messages) throws NSQException;
 

@@ -33,13 +33,13 @@ import com.youzan.util.Lists;
 /**
  * <pre>
  * Use {@code NSQConfig} to set the lookup cluster.
- * It uses one connection pool(client->one broker) underlying TCP and uses
+ * It uses one connection pool(client connects to one broker) underlying TCP and uses
  * {@code GenericKeyedObjectPool} which is composed of many sub-pools.
  * </pre>
  * 
- * @author zhaoxi (linzuxiong)
- * @email linzuxiong1988@gmail.com
+ * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  *
+ * 
  */
 public class ProducerImplV2 implements Producer {
 
@@ -60,6 +60,7 @@ public class ProducerImplV2 implements Producer {
 
     /**
      * @param config
+     *            NSQConfig
      */
     public ProducerImplV2(NSQConfig config) {
         this.config = config;
@@ -105,7 +106,7 @@ public class ProducerImplV2 implements Producer {
     }
 
     /**
-     * Create some pools. <br />
+     * Create some pools. <br>
      * One pool to one broker.
      */
     private void createBigPool() {
@@ -116,8 +117,9 @@ public class ProducerImplV2 implements Producer {
      * Get a connection foreach every broker in one loop because I don't believe
      * that every broker is down or every pool is busy.
      * 
-     * @return NSQConnection that is having done a negotiation
+     * @return a validated {@code NSQConnection}
      * @throws NoConnectionException
+     *             that is having done a negotiation
      */
     protected NSQConnection getNSQConnection() throws NoConnectionException {
         final ConcurrentSortedSet<Address> dataNodes = getDataNodes();
@@ -167,10 +169,6 @@ public class ProducerImplV2 implements Producer {
         }
         return null;
     }
-
-    /**
-     * @param address
-     */
 
     @Override
     public void publish(String message) throws NSQException {

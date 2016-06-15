@@ -16,9 +16,9 @@ import org.slf4j.LoggerFactory;
 /**
  * Blocking when try-lock. It is for the small size collection
  * 
- * @author zhaoxi (linzuxiong)
- * @email linzuxiong1988@gmail.com
+ * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  *
+ * 
  */
 @ThreadSafe
 public class ConcurrentSortedSet<T> {
@@ -77,6 +77,7 @@ public class ConcurrentSortedSet<T> {
      * Replace inner-data into the specified target.
      * 
      * @param target
+     *            the new data
      */
     public void swap(SortedSet<T> target) {
         if (target == null) {
@@ -105,7 +106,8 @@ public class ConcurrentSortedSet<T> {
     }
 
     /**
-     * @param address
+     * @param e
+     *            the element that need to be removed
      */
     public void remove(T e) {
         w.lock();
@@ -128,7 +130,7 @@ public class ConcurrentSortedSet<T> {
     /**
      * Never return null
      * 
-     * @return
+     * @return the new {@code SortedSet}
      */
     public SortedSet<T> newSortedSet() {
         final SortedSet<T> s = new TreeSet<>(set);

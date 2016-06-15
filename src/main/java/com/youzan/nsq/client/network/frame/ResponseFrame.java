@@ -11,9 +11,6 @@ public class ResponseFrame extends NSQFrame {
         return FrameType.RESPONSE_FRAME;
     }
 
-    /**
-     * @return
-     */
     @Override
     public String getMessage() {
         return new String(getData(), DEFAULT_CHARSET).trim();
