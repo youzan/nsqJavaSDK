@@ -38,6 +38,10 @@ public class NSQConfig implements java.io.Serializable {
     private String lookupAddresses;
 
     /**
+     * Perform a TCP connecting action
+     */
+    private int connectTimeoutInMillisecond = 50;
+    /**
      * Perform one action during specified timeout
      */
     private int timeoutInSecond = 1;
@@ -100,6 +104,21 @@ public class NSQConfig implements java.io.Serializable {
      */
     public void setLookupAddresses(String lookupAddresses) {
         this.lookupAddresses = lookupAddresses;
+    }
+
+    /**
+     * @return the connectTimeoutInMillisecond
+     */
+    public int getConnectTimeoutInMillisecond() {
+        return connectTimeoutInMillisecond;
+    }
+
+    /**
+     * @param connectTimeoutInMillisecond
+     *            the connectTimeoutInMillisecond to set
+     */
+    public void setConnectTimeoutInMillisecond(int connectTimeoutInMillisecond) {
+        this.connectTimeoutInMillisecond = connectTimeoutInMillisecond;
     }
 
     /**

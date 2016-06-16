@@ -77,7 +77,7 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
         final ChannelFuture future = bootstrap.connect(addr.getHost(), addr.getPort());
 
         // Wait until the connection attempt succeeds or fails.
-        if (!future.awaitUninterruptibly(config.getTimeoutInSecond(), TimeUnit.SECONDS)) {
+        if (!future.awaitUninterruptibly(config.getConnectTimeoutInMillisecond(), TimeUnit.MILLISECONDS)) {
             throw new NoConnectionException(future.cause());
         }
         final Channel channel = future.channel();
