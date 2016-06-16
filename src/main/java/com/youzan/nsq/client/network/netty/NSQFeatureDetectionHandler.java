@@ -15,8 +15,8 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
-import io.netty.handler.codec.compression.SnappyFramedDecoder;
-import io.netty.handler.codec.compression.SnappyFramedEncoder;
+import io.netty.handler.codec.compression.SnappyFrameDecoder;
+import io.netty.handler.codec.compression.SnappyFrameEncoder;
 import io.netty.handler.codec.compression.ZlibCodecFactory;
 import io.netty.handler.codec.compression.ZlibWrapper;
 import io.netty.handler.ssl.SslHandler;
@@ -65,7 +65,7 @@ public class NSQFeatureDetectionHandler extends SimpleChannelInboundHandler<NSQF
                 sslHandler.setSingleDecode(true);
                 pipeline.addBefore("LengthFieldBasedFrameDecoder", "SSLHandler", sslHandler);
                 if (snappy) {
-                    pipeline.addBefore("NSQEncoder", "SnappyEncoder", new SnappyFramedEncoder());
+                    pipeline.addBefore("NSQEncoder", "SnappyEncoder", new SnappyFrameEncoder());
                 }
                 if (deflate) {
                     pipeline.addBefore("NSQEncoder", "DeflateEncoder",
@@ -73,7 +73,7 @@ public class NSQFeatureDetectionHandler extends SimpleChannelInboundHandler<NSQF
                 }
             }
             if (!ssl && snappy) {
-                pipeline.addBefore("NSQEncoder", "SnappyEncoder", new SnappyFramedEncoder());
+                pipeline.addBefore("NSQEncoder", "SnappyEncoder", new SnappyFrameEncoder());
                 reinstallDefaultDecoder = installSnappyDecoder(pipeline);
             }
             if (!ssl && deflate) {
@@ -107,7 +107,7 @@ public class NSQFeatureDetectionHandler extends SimpleChannelInboundHandler<NSQF
 
     private boolean installSnappyDecoder(final ChannelPipeline pipeline) {
         finished = true;
-        pipeline.replace("LengthFieldBasedFrameDecoder", "SnappyDecoder", new SnappyFramedDecoder());
+        pipeline.replace("LengthFieldBasedFrameDecoder", "SnappyDecoder", new SnappyFrameDecoder());
         return false;
     }
 

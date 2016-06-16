@@ -1,8 +1,5 @@
 package com.youzan.nsq.client.network.frame;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
-
 public class MessageFrame extends NSQFrame {
     /*-
      * =========================================================================
@@ -12,15 +9,15 @@ public class MessageFrame extends NSQFrame {
     /**
      * 8-byte : nanosecond timestamp (int64)
      */
-    private byte[] timestamp = new byte[8];
+    private final byte[] timestamp = new byte[8];
     /**
      * 2-byte : (uint16)
      */
-    private byte[] attempts = new byte[2];
+    private final byte[] attempts = new byte[2];
     /**
      * 16-byte : (hex string encoded in ASCII)
      */
-    private byte[] messageID = new byte[16];
+    private final byte[] messageID = new byte[16];
     /**
      * N-byte : (binary)
      */
@@ -39,14 +36,6 @@ public class MessageFrame extends NSQFrame {
     }
 
     /**
-     * @param timestamp
-     *            the timestamp to set
-     */
-    public void setTimestamp(byte[] timestamp) {
-        this.timestamp = timestamp;
-    }
-
-    /**
      * @return the attempts
      */
     public byte[] getAttempts() {
@@ -54,26 +43,10 @@ public class MessageFrame extends NSQFrame {
     }
 
     /**
-     * @param attempts
-     *            the attempts to set
-     */
-    public void setAttempts(byte[] attempts) {
-        this.attempts = attempts;
-    }
-
-    /**
      * @return the messageID
      */
     public byte[] getMessageID() {
         return messageID;
-    }
-
-    /**
-     * @param messageID
-     *            the messageID to set
-     */
-    public void setMessageID(byte[] messageID) {
-        this.messageID = messageID;
     }
 
     /**
@@ -87,18 +60,18 @@ public class MessageFrame extends NSQFrame {
      * @param messageBody
      *            the messageBody to set
      */
-    public void setMessageBody(byte[] messageBody) {
+    private void setMessageBody(byte[] messageBody) {
         this.messageBody = messageBody;
     }
 
     @Override
     public void setData(byte[] bytes) {
-        super.setData(bytes);
-        ByteBuf buf = Unpooled.wrappedBuffer(bytes);
-        buf.readBytes(timestamp);
-        buf.readBytes(attempts);
-        buf.readBytes(messageID);
-        messageBody = buf.readBytes(buf.readableBytes()).array();
+        final int bodySize = bytes.length - (8 + 2 + 16);
+        messageBody = new byte[bodySize];
+        System.arraycopy(bytes, 0, timestamp, 0, 8);
+        System.arraycopy(bytes, 8, attempts, 0, 2);
+        System.arraycopy(bytes, 10, messageID, 0, 16);
+        System.arraycopy(bytes, 26, messageBody, 0, bodySize);
     }
 
     @Override
@@ -110,5 +83,4 @@ public class MessageFrame extends NSQFrame {
     public String getMessage() {
         throw new UnsupportedOperationException();
     }
-
 }

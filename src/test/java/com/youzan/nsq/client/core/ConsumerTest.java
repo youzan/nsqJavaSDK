@@ -25,7 +25,7 @@ public class ConsumerTest {
         final NSQConfig config = new NSQConfig();
         config.setLookupAddresses(lookup);
         config.setTimeoutInSecond(3);
-        config.setThreadPoolSize4IO(2);
+        config.setThreadPoolSize4IO(1);
         config.setMsgTimeoutInMillisecond(120 * 1000);
         config.setTopic("test");
         config.setConsumerName("consumer_is_zhaoxi");

@@ -22,8 +22,9 @@ public class NSQDecoder extends MessageToMessageDecoder<ByteBuf> {
             throw new NSQException(tip);
         }
         frame.setSize(size);
-        final ByteBuf body = in.readBytes(size - 4);
-        frame.setData(body.array());
+        final byte[] body = new byte[size - 4];
+        in.readBytes(body);
+        frame.setData(body);
         out.add(frame);
     }
 }
