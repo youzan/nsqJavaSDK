@@ -3,6 +3,7 @@ package com.youzan.nsq.client.entity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.youzan.nsq.client.Version;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.util.HostUtil;
 import com.youzan.util.IPUtil;
@@ -74,7 +75,7 @@ public class NSQConfig implements java.io.Serializable {
     private boolean tlsV1 = false;
     private Integer deflateLevel = null;
     private Integer sampleRate = null;
-    private final String userAgent = "Java/com.youzan/nsq-client/${project.version}";
+    private final String userAgent = "Java/com.youzan/" + Version.ARTIFACT_ID + "/" + Version.VERSION;
     private Compression compression = Compression.NO_COMPRESSION;
     // ...
     private SslContext sslContext = null;
