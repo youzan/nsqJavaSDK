@@ -1,8 +1,3 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<suite name="Suite" parallel="false">
-  <test name="Test">
-    <classes>
-      <class name="com.youzan.nsq.client.network.frame.TestMessageFrame"/>
-    </classes>
-  </test> <!-- Test -->
-</suite> <!-- Suite -->
+<suite name="Suite" parallel="true">
+</suite>
