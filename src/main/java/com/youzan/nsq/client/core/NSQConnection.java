@@ -59,7 +59,7 @@ public interface NSQConnection extends Closeable {
     void addErrorFrame(ErrorFrame frame);
 
     /**
-     * Never throws any exception to the client. It is so quiet.
+     * Perform the action quietly. No exceptions.
      */
     @Override
     void close();

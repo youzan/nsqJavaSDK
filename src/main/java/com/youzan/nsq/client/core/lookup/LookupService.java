@@ -1,5 +1,6 @@
 package com.youzan.nsq.client.core.lookup;
 
+import java.io.Closeable;
 import java.util.Random;
 import java.util.SortedSet;
 
@@ -13,7 +14,7 @@ import com.youzan.nsq.client.exception.NSQLookupException;
  *
  * 
  */
-public interface LookupService extends java.io.Serializable {
+public interface LookupService extends java.io.Serializable, Closeable {
 
     static final Random _r = new Random(10000);
 
@@ -43,7 +44,8 @@ public interface LookupService extends java.io.Serializable {
     SortedSet<Address> lookup(String topic, boolean writable) throws NSQLookupException;
 
     /**
-     * No exceptions.
+     * Perform the action quietly. No exceptions.
      */
+    @Override
     void close();
 }
