@@ -14,8 +14,8 @@ import org.testng.annotations.Test;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.exception.NSQLookupException;
 
-public class NSQLookupServiceTest {
-    private static final Logger logger = LoggerFactory.getLogger(NSQLookupServiceTest.class);
+public class TestNSQLookupService {
+    private static final Logger logger = LoggerFactory.getLogger(TestNSQLookupService.class);
 
     @DataProvider
     public Object[][] genIPs() {

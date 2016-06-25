@@ -1,4 +1,4 @@
-package com.youzan.nsq.client.core;
+package com.youzan.nsq.client.it;
 
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
@@ -12,9 +12,9 @@ import com.youzan.nsq.client.ConsumerImplV2;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.exception.NSQException;
 
-public class ConsumerTest {
+public class ITConsumer {
 
-    private static final Logger logger = LoggerFactory.getLogger(ConsumerTest.class);
+    private static final Logger logger = LoggerFactory.getLogger(ITConsumer.class);
 
     // Integration Testing
     private static final String lookup = "10.9.80.209:4161";

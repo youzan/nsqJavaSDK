@@ -1,4 +1,4 @@
-package com.youzan.nsq.client.core;
+package com.youzan.nsq.client.it;
 
 import java.io.UnsupportedEncodingException;
 import java.util.Date;
@@ -13,9 +13,9 @@ import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.util.IOUtil;
 
-public class ProducerTest {
+public class ITProducer {
 
-    private static final Logger logger = LoggerFactory.getLogger(ProducerTest.class);
+    private static final Logger logger = LoggerFactory.getLogger(ITProducer.class);
 
     // Integration Testing
     private static final String lookup = "10.9.80.209:4161";
