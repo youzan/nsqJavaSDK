@@ -140,7 +140,8 @@ public class LookupServiceImpl implements LookupService {
         final int index = ((offset++) & Integer.MAX_VALUE) % this.addresses.size();
         final String lookupd = this.addresses.get(index);
         final String url = String.format("http://%s/listlookup", lookupd);
-        logger.debug("Size: {}, Index: {}, URL: {}", this.addresses.size(), index, url);
+        logger.debug("Begin to get the new lookup servers. LB: Size: {}, Index: {}, From URL: {}",
+                this.addresses.size(), index, url);
         final JsonNode rootNode = mapper.readTree(new URL(url));
         JsonNode t = rootNode.get("data");
         final JsonNode nodes = rootNode.get("data").get("lookupdnodes");
@@ -159,6 +160,7 @@ public class LookupServiceImpl implements LookupService {
         if (!newLookupds.isEmpty()) {
             this.addresses = newLookupds;
         }
+        logger.debug("Having got the new lookup servers : {}", this.addresses);
     }
 
     @Override
@@ -179,6 +181,7 @@ public class LookupServiceImpl implements LookupService {
         final int index = ((offset++) & Integer.MAX_VALUE) % this.addresses.size();
         final String lookupd = this.addresses.get(index);
         final String url = String.format("http://%s/lookup?topic=%s&access=%s", lookupd, topic, writable ? "w" : "r"); // readable
+        logger.debug("Begin to lookup some DataNodes from URL: {}", url);
         try {
             final JsonNode rootNode = mapper.readTree(new URL(url));
             final JsonNode producers = rootNode.get("data").get("producers");
@@ -188,7 +191,7 @@ public class LookupServiceImpl implements LookupService {
                 final Address addr = new Address(host, port);
                 nsqds.add(addr);
             }
-            logger.debug("Server response info: {}", rootNode.toString());
+            logger.debug("The server response info after looking up some DataNodes: {}", rootNode.toString());
             return nsqds; // maybe it is empty
         } catch (Exception e) {
             final String tip = "SDK can't get the right lookup info.";

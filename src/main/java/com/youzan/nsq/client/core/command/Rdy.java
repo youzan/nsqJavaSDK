@@ -4,7 +4,6 @@
 package com.youzan.nsq.client.core.command;
 
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -21,7 +20,7 @@ public class Rdy implements NSQCommand {
     private final byte[] data;
 
     public Rdy(final int count) {
-        final byte[] cmd = "RDY ".getBytes(StandardCharsets.UTF_8);
+        final byte[] cmd = "RDY ".getBytes(UTF8);
         final byte[] countBytes = String.valueOf(count).getBytes(DEFAULT_CHARSET);
         final ByteBuffer bb = ByteBuffer.allocate(cmd.length + countBytes.length + 1);
         // RDY <count>\n

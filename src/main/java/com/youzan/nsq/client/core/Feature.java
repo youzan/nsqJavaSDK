@@ -8,8 +8,6 @@ import org.slf4j.LoggerFactory;
 
 /**
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
- *
- * 
  */
 public class Feature {
     private static final Logger logger = LoggerFactory.getLogger(Feature.class);

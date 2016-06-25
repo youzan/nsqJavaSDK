@@ -14,14 +14,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Blocking when try-lock. It is for the small size collection
+ * Blocking when try-lock. It is for the small size collection. It consists of
+ * one {@code SortedSet}
  * 
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  *
  * 
  */
 @ThreadSafe
-public class ConcurrentSortedSet<T> {
+public class ConcurrentSortedSet<T> implements java.io.Serializable {
     private static final long serialVersionUID = -4747846630389873940L;
     private static final Logger logger = LoggerFactory.getLogger(ConcurrentSortedSet.class);
 
@@ -32,15 +33,6 @@ public class ConcurrentSortedSet<T> {
 
     public ConcurrentSortedSet() {
         set = new TreeSet<>();
-    }
-
-    public T[] newArray(T[] a) {
-        r.lock();
-        try {
-            return set.toArray(a);
-        } finally {
-            r.unlock();
-        }
     }
 
     public void clear() {
@@ -127,20 +119,27 @@ public class ConcurrentSortedSet<T> {
         }
     }
 
+    public T[] newArray(T[] a) {
+        r.lock();
+        try {
+            return set.toArray(a);
+        } finally {
+            r.unlock();
+        }
+    }
+
     /**
-     * Never return null
+     * Never return null.
      * 
      * @return the new {@code SortedSet}
      */
     public SortedSet<T> newSortedSet() {
-        final SortedSet<T> s = new TreeSet<>(set);
         r.lock();
         try {
-            s.addAll(set);
+            return new TreeSet<>(set);
         } finally {
             r.unlock();
         }
-        return s;
     }
 
     @Override

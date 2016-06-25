@@ -19,7 +19,7 @@ public interface NSQCommand {
     public static final Charset DEFAULT_CHARSET = UTF8;
 
     /**
-     * The encoding between UTF-8 and US-ASCII is the same underlying
+     * The encoding's result between UTF-8 and US-ASCII is the same underlying
      * LINE_SEPARATOR.
      */
     static final byte LINE_SEPARATOR = '\n';
@@ -27,7 +27,7 @@ public interface NSQCommand {
     static final List<byte[]> EMPTY_BODY = new ArrayList<>(0);
 
     // *************************************************************************
-    // normal command
+    // Normal command
     // *************************************************************************
 
     /**
@@ -36,7 +36,7 @@ public interface NSQCommand {
     byte[] getBytes();
 
     // *************************************************************************
-    // special command
+    // Special command consists of header and body
     // *************************************************************************
 
     String getHeader();

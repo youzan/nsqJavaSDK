@@ -20,8 +20,6 @@ import io.netty.util.AttributeKey;
  * </pre>
  * 
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
- *
- * 
  */
 public interface NSQConnection extends Closeable {
 
@@ -33,7 +31,8 @@ public interface NSQConnection extends Closeable {
 
     /**
      * If any client wants to use my connection, then the client need to pass
-     * itself into me because of the usage of Netty.
+     * itself into me before calling init(this method) because of the usage of
+     * Netty.
      * 
      * @throws TimeoutException
      *             a timeout error
@@ -43,7 +42,7 @@ public interface NSQConnection extends Closeable {
     boolean isConnected();
 
     /**
-     * synchronize the protocol packet
+     * Synchronize the protocol packet
      * 
      * @param command
      *            a {@code NSQCommand}
@@ -60,7 +59,7 @@ public interface NSQConnection extends Closeable {
     void addErrorFrame(ErrorFrame frame);
 
     /**
-     * Never throws any exception to the client. It is quiet.
+     * Never throws any exception to the client. It is so quiet.
      */
     @Override
     void close();

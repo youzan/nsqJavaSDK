@@ -44,6 +44,6 @@ public class Pub implements NSQCommand {
 
     @Override
     public List<byte[]> getBody() {
-        return this.body;
+        return body;
     }
 }

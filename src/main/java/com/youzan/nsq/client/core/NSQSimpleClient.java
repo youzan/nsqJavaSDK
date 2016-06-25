@@ -31,8 +31,6 @@ import io.netty.channel.ChannelFuture;
  * The intersection between {@code Producer} and {@code Consumer}.
  * 
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
- *
- * 
  */
 public class NSQSimpleClient implements Client {
     private static final Logger logger = LoggerFactory.getLogger(NSQSimpleClient.class);

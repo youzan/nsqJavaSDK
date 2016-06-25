@@ -19,8 +19,6 @@ import io.netty.util.AttributeKey;
  * NSQ business processing.
  * 
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
- *
- * 
  */
 public interface Client {
 

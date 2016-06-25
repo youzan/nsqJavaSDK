@@ -24,8 +24,6 @@ import io.netty.channel.ChannelFuture;
 
 /**
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
- *
- * 
  */
 public class NSQConnectionImpl implements NSQConnection {
     private static final Logger logger = LoggerFactory.getLogger(NSQConnectionImpl.class);

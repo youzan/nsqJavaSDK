@@ -36,6 +36,6 @@ public class Mpub implements NSQCommand {
 
     @Override
     public List<byte[]> getBody() {
-        return EMPTY_BODY;
+        return messages;
     }
 }

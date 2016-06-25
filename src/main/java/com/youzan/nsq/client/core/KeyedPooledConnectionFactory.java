@@ -3,7 +3,6 @@
  */
 package com.youzan.nsq.client.core;
 
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -35,8 +34,6 @@ import io.netty.util.concurrent.Future;
  * </pre>
  * 
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
- *
- * 
  */
 public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<Address, NSQConnection> {
 
@@ -130,10 +127,6 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
 
     public void clear(Address addr) {
         bootstraps.remove(addr);
-    }
-
-    public Set<Address> getAddress() {
-        return null;
     }
 
     public void close() {
