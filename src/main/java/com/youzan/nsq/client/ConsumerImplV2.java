@@ -50,10 +50,11 @@ import com.youzan.util.NamedThreadFactory;
 import io.netty.channel.ChannelFuture;
 
 /**
+ * <pre>
  * Expose to Client Code. Connect to one cluster(includes many brokers).
+ * </pre>
  * 
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
- * 
  */
 public class ConsumerImplV2 implements Consumer {
 
@@ -129,15 +130,15 @@ public class ConsumerImplV2 implements Consumer {
             this.poolConfig.setTestOnReturn(true);
             this.poolConfig.setTestWhileIdle(true);
             this.poolConfig.setJmxEnabled(false);
-            // because of the latency's insensitivity, let Idle tiemout be
-            // longer than CheckPeriod.
+            // because of the latency's insensitivity, the Idle tiemout should
+            // be longer than CheckPeriod.
             this.poolConfig.setMinEvictableIdleTimeMillis(4 * 60 * 1000);
             this.poolConfig.setTimeBetweenEvictionRunsMillis(2 * 60 * 1000);
             this.poolConfig.setMinIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());
-            // aquire connection waiting time
-            this.poolConfig.setMaxWaitMillis(500);
+            // aquire connection waiting time underlying the inner network
+            this.poolConfig.setMaxWaitMillis(50);
             this.poolConfig.setBlockWhenExhausted(true);
             try {
                 this.simpleClient.start();
@@ -153,7 +154,7 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     /**
-     * 
+     * new instance without performing to connect
      */
     private void createBigPool() {
         this.bigPool = new GenericKeyedObjectPool<>(this.factory, this.poolConfig);
@@ -173,6 +174,10 @@ public class ConsumerImplV2 implements Consumer {
         }, delay, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
     }
 
+    /**
+     * Connect to all the brokers with the config, making sure the new are OK
+     * and the old are clear.
+     */
     private void connect() {
         final Set<Address> broken = new HashSet<>();
         holdingConnections.values().parallelStream().forEach((conns) -> {
@@ -190,7 +195,7 @@ public class ConsumerImplV2 implements Consumer {
 
         final Set<Address> newDataNodes = getDataNodes().newSortedSet();
         final Set<Address> oldDataNodes = new TreeSet<>(this.holdingConnections.keySet());
-        logger.debug("Prepare to connect new data-nodes(NSQd): {}, old data-nodes(NSQd): {}", newDataNodes,
+        logger.debug("Prepare to connect new data-nodes(NSQd): {} , old data-nodes(NSQd): {}", newDataNodes,
                 oldDataNodes);
         if (newDataNodes.isEmpty() && oldDataNodes.isEmpty()) {
             return;
@@ -311,7 +316,7 @@ public class ConsumerImplV2 implements Consumer {
             bigPool.clear(address);
             bigPool.preparePool(address);
         } catch (Exception e) {
-            logger.error("Exception", e);
+            logger.error("Address: {} . Exception: {}", address, e);
         }
         // create new pool(connect to one broker)
         final List<NSQConnection> okConns = new ArrayList<>(config.getThreadPoolSize4IO());
@@ -326,7 +331,7 @@ public class ConsumerImplV2 implements Consumer {
                 holdingConnections.get(address).add(newConn);
                 okConns.add(newConn);
             } catch (Exception e) {
-                logger.error("Exception: {}", address, e);
+                logger.error("Address: {} . Exception: {}", address, e);
                 if (newConn != null) {
                     IOUtil.closeQuietly(newConn);
                     bigPool.returnObject(address, newConn);
@@ -345,9 +350,10 @@ public class ConsumerImplV2 implements Consumer {
             }
         }
         if (okConns.size() == config.getThreadPoolSize4IO()) {
-            logger.info("Having created a pool for one broker, it felt good.");
+            logger.info("Having created a pool for one broker ( {} connections to 1 broker ), it felt good.",
+                    okConns.size());
         } else {
-            logger.info("Want the pool size {}, actually the size {}", config.getThreadPoolSize4IO(), okConns.size());
+            logger.info("Want the pool size {} , actually the size {}", config.getThreadPoolSize4IO(), okConns.size());
         }
         okConns.clear();
     }
@@ -368,7 +374,7 @@ public class ConsumerImplV2 implements Consumer {
                 }
                 case E_TOPIC_NOT_EXIST: {
                     clearDataNode(newConn.getAddress());
-                    logger.error("Adress: {}, Frame: {}", newConn.getAddress(), frame);
+                    logger.error("Adress: {} , Frame: {}", newConn.getAddress(), frame);
                     throw new NSQInvalidDataNodeException();
                 }
                 default: {
@@ -406,10 +412,10 @@ public class ConsumerImplV2 implements Consumer {
                 }
             });
             if (nextTimeout > 0) {
-                updateTimeout(conn, -500);
+                updateTimeout(conn, -1000);
             }
         } catch (RejectedExecutionException re) {
-            updateTimeout(conn, 1000);
+            updateTimeout(conn, 1500);
             conn.command(new ReQueue(message.getMessageID(), 3));
             logger.info("Do a re-queue. MessageID:{}", message.getMessageID());
         }
@@ -433,7 +439,7 @@ public class ConsumerImplV2 implements Consumer {
                 break;
             } catch (Exception e) {
                 ok = false;
-                logger.error("CurrentRetries: {}, Exception occurs...", c, e);
+                logger.error("CurrentRetries: {} , Exception: {}", c, e);
             }
         }
         // The client commands requeue into NSQd.
@@ -441,14 +447,14 @@ public class ConsumerImplV2 implements Consumer {
         final NSQCommand cmd;
         if (timeout != null) {
             cmd = new ReQueue(message.getMessageID(), message.getNextConsumingInSecond());
-            logger.info("Do a re-queue. MessageID:{}", message.getMessageID());
+            logger.info("Do a re-queue. MessageID: {}", message.getMessageID());
             if (message.getReadableAttempts() > 10) {
-                logger.error("Processing 10 times is still a failure! {}", message);
+                logger.error("{} , Processing 10 times is still a failure!", message);
             }
         } else {
             cmd = new Finish(message.getMessageID());
             if (!ok) {
-                logger.error("{}, exception occurs but you don't catch it!", message);
+                logger.error("{} , exception occurs but you don't catch it! Please check it right now!!!", message);
             }
         }
         conn.command(cmd);
@@ -545,7 +551,7 @@ public class ConsumerImplV2 implements Consumer {
     @Override
     public boolean validateHeartbeat(NSQConnection conn) {
         final ChannelFuture future = conn.command(DEFAULT_RDY);
-        if (future.awaitUninterruptibly(500, TimeUnit.MILLISECONDS)) {
+        if (future.awaitUninterruptibly(50, TimeUnit.MILLISECONDS)) {
             return future.isSuccess();
         }
         return false;

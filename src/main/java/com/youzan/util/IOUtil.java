@@ -15,10 +15,6 @@ public final class IOUtil {
     public static final Charset UTF8 = StandardCharsets.UTF_8;
     public static final Charset DEFAULT_CHARSET = UTF8;
 
-    static {
-        // detection
-    }
-
     public final static void closeQuietly(Closeable... closeables) {
         for (Closeable closeable : closeables) {
             if (null != closeable) {

@@ -6,8 +6,6 @@ import com.youzan.nsq.client.entity.NSQMessage;
  * It is a callback what is a client processing.
  * 
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
- *
- * 
  */
 @FunctionalInterface
 public interface MessageHandler {

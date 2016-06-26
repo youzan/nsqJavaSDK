@@ -8,8 +8,6 @@ import com.youzan.nsq.client.exception.NSQException;
 
 /**
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
- *
- * 
  */
 public interface Producer extends Client, Closeable {
     @Override

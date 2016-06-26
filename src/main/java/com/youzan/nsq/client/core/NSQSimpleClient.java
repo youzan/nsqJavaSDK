@@ -97,11 +97,11 @@ public class NSQSimpleClient implements Client {
                 try {
                     conn.addErrorFrame(err);
                 } catch (Exception e) {
-                    logger.error("Exception", e);
+                    logger.error("Address: {}, Exception: {}", conn.getAddress(), e);
                 }
             }
             default: {
-                logger.error("Invalid Frame Type. Frame: {}", frame);
+                logger.error("Invalid frame-type from {} , frame: {}", conn.getAddress(), frame);
                 break;
             }
         }

@@ -38,8 +38,6 @@ import com.youzan.util.Lists;
  * </pre>
  * 
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
- *
- * 
  */
 public class ProducerImplV2 implements Producer {
 
@@ -85,14 +83,15 @@ public class ProducerImplV2 implements Producer {
             this.poolConfig.setTestOnReturn(false);
             this.poolConfig.setTestWhileIdle(true);
             this.poolConfig.setJmxEnabled(false);
-            // 时效要求高的,让 Idle * 1.5 <= CheckPeriod
+            // because of the latency's insensitivity, the Idle tiemout * 1.5
+            // should be less-equals than CheckPeriod.
             this.poolConfig.setMinEvictableIdleTimeMillis(60 * 1000);
             this.poolConfig.setTimeBetweenEvictionRunsMillis(2 * 60 * 1000);
             this.poolConfig.setMinIdlePerKey(1);
             this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());
             // aquire connection waiting time
-            this.poolConfig.setMaxWaitMillis(500);
+            this.poolConfig.setMaxWaitMillis(50);
             this.poolConfig.setBlockWhenExhausted(true);
             this.offset = _r.nextInt(100);
             try {
@@ -106,8 +105,7 @@ public class ProducerImplV2 implements Producer {
     }
 
     /**
-     * Create some pools. <br>
-     * One pool to one broker.
+     * new instance without performing to connect
      */
     private void createBigPool() {
         this.bigPool = new GenericKeyedObjectPool<>(this.factory, this.poolConfig);
@@ -133,7 +131,7 @@ public class ProducerImplV2 implements Producer {
             // current broker | next broker when have a try again
             final int effectedIndex = (index++ & Integer.MAX_VALUE) % size;
             final Address addr = addrs[effectedIndex];
-            logger.debug("Load-Balancing algorithm is Round-Robin! Size: {}, Index: {}. Got {}", size, effectedIndex,
+            logger.debug("Load-Balancing algorithm is Round-Robin! Size: {} , Index: {} , Got {}", size, effectedIndex,
                     addr);
             NSQConnection conn = null;
             try {
@@ -161,12 +159,15 @@ public class ProducerImplV2 implements Producer {
                     // broker is down
                     clearDataNode(addr);
                 }
-                logger.error("CurrentRetries: {}, Address: {}, Exception occurs...", c, addr, e);
+                logger.error("CurrentRetries: {} , Address: {} , Exception: {}", c, addr, e);
             } catch (Exception e) {
                 IOUtil.closeQuietly(conn);
-                logger.error("CurrentRetries: {}, Address: {}, Exception occurs...", c, addr, e);
+                logger.error("CurrentRetries: {} , Address: {} , Exception: {}", c, addr, e);
             }
         }
+        /**
+         * no available {@code NSQConnection}
+         */
         return null;
     }
 
@@ -197,18 +198,19 @@ public class ProducerImplV2 implements Producer {
             }
             final NSQConnection conn = getNSQConnection();
             if (conn == null) {
+                // Continue to retry
                 continue;
             }
-            logger.debug("Having acquired a NSQConnection! CurrentRetries: {}", c);
+            logger.debug("Having acquired a {} NSQConnection! CurrentRetries: {}", conn.getAddress(), c);
             try {
                 final NSQFrame frame = conn.commandAndGetResponse(pub);
                 // delegate to method: incomming(...)
                 return;
             } catch (Exception e) {
                 IOUtil.closeQuietly(conn);
+                logger.error("CurrentRetries: {} , Address: {} , RawMessage: {} , Exception: {}", c, conn.getAddress(),
+                        message, e);
                 // Continue to retry
-                logger.error("CurrentRetries: {}, Address: {}, RawMessage: {}, Exception occurs...", c,
-                        conn.getAddress(), message, e);
                 continue;
             } finally {
                 bigPool.returnObject(conn.getAddress(), conn);
@@ -235,23 +237,19 @@ public class ProducerImplV2 implements Producer {
 
     /**
      * @param batch
-     * @throws NoConnectionException
-     * @throws NSQDataNodesDownException
-     * @throws NSQInvalidTopicException
-     * @throws NSQInvalidMessageException
      * @throws NSQException
      */
-    private void publishSmallBatch(List<byte[]> batch) throws NoConnectionException, NSQDataNodesDownException,
-            NSQInvalidTopicException, NSQInvalidMessageException, NSQException {
+    private void publishSmallBatch(List<byte[]> batch) throws NSQException {
         final Mpub pub = new Mpub(config.getTopic(), batch);
         int c = 0; // be continuous
         while (c++ < 6) {
             if (c > 1) {
                 logger.debug("Sleep. CurrentRetries: {}", c);
-                sleep(c * 1000);
+                sleep((1 << (c - 1)) * 1000);
             }
             final NSQConnection conn = getNSQConnection();
             if (conn == null) {
+                // Continue to retry
                 continue;
             }
             try {
@@ -261,7 +259,7 @@ public class ProducerImplV2 implements Producer {
             } catch (Exception e) {
                 IOUtil.closeQuietly(conn);
                 // Continue to retry
-                logger.error("CurrentRetries: {}, Exception occurs...", c, e);
+                logger.error("CurrentRetries: {} , Address: {} , Exception: {}", c, conn.getAddress(), e);
                 continue;
             } finally {
                 bigPool.returnObject(conn.getAddress(), conn);
@@ -287,7 +285,7 @@ public class ProducerImplV2 implements Producer {
                 }
                 case E_TOPIC_NOT_EXIST: {
                     clearDataNode(conn.getAddress());
-                    logger.error("Adress: {}, Frame: {}", conn.getAddress(), frame);
+                    logger.error("Adress: {} , Frame: {}", conn.getAddress(), frame);
                     throw new NSQInvalidDataNodeException();
                 }
                 default: {
