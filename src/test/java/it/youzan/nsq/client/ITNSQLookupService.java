@@ -1,4 +1,4 @@
-package com.youzan.nsq.client.it;
+package it.youzan.nsq.client;
 
 import java.util.SortedSet;
 
@@ -21,5 +21,6 @@ public class ITNSQLookupService {
         for (final Address addr : addresses) {
             logger.info("Address : {}", addr);
         }
+        srv.close();
     }
 }

@@ -1,4 +1,4 @@
-package com.youzan.nsq.client.it;
+package it.youzan.nsq.client;
 
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;

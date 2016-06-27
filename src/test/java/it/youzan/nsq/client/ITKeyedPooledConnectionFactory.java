@@ -1,4 +1,4 @@
-package com.youzan.nsq.client.it;
+package it.youzan.nsq.client;
 
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
