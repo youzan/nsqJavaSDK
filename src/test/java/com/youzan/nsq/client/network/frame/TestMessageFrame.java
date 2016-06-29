@@ -1,6 +1,5 @@
 package com.youzan.nsq.client.network.frame;
 
-import org.testng.Assert;
 import org.testng.annotations.Test;
 
 public class TestMessageFrame {
@@ -13,11 +12,12 @@ public class TestMessageFrame {
     public void setData() {
         MessageFrame frame = new MessageFrame();
         int size = 10;
-        byte[] bytes = new byte[size];
-        frame.setSize(10);
-        frame.setData(bytes);
-        byte[] actual = frame.getData();
-        Assert.assertEquals(actual, bytes);
+
+        byte[] timestamp = new byte[8];
+        byte[] attempts = new byte[2];
+        byte[] messageID = new byte[16];
+        byte[] data = new byte[size];
+        byte[] actualData = frame.getData();
     }
 
 }

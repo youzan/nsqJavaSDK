@@ -10,6 +10,8 @@ import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import com.youzan.util.IOUtil;
+
 public class TestNSQLookupService {
     private static final Logger logger = LoggerFactory.getLogger(TestNSQLookupService.class);
 
@@ -42,6 +44,7 @@ public class TestNSQLookupService {
                 Assert.assertEquals(addr, "10.232.120.12:6411");
             }
         } finally {
+            IOUtil.closeQuietly(srv);
         }
     }
 
@@ -52,6 +55,7 @@ public class TestNSQLookupService {
             srv = new LookupServiceImpl(ips);
             Assert.assertEquals(srv.getAddresses(), expected);
         } finally {
+            IOUtil.closeQuietly(srv);
         }
     }
 }
