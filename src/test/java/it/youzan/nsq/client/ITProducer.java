@@ -1,6 +1,5 @@
 package it.youzan.nsq.client;
 
-import java.io.UnsupportedEncodingException;
 import java.util.Date;
 
 import org.slf4j.Logger;
@@ -22,16 +21,23 @@ public class ITProducer {
     // private static final String lookup = "127.0.0.1:4161";
 
     @Test
-    public void produceUsingSimpleProducer() throws NSQException, UnsupportedEncodingException {
-        NSQConfig config = new NSQConfig();
+    public void produceUsingSimpleProducer() throws NSQException {
+        // 创建配置: 要连接的集群参数和本机进程参数
+        final NSQConfig config = new NSQConfig();
+        // 设置Topic Name
         config.setTopic("test");
+        // 设置Lookupd集群(多)地址, 是以","分隔的字符串,就是说可以配置一个集群里的多个节点
         config.setLookupAddresses(lookup);
-        config.setTimeoutInSecond(3);
+        // 设置Netty里的ThreadPoolSize(带默认值): 1Thread-to-1IOThread, 使用BlockingIO
         config.setThreadPoolSize4IO(2);
+        // 设置timeout(带默认值): 一次来回IO+本机执行完成消耗时间
+        config.setTimeoutInSecond(3);
+        // 设置message中client-server之间可以的timeout(带默认值)
         config.setMsgTimeoutInMillisecond(60 * 1000);
         final Producer p = new ProducerImplV2(config);
         p.start();
 
+        // Demo : business processing
         long sucess = 0L, total = 0L;
         final long end = System.currentTimeMillis() + 1 * 3600 * 1000L;
         while (System.currentTimeMillis() <= end) {
@@ -46,6 +52,7 @@ public class ITProducer {
             sleep(5);
             assert true;
         }
+        // 一定要在finally里做下优雅的关闭
         p.close();
         logger.info("Total: {} , Sucess: {}", total, sucess);
     }

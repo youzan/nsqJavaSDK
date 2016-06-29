@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import com.youzan.nsq.client.Consumer;
 import com.youzan.nsq.client.ConsumerImplV2;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.exception.NSQException;
@@ -34,7 +35,7 @@ public class ITConsumer {
         final Random r = new Random(100);
         final AtomicLong sucess = new AtomicLong(0L), total = new AtomicLong(0L);
         final long end = (int) System.currentTimeMillis() + 1 * 3600 * 1000L;
-        final ConsumerImplV2 consumer = new ConsumerImplV2(config, (message) -> {
+        final Consumer consumer = new ConsumerImplV2(config, (message) -> {
             Assert.assertNotNull(message);
             total.incrementAndGet();
             sucess.incrementAndGet();
@@ -54,9 +55,10 @@ public class ITConsumer {
         config.setMsgTimeoutInMillisecond(120 * 1000);
         config.setTopic("test");
         config.setConsumerName("consumer_is_zhaoxi");
-        final ConsumerImplV2 consumer = new ConsumerImplV2(config, (message) -> {
+        final Consumer consumer = new ConsumerImplV2(config, (message) -> {
             Assert.assertNotNull(message);
             try {
+                // 设置了不合法(经过多久后)下次消费
                 message.setNextConsumingInSecond(null);
             } catch (NSQException e) {
                 logger.error("Exception", e);
@@ -64,6 +66,7 @@ public class ITConsumer {
         });
         consumer.start();
         sleep(3600 * 2 * 1000);
+        // 一定要在finally里做下优雅的关闭
         consumer.close();
     }
 
