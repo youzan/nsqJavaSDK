@@ -66,12 +66,12 @@ public class MessageFrame extends NSQFrame {
 
     @Override
     public void setData(byte[] bytes) {
-        final int bodySize = bytes.length - (8 + 2 + 16);
-        messageBody = new byte[bodySize];
+        final int messageBodySize = bytes.length - (8 + 2 + 16);
+        messageBody = new byte[messageBodySize];
         System.arraycopy(bytes, 0, timestamp, 0, 8);
         System.arraycopy(bytes, 8, attempts, 0, 2);
         System.arraycopy(bytes, 10, messageID, 0, 16);
-        System.arraycopy(bytes, 26, messageBody, 0, bodySize);
+        System.arraycopy(bytes, 26, messageBody, 0, messageBodySize);
     }
 
     @Override

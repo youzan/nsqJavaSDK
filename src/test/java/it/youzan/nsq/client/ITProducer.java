@@ -30,7 +30,7 @@ public class ITProducer {
         config.setLookupAddresses(lookup);
         // 设置Netty里的ThreadPoolSize(带默认值): 1Thread-to-1IOThread, 使用BlockingIO
         config.setThreadPoolSize4IO(2);
-        // 设置timeout(带默认值): 一次来回IO+本机执行完成消耗时间
+        // 设置timeout(带默认值): 一次IO来回+本机执行了返回给client code完成的消耗时间
         config.setTimeoutInSecond(3);
         // 设置message中client-server之间可以的timeout(带默认值)
         config.setMsgTimeoutInMillisecond(60 * 1000);
@@ -38,13 +38,13 @@ public class ITProducer {
         p.start();
 
         // Demo : business processing
-        long sucess = 0L, total = 0L;
+        long success = 0L, total = 0L;
         final long end = System.currentTimeMillis() + 1 * 3600 * 1000L;
         while (System.currentTimeMillis() <= end) {
             try {
                 total++;
                 p.publish(randomString().getBytes(IOUtil.DEFAULT_CHARSET));
-                sucess++;
+                success++;
             } catch (Exception e) {
                 logger.error("Exception", e);
             }
@@ -54,7 +54,7 @@ public class ITProducer {
         }
         // 一定要在finally里做下优雅的关闭
         p.close();
-        logger.info("Total: {} , Sucess: {}", total, sucess);
+        logger.info("Total: {} , Sucess: {}", total, success);
     }
 
     @Test
