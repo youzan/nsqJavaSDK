@@ -1,5 +1,7 @@
 package it.youzan.nsq.client;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -27,9 +29,13 @@ public class ITProcessing {
     private NSQConfig config;
 
     @BeforeClass
-    public void init() throws NSQException {
+    public void init() throws NSQException, IOException {
         config = new NSQConfig();
         final Properties props = new Properties();
+        try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {
+            props.load(is);
+        }
+        System.out.println(props);
         // load
         props.clear();
     }
@@ -74,7 +80,7 @@ public class ITProcessing {
         Assert.assertEquals(incommings[0].getReadableContent(), message1);
         Assert.assertEquals(incommings[1].getMessageBody(), message2);
 
-        // Because of the
+        // Because of the distributed environment and the network
         sleep(10);
         consumer.close();
     }
