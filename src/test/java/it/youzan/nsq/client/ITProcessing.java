@@ -35,14 +35,15 @@ public class ITProcessing {
         try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {
             props.load(is);
         }
-        System.out.println(props);
+        config.setLookupAddresses(props.getProperty("lookup-addresses"));
+        config.setTopic(props.getProperty("topic"));
         // load
         props.clear();
     }
 
     @SuppressWarnings("deprecation")
     @Test
-    public void process() {
+    public void process() throws NSQException {
         // Generate some messages
         // Publish to the data-node
         // Get the messsages
@@ -56,9 +57,11 @@ public class ITProcessing {
             }
         };
         final Consumer consumer = new ConsumerImplV2(config, handler);
+        consumer.start();
         /****************************** string type ***************************/
         final String message1 = MessageUtil.randomString();
         try (Producer p = new ProducerImplV2(config)) {
+            p.start();
             p.publish(message1);
         } catch (NSQException e) {
             logger.error("Exception", e);
@@ -68,6 +71,7 @@ public class ITProcessing {
         final byte[] message2 = new byte[1024];
         random.nextBytes(message2);
         try (Producer p = new ProducerImplV2(config);) {
+            p.start();
             p.publish(message2);
         } catch (NSQException e) {
             logger.error("Exception", e);
