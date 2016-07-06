@@ -16,7 +16,7 @@ public class TestNSQLookupService {
     private static final Logger logger = LoggerFactory.getLogger(TestNSQLookupService.class);
 
     @DataProvider
-    public Object[][] genIPs() {
+    public Object[][] generateIPs() {
         Object[][] objs = new Object[2][2];
 
         String ips = "10.232.120.12:6411";
