@@ -367,6 +367,7 @@ public class ConsumerImplV2 implements Consumer {
         final NSQFrame frame = newConn.commandAndGetResponse(new Sub(config.getTopic(), config.getConsumerName()));
         if (frame != null && frame.getType() == FrameType.ERROR_FRAME) {
             final ErrorFrame err = (ErrorFrame) frame;
+            logger.debug("***************************{}  , {}", err, err.getError());
             switch (err.getError()) {
                 case E_FAILED_ON_NOT_LEADER: {
                 }

@@ -145,7 +145,7 @@
     </build>
     <profiles>
         <profile>
-            <id>dev</id>
+            <id>Dev</id>
             <activation>
                 <activeByDefault>true</activeByDefault>
             </activation>

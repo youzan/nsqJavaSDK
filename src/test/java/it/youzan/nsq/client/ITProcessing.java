@@ -37,7 +37,12 @@ public class ITProcessing {
         }
         config.setLookupAddresses(props.getProperty("lookup-addresses"));
         config.setTopic(props.getProperty("topic"));
-        config.setConsumerName("");
+        final String name = props.getProperty("env") + "-" + this.getClass().getName();
+        config.setConsumerName(name);
+        config.setConnectTimeoutInMillisecond(Integer.valueOf(props.getProperty("connectTimeoutInMillisecond")));
+        config.setTimeoutInSecond(Integer.valueOf(props.getProperty("timeoutInSecond")));
+        config.setMsgTimeoutInMillisecond(Integer.valueOf(props.getProperty("msgTimeoutInMillisecond")));
+        config.setThreadPoolSize4IO(Integer.valueOf(props.getProperty("threadPoolSize4IO")));
         // load
         props.clear();
     }
@@ -54,12 +59,15 @@ public class ITProcessing {
         final MessageHandler handler = new MessageHandler() {
             @Override
             public void process(NSQMessage message) {
+                logger.debug("Receiving ...*************************************{}", message);
                 incommings[index.getAndIncrement()] = message;
             }
         };
         final Consumer consumer = new ConsumerImplV2(config, handler);
         consumer.start();
-        /****************************** string type ***************************/
+        /******************************
+         * string type
+         ***************************/
         final String message1 = MessageUtil.randomString();
         try (Producer p = new ProducerImplV2(config)) {
             p.start();
@@ -67,7 +75,9 @@ public class ITProcessing {
         } catch (NSQException e) {
             logger.error("Exception", e);
         }
-        /****************************** byte type *****************************/
+        /******************************
+         * byte type
+         *****************************/
         sleep(1);
         final byte[] message2 = new byte[1024];
         random.nextBytes(message2);
@@ -77,16 +87,18 @@ public class ITProcessing {
         } catch (NSQException e) {
             logger.error("Exception", e);
         }
+        // Because of the distributed environment and the network, after
+        // publishing
+        sleep(1000);
 
         for (NSQMessage msg : incommings) {
+            logger.debug("======================={}", msg);
             Assert.assertEquals(msg.getReadableAttempts(), 1,
                     "The message is not mine. Please check the data in the environment.");
         }
         Assert.assertEquals(incommings[0].getReadableContent(), message1);
         Assert.assertEquals(incommings[1].getMessageBody(), message2);
 
-        // Because of the distributed environment and the network
-        sleep(10);
         consumer.close();
     }
 
