@@ -37,6 +37,7 @@ public class ITProcessing {
         }
         config.setLookupAddresses(props.getProperty("lookup-addresses"));
         config.setTopic(props.getProperty("topic"));
+        config.setConsumerName("");
         // load
         props.clear();
     }
