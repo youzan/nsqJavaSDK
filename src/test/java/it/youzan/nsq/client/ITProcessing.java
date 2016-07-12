@@ -4,12 +4,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import com.youzan.nsq.client.Consumer;
@@ -26,91 +27,116 @@ public class ITProcessing {
     private static final Logger logger = LoggerFactory.getLogger(ITProcessing.class);
 
     private final Random random = new Random();
-    private NSQConfig config;
 
-    @BeforeClass
-    public void init() throws NSQException, IOException {
-        config = new NSQConfig();
+    @Test
+    public void processBinary() throws NSQException, IOException, InterruptedException {
+        final NSQConfig config = new NSQConfig();
         final Properties props = new Properties();
         try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {
             props.load(is);
         }
+        final String env = props.getProperty("env");
+        final String consumeName = env + "-" + this.getClass().getName();
+
         config.setLookupAddresses(props.getProperty("lookup-addresses"));
-        config.setTopic(props.getProperty("topic"));
-        final String name = props.getProperty("env") + "-" + this.getClass().getName();
-        config.setConsumerName(name);
+        config.setTopic(props.getProperty("topic-prefix") + "_BinaryType_BeEmpty");
+        config.setConsumerName(consumeName);
         config.setConnectTimeoutInMillisecond(Integer.valueOf(props.getProperty("connectTimeoutInMillisecond")));
         config.setTimeoutInSecond(Integer.valueOf(props.getProperty("timeoutInSecond")));
         config.setMsgTimeoutInMillisecond(Integer.valueOf(props.getProperty("msgTimeoutInMillisecond")));
         config.setThreadPoolSize4IO(Integer.valueOf(props.getProperty("threadPoolSize4IO")));
-        // load
         props.clear();
-    }
 
-    @SuppressWarnings("deprecation")
-    @Test
-    public void process() throws NSQException {
-        // Generate some messages
-        // Publish to the data-node
-        // Get the messsages
-        // Validate the messages
-        final NSQMessage[] incommings = new NSQMessage[2];
+        final int size = 1;
+        final CountDownLatch latch = new CountDownLatch(size);
+        final NSQMessage[] incommings = new NSQMessage[size];
         final AtomicInteger index = new AtomicInteger(0);
         final MessageHandler handler = new MessageHandler() {
             @Override
             public void process(NSQMessage message) {
-                logger.debug("Receiving ...*************************************{}", message);
                 incommings[index.getAndIncrement()] = message;
+                latch.countDown();
             }
         };
         final Consumer consumer = new ConsumerImplV2(config, handler);
         consumer.start();
         /******************************
-         * string type
-         ***************************/
-        final String message1 = MessageUtil.randomString();
-        try (Producer p = new ProducerImplV2(config)) {
-            p.start();
-            p.publish(message1);
-        } catch (NSQException e) {
-            logger.error("Exception", e);
-        }
-        /******************************
-         * byte type
-         *****************************/
-        sleep(1);
-        final byte[] message2 = new byte[1024];
-        random.nextBytes(message2);
+         * Produce a byte type
+         ******************************/
+        final byte[] message = new byte[1024];
+        random.nextBytes(message);
         try (Producer p = new ProducerImplV2(config);) {
             p.start();
-            p.publish(message2);
+            p.publish(message);
         } catch (NSQException e) {
             logger.error("Exception", e);
         }
         // Because of the distributed environment and the network, after
         // publishing
-        sleep(1000);
-
-        for (NSQMessage msg : incommings) {
-            logger.debug("======================={}", msg);
-            Assert.assertEquals(msg.getReadableAttempts(), 1,
-                    "The message is not mine. Please check the data in the environment.");
-        }
-        Assert.assertEquals(incommings[0].getReadableContent(), message1);
-        Assert.assertEquals(incommings[1].getMessageBody(), message2);
-
+        latch.await(1, TimeUnit.MINUTES);
         consumer.close();
+
+        final NSQMessage actualMsg = incommings[0];
+        Assert.assertEquals(actualMsg.getReadableAttempts(), 1,
+                "The message is not mine. Please check the data in the environment.");
+        Assert.assertEquals(actualMsg.getMessageBody(), message);
     }
 
-    /**
-     * @param millisecond
-     */
-    private void sleep(final long millisecond) {
-        try {
-            Thread.sleep(millisecond);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            logger.error("System is too busy! Please check it!", e);
+    // Generate some messages
+    // Publish to the data-node
+    // Get the messsages
+    // Validate the messages
+    @SuppressWarnings("deprecation")
+    @Test
+    public void processString() throws NSQException, InterruptedException, IOException {
+        final NSQConfig config = new NSQConfig();
+        final Properties props = new Properties();
+        try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {
+            props.load(is);
         }
+        final String env = props.getProperty("env");
+        final String consumeName = env + "-" + this.getClass().getName();
+
+        config.setLookupAddresses(props.getProperty("lookup-addresses"));
+        config.setTopic(props.getProperty("topic-prefix") + "_StringType_BeEmpty");
+        config.setConsumerName(consumeName);
+        config.setConnectTimeoutInMillisecond(Integer.valueOf(props.getProperty("connectTimeoutInMillisecond")));
+        config.setTimeoutInSecond(Integer.valueOf(props.getProperty("timeoutInSecond")));
+        config.setMsgTimeoutInMillisecond(Integer.valueOf(props.getProperty("msgTimeoutInMillisecond")));
+        config.setThreadPoolSize4IO(Integer.valueOf(props.getProperty("threadPoolSize4IO")));
+        props.clear();
+
+        final int size = 1;
+        final CountDownLatch latch = new CountDownLatch(size);
+        final NSQMessage[] incommings = new NSQMessage[size];
+        final AtomicInteger index = new AtomicInteger(0);
+        final MessageHandler handler = new MessageHandler() {
+            @Override
+            public void process(NSQMessage message) {
+                incommings[index.getAndIncrement()] = message;
+                latch.countDown();
+            }
+        };
+        final Consumer consumer = new ConsumerImplV2(config, handler);
+        consumer.start();
+        /******************************
+         * Produce a string type
+         ******************************/
+        final String message = MessageUtil.randomString();
+        try (Producer p = new ProducerImplV2(config)) {
+            p.start();
+            p.publish(message);
+        } catch (NSQException e) {
+            logger.error("Exception", e);
+        }
+        // Because of the distributed environment and the network, after
+        // publishing
+        latch.await(1, TimeUnit.MINUTES);
+        consumer.close();
+
+        final NSQMessage actualMsg = incommings[0];
+        Assert.assertEquals(actualMsg.getReadableAttempts(), 1,
+                "The message is not mine. Please check the data in the environment.");
+        Assert.assertEquals(actualMsg.getReadableContent(), message);
     }
 }
