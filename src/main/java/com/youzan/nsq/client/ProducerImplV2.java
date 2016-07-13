@@ -172,24 +172,19 @@ public class ProducerImplV2 implements Producer {
     }
 
     @Override
-    public void publish(String message) throws NSQException {
-        if (message == null || message.isEmpty()) {
-            throw new NSQInvalidMessageException("Your input is blank!");
-        }
-        publish(message.getBytes(IOUtil.DEFAULT_CHARSET));
-    }
-
-    @Override
-    public void publish(byte[] message) throws NSQException {
+    public void publish(byte[] message, String topic) throws NSQException {
         if (!started) {
             throw new IllegalStateException("Producer must be started before producing messages!");
         }
         if (message == null || message.length <= 0) {
             throw new IllegalArgumentException("Your input is blank! Please check it!");
         }
+        if (null == topic || topic.isEmpty()) {
+            throw new IllegalArgumentException("Topic name is blank!");
+        }
         total.incrementAndGet();
         lastTimeInMillisOfClientRequest = System.currentTimeMillis();
-        final Pub pub = new Pub(config.getTopic(), message);
+        final Pub pub = new Pub(topic, message);
         int c = 0; // be continuous
         while (c++ < 6) {
             if (c > 1) {
@@ -217,6 +212,19 @@ public class ProducerImplV2 implements Producer {
             }
         }
         throw new NSQDataNodesDownException();
+    }
+
+    @Override
+    public void publish(String message) throws NSQException {
+        if (message == null || message.isEmpty()) {
+            throw new NSQInvalidMessageException("Your input is blank!");
+        }
+        publish(message.getBytes(IOUtil.DEFAULT_CHARSET));
+    }
+
+    @Override
+    public void publish(byte[] message) throws NSQException {
+        publish(message, config.getTopic());
     }
 
     @Override
@@ -340,4 +348,5 @@ public class ProducerImplV2 implements Producer {
             logger.error("Your machine is too busy! Please check it!");
         }
     }
+
 }

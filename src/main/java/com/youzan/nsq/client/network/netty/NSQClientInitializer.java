@@ -10,7 +10,8 @@ public class NSQClientInitializer extends ChannelInitializer<SocketChannel> {
     @Override
     protected void initChannel(SocketChannel ch) throws Exception {
         ChannelPipeline pipeline = ch.pipeline();
-        LengthFieldBasedFrameDecoder dec = new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, 0, Integer.BYTES);
+        final int Integer_BYTES = 4;
+        LengthFieldBasedFrameDecoder dec = new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, 0, Integer_BYTES);
         dec.setSingleDecode(true);
 
         pipeline.addLast("IdleStateHandler", new IdleStateHandler(120, 120, 120));

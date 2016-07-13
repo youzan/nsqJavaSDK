@@ -18,6 +18,7 @@ public class NSQMessage {
     private final byte[] attempts;
     private final byte[] messageID;
     private final byte[] messageBody;
+    private final Address address;
 
     /**
      * all the parameters is the NSQ message format!
@@ -31,11 +32,12 @@ public class NSQMessage {
      * @param messageBody
      *            the raw bytes from the data-node
      */
-    public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] messageBody) {
+    public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] messageBody, Address address) {
         this.timestamp = timestamp;
         this.attempts = attempts;
         this.messageID = messageID;
         this.messageBody = messageBody;
+        this.address = address;
         // Readable
         this.datetime = new Date(TimeUnit.NANOSECONDS.toMillis(toLong(timestamp)));
         this.readableAttempts = toUnsignedShort(attempts);
@@ -124,8 +126,16 @@ public class NSQMessage {
         return readableAttempts;
     }
 
+    /**
+     * @return the address
+     */
+    public Address getAddress() {
+        return address;
+    }
+
     private long toLong(byte[] bytes) {
-        final ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+        final int Long_BYTES = 8;
+        final ByteBuffer buffer = ByteBuffer.allocate(Long_BYTES);
         buffer.put(bytes);
         buffer.flip();// need flip
         return buffer.getLong();

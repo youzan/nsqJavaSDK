@@ -7,7 +7,7 @@ import com.youzan.nsq.client.entity.NSQMessage;
  * 
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
-@FunctionalInterface
+// @FunctionalInterface
 public interface MessageHandler {
 
     /**

@@ -93,8 +93,9 @@ public class NSQFeatureDetectionHandler extends SimpleChannelInboundHandler<NSQF
         // now!
         pipeline.remove(this);
         if (reinstallDefaultDecoder) {
+            final int Integer_BYTES = 4;
             pipeline.replace("LengthFieldBasedFrameDecoder", "LengthFieldBasedFrameDecoder",
-                    new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, 0, Integer.BYTES));
+                    new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, 0, Integer_BYTES));
         }
     }
 

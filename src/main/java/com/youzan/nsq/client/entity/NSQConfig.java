@@ -27,6 +27,8 @@ public class NSQConfig implements java.io.Serializable {
     private static final long serialVersionUID = 6624842850216901700L;
     private static final Logger logger = LoggerFactory.getLogger(NSQConfig.class);
 
+    private static volatile int id = 0;
+
     private boolean havingMonitoring = false;
 
     public enum Compression {
@@ -84,7 +86,7 @@ public class NSQConfig implements java.io.Serializable {
         try {
             hostname = HostUtil.getLocalIP();
             // JDK8, string contact is OK.
-            clientId = "IP:" + IPUtil.ipv4(hostname) + ", PID:" + SystemUtil.getPID();
+            clientId = "IP:" + IPUtil.ipv4(hostname) + ", PID:" + SystemUtil.getPID() + ", ID:" + (id++);
         } catch (Exception e) {
             throw new NSQException("System cann't get the IPv4!", e);
         }

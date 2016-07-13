@@ -37,6 +37,7 @@ import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.entity.Response;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQInvalidDataNodeException;
+import com.youzan.nsq.client.exception.NoConnectionException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.MessageFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
@@ -463,7 +464,7 @@ public class ConsumerImplV2 implements Consumer {
             receiving.incrementAndGet();
             final MessageFrame msg = (MessageFrame) frame;
             final NSQMessage message = new NSQMessage(msg.getTimestamp(), msg.getAttempts(), msg.getMessageID(),
-                    msg.getMessageBody());
+                    msg.getMessageBody(), conn.getAddress());
             processMessage(message, conn);
             return;
         }
@@ -655,5 +656,19 @@ public class ConsumerImplV2 implements Consumer {
             return future.isSuccess();
         }
         return false;
+    }
+
+    @Override
+    public void finish(NSQMessage message) throws NSQException {
+        final HashSet<NSQConnection> conns = holdingConnections.get(message.getAddress());
+        if (conns != null) {
+            for (NSQConnection c : conns) {
+                if (c.isConnected()) {
+                    c.command(new Finish(message.getMessageID()));
+                    return;
+                }
+            }
+        }
+        throw new NoConnectionException("The connection is broken and please do it again.");
     }
 }
