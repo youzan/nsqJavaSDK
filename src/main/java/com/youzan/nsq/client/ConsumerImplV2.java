@@ -1,10 +1,8 @@
 package com.youzan.nsq.client;
 
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
@@ -12,7 +10,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -60,11 +58,15 @@ public class ConsumerImplV2 implements Consumer {
 
     private static final Logger logger = LoggerFactory.getLogger(ConsumerImplV2.class);
     private volatile boolean started = false;
+    private final AtomicBoolean closing = new AtomicBoolean(false);
+
     private final Client simpleClient;
     private final NSQConfig config;
     private final GenericKeyedObjectPoolConfig poolConfig;
     private final KeyedPooledConnectionFactory factory;
     private GenericKeyedObjectPool<Address, NSQConnection> bigPool = null;
+
+    private final AtomicInteger receiving = new AtomicInteger(0);
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger total = new AtomicInteger(0);
     /**
@@ -77,7 +79,7 @@ public class ConsumerImplV2 implements Consumer {
      * 
      * =========================================================================
      */
-    private final ConcurrentHashMap<Address, Set<NSQConnection>> holdingConnections = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Address, HashSet<NSQConnection>> holdingConnections = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
 
@@ -90,12 +92,12 @@ public class ConsumerImplV2 implements Consumer {
     private final int WORKER_SIZE = Runtime.getRuntime().availableProcessors() * 4;
     private final ExecutorService executor = Executors.newFixedThreadPool(WORKER_SIZE,
             new NamedThreadFactory(this.getClass().getName() + "-ClientBusiness", Thread.MAX_PRIORITY));
-    private volatile Optional<ScheduledFuture<?>> timeout = Optional.empty();
-    private volatile long nextTimeout = 0;
-    private final int messagesPerBatch = 10;
-    private final AtomicBoolean closing = new AtomicBoolean(false);
 
-    private final NSQCommand DEFAULT_RDY = new Rdy(messagesPerBatch);
+    private final int messagesPerBatch = 10;
+    private final Rdy DEFAULT_RDY = new Rdy(messagesPerBatch);
+    private final Rdy MEDIUM_RDY = new Rdy((int) (messagesPerBatch * 0.3D));
+    private final Rdy LOW_RDY = new Rdy(1);
+    private volatile Rdy currentRdy = DEFAULT_RDY;
 
     /**
      * @param config
@@ -165,11 +167,14 @@ public class ConsumerImplV2 implements Consumer {
      */
     private void keepConnecting() {
         final int delay = _r.nextInt(60) + 45; // seconds
-        scheduler.scheduleWithFixedDelay(() -> {
-            try {
-                connect();
-            } catch (Exception e) {
-                logger.error("Exception", e);
+        scheduler.scheduleWithFixedDelay(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    connect();
+                } catch (Exception e) {
+                    logger.error("Exception", e);
+                }
             }
         }, delay, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
     }
@@ -180,7 +185,21 @@ public class ConsumerImplV2 implements Consumer {
      */
     private void connect() {
         final Set<Address> broken = new HashSet<>();
-        holdingConnections.values().parallelStream().forEach((conns) -> {
+        for (final HashSet<NSQConnection> conns : holdingConnections.values()) {
+            for (final NSQConnection c : conns) {
+                try {
+                    if (!c.isConnected()) {
+                        c.close();
+                        broken.add(c.getAddress());
+                    }
+                } catch (Exception e) {
+                    logger.error("Exception occurs while detecting broken connections!", e);
+                }
+            }
+        }
+        // JDK8
+        /*
+         holdingConnections.values().parallelStream().forEach((conns) -> {
             for (final NSQConnection c : conns) {
                 try {
                     if (!c.isConnected()) {
@@ -192,7 +211,7 @@ public class ConsumerImplV2 implements Consumer {
                 }
             }
         });
-
+        */
         final Set<Address> newDataNodes = getDataNodes().newSortedSet();
         final Set<Address> oldDataNodes = new TreeSet<>(this.holdingConnections.keySet());
         logger.debug("Prepare to connect new data-nodes(NSQd): {} , old data-nodes(NSQd): {}", newDataNodes,
@@ -227,6 +246,29 @@ public class ConsumerImplV2 implements Consumer {
         if (except2.isEmpty()) {
             // logger.debug("No need to destory old NSQd connections!");
         } else {
+            for (Address address : except2) {
+                if (address == null) {
+                    return;
+                }
+                bigPool.clear(address);
+                if (holdingConnections.containsKey(address)) {
+                    final Set<NSQConnection> conns = holdingConnections.get(address);
+                    if (conns != null) {
+                        for (NSQConnection c : conns) {
+                            try {
+                                backoff(c);
+                            } catch (Exception e) {
+                                logger.error("It can not backoff the connection!", e);
+                            } finally {
+                                IOUtil.closeQuietly(c);
+                            }
+                        }
+                    }
+                }
+                holdingConnections.remove(address);
+            }
+            // JDK8
+            /*
             except2.parallelStream().forEach((address) -> {
                 if (address == null) {
                     return;
@@ -248,13 +290,29 @@ public class ConsumerImplV2 implements Consumer {
                 }
                 holdingConnections.remove(address);
             });
+            */
         }
+
         /*-
          * =====================================================================
          *                                Step 3:
          *                          干掉Broken Brokers.
          * =====================================================================
          */
+
+        for (Address address : broken) {
+            if (address == null) {
+                continue;
+            }
+            try {
+                clearDataNode(address);
+            } catch (Exception e) {
+                logger.error("Exception", e);
+            }
+        }
+
+        // JDK8
+        /*
         broken.parallelStream().forEach((address) -> {
             if (address == null) {
                 return;
@@ -265,6 +323,7 @@ public class ConsumerImplV2 implements Consumer {
                 logger.error("Exception", e);
             }
         });
+        */
         /*-
          * =====================================================================
          *                                Step 4:
@@ -295,6 +354,15 @@ public class ConsumerImplV2 implements Consumer {
      *            the data-node(NSQd)'s addresses
      */
     private void newConnections(final Set<Address> brokers) {
+        for (Address address : brokers) {
+            try {
+                newConnections4OneBroker(address);
+            } catch (Exception e) {
+                logger.error("Exception", e);
+            }
+        }
+        // JDK8
+        /*
         brokers.parallelStream().forEach((address) -> {
             try {
                 newConnections4OneBroker(address);
@@ -302,6 +370,7 @@ public class ConsumerImplV2 implements Consumer {
                 logger.error("Exception", e);
             }
         });
+        */
     }
 
     /**
@@ -326,7 +395,8 @@ public class ConsumerImplV2 implements Consumer {
                 newConn = bigPool.borrowObject(address);
                 initConn(newConn); // subscribe
                 if (!holdingConnections.containsKey(address)) {
-                    holdingConnections.putIfAbsent(address, new HashSet<>());
+                    // JDK7
+                    holdingConnections.putIfAbsent(address, new HashSet<NSQConnection>());
                 }
                 holdingConnections.get(address).add(newConn);
                 okConns.add(newConn);
@@ -383,12 +453,14 @@ public class ConsumerImplV2 implements Consumer {
                 }
             }
         }
+        currentRdy = DEFAULT_RDY;
         newConn.command(DEFAULT_RDY);
     }
 
     @Override
     public void incoming(final NSQFrame frame, final NSQConnection conn) throws NSQException {
         if (frame != null && frame.getType() == FrameType.MESSAGE_FRAME) {
+            receiving.incrementAndGet();
             final MessageFrame msg = (MessageFrame) frame;
             final NSQMessage message = new NSQMessage(msg.getTimestamp(), msg.getAttempts(), msg.getMessageID(),
                     msg.getMessageBody());
@@ -404,26 +476,71 @@ public class ConsumerImplV2 implements Consumer {
             return;
         }
         try {
-            executor.execute(() -> {
-                try {
-                    consume(message, conn);
-                } catch (Exception e) {
-                    IOUtil.closeQuietly(conn);
-                    logger.error("Exception", e);
+            executor.execute(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        consume(message, conn);
+                        success.incrementAndGet();
+                    } catch (Exception e) {
+                        IOUtil.closeQuietly(conn);
+                        logger.error("Exception", e);
+                    }
                 }
             });
-            if (nextTimeout > 0) {
-                updateTimeout(conn, -1000);
-            }
         } catch (RejectedExecutionException re) {
-            updateTimeout(conn, 1500);
-            conn.command(new ReQueue(message.getMessageID(), 3));
-            logger.info("Do a re-queue. MessageID:{}", message.getMessageID());
+            try {
+                backoff(conn);
+                conn.command(new ReQueue(message.getMessageID(), 3));
+                logger.info("Do a re-queue. MessageID:{}", message.getMessageID());
+                resumeRateLimiting(conn, 0);
+            } catch (Exception e) {
+                logger.error("I cann't handle it MessageID:{}, {}", message.getMessageID(), e);
+            }
         }
-        final long nowTotal = total.incrementAndGet();
-        if ((nowTotal % messagesPerBatch) > (messagesPerBatch / 2) && closing.get() == false) {
-            conn.command(DEFAULT_RDY);
+        total.incrementAndGet();
+        resumeRateLimiting(conn, 1000);
+    }
+
+    /**
+     * @param NSQConnection
+     */
+    private void resumeRateLimiting(final NSQConnection conn, final int delayInMillisecond) {
+        if (executor instanceof ThreadPoolExecutor) {
+            if (delayInMillisecond <= 0) {
+                final ThreadPoolExecutor pools = (ThreadPoolExecutor) executor;
+                final double threshold = pools.getActiveCount() / (1.0D * pools.getPoolSize());
+                logger.info("Current status is not good. threshold: {}", threshold);
+                if (threshold >= 0.9D) {
+                    currentRdy = LOW_RDY;
+                } else if (threshold >= 0.8D) {
+                    currentRdy = MEDIUM_RDY;
+                } else {
+                    currentRdy = DEFAULT_RDY;
+                }
+                // Ignore the data-race
+                conn.command(currentRdy);
+            } else {
+                if (currentRdy != DEFAULT_RDY) {
+                    final ThreadPoolExecutor pools = (ThreadPoolExecutor) executor;
+                    final double threshold = pools.getActiveCount() / (1.0D * pools.getPoolSize());
+                    logger.info("Current threshold state: {}", threshold);
+                    scheduler.schedule(new Runnable() {
+                        @Override
+                        public void run() {
+                            // restore the state
+                            if (threshold <= 0.3D) {
+                                currentRdy = DEFAULT_RDY;
+                                conn.command(DEFAULT_RDY);
+                            }
+                        }
+                    }, delayInMillisecond, TimeUnit.MILLISECONDS);
+                }
+            }
+        } else {
+            logger.error("Initing the executor is wroing.");
         }
+        assert currentRdy != null;
     }
 
     /**
@@ -461,47 +578,6 @@ public class ConsumerImplV2 implements Consumer {
         conn.command(cmd);
     }
 
-    /**
-     * @param conn
-     * @param change
-     */
-    private void updateTimeout(final NSQConnection conn, final int change) {
-        logger.debug("RDY 0! Halt Flow.");
-        backoff(conn);
-        if (closing.get()) {
-            return;
-        }
-        if (timeout.isPresent()) {
-            timeout.get().cancel(true);
-        }
-        final Date newTimeout = calculateTimeoutDate(change);
-        if (newTimeout != null) {
-            timeout = Optional.of(scheduler.schedule(() -> {
-                try {
-                    logger.debug("Rdy 1 ...");
-                    conn.command(new Rdy(1)); // test the waters
-                    logger.debug("Rdy 1 OK.");
-                } catch (Exception e) {
-                    logger.error("Exception", e);
-                }
-            }, 0, TimeUnit.MILLISECONDS));
-        }
-    }
-
-    /**
-     * @param change
-     * @return
-     */
-    private Date calculateTimeoutDate(final int change) {
-        if (System.currentTimeMillis() - nextTimeout + change > 50) {
-            nextTimeout += change;
-            return new Date();
-        } else {
-            nextTimeout = 0;
-            return null;
-        }
-    }
-
     @Override
     public void backoff(NSQConnection conn) {
         simpleClient.backoff(conn);
@@ -523,6 +599,26 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     private void cleanClose() {
+        for (HashSet<NSQConnection> conns : holdingConnections.values()) {
+            for (final NSQConnection c : conns) {
+                try {
+                    backoff(c);
+                    final NSQFrame frame = c.commandAndGetResponse(Close.getInstance());
+                    if (frame != null && frame.getType() == FrameType.ERROR_FRAME) {
+                        final Response err = ((ErrorFrame) frame).getError();
+                        if (err != null) {
+                            logger.error(err.getContent());
+                        }
+                    }
+                } catch (Exception e) {
+                    logger.error("Exception", e);
+                } finally {
+                    IOUtil.closeQuietly(c);
+                }
+            }
+        }
+
+        /*
         holdingConnections.values().parallelStream().forEach((conns) -> {
             for (final NSQConnection c : conns) {
                 try {
@@ -541,6 +637,8 @@ public class ConsumerImplV2 implements Consumer {
                 }
             }
         });
+        */
+
         holdingConnections.clear();
     }
 
@@ -551,6 +649,7 @@ public class ConsumerImplV2 implements Consumer {
 
     @Override
     public boolean validateHeartbeat(NSQConnection conn) {
+        currentRdy = DEFAULT_RDY;
         final ChannelFuture future = conn.command(DEFAULT_RDY);
         if (future.awaitUninterruptibly(50, TimeUnit.MILLISECONDS)) {
             return future.isSuccess();

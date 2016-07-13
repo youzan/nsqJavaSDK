@@ -10,6 +10,7 @@ import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.List;
 
@@ -40,7 +41,20 @@ public final class HostUtil {
                 }
             }
             if (!ips.isEmpty()) {
-                ips.sort((s1, s2) -> s1.compareTo(s2));
+                // JDK8
+                // (s1, s2) -> s1.compareTo(s2)
+                ips.sort(new Comparator<String>() {
+                    @Override
+                    public int compare(String s1, String s2) {
+                        if (s1 == null) {
+                            return -1;
+                        }
+                        if (s2 == null) {
+                            return 1;
+                        }
+                        return s1.compareTo(s2);
+                    }
+                });
                 return ips.get(0);
             }
 

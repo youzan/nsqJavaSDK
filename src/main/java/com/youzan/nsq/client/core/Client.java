@@ -62,15 +62,5 @@ public interface Client {
 
     void clearDataNode(Address address);
 
-    default void sleep(final long millisecond) {
-        logger.debug("Sleep {} millisecond.", millisecond);
-        try {
-            Thread.sleep(millisecond);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            logger.error("Your machine is too busy! Please check it!");
-        }
-    }
-
     boolean validateHeartbeat(final NSQConnection conn);
 }

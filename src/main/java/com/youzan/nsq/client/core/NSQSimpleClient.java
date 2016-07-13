@@ -62,11 +62,14 @@ public class NSQSimpleClient implements Client {
 
     private void keepDataNodes() {
         final int delay = _r.nextInt(60) + 45; // seconds
-        scheduler.scheduleWithFixedDelay(() -> {
-            try {
-                newDataNodes();
-            } catch (Exception e) {
-                logger.error("Exception", e);
+        scheduler.scheduleWithFixedDelay(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    newDataNodes();
+                } catch (Exception e) {
+                    logger.error("Exception", e);
+                }
             }
         }, delay, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
     }
@@ -135,4 +138,13 @@ public class NSQSimpleClient implements Client {
         return false;
     }
 
+    void sleep(final long millisecond) {
+        logger.debug("Sleep {} millisecond.", millisecond);
+        try {
+            Thread.sleep(millisecond);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Your machine is too busy! Please check it!");
+        }
+    }
 }

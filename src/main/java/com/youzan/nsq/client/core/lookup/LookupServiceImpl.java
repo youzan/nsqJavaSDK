@@ -119,11 +119,14 @@ public class LookupServiceImpl implements LookupService {
      */
     public void keepLookupServers() {
         final int delay = _r.nextInt(60) + 45; // seconds
-        scheduler.scheduleWithFixedDelay(() -> {
-            try {
-                newLookupServers();
-            } catch (Exception e) {
-                logger.error("Exception", e);
+        scheduler.scheduleWithFixedDelay(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    newLookupServers();
+                } catch (Exception e) {
+                    logger.error("Exception", e);
+                }
             }
         }, delay, 60, TimeUnit.SECONDS);
     }

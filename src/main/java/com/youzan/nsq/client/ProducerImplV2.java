@@ -330,4 +330,14 @@ public class ProducerImplV2 implements Producer {
     public boolean validateHeartbeat(NSQConnection conn) {
         return simpleClient.validateHeartbeat(conn);
     }
+
+    void sleep(final long millisecond) {
+        logger.debug("Sleep {} millisecond.", millisecond);
+        try {
+            Thread.sleep(millisecond);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Your machine is too busy! Please check it!");
+        }
+    }
 }

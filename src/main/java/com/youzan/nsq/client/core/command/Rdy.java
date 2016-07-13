@@ -18,8 +18,10 @@ public class Rdy implements NSQCommand {
     private static final Logger logger = LoggerFactory.getLogger(Rdy.class);
 
     private final byte[] data;
+    private final int count;
 
     public Rdy(final int count) {
+        this.count = count;
         final byte[] cmd = "RDY ".getBytes(UTF8);
         final byte[] countBytes = String.valueOf(count).getBytes(DEFAULT_CHARSET);
         final ByteBuffer bb = ByteBuffer.allocate(cmd.length + countBytes.length + 1);
@@ -41,5 +43,9 @@ public class Rdy implements NSQCommand {
     @Override
     public List<byte[]> getBody() {
         return EMPTY_BODY;
+    }
+
+    public int getRdyCount() {
+        return count;
     }
 }
