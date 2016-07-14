@@ -44,7 +44,7 @@ public class ITProducer {
         props.clear();
     }
 
-    @DataProvider(name = "topics", parallel = true)
+    @DataProvider(name = "topics", parallel = false)
     public Object[][] createData() {
         return new Object[][] { { "test" }, { "test_finish" }, { "test_reQueue" } };
     }

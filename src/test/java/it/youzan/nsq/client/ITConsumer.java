@@ -40,7 +40,6 @@ public class ITConsumer {
         final String consumeName = env + "-" + this.getClass().getName();
 
         config.setLookupAddresses(props.getProperty("lookup-addresses"));
-        config.setTopic("test");
         config.setConsumerName(consumeName);
         config.setConnectTimeoutInMillisecond(Integer.valueOf(props.getProperty("connectTimeoutInMillisecond")));
         config.setTimeoutInSecond(Integer.valueOf(props.getProperty("timeoutInSecond")));
@@ -61,9 +60,11 @@ public class ITConsumer {
                 total.incrementAndGet();
             }
         };
-        try (final Consumer consumer = new ConsumerImplV2(config, handler);) {
+        NSQConfig c = (NSQConfig) config.clone();
+        c.setTopic("test");
+        try (final Consumer consumer = new ConsumerImplV2(c, handler);) {
             consumer.start();
-            latch.await(1, TimeUnit.MINUTES);
+            latch.await(2, TimeUnit.MINUTES);
         } finally {
             logger.info("It has {} messages received.", total.get());
         }
@@ -83,7 +84,7 @@ public class ITConsumer {
             }
         };
         NSQConfig c = (NSQConfig) config.clone();
-        c.setTopic(config.getTopic() + "_finish");
+        c.setTopic("test_finish");
         try (final Consumer consumer = new ConsumerImplV2(c, handler);) {
             consumer.start();
             latch.await(2, TimeUnit.MINUTES);
@@ -114,7 +115,7 @@ public class ITConsumer {
             }
         };
         NSQConfig c = (NSQConfig) config.clone();
-        c.setTopic(config.getTopic() + "_reQueue");
+        c.setTopic("test_reQueue");
         try (final Consumer consumer = new ConsumerImplV2(c, handler);) {
             consumer.start();
             latch.await(2, TimeUnit.MINUTES);
