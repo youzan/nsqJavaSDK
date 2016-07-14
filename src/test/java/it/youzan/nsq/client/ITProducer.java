@@ -36,7 +36,6 @@ public class ITProducer {
         final String consumeName = env + "-" + this.getClass().getName();
 
         config.setLookupAddresses(props.getProperty("lookup-addresses"));
-        config.setTopic("test");
         config.setConnectTimeoutInMillisecond(Integer.valueOf(props.getProperty("connectTimeoutInMillisecond")));
         config.setTimeoutInSecond(Integer.valueOf(props.getProperty("timeoutInSecond")));
         config.setMsgTimeoutInMillisecond(Integer.valueOf(props.getProperty("msgTimeoutInMillisecond")));
@@ -51,6 +50,7 @@ public class ITProducer {
 
     @Test(dataProvider = "topics")
     public void produce(String topic) throws NSQException {
+        config.setTopic(topic);
         try (final Producer p = new ProducerImplV2(config);) {
             p.start();
             final byte[] message = new byte[1024];

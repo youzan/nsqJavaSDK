@@ -8,3 +8,7 @@
   * Dev_Test_JavaClient_BinaryType_BeEmpty
   * Dev_Test_JavaClient_StringType_BeEmpty
   * test
+  * test_finish
+  * test_reQueue
+  * QA_Test_JavaClient_BinaryType_BeEmpty
+  * QA_Test_JavaClient_StringType_BeEmpty

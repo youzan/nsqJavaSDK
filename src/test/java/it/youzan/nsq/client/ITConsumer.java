@@ -62,7 +62,7 @@ public class ITConsumer {
         };
         NSQConfig c = (NSQConfig) config.clone();
         c.setTopic("test");
-        try (final Consumer consumer = new ConsumerImplV2(c, handler);) {
+        try (final Consumer consumer = new ConsumerImplV2(c, handler)) {
             consumer.start();
             latch.await(2, TimeUnit.MINUTES);
         } finally {
@@ -85,7 +85,7 @@ public class ITConsumer {
         };
         NSQConfig c = (NSQConfig) config.clone();
         c.setTopic("test_finish");
-        try (final Consumer consumer = new ConsumerImplV2(c, handler);) {
+        try (final Consumer consumer = new ConsumerImplV2(c, handler)) {
             consumer.start();
             latch.await(2, TimeUnit.MINUTES);
             Assert.assertFalse(collector.isEmpty());
@@ -96,7 +96,7 @@ public class ITConsumer {
         }
     }
 
-    @Test(dependsOnGroups = { "ITProducer" })
+    @Test(dependsOnGroups = { "ITProducer" }, groups = { "ProducerReQueue" })
     public void reQueue() throws NSQException, InterruptedException {
         final CountDownLatch latch = new CountDownLatch(1);
         final AtomicInteger total = new AtomicInteger(0);
@@ -116,9 +116,34 @@ public class ITConsumer {
         };
         NSQConfig c = (NSQConfig) config.clone();
         c.setTopic("test_reQueue");
-        try (final Consumer consumer = new ConsumerImplV2(c, handler);) {
+        try (final Consumer consumer = new ConsumerImplV2(c, handler)) {
             consumer.start();
-            latch.await(2, TimeUnit.MINUTES);
+            latch.await(30, TimeUnit.SECONDS);
+            Assert.assertFalse(collector.isEmpty());
+            consumer.close();
+        } finally {
+            logger.info("It has {} messages received.", total.get());
+        }
+    }
+
+    @Test(dependsOnGroups = { "ProducerReQueue" })
+    public void finishReQueue() throws NSQException, InterruptedException {
+        final CountDownLatch latch = new CountDownLatch(1);
+        final AtomicInteger total = new AtomicInteger(0);
+        final List<NSQMessage> collector = new ArrayList<>();
+        final MessageHandler handler = new MessageHandler() {
+            @Override
+            public void process(NSQMessage message) {
+                collector.add(message);
+                latch.countDown();
+                total.incrementAndGet();
+            }
+        };
+        NSQConfig c = (NSQConfig) config.clone();
+        c.setTopic("test_reQueue");
+        try (final Consumer consumer = new ConsumerImplV2(c, handler)) {
+            consumer.start();
+            latch.await(1, TimeUnit.MINUTES);
             Assert.assertFalse(collector.isEmpty());
             consumer.close();
         } finally {
