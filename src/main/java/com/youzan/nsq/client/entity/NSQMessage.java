@@ -32,6 +32,8 @@ public class NSQMessage {
      *            the raw bytes from the data-node
      * @param messageBody
      *            the raw bytes from the data-node
+     * @param address
+     *            the address of the message
      */
     public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] messageBody, Address address) {
         this.timestamp = timestamp;

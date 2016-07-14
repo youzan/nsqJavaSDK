@@ -116,7 +116,7 @@ public class ProducerImplV2 implements Producer {
      * that every broker is down or every pool is busy.
      * 
      * @param topic
-     * 
+     *             a topic name 
      * @return a validated {@code NSQConnection}
      * @throws NoConnectionException
      *             that is having done a negotiation
