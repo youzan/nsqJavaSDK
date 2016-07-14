@@ -5,6 +5,8 @@ import java.io.InputStream;
 import java.util.Properties;
 import java.util.Random;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -17,11 +19,14 @@ import com.youzan.nsq.client.exception.NSQException;
 @Test(groups = "ITProducer")
 public class ITProducer {
 
+    private static final Logger logger = LoggerFactory.getLogger(ITProducer.class);
+
     private final Random random = new Random();
     private NSQConfig config;
 
     @BeforeClass
     public void init() throws NSQException, IOException {
+        logger.info("Now init {} at {} .", this.getClass().getName(), System.currentTimeMillis());
         config = new NSQConfig();
         final Properties props = new Properties();
         try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {

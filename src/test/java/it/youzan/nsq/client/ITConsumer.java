@@ -30,6 +30,7 @@ public class ITConsumer {
 
     @BeforeClass
     public void init() throws NSQException, IOException {
+        logger.info("Now init {} at {} .", this.getClass().getName(), System.currentTimeMillis());
         config = new NSQConfig();
         final Properties props = new Properties();
         try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {
@@ -48,7 +49,7 @@ public class ITConsumer {
         props.clear();
     }
 
-    @Test
+    @Test(dependsOnGroups = { "ITProducer" })
     public void consume() throws NSQException, InterruptedException {
         final CountDownLatch latch = new CountDownLatch(1);
         final AtomicInteger total = new AtomicInteger(0);
@@ -67,7 +68,7 @@ public class ITConsumer {
         }
     }
 
-    @Test
+    @Test(dependsOnGroups = { "ITProducer" })
     public void finish() throws NSQException, InterruptedException {
         final CountDownLatch latch = new CountDownLatch(1);
         final AtomicInteger total = new AtomicInteger(0);
@@ -93,6 +94,7 @@ public class ITConsumer {
         }
     }
 
+    @Test(dependsOnGroups = { "ITProducer" })
     public void reQueue() throws NSQException, InterruptedException {
         final CountDownLatch latch = new CountDownLatch(1);
         final AtomicInteger total = new AtomicInteger(0);
@@ -104,7 +106,6 @@ public class ITConsumer {
                 latch.countDown();
                 total.incrementAndGet();
                 try {
-                    logger.info("****************************************");
                     message.setNextConsumingInSecond(2);
                 } catch (NSQException e) {
                     logger.error("Exception", e);
