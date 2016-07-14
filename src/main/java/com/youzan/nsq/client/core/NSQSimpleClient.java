@@ -81,13 +81,15 @@ public class NSQSimpleClient implements Client, Closeable {
 
         for (String topic : topics) {
             final SortedSet<Address> nodes = this.lookup.lookup(topic);
-            if (nodes != null) {
+            if (nodes != null && !nodes.isEmpty()) {
+                final ConcurrentSortedSet<Address> target;
                 if (this.topic_2_dataNodes.containsKey(topic)) {
-                    this.topic_2_dataNodes.get(topic).swap(nodes);
+                    target = this.topic_2_dataNodes.get(topic);
                 } else {
-                    final ConcurrentSortedSet<Address> target = new ConcurrentSortedSet<Address>();
+                    target = new ConcurrentSortedSet<Address>();
                     this.topic_2_dataNodes.putIfAbsent(topic, target);
                 }
+                target.swap(nodes);
                 logger.debug("Now get the current topic: {} , and new data-nodes(NSQd) are {}", topic, nodes);
             }
         }
@@ -112,7 +114,7 @@ public class NSQSimpleClient implements Client, Closeable {
                 try {
                     conn.addErrorFrame(err);
                 } catch (Exception e) {
-                    logger.error("Address: {}, Exception: {}", conn.getAddress(), e);
+                    logger.error("Address: {}, Exception:", conn.getAddress(), e);
                 }
             }
             default: {
@@ -155,6 +157,7 @@ public class NSQSimpleClient implements Client, Closeable {
         return false;
     }
 
+    @Override
     public void close() {
         topic_2_dataNodes.clear();
         scheduler.shutdownNow();

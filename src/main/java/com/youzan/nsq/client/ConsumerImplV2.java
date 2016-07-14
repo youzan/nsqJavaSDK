@@ -213,8 +213,10 @@ public class ConsumerImplV2 implements Consumer {
             }
         });
         */
+        // JDK7
+        final Set<Address> oldAddresses = this.holdingConnections.keySet();
         final Set<Address> newDataNodes = getDataNodes(config.getTopic()).newSortedSet();
-        final Set<Address> oldDataNodes = new TreeSet<>(this.holdingConnections.keySet());
+        final Set<Address> oldDataNodes = new TreeSet<>(oldAddresses);
         logger.debug("Prepare to connect new data-nodes(NSQd): {} , old data-nodes(NSQd): {}", newDataNodes,
                 oldDataNodes);
         if (newDataNodes.isEmpty() && oldDataNodes.isEmpty()) {

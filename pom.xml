@@ -176,6 +176,7 @@
                                     <directory>src/assembly/conf/Dev/</directory>
                                 </resource>
                             </resources>
+                            <outputDirectory>target/test-classes</outputDirectory>
                         </configuration>
                     </plugin>
                 </plugins>

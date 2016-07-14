@@ -22,7 +22,6 @@ import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.exception.NSQException;
 
-@Test(dependsOnGroups = "ITProducer")
 public class ITConsumer {
 
     private static final Logger logger = LoggerFactory.getLogger(ITConsumer.class);
@@ -94,7 +93,6 @@ public class ITConsumer {
         }
     }
 
-    @Test
     public void reQueue() throws NSQException, InterruptedException {
         final CountDownLatch latch = new CountDownLatch(1);
         final AtomicInteger total = new AtomicInteger(0);
@@ -106,6 +104,7 @@ public class ITConsumer {
                 latch.countDown();
                 total.incrementAndGet();
                 try {
+                    logger.info("****************************************");
                     message.setNextConsumingInSecond(2);
                 } catch (NSQException e) {
                     logger.error("Exception", e);

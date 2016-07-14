@@ -41,9 +41,7 @@ public class ITProducer {
 
     @DataProvider(name = "topics", parallel = true)
     public Object[][] createData() {
-        return new Object[][] { { "test" }, { "test_finish" }, { "test_reQueue" }
-
-        };
+        return new Object[][] { { "test" }, { "test_finish" }, { "test_reQueue" } };
     }
 
     @Test(dataProvider = "topics")
