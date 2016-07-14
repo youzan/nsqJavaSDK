@@ -6,6 +6,7 @@ import java.util.Properties;
 import java.util.Random;
 
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import com.youzan.nsq.client.Producer;
@@ -13,6 +14,7 @@ import com.youzan.nsq.client.ProducerImplV2;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.exception.NSQException;
 
+@Test(groups = "ITProducer")
 public class ITProducer {
 
     private final Random random = new Random();
@@ -37,17 +39,24 @@ public class ITProducer {
         props.clear();
     }
 
-    @Test
-    public void produce() throws NSQException {
+    @DataProvider(name = "topics", parallel = true)
+    public Object[][] createData() {
+        return new Object[][] { { "test" }, { "test_finish" }, { "test_reQueue" }
+
+        };
+    }
+
+    @Test(dataProvider = "topics")
+    public void produce(String topic) throws NSQException {
         try (final Producer p = new ProducerImplV2(config);) {
             p.start();
             final byte[] message = new byte[1024];
-
-            random.nextBytes(message);
-            p.publish(message, "test");
-
             random.nextBytes(message);
             p.publish(message);
+            for (int i = 0; i < 2; i++) {
+                random.nextBytes(message);
+                p.publish(message, topic);
+            }
         }
     }
 }

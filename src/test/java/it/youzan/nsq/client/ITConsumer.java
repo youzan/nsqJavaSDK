@@ -22,6 +22,7 @@ import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.exception.NSQException;
 
+@Test(dependsOnGroups = "ITProducer")
 public class ITConsumer {
 
     private static final Logger logger = LoggerFactory.getLogger(ITConsumer.class);
@@ -61,7 +62,7 @@ public class ITConsumer {
         };
         try (final Consumer consumer = new ConsumerImplV2(config, handler);) {
             consumer.start();
-            latch.await(2, TimeUnit.MINUTES);
+            latch.await(1, TimeUnit.MINUTES);
         } finally {
             logger.info("It has {} messages received.", total.get());
         }
@@ -80,11 +81,14 @@ public class ITConsumer {
                 collector.add(message);
             }
         };
-        try (final Consumer consumer = new ConsumerImplV2(config, handler);) {
+        NSQConfig c = (NSQConfig) config.clone();
+        c.setTopic(config.getTopic() + "_finish");
+        try (final Consumer consumer = new ConsumerImplV2(c, handler);) {
             consumer.start();
-            latch.await(2, TimeUnit.MINUTES);
+            latch.await(1, TimeUnit.MINUTES);
             Assert.assertFalse(collector.isEmpty());
             consumer.finish(collector.get(0));
+            consumer.close();
         } finally {
             logger.info("It has {} messages received.", total.get());
         }
@@ -98,6 +102,7 @@ public class ITConsumer {
         final MessageHandler handler = new MessageHandler() {
             @Override
             public void process(NSQMessage message) {
+                collector.add(message);
                 latch.countDown();
                 total.incrementAndGet();
                 try {
@@ -107,10 +112,13 @@ public class ITConsumer {
                 }
             }
         };
-        try (final Consumer consumer = new ConsumerImplV2(config, handler);) {
+        NSQConfig c = (NSQConfig) config.clone();
+        c.setTopic(config.getTopic() + "_reQueue");
+        try (final Consumer consumer = new ConsumerImplV2(c, handler);) {
             consumer.start();
-            latch.await(2, TimeUnit.MINUTES);
+            latch.await(1, TimeUnit.MINUTES);
             Assert.assertFalse(collector.isEmpty());
+            consumer.close();
         } finally {
             logger.info("It has {} messages received.", total.get());
         }

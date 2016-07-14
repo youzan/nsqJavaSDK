@@ -22,7 +22,7 @@ import io.netty.handler.ssl.SslContext;
  * 
  */
 @NotThreadSafe
-public class NSQConfig implements java.io.Serializable {
+public class NSQConfig implements java.io.Serializable, Cloneable {
 
     private static final long serialVersionUID = 6624842850216901700L;
     private static final Logger logger = LoggerFactory.getLogger(NSQConfig.class);
@@ -425,4 +425,16 @@ public class NSQConfig implements java.io.Serializable {
         buffer.append("\"user_agent\": \"" + userAgent + "\"}");
         return buffer.toString();
     }
+
+    @Override
+    public Object clone() {
+        NSQConfig newCfg = null;
+        try {
+            newCfg = (NSQConfig) super.clone();
+        } catch (CloneNotSupportedException e) {
+            logger.error("Exception", e);
+        }
+        return newCfg;
+    }
+
 }

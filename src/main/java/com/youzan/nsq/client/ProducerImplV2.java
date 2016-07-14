@@ -203,8 +203,8 @@ public class ProducerImplV2 implements Producer {
                 return;
             } catch (Exception e) {
                 IOUtil.closeQuietly(conn);
-                logger.error("CurrentRetries: {} , Address: {} , RawMessage: {} , Exception: {}", c, conn.getAddress(),
-                        message, e);
+                logger.error("CurrentRetries: {} , Address: {} , Topic: {}, RawMessage: {} , Exception: ", c,
+                        conn.getAddress(), topic, message, e);
                 // Continue to retry
                 continue;
             } finally {
