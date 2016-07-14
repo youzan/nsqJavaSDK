@@ -51,15 +51,18 @@ public class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
      *            a {@code NSQFrame}
      */
     @Override
-    public void channelRead0(ChannelHandlerContext ctx, NSQFrame msg) {
+    public void channelRead0(final ChannelHandlerContext ctx, final NSQFrame msg) {
         final NSQConnection conn = ctx.channel().attr(NSQConnection.STATE).get();
         final Client worker = ctx.channel().attr(Client.STATE).get();
         if (null != conn && null != worker) {
-            ctx.channel().eventLoop().execute(() -> {
-                try {
-                    worker.incoming(msg, conn);
-                } catch (Exception e) {
-                    logger.error("Exception", e);
+            ctx.channel().eventLoop().execute(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        worker.incoming(msg, conn);
+                    } catch (Exception e) {
+                        logger.error("Exception", e);
+                    }
                 }
             });
         } else {

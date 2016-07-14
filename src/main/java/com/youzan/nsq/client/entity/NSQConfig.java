@@ -1,5 +1,7 @@
 package com.youzan.nsq.client.entity;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,10 +24,12 @@ import io.netty.handler.ssl.SslContext;
  * 
  */
 @NotThreadSafe
-public class NSQConfig implements java.io.Serializable {
+public class NSQConfig implements java.io.Serializable, Cloneable {
 
     private static final long serialVersionUID = 6624842850216901700L;
     private static final Logger logger = LoggerFactory.getLogger(NSQConfig.class);
+
+    private static AtomicInteger id = new AtomicInteger(0);
 
     private boolean havingMonitoring = false;
 
@@ -84,7 +88,8 @@ public class NSQConfig implements java.io.Serializable {
         try {
             hostname = HostUtil.getLocalIP();
             // JDK8, string contact is OK.
-            clientId = "IP:" + IPUtil.ipv4(hostname) + ", PID:" + SystemUtil.getPID();
+            clientId = "IP:" + IPUtil.ipv4(hostname) + ", PID:" + SystemUtil.getPID() + ", ID:"
+                    + (id.getAndIncrement());
         } catch (Exception e) {
             throw new NSQException("System cann't get the IPv4!", e);
         }
@@ -423,4 +428,16 @@ public class NSQConfig implements java.io.Serializable {
         buffer.append("\"user_agent\": \"" + userAgent + "\"}");
         return buffer.toString();
     }
+
+    @Override
+    public Object clone() {
+        NSQConfig newCfg = null;
+        try {
+            newCfg = (NSQConfig) super.clone();
+        } catch (CloneNotSupportedException e) {
+            logger.error("Exception", e);
+        }
+        return newCfg;
+    }
+
 }

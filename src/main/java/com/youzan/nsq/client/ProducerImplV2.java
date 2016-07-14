@@ -64,7 +64,7 @@ public class ProducerImplV2 implements Producer {
         this.config = config;
         this.poolConfig = new GenericKeyedObjectPoolConfig();
 
-        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(), config.getTopic());
+        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses());
         this.factory = new KeyedPooledConnectionFactory(this.config, this);
     }
 
@@ -115,12 +115,14 @@ public class ProducerImplV2 implements Producer {
      * Get a connection foreach every broker in one loop because I don't believe
      * that every broker is down or every pool is busy.
      * 
+     * @param topic
+     *             a topic name 
      * @return a validated {@code NSQConnection}
      * @throws NoConnectionException
      *             that is having done a negotiation
      */
-    protected NSQConnection getNSQConnection() throws NoConnectionException {
-        final ConcurrentSortedSet<Address> dataNodes = getDataNodes();
+    protected NSQConnection getNSQConnection(String topic) throws NoConnectionException {
+        final ConcurrentSortedSet<Address> dataNodes = getDataNodes(topic);
         if (dataNodes.isEmpty()) {
             throw new NoConnectionException("You still didn't start NSQd / lookup-topic / producer.start() !");
         }
@@ -172,31 +174,26 @@ public class ProducerImplV2 implements Producer {
     }
 
     @Override
-    public void publish(String message) throws NSQException {
-        if (message == null || message.isEmpty()) {
-            throw new NSQInvalidMessageException("Your input is blank!");
-        }
-        publish(message.getBytes(IOUtil.DEFAULT_CHARSET));
-    }
-
-    @Override
-    public void publish(byte[] message) throws NSQException {
+    public void publish(byte[] message, String topic) throws NSQException {
         if (!started) {
             throw new IllegalStateException("Producer must be started before producing messages!");
         }
         if (message == null || message.length <= 0) {
             throw new IllegalArgumentException("Your input is blank! Please check it!");
         }
+        if (null == topic || topic.isEmpty()) {
+            throw new IllegalArgumentException("Topic name is blank!");
+        }
         total.incrementAndGet();
         lastTimeInMillisOfClientRequest = System.currentTimeMillis();
-        final Pub pub = new Pub(config.getTopic(), message);
+        final Pub pub = new Pub(topic, message);
         int c = 0; // be continuous
         while (c++ < 6) {
             if (c > 1) {
                 logger.debug("Sleep. CurrentRetries: {}", c);
                 sleep((1 << (c - 1)) * 1000);
             }
-            final NSQConnection conn = getNSQConnection();
+            final NSQConnection conn = getNSQConnection(topic);
             if (conn == null) {
                 // Continue to retry
                 continue;
@@ -208,8 +205,8 @@ public class ProducerImplV2 implements Producer {
                 return;
             } catch (Exception e) {
                 IOUtil.closeQuietly(conn);
-                logger.error("CurrentRetries: {} , Address: {} , RawMessage: {} , Exception: {}", c, conn.getAddress(),
-                        message, e);
+                logger.error("CurrentRetries: {} , Address: {} , Topic: {}, RawMessage: {} , Exception: ", c,
+                        conn.getAddress(), topic, message, e);
                 // Continue to retry
                 continue;
             } finally {
@@ -217,6 +214,19 @@ public class ProducerImplV2 implements Producer {
             }
         }
         throw new NSQDataNodesDownException();
+    }
+
+    @Override
+    public void publish(String message) throws NSQException {
+        if (message == null || message.isEmpty()) {
+            throw new NSQInvalidMessageException("Your input is blank!");
+        }
+        publish(message.getBytes(IOUtil.DEFAULT_CHARSET));
+    }
+
+    @Override
+    public void publish(byte[] message) throws NSQException {
+        publish(message, config.getTopic());
     }
 
     @Override
@@ -247,7 +257,7 @@ public class ProducerImplV2 implements Producer {
                 logger.debug("Sleep. CurrentRetries: {}", c);
                 sleep((1 << (c - 1)) * 1000);
             }
-            final NSQConnection conn = getNSQConnection();
+            final NSQConnection conn = getNSQConnection(config.getTopic());
             if (conn == null) {
                 // Continue to retry
                 continue;
@@ -319,15 +329,27 @@ public class ProducerImplV2 implements Producer {
         if (bigPool != null) {
             bigPool.close();
         }
+        IOUtil.closeQuietly(simpleClient);
     }
 
     @Override
-    public ConcurrentSortedSet<Address> getDataNodes() {
-        return simpleClient.getDataNodes();
+    public ConcurrentSortedSet<Address> getDataNodes(String topic) {
+        return simpleClient.getDataNodes(topic);
     }
 
     @Override
     public boolean validateHeartbeat(NSQConnection conn) {
         return simpleClient.validateHeartbeat(conn);
     }
+
+    void sleep(final long millisecond) {
+        logger.debug("Sleep {} millisecond.", millisecond);
+        try {
+            Thread.sleep(millisecond);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Your machine is too busy! Please check it!");
+        }
+    }
+
 }

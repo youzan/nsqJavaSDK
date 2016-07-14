@@ -73,7 +73,7 @@ public class ITProcessing {
         }
         // Because of the distributed environment and the network, after
         // publishing
-        latch.await(1, TimeUnit.MINUTES);
+        latch.await(2, TimeUnit.MINUTES);
         consumer.close();
 
         final NSQMessage actualMsg = incommings[0];
@@ -131,7 +131,7 @@ public class ITProcessing {
         }
         // Because of the distributed environment and the network, after
         // publishing
-        latch.await(1, TimeUnit.MINUTES);
+        latch.await(2, TimeUnit.MINUTES);
         consumer.close();
 
         final NSQMessage actualMsg = incommings[0];

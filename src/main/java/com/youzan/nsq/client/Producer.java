@@ -25,6 +25,8 @@ public interface Producer extends Client, Closeable {
      */
     void publish(byte[] message) throws NSQException;
 
+    void publish(byte[] message, String topic) throws NSQException;
+
     /**
      * @param message
      *            the client sets it that is be published

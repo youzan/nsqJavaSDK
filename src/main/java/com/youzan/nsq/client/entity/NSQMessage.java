@@ -1,6 +1,7 @@
 package com.youzan.nsq.client.entity;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
@@ -18,6 +19,7 @@ public class NSQMessage {
     private final byte[] attempts;
     private final byte[] messageID;
     private final byte[] messageBody;
+    private final Address address;
 
     /**
      * all the parameters is the NSQ message format!
@@ -30,12 +32,15 @@ public class NSQMessage {
      *            the raw bytes from the data-node
      * @param messageBody
      *            the raw bytes from the data-node
+     * @param address
+     *            the address of the message
      */
-    public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] messageBody) {
+    public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] messageBody, Address address) {
         this.timestamp = timestamp;
         this.attempts = attempts;
         this.messageID = messageID;
         this.messageBody = messageBody;
+        this.address = address;
         // Readable
         this.datetime = new Date(TimeUnit.NANOSECONDS.toMillis(toLong(timestamp)));
         this.readableAttempts = toUnsignedShort(attempts);
@@ -124,8 +129,16 @@ public class NSQMessage {
         return readableAttempts;
     }
 
+    /**
+     * @return the address
+     */
+    public Address getAddress() {
+        return address;
+    }
+
     private long toLong(byte[] bytes) {
-        final ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+        final int Long_BYTES = 8;
+        final ByteBuffer buffer = ByteBuffer.allocate(Long_BYTES);
         buffer.put(bytes);
         buffer.flip();// need flip
         return buffer.getLong();
@@ -170,6 +183,60 @@ public class NSQMessage {
             result.append(String.format("%02X", b));
         }
         return result.toString();
+    }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((address == null) ? 0 : address.hashCode());
+        result = prime * result + Arrays.hashCode(attempts);
+        result = prime * result + Arrays.hashCode(messageBody);
+        result = prime * result + Arrays.hashCode(messageID);
+        result = prime * result + ((nextConsumingInSecond == null) ? 0 : nextConsumingInSecond.hashCode());
+        result = prime * result + Arrays.hashCode(timestamp);
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        NSQMessage other = (NSQMessage) obj;
+        if (address == null) {
+            if (other.address != null) {
+                return false;
+            }
+        } else if (!address.equals(other.address)) {
+            return false;
+        }
+        if (!Arrays.equals(attempts, other.attempts)) {
+            return false;
+        }
+        if (!Arrays.equals(messageBody, other.messageBody)) {
+            return false;
+        }
+        if (!Arrays.equals(messageID, other.messageID)) {
+            return false;
+        }
+        if (nextConsumingInSecond == null) {
+            if (other.nextConsumingInSecond != null) {
+                return false;
+            }
+        } else if (!nextConsumingInSecond.equals(other.nextConsumingInSecond)) {
+            return false;
+        }
+        if (!Arrays.equals(timestamp, other.timestamp)) {
+            return false;
+        }
+        return true;
     }
 
     @Override

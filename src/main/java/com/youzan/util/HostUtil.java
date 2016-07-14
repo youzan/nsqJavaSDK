@@ -3,13 +3,14 @@
  */
 package com.youzan.util;
 
-import java.io.UncheckedIOException;
+import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
 
@@ -24,7 +25,7 @@ import org.slf4j.LoggerFactory;
 public final class HostUtil {
     private static final Logger logger = LoggerFactory.getLogger(HostUtil.class);
 
-    public static final String getLocalIP() {
+    public static final String getLocalIP() throws IOException {
         try {
             final List<String> ips = new ArrayList<>(5);
             final Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
@@ -40,7 +41,9 @@ public final class HostUtil {
                 }
             }
             if (!ips.isEmpty()) {
-                ips.sort((s1, s2) -> s1.compareTo(s2));
+                // JDK8
+                // (s1, s2) -> s1.compareTo(s2)
+                Collections.sort(ips);
                 return ips.get(0);
             }
 
@@ -53,7 +56,7 @@ public final class HostUtil {
             }
             return local;
         } catch (SocketException | UnknownHostException e) {
-            throw new UncheckedIOException(e);
+            throw new IOException(e);
         }
     }
 }

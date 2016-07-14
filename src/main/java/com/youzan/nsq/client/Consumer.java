@@ -3,6 +3,7 @@ package com.youzan.nsq.client;
 import java.io.Closeable;
 
 import com.youzan.nsq.client.core.Client;
+import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.exception.NSQException;
 
 /**
@@ -14,6 +15,8 @@ import com.youzan.nsq.client.exception.NSQException;
 public interface Consumer extends Client, Closeable {
     @Override
     void start() throws NSQException;
+
+    void finish(NSQMessage message) throws NSQException;
 
     /**
      * Perform the action quietly. No exceptions.

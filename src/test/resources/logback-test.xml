@@ -68,6 +68,9 @@
     <logger name="ch.qos.logback" additivity="false">
         <appender-ref ref="ERROR" />
     </logger>
+    <logger name="io.netty" additivity="false">
+        <appender-ref ref="WARN" />
+    </logger>
 
     <root level="DEBUG">
         <appender-ref ref="STDOUT" />

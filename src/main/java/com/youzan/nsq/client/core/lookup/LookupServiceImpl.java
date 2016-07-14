@@ -5,7 +5,9 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.concurrent.Executors;
@@ -119,11 +121,14 @@ public class LookupServiceImpl implements LookupService {
      */
     public void keepLookupServers() {
         final int delay = _r.nextInt(60) + 45; // seconds
-        scheduler.scheduleWithFixedDelay(() -> {
-            try {
-                newLookupServers();
-            } catch (Exception e) {
-                logger.error("Exception", e);
+        scheduler.scheduleWithFixedDelay(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    newLookupServers();
+                } catch (Exception e) {
+                    logger.error("Exception", e);
+                }
             }
         }, delay, 60, TimeUnit.SECONDS);
     }
@@ -203,6 +208,33 @@ public class LookupServiceImpl implements LookupService {
     public void close() {
         if (null != scheduler) {
             scheduler.shutdownNow();
+        }
+    }
+
+    @Override
+    public Set<String> getAllTopics() throws NSQLookupException {
+        Set<String> all = new HashSet<>();
+        /**
+         * It is unnecessary to use Atomic/Lock for the variable
+         */
+        final int index = ((offset++) & Integer.MAX_VALUE) % this.addresses.size();
+        final String lookupd = this.addresses.get(index);
+        final String url = String.format("http://%s/topics", lookupd);
+        logger.debug("Begin to lookup all the topics from URL: {}", url);
+        try {
+            final JsonNode rootNode = mapper.readTree(new URL(url));
+            final JsonNode topics = rootNode.get("data").get("topics");
+            for (JsonNode node : topics) {
+                final String topic = node.asText();
+                if (topic != null && !topic.isEmpty()) {
+                    all.add(topic);
+                }
+            }
+            logger.debug("The server response info after looking up all the topics: {}", rootNode.toString());
+            return all; // maybe it is empty
+        } catch (Exception e) {
+            final String tip = "SDK can't get the right lookup info.";
+            throw new NSQLookupException(tip, e);
         }
     }
 

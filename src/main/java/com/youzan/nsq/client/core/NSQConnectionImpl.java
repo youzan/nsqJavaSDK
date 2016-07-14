@@ -31,6 +31,8 @@ public class NSQConnectionImpl implements NSQConnection {
     private final LinkedBlockingQueue<NSQCommand> requests = new LinkedBlockingQueue<>(1);
     private final LinkedBlockingQueue<NSQFrame> responses = new LinkedBlockingQueue<>(1);
 
+    private volatile boolean closing = false;
+    private volatile boolean closed = false;
     private boolean havingNegotiation = false;
 
     private final Address address;
@@ -119,16 +121,23 @@ public class NSQConnectionImpl implements NSQConnection {
 
     @Override
     public void close() {
-        if (null != channel) {
-            // It is very important!
-            channel.attr(NSQConnection.STATE).remove();
-            channel.attr(Client.STATE).remove();
-            channel.close();
-            havingNegotiation = false;
-            logger.info("Having closed {} OK!", this);
-        } else {
-            logger.error("No channel be setted?");
+        if (closing && closed) {
+            return;
         }
+        if (closing == false) {
+            closing = true;
+            if (null != channel) {
+                // It is very important!
+                channel.attr(NSQConnection.STATE).remove();
+                channel.attr(Client.STATE).remove();
+                channel.close();
+                havingNegotiation = false;
+                logger.info("Having closed {} OK!", this);
+            } else {
+                logger.error("No channel be setted?");
+            }
+        }
+        closed = true;
     }
 
     @Override
