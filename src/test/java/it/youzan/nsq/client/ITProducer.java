@@ -39,11 +39,15 @@ public class ITProducer {
 
     @Test
     public void produce() throws NSQException {
-        final Producer p = new ProducerImplV2(config);
-        p.start();
-        final byte[] message = new byte[1024];
-        random.nextBytes(message);
-        p.publish(message, "test");
-        p.close();
+        try (final Producer p = new ProducerImplV2(config);) {
+            p.start();
+            final byte[] message = new byte[1024];
+
+            random.nextBytes(message);
+            p.publish(message, "test");
+
+            random.nextBytes(message);
+            p.publish(message);
+        }
     }
 }

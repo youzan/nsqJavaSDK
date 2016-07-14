@@ -2,11 +2,16 @@ package it.youzan.nsq.client;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -44,19 +49,71 @@ public class ITConsumer {
     }
 
     @Test
-    public void consume() throws NSQException {
+    public void consume() throws NSQException, InterruptedException {
+        final CountDownLatch latch = new CountDownLatch(1);
         final AtomicInteger total = new AtomicInteger(0);
         final MessageHandler handler = new MessageHandler() {
             @Override
             public void process(NSQMessage message) {
+                latch.countDown();
                 total.incrementAndGet();
             }
         };
-        final Consumer consumer = new ConsumerImplV2(config, handler);
-        consumer.start();
-        sleep(3 * 60 * 1000);
-        consumer.close();
-        logger.info("It has {} messages received.", total.get());
+        try (final Consumer consumer = new ConsumerImplV2(config, handler);) {
+            consumer.start();
+            latch.await(2, TimeUnit.MINUTES);
+        } finally {
+            logger.info("It has {} messages received.", total.get());
+        }
+    }
+
+    @Test
+    public void finish() throws NSQException, InterruptedException {
+        final CountDownLatch latch = new CountDownLatch(1);
+        final AtomicInteger total = new AtomicInteger(0);
+        final List<NSQMessage> collector = new ArrayList<>();
+        final MessageHandler handler = new MessageHandler() {
+            @Override
+            public void process(NSQMessage message) {
+                latch.countDown();
+                total.incrementAndGet();
+                collector.add(message);
+            }
+        };
+        try (final Consumer consumer = new ConsumerImplV2(config, handler);) {
+            consumer.start();
+            latch.await(2, TimeUnit.MINUTES);
+            Assert.assertFalse(collector.isEmpty());
+            consumer.finish(collector.get(0));
+        } finally {
+            logger.info("It has {} messages received.", total.get());
+        }
+    }
+
+    @Test
+    public void reQueue() throws NSQException, InterruptedException {
+        final CountDownLatch latch = new CountDownLatch(1);
+        final AtomicInteger total = new AtomicInteger(0);
+        final List<NSQMessage> collector = new ArrayList<>();
+        final MessageHandler handler = new MessageHandler() {
+            @Override
+            public void process(NSQMessage message) {
+                latch.countDown();
+                total.incrementAndGet();
+                try {
+                    message.setNextConsumingInSecond(2);
+                } catch (NSQException e) {
+                    logger.error("Exception", e);
+                }
+            }
+        };
+        try (final Consumer consumer = new ConsumerImplV2(config, handler);) {
+            consumer.start();
+            latch.await(2, TimeUnit.MINUTES);
+            Assert.assertFalse(collector.isEmpty());
+        } finally {
+            logger.info("It has {} messages received.", total.get());
+        }
     }
 
     void sleep(final long millisecond) {
