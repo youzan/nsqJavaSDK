@@ -64,7 +64,7 @@ public class ProducerImplV2 implements Producer {
         this.config = config;
         this.poolConfig = new GenericKeyedObjectPoolConfig();
 
-        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(), config.getTopic());
+        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses());
         this.factory = new KeyedPooledConnectionFactory(this.config, this);
     }
 
@@ -115,12 +115,14 @@ public class ProducerImplV2 implements Producer {
      * Get a connection foreach every broker in one loop because I don't believe
      * that every broker is down or every pool is busy.
      * 
+     * @param topic
+     * 
      * @return a validated {@code NSQConnection}
      * @throws NoConnectionException
      *             that is having done a negotiation
      */
-    protected NSQConnection getNSQConnection() throws NoConnectionException {
-        final ConcurrentSortedSet<Address> dataNodes = getDataNodes();
+    protected NSQConnection getNSQConnection(String topic) throws NoConnectionException {
+        final ConcurrentSortedSet<Address> dataNodes = getDataNodes(topic);
         if (dataNodes.isEmpty()) {
             throw new NoConnectionException("You still didn't start NSQd / lookup-topic / producer.start() !");
         }
@@ -191,7 +193,7 @@ public class ProducerImplV2 implements Producer {
                 logger.debug("Sleep. CurrentRetries: {}", c);
                 sleep((1 << (c - 1)) * 1000);
             }
-            final NSQConnection conn = getNSQConnection();
+            final NSQConnection conn = getNSQConnection(topic);
             if (conn == null) {
                 // Continue to retry
                 continue;
@@ -255,7 +257,7 @@ public class ProducerImplV2 implements Producer {
                 logger.debug("Sleep. CurrentRetries: {}", c);
                 sleep((1 << (c - 1)) * 1000);
             }
-            final NSQConnection conn = getNSQConnection();
+            final NSQConnection conn = getNSQConnection(config.getTopic());
             if (conn == null) {
                 // Continue to retry
                 continue;
@@ -327,11 +329,12 @@ public class ProducerImplV2 implements Producer {
         if (bigPool != null) {
             bigPool.close();
         }
+        IOUtil.closeQuietly(simpleClient);
     }
 
     @Override
-    public ConcurrentSortedSet<Address> getDataNodes() {
-        return simpleClient.getDataNodes();
+    public ConcurrentSortedSet<Address> getDataNodes(String topic) {
+        return simpleClient.getDataNodes(topic);
     }
 
     @Override

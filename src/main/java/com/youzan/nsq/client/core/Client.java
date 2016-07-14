@@ -3,6 +3,7 @@
  */
 package com.youzan.nsq.client.core;
 
+import java.io.Closeable;
 import java.util.Random;
 
 import org.slf4j.Logger;
@@ -20,7 +21,7 @@ import io.netty.util.AttributeKey;
  * 
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
-public interface Client {
+public interface Client extends Closeable {
 
     static final Logger logger = LoggerFactory.getLogger(Client.class);
 
@@ -56,9 +57,11 @@ public interface Client {
     void backoff(final NSQConnection conn);
 
     /**
+     * @param topic
+     *            TODO
      * @return Always it is new.
      */
-    ConcurrentSortedSet<Address> getDataNodes();
+    ConcurrentSortedSet<Address> getDataNodes(String topic);
 
     void clearDataNode(Address address);
 

@@ -111,7 +111,7 @@ public class ConsumerImplV2 implements Consumer {
         this.handler = handler;
 
         this.poolConfig = new GenericKeyedObjectPoolConfig();
-        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(), config.getTopic());
+        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses());
         this.factory = new KeyedPooledConnectionFactory(this.config, this);
     }
 
@@ -213,7 +213,7 @@ public class ConsumerImplV2 implements Consumer {
             }
         });
         */
-        final Set<Address> newDataNodes = getDataNodes().newSortedSet();
+        final Set<Address> newDataNodes = getDataNodes(config.getTopic()).newSortedSet();
         final Set<Address> oldDataNodes = new TreeSet<>(this.holdingConnections.keySet());
         logger.debug("Prepare to connect new data-nodes(NSQd): {} , old data-nodes(NSQd): {}", newDataNodes,
                 oldDataNodes);
@@ -596,7 +596,7 @@ public class ConsumerImplV2 implements Consumer {
         if (bigPool != null) {
             bigPool.close();
         }
-
+        IOUtil.closeQuietly(simpleClient);
     }
 
     private void cleanClose() {
@@ -644,8 +644,8 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     @Override
-    public ConcurrentSortedSet<Address> getDataNodes() {
-        return simpleClient.getDataNodes();
+    public ConcurrentSortedSet<Address> getDataNodes(String topic) {
+        return simpleClient.getDataNodes(topic);
     }
 
     @Override

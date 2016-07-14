@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
+<suite name="ConsumerFeatures Suite" parallel="methods" thread-count="10">
+    <test name="ITProducer Test">
+        <classes>
+            <class name="it.youzan.nsq.client.ITProducer" />
+        </classes>
+    </test>
+    <test name="ConsumerFeatures Test">
+        <groups>
+            <dependencies>
+                <group depends-on="ITProducer" name="ITConsumer" />
+            </dependencies>
+        </groups>
+        <classes>
+            <class name="it.youzan.nsq.client.ITConsumer" />
+        </classes>
+    </test>
+</suite>

@@ -3,7 +3,10 @@
  */
 package com.youzan.nsq.client.core;
 
+import java.io.Closeable;
+import java.util.Set;
 import java.util.SortedSet;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -32,21 +35,17 @@ import io.netty.channel.ChannelFuture;
  * 
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
-public class NSQSimpleClient implements Client {
+public class NSQSimpleClient implements Client, Closeable {
     private static final Logger logger = LoggerFactory.getLogger(NSQSimpleClient.class);
 
-    private final String topic;;
+    private final ConcurrentHashMap<String, ConcurrentSortedSet<Address>> topic_2_dataNodes = new ConcurrentHashMap<>();
     private final LookupService lookup;
     private volatile LookupService migratingLookup = null;
-    /**
-     * NSQd Servers
-     */
-    private final ConcurrentSortedSet<Address> dataNodes = new ConcurrentSortedSet<>();
+
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.MAX_PRIORITY));
 
-    public NSQSimpleClient(final String lookupAddresses, final String topic) {
-        this.topic = topic;
+    public NSQSimpleClient(final String lookupAddresses) {
         this.lookup = new LookupServiceImpl(lookupAddresses);
         keepDataNodes();
     }
@@ -75,11 +74,24 @@ public class NSQSimpleClient implements Client {
     }
 
     private void newDataNodes() throws NSQLookupException {
-        final SortedSet<Address> nodes = this.lookup.lookup(this.topic);
-        if (nodes != null) {
-            this.dataNodes.swap(nodes);
-            logger.debug("Now get the current new data-nodes(NSQd) are {}", this.dataNodes);
+        final Set<String> topics = this.lookup.getAllTopics();
+        if (topics == null) {
+            throw new NSQLookupException("I cann't get all the topics.");
         }
+
+        for (String topic : topics) {
+            final SortedSet<Address> nodes = this.lookup.lookup(topic);
+            if (nodes != null) {
+                if (this.topic_2_dataNodes.containsKey(topic)) {
+                    this.topic_2_dataNodes.get(topic).swap(nodes);
+                } else {
+                    final ConcurrentSortedSet<Address> target = new ConcurrentSortedSet<Address>();
+                    this.topic_2_dataNodes.putIfAbsent(topic, target);
+                }
+                logger.debug("Now get the current topic: {} , and new data-nodes(NSQd) are {}", topic, nodes);
+            }
+        }
+        topics.clear();
     }
 
     @Override
@@ -117,8 +129,8 @@ public class NSQSimpleClient implements Client {
     }
 
     @Override
-    public ConcurrentSortedSet<Address> getDataNodes() {
-        return dataNodes;
+    public ConcurrentSortedSet<Address> getDataNodes(String topic) {
+        return topic_2_dataNodes.get(topic);
     }
 
     @Override
@@ -126,7 +138,12 @@ public class NSQSimpleClient implements Client {
         if (address == null) {
             return;
         }
-        dataNodes.remove(address);
+
+        if (topic_2_dataNodes.containsKey(address)) {
+            topic_2_dataNodes.remove(address);
+            final ConcurrentSortedSet<Address> nodes = topic_2_dataNodes.get(address);
+            nodes.clear();
+        }
     }
 
     @Override
@@ -136,6 +153,11 @@ public class NSQSimpleClient implements Client {
             return future.isSuccess();
         }
         return false;
+    }
+
+    public void close() {
+        topic_2_dataNodes.clear();
+        scheduler.shutdownNow();
     }
 
     void sleep(final long millisecond) {

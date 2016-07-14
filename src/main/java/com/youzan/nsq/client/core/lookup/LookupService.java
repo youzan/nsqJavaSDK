@@ -2,6 +2,7 @@ package com.youzan.nsq.client.core.lookup;
 
 import java.io.Closeable;
 import java.util.Random;
+import java.util.Set;
 import java.util.SortedSet;
 
 import com.youzan.nsq.client.entity.Address;
@@ -42,6 +43,8 @@ public interface LookupService extends java.io.Serializable, Closeable {
      *             if an error occurs
      */
     SortedSet<Address> lookup(String topic, boolean writable) throws NSQLookupException;
+
+    Set<String> getAllTopics() throws NSQLookupException;
 
     /**
      * Perform the action quietly. No exceptions.
