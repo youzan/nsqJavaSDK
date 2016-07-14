@@ -1,5 +1,7 @@
 package com.youzan.nsq.client.entity;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,7 +29,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private static final long serialVersionUID = 6624842850216901700L;
     private static final Logger logger = LoggerFactory.getLogger(NSQConfig.class);
 
-    private static volatile int id = 0;
+    private static AtomicInteger id = new AtomicInteger(0);
 
     private boolean havingMonitoring = false;
 
@@ -86,7 +88,8 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         try {
             hostname = HostUtil.getLocalIP();
             // JDK8, string contact is OK.
-            clientId = "IP:" + IPUtil.ipv4(hostname) + ", PID:" + SystemUtil.getPID() + ", ID:" + (id++);
+            clientId = "IP:" + IPUtil.ipv4(hostname) + ", PID:" + SystemUtil.getPID() + ", ID:"
+                    + (id.getAndIncrement());
         } catch (Exception e) {
             throw new NSQException("System cann't get the IPv4!", e);
         }
