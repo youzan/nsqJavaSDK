@@ -47,6 +47,7 @@ public class ITConsumer {
         config.setMsgTimeoutInMillisecond(Integer.valueOf(props.getProperty("msgTimeoutInMillisecond")));
         config.setThreadPoolSize4IO(2);
         props.clear();
+        sleep(10);
     }
 
     @Test(dependsOnGroups = { "ITProducer" })
@@ -85,7 +86,7 @@ public class ITConsumer {
         c.setTopic(config.getTopic() + "_finish");
         try (final Consumer consumer = new ConsumerImplV2(c, handler);) {
             consumer.start();
-            latch.await(1, TimeUnit.MINUTES);
+            latch.await(2, TimeUnit.MINUTES);
             Assert.assertFalse(collector.isEmpty());
             consumer.finish(collector.get(0));
             consumer.close();
@@ -116,7 +117,7 @@ public class ITConsumer {
         c.setTopic(config.getTopic() + "_reQueue");
         try (final Consumer consumer = new ConsumerImplV2(c, handler);) {
             consumer.start();
-            latch.await(1, TimeUnit.MINUTES);
+            latch.await(2, TimeUnit.MINUTES);
             Assert.assertFalse(collector.isEmpty());
             consumer.close();
         } finally {
