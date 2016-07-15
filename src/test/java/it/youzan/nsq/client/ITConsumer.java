@@ -86,6 +86,7 @@ public class ITConsumer {
         NSQConfig c = (NSQConfig) config.clone();
         c.setTopic("test_finish");
         try (final Consumer consumer = new ConsumerImplV2(c, handler)) {
+            consumer.setAutoFinish(false);
             consumer.start();
             latch.await(2, TimeUnit.MINUTES);
             Assert.assertFalse(collector.isEmpty());
