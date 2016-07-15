@@ -85,12 +85,15 @@ public class ITConsumer {
         };
         NSQConfig c = (NSQConfig) config.clone();
         c.setTopic("test_finish");
+        c.setMsgTimeoutInMillisecond(2 * 60 * 1000); // 2 minutes
         try (final Consumer consumer = new ConsumerImplV2(c, handler)) {
             consumer.setAutoFinish(false);
             consumer.start();
             latch.await(2, TimeUnit.MINUTES);
             Assert.assertFalse(collector.isEmpty());
-            consumer.finish(collector.get(0));
+            for (NSQMessage msg : collector) {
+                consumer.finish(msg);
+            }
             consumer.close();
         } finally {
             logger.info("It has {} messages received.", total.get());
