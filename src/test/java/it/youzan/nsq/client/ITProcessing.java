@@ -23,6 +23,7 @@ import com.youzan.nsq.client.ProducerImplV2;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.exception.NSQException;
+import com.youzan.util.IOUtil;
 
 public class ITProcessing {
 
@@ -65,7 +66,7 @@ public class ITProcessing {
         /******************************
          * Produce a byte type
          ******************************/
-        final byte[] message = new byte[1024];
+        final byte[] message = new byte[512];
         random.nextBytes(message);
         try (Producer p = new ProducerImplV2(config);) {
             p.start();
@@ -75,20 +76,15 @@ public class ITProcessing {
         }
         // Because of the distributed environment and the network, after
         // publishing
-        latch.await(2, TimeUnit.MINUTES);
+        latch.await(1, TimeUnit.MINUTES);
         consumer.close();
 
-        Assert.assertFalse(collector.isEmpty());
-        NSQMessage actual = null;
-        for (NSQMessage msg : collector) {
-            if (msg.getMessageBody().equals(message)) {
-                actual = msg;
-                break;
-            }
-        }
-        Assert.assertNotNull(actual);
+        final String readable = new String(message, IOUtil.DEFAULT_CHARSET);
+        Assert.assertTrue(collector.size() == 1);
+        final NSQMessage actual = collector.get(0);
         Assert.assertEquals(actual.getReadableAttempts(), 1,
                 "The message is not mine. Please check the data in the environment.");
+        Assert.assertEquals(actual.getReadableContent(), readable);
     }
 
     // Generate some messages
@@ -140,19 +136,13 @@ public class ITProcessing {
         }
         // Because of the distributed environment and the network, after
         // publishing
-        latch.await(2, TimeUnit.MINUTES);
+        latch.await(1, TimeUnit.MINUTES);
         consumer.close();
 
-        Assert.assertFalse(collector.isEmpty());
-        NSQMessage actual = null;
-        for (NSQMessage msg : collector) {
-            if (msg.getMessageBody().equals(message)) {
-                actual = msg;
-                break;
-            }
-        }
-        Assert.assertNotNull(actual);
+        Assert.assertTrue(collector.size() == 1);
+        final NSQMessage actual = collector.get(0);
         Assert.assertEquals(actual.getReadableAttempts(), 1,
                 "The message is not mine. Please check the data in the environment.");
+        Assert.assertEquals(actual.getReadableContent(), message);
     }
 }

@@ -56,10 +56,8 @@ public class ITProducer {
             final byte[] message = new byte[1024];
             random.nextBytes(message);
             p.publish(message);
-            for (int i = 0; i < 2; i++) {
-                random.nextBytes(message);
-                p.publish(message, topic);
-            }
+            random.nextBytes(message);
+            p.publish(message, topic);
         }
     }
 }

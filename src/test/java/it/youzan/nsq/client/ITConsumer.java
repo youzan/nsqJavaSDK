@@ -51,7 +51,7 @@ public class ITConsumer {
 
     @Test(dependsOnGroups = { "ITProducer" })
     public void consume() throws NSQException, InterruptedException {
-        final CountDownLatch latch = new CountDownLatch(1);
+        final CountDownLatch latch = new CountDownLatch(2);
         final AtomicInteger total = new AtomicInteger(0);
         final MessageHandler handler = new MessageHandler() {
             @Override
@@ -72,7 +72,7 @@ public class ITConsumer {
 
     @Test(dependsOnGroups = { "ITProducer" })
     public void finish() throws NSQException, InterruptedException {
-        final CountDownLatch latch = new CountDownLatch(1);
+        final CountDownLatch latch = new CountDownLatch(2);
         final AtomicInteger total = new AtomicInteger(0);
         final List<NSQMessage> collector = new ArrayList<>();
         final MessageHandler handler = new MessageHandler() {
@@ -102,7 +102,7 @@ public class ITConsumer {
 
     @Test(dependsOnGroups = { "ITProducer" }, groups = { "ProducerReQueue" })
     public void reQueue() throws NSQException, InterruptedException {
-        final CountDownLatch latch = new CountDownLatch(1);
+        final CountDownLatch latch = new CountDownLatch(2);
         final AtomicInteger total = new AtomicInteger(0);
         final List<NSQMessage> collector = new ArrayList<>();
         final MessageHandler handler = new MessageHandler() {
@@ -132,7 +132,7 @@ public class ITConsumer {
 
     @Test(dependsOnGroups = { "ProducerReQueue" })
     public void finishReQueue() throws NSQException, InterruptedException {
-        final CountDownLatch latch = new CountDownLatch(1);
+        final CountDownLatch latch = new CountDownLatch(2);
         final AtomicInteger total = new AtomicInteger(0);
         final List<NSQMessage> collector = new ArrayList<>();
         final MessageHandler handler = new MessageHandler() {
