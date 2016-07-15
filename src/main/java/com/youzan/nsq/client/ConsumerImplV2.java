@@ -99,6 +99,7 @@ public class ConsumerImplV2 implements Consumer {
     private final Rdy MEDIUM_RDY = new Rdy((int) (messagesPerBatch * 0.3D));
     private final Rdy LOW_RDY = new Rdy(1);
     private volatile Rdy currentRdy = DEFAULT_RDY;
+    private boolean autoFinish = true;
 
     /**
      * @param config
@@ -572,13 +573,16 @@ public class ConsumerImplV2 implements Consumer {
             if (message.getReadableAttempts() > 10) {
                 logger.error("{} , Processing 10 times is still a failure!", message);
             }
+            conn.command(cmd);
         } else {
-            cmd = new Finish(message.getMessageID());
+            if (autoFinish) {
+                cmd = new Finish(message.getMessageID());
+                conn.command(cmd);
+            }
             if (!ok) {
                 logger.error("{} , exception occurs but you don't catch it! Please check it right now!!!", message);
             }
         }
-        conn.command(cmd);
     }
 
     @Override
@@ -672,5 +676,10 @@ public class ConsumerImplV2 implements Consumer {
             }
         }
         throw new NoConnectionException("The connection is broken and please do it again.");
+    }
+
+    @Override
+    public void setAutoFinish(boolean autoFinish) {
+        this.autoFinish = autoFinish;
     }
 }

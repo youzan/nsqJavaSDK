@@ -18,6 +18,8 @@ public interface Consumer extends Client, Closeable {
 
     void finish(NSQMessage message) throws NSQException;
 
+    void setAutoFinish(boolean autoFinish);
+
     /**
      * Perform the action quietly. No exceptions.
      */

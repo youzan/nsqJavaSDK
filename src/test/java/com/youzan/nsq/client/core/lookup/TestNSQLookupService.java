@@ -1,6 +1,5 @@
 package com.youzan.nsq.client.core.lookup;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,8 +8,6 @@ import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
-
-import com.youzan.util.IOUtil;
 
 public class TestNSQLookupService {
     private static final Logger logger = LoggerFactory.getLogger(TestNSQLookupService.class);
@@ -35,27 +32,19 @@ public class TestNSQLookupService {
     }
 
     @Test
-    public void simpleInit() throws IOException {
-        LookupServiceImpl srv = null;
-        try {
-            srv = new LookupServiceImpl("10.232.120.12:6411");
+    public void simpleInit() {
+        try (LookupServiceImpl srv = new LookupServiceImpl("10.232.120.12:6411");) {
             for (String addr : srv.getAddresses()) {
                 Assert.assertTrue(addr.split(":").length == 2);
                 Assert.assertEquals(addr, "10.232.120.12:6411");
             }
-        } finally {
-            IOUtil.closeQuietly(srv);
         }
     }
 
     @Test(dataProvider = "genIPs")
     public void testInit(String ips, List<String> expected) {
-        LookupServiceImpl srv = null;
-        try {
-            srv = new LookupServiceImpl(ips);
+        try (LookupServiceImpl srv = new LookupServiceImpl(ips);) {
             Assert.assertEquals(srv.getAddresses(), expected);
-        } finally {
-            IOUtil.closeQuietly(srv);
         }
     }
 }
