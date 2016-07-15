@@ -2,6 +2,8 @@ package it.youzan.nsq.client;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
@@ -49,12 +51,12 @@ public class ITProcessing {
 
         final int size = 1;
         final CountDownLatch latch = new CountDownLatch(size);
-        final NSQMessage[] incommings = new NSQMessage[size];
+        final List<NSQMessage> collector = new ArrayList<>();
         final AtomicInteger index = new AtomicInteger(0);
         final MessageHandler handler = new MessageHandler() {
             @Override
             public void process(NSQMessage message) {
-                incommings[index.getAndIncrement()] = message;
+                collector.add(message);
                 latch.countDown();
             }
         };
@@ -76,10 +78,17 @@ public class ITProcessing {
         latch.await(2, TimeUnit.MINUTES);
         consumer.close();
 
-        final NSQMessage actualMsg = incommings[0];
-        Assert.assertEquals(actualMsg.getReadableAttempts(), 1,
+        Assert.assertFalse(collector.isEmpty());
+        NSQMessage actual = null;
+        for (NSQMessage msg : collector) {
+            if (msg.getMessageBody().equals(message)) {
+                actual = msg;
+                break;
+            }
+        }
+        Assert.assertNotNull(actual);
+        Assert.assertEquals(actual.getReadableAttempts(), 1,
                 "The message is not mine. Please check the data in the environment.");
-        Assert.assertEquals(actualMsg.getMessageBody(), message);
     }
 
     // Generate some messages
@@ -108,12 +117,12 @@ public class ITProcessing {
 
         final int size = 1;
         final CountDownLatch latch = new CountDownLatch(size);
-        final NSQMessage[] incommings = new NSQMessage[size];
+        final List<NSQMessage> collector = new ArrayList<>();
         final AtomicInteger index = new AtomicInteger(0);
         final MessageHandler handler = new MessageHandler() {
             @Override
             public void process(NSQMessage message) {
-                incommings[index.getAndIncrement()] = message;
+                collector.add(message);
                 latch.countDown();
             }
         };
@@ -134,9 +143,16 @@ public class ITProcessing {
         latch.await(2, TimeUnit.MINUTES);
         consumer.close();
 
-        final NSQMessage actualMsg = incommings[0];
-        Assert.assertEquals(actualMsg.getReadableAttempts(), 1,
+        Assert.assertFalse(collector.isEmpty());
+        NSQMessage actual = null;
+        for (NSQMessage msg : collector) {
+            if (msg.getMessageBody().equals(message)) {
+                actual = msg;
+                break;
+            }
+        }
+        Assert.assertNotNull(actual);
+        Assert.assertEquals(actual.getReadableAttempts(), 1,
                 "The message is not mine. Please check the data in the environment.");
-        Assert.assertEquals(actualMsg.getReadableContent(), message);
     }
 }
