@@ -418,6 +418,7 @@ public class ConsumerImplV2 implements Consumer {
         // finally
         for (NSQConnection c : okConns) {
             try {
+                // long connected
                 bigPool.returnObject(c.getAddress(), c);
             } catch (Exception e) {
                 logger.error("Exception", e);
