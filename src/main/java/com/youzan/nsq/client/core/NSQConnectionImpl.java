@@ -73,6 +73,9 @@ public class NSQConnectionImpl implements NSQConnection {
 
     @Override
     public ChannelFuture command(NSQCommand cmd) {
+        if (cmd == null) {
+            return null;
+        }
         // Use Netty Pipeline
         return channel.writeAndFlush(cmd);
     }

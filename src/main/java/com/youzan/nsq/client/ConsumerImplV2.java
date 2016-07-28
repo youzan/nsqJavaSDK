@@ -567,14 +567,53 @@ public class ConsumerImplV2 implements Consumer {
         }
         // The client commands requeue into NSQd.
         final Integer timeout = message.getNextConsumingInSecond();
-        final NSQCommand cmd;
+        NSQCommand cmd = null;
+        if (autoFinish) {
+            // Either Finish or ReQueue
+            if (ok) {
+                // Finish
+                cmd = new Finish(message.getMessageID());
+            } else {
+                if (timeout != null) {
+                    // ReQueue
+                    cmd = new ReQueue(message.getMessageID(), timeout.intValue());
+                    logger.info("Do a re-queue. MessageID: {}", message.getMessageID());
+                } else {
+                    // Finish
+                    cmd = new Finish(message.getMessageID());
+                }
+            }
+        } else {
+            // Maybe ReQueue, but absolutely no Finish
+            if (!ok) {
+                if (timeout != null) {
+                    // ReQueue
+                    cmd = new ReQueue(message.getMessageID(), timeout.intValue());
+                    logger.info("Do a re-queue. MessageID: {}", message.getMessageID());
+                }
+            } else {
+                // ignore actions
+                cmd = null;
+            }
+        }
+        if (cmd != null) {
+            conn.command(cmd);
+        }
+        // Post
+        if (message.getReadableAttempts() > 10) {
+            logger.error("{} , Processing 10 times is still a failure!", message);
+        }
+        /*
         if (timeout != null) {
-            cmd = new ReQueue(message.getMessageID(), message.getNextConsumingInSecond());
-            logger.info("Do a re-queue. MessageID: {}", message.getMessageID());
             if (message.getReadableAttempts() > 10) {
                 logger.error("{} , Processing 10 times is still a failure!", message);
             }
-            conn.command(cmd);
+            if (!ok) {
+                cmd = new ReQueue(message.getMessageID(), message.getNextConsumingInSecond());
+                logger.info("Do a re-queue. MessageID: {}", message.getMessageID());
+                conn.command(cmd);
+            } else {
+            }
         } else {
             if (autoFinish) {
                 cmd = new Finish(message.getMessageID());
@@ -584,6 +623,7 @@ public class ConsumerImplV2 implements Consumer {
                 logger.error("{} , exception occurs but you don't catch it! Please check it right now!!!", message);
             }
         }
+        */
     }
 
     @Override
