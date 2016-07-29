@@ -99,7 +99,7 @@ public class ConsumerImplV2 implements Consumer {
     private final Rdy MEDIUM_RDY = new Rdy((int) (messagesPerBatch * 0.3D));
     private final Rdy LOW_RDY = new Rdy(1);
     private volatile Rdy currentRdy = DEFAULT_RDY;
-    private boolean autoFinish = true;
+    private volatile boolean autoFinish = true;
 
     /**
      * @param config
@@ -567,6 +567,7 @@ public class ConsumerImplV2 implements Consumer {
         }
         // The client commands requeue into NSQd.
         final Integer timeout = message.getNextConsumingInSecond();
+        // It is too complex.
         NSQCommand cmd = null;
         if (autoFinish) {
             // Either Finish or ReQueue
@@ -584,6 +585,7 @@ public class ConsumerImplV2 implements Consumer {
                 }
             }
         } else {
+            // Client code does finish explicitly.
             // Maybe ReQueue, but absolutely no Finish
             if (!ok) {
                 if (timeout != null) {
@@ -602,6 +604,9 @@ public class ConsumerImplV2 implements Consumer {
         // Post
         if (message.getReadableAttempts() > 10) {
             logger.error("{} , Processing 10 times is still a failure!", message);
+        }
+        if (!ok) {
+            logger.error("{} , exception occurs but you don't catch it! Please check it right now!!!", message);
         }
         /*
         if (timeout != null) {
