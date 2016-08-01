@@ -116,7 +116,7 @@ public class ProducerImplV2 implements Producer {
      * that every broker is down or every pool is busy.
      * 
      * @param topic
-     *             a topic name 
+     *            a topic name
      * @return a validated {@code NSQConnection}
      * @throws NoConnectionException
      *             that is having done a negotiation
@@ -161,10 +161,10 @@ public class ProducerImplV2 implements Producer {
                     // broker is down
                     clearDataNode(addr);
                 }
-                logger.error("CurrentRetries: {} , Address: {} , Exception: {}", c, addr, e);
+                logger.error("CurrentRetries: {} , Address: {} , Exception:", c, addr, e);
             } catch (Exception e) {
                 IOUtil.closeQuietly(conn);
-                logger.error("CurrentRetries: {} , Address: {} , Exception: {}", c, addr, e);
+                logger.error("CurrentRetries: {} , Address: {} , Exception:", c, addr, e);
             }
         }
         /**
@@ -205,7 +205,7 @@ public class ProducerImplV2 implements Producer {
                 return;
             } catch (Exception e) {
                 IOUtil.closeQuietly(conn);
-                logger.error("CurrentRetries: {} , Address: {} , Topic: {}, RawMessage: {} , Exception: ", c,
+                logger.error("CurrentRetries: {} , Address: {} , Topic: {}, RawMessage: {} , Exception:", c,
                         conn.getAddress(), topic, message, e);
                 // Continue to retry
                 continue;
@@ -269,7 +269,7 @@ public class ProducerImplV2 implements Producer {
             } catch (Exception e) {
                 IOUtil.closeQuietly(conn);
                 // Continue to retry
-                logger.error("CurrentRetries: {} , Address: {} , Exception: {}", c, conn.getAddress(), e);
+                logger.error("CurrentRetries: {} , Address: {} , Exception:", c, conn.getAddress(), e);
                 continue;
             } finally {
                 bigPool.returnObject(conn.getAddress(), conn);
