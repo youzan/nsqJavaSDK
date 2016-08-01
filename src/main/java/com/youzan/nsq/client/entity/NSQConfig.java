@@ -42,14 +42,6 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      */
     private String lookupAddresses;
 
-    /**
-     * Perform a TCP connecting action
-     */
-    private int connectTimeoutInMillisecond = 50;
-    /**
-     * Perform one action during specified timeout
-     */
-    private int timeoutInSecond = 1;
     private String topic;
     /**
      * In NSQ, it is a channel.
@@ -71,11 +63,29 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private final String hostname;
     private boolean featureNegotiation;
 
+    /*-
+     * =========================================================================
+     *                             All of Timeout
+     */
     private int msgTimeoutInMillisecond = 60 * 1000;
+    /**
+     * Perform a TCP connecting action
+     */
+    private int connectTimeoutInMillisecond = 50;
+    /**
+     * Perform one action during specified timeout
+     */
+    private int timeoutInSecond = 1;
+    private Integer outputBufferTimeoutInMillisecond = null;
+    /*-
+     *                             All of Timeout
+     * =========================================================================
+     */
+
     private Integer heartbeatIntervalInMillisecond = null;
 
     private Integer outputBufferSize = null;
-    private Integer outputBufferTimeoutInMillisecond = null;
+
     private boolean tlsV1 = false;
     private Integer deflateLevel = null;
     private Integer sampleRate = null;
