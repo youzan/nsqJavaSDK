@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
@@ -80,7 +81,7 @@ public class ConsumerImplV2 implements Consumer {
      * 
      * =========================================================================
      */
-    private final ConcurrentHashMap<Address, HashSet<NSQConnection>> holdingConnections = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Address, HashSet<NSQConnection>> holdingConnections = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
 
