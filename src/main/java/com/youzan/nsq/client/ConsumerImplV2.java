@@ -469,7 +469,7 @@ public class ConsumerImplV2 implements Consumer {
             receiving.incrementAndGet();
             final MessageFrame msg = (MessageFrame) frame;
             final NSQMessage message = new NSQMessage(msg.getTimestamp(), msg.getAttempts(), msg.getMessageID(),
-                    msg.getMessageBody(), conn.getAddress());
+                    msg.getMessageBody(), conn.getAddress(), Integer.valueOf(conn.getId()));
             processMessage(message, conn);
             return;
         }
@@ -716,9 +716,11 @@ public class ConsumerImplV2 implements Consumer {
         final HashSet<NSQConnection> conns = holdingConnections.get(message.getAddress());
         if (conns != null) {
             for (NSQConnection c : conns) {
-                if (c.isConnected()) {
-                    c.command(new Finish(message.getMessageID()));
-                    return;
+                if (c.getId() == message.getConnectionID().intValue()) {
+                    if (c.isConnected()) {
+                        c.command(new Finish(message.getMessageID()));
+                    }
+                    break;
                 }
             }
         }
