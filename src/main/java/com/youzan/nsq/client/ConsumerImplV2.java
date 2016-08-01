@@ -135,10 +135,10 @@ public class ConsumerImplV2 implements Consumer {
             this.poolConfig.setTestOnReturn(true);
             this.poolConfig.setTestWhileIdle(true);
             this.poolConfig.setJmxEnabled(false);
-            // because of the latency's insensitivity, the Idle tiemout should
-            // be longer than CheckPeriod.
-            this.poolConfig.setMinEvictableIdleTimeMillis(4 * 60 * 1000);
-            this.poolConfig.setTimeBetweenEvictionRunsMillis(2 * 60 * 1000);
+            //
+            this.poolConfig.setMinEvictableIdleTimeMillis(Long.MAX_VALUE);
+            this.poolConfig.setTimeBetweenEvictionRunsMillis(Long.MAX_VALUE);
+            //
             this.poolConfig.setMinIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());
@@ -304,7 +304,6 @@ public class ConsumerImplV2 implements Consumer {
          *                          干掉Broken Brokers.
          * =====================================================================
          */
-
         for (Address address : broken) {
             if (address == null) {
                 continue;
@@ -719,12 +718,15 @@ public class ConsumerImplV2 implements Consumer {
                 if (c.getId() == message.getConnectionID().intValue()) {
                     if (c.isConnected()) {
                         c.command(new Finish(message.getMessageID()));
+                        // It is OK.
+                        return;
                     }
                     break;
                 }
             }
         }
-        throw new NSQNoConnectionException("The connection is broken and please do it again.");
+        throw new NSQNoConnectionException(
+                "The connection is broken so that cann't retry. Please wait next consuming.");
     }
 
     @Override
