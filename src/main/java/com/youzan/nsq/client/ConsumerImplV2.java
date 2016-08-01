@@ -142,8 +142,9 @@ public class ConsumerImplV2 implements Consumer {
             this.poolConfig.setTestWhileIdle(true);
             this.poolConfig.setJmxEnabled(false);
             //
-            this.poolConfig.setMinEvictableIdleTimeMillis(Long.MAX_VALUE);
-            this.poolConfig.setTimeBetweenEvictionRunsMillis(Long.MAX_VALUE);
+            this.poolConfig.setMinEvictableIdleTimeMillis(-1);
+            this.poolConfig.setSoftMinEvictableIdleTimeMillis(-1);
+            this.poolConfig.setTimeBetweenEvictionRunsMillis(-1);
             //
             this.poolConfig.setMinIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
@@ -222,8 +223,10 @@ public class ConsumerImplV2 implements Consumer {
         });
         */
         // JDK7
+        final String topic = config.getTopic();
+        final ConcurrentSortedSet<Address> newNodes = getDataNodes(topic);
         final Set<Address> oldAddresses = this.holdingConnections.keySet();
-        final Set<Address> newDataNodes = getDataNodes(config.getTopic()).newSortedSet();
+        final Set<Address> newDataNodes = newNodes.newSortedSet();
         final Set<Address> oldDataNodes = new TreeSet<>(oldAddresses);
         logger.debug("Prepare to connect new data-nodes(NSQd): {} , old data-nodes(NSQd): {}", newDataNodes,
                 oldDataNodes);
@@ -384,9 +387,8 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     /**
-     * Have no need to return returnObject to the pool
-     * 
      * @param address
+     *            the broker address
      */
     private void newConnections4OneBroker(Address address) {
         if (address == null) {
@@ -421,6 +423,15 @@ public class ConsumerImplV2 implements Consumer {
                         holdingConnections.get(address).remove(newConn);
                     }
                 }
+            }
+        }
+        // finally
+        for (NSQConnection c : okConns) {
+            try {
+                // long connected
+                bigPool.returnObject(c.getAddress(), c);
+            } catch (Exception e) {
+                logger.error("Exception", e);
             }
         }
         if (okConns.size() == config.getThreadPoolSize4IO()) {
