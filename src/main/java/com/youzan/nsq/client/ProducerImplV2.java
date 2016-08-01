@@ -22,7 +22,7 @@ import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQInvalidDataNodeException;
 import com.youzan.nsq.client.exception.NSQInvalidMessageException;
 import com.youzan.nsq.client.exception.NSQInvalidTopicException;
-import com.youzan.nsq.client.exception.NoConnectionException;
+import com.youzan.nsq.client.exception.NSQNoConnectionException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame.FrameType;
@@ -118,13 +118,13 @@ public class ProducerImplV2 implements Producer {
      * @param topic
      *            a topic name
      * @return a validated {@code NSQConnection}
-     * @throws NoConnectionException
+     * @throws NSQNoConnectionException
      *             that is having done a negotiation
      */
-    protected NSQConnection getNSQConnection(String topic) throws NoConnectionException {
+    protected NSQConnection getNSQConnection(String topic) throws NSQNoConnectionException {
         final ConcurrentSortedSet<Address> dataNodes = getDataNodes(topic);
         if (dataNodes.isEmpty()) {
-            throw new NoConnectionException("You still didn't start NSQd / lookup-topic / producer.start() !");
+            throw new NSQNoConnectionException("You still didn't start NSQd / lookup-topic / producer.start() !");
         }
         final int size = dataNodes.size();
         final Address[] addrs = dataNodes.newArray(new Address[size]);

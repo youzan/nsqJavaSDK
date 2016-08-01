@@ -29,7 +29,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private static final long serialVersionUID = 6624842850216901700L;
     private static final Logger logger = LoggerFactory.getLogger(NSQConfig.class);
 
-    private static AtomicInteger id = new AtomicInteger(0);
+    private static final AtomicInteger id = new AtomicInteger(0);
 
     private boolean havingMonitoring = false;
 
@@ -83,6 +83,8 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private Compression compression = Compression.NO_COMPRESSION;
     // ...
     private SslContext sslContext = null;
+
+    private int rdy = 10;
 
     public NSQConfig() throws NSQException {
         try {
@@ -393,6 +395,21 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      */
     public void setSampleRate(Integer sampleRate) {
         this.sampleRate = sampleRate;
+    }
+
+    /**
+     * @return the rdy
+     */
+    public int getRdy() {
+        return rdy;
+    }
+
+    /**
+     * @param rdy
+     *            the rdy to set
+     */
+    public void setRdy(int rdy) {
+        this.rdy = rdy;
     }
 
     public String identify() {

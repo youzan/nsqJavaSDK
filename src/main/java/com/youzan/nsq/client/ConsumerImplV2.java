@@ -38,7 +38,7 @@ import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.entity.Response;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQInvalidDataNodeException;
-import com.youzan.nsq.client.exception.NoConnectionException;
+import com.youzan.nsq.client.exception.NSQNoConnectionException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.MessageFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
@@ -722,7 +722,7 @@ public class ConsumerImplV2 implements Consumer {
                 }
             }
         }
-        throw new NoConnectionException("The connection is broken and please do it again.");
+        throw new NSQNoConnectionException("The connection is broken and please do it again.");
     }
 
     @Override
