@@ -118,11 +118,11 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     @Override
+    public void subscribe(String... topics) {
+    }
+
+    @Override
     public void start() throws NSQException {
-        final String topic = this.config.getTopic();
-        if (topic == null || topic.isEmpty()) {
-            throw new NSQException("Please set topic name using {@code NSQConfig}");
-        }
         if (this.config.getConsumerName() == null || this.config.getConsumerName().isEmpty()) {
             throw new IllegalArgumentException("Consumer Name is blank! Please check it!");
         }
@@ -729,4 +729,5 @@ public class ConsumerImplV2 implements Consumer {
     public void setAutoFinish(boolean autoFinish) {
         this.autoFinish = autoFinish;
     }
+
 }

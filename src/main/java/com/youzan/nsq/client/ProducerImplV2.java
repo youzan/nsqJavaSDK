@@ -70,10 +70,6 @@ public class ProducerImplV2 implements Producer {
 
     @Override
     public void start() throws NSQException {
-        final String topic = this.config.getTopic();
-        if (topic == null || topic.isEmpty()) {
-            throw new NSQException("Please set topic name using {@code NSQConfig}");
-        }
         if (!this.started) {
             this.started = true;
             // setting all of the configs
@@ -350,6 +346,10 @@ public class ProducerImplV2 implements Producer {
             Thread.currentThread().interrupt();
             logger.error("Your machine is too busy! Please check it!");
         }
+    }
+
+    @Override
+    public void publishMulti(List<byte[]> messages, String topic) throws NSQException {
     }
 
 }

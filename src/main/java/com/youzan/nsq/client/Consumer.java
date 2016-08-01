@@ -13,6 +13,13 @@ import com.youzan.nsq.client.exception.NSQException;
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
 public interface Consumer extends Client, Closeable {
+    /**
+     * initialize some parameters for the consumer
+     * 
+     * @param topics
+     */
+    void subscribe(String... topics);
+
     @Override
     void start() throws NSQException;
 

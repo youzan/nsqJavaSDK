@@ -28,6 +28,8 @@ import io.netty.channel.ChannelFuture;
 public class NSQConnectionImpl implements NSQConnection {
     private static final Logger logger = LoggerFactory.getLogger(NSQConnectionImpl.class);
 
+    private final int id;
+
     private final LinkedBlockingQueue<NSQCommand> requests = new LinkedBlockingQueue<>(1);
     private final LinkedBlockingQueue<NSQFrame> responses = new LinkedBlockingQueue<>(1);
 
@@ -41,7 +43,8 @@ public class NSQConnectionImpl implements NSQConnection {
     private final int timeoutInSecond;
     private final long timeoutInMillisecond; // be approximate
 
-    public NSQConnectionImpl(Address address, Channel channel, NSQConfig config) {
+    public NSQConnectionImpl(Address address, Channel channel, NSQConfig config, int id) {
+        this.id = id;
         this.address = address;
         this.channel = channel;
         this.config = config;
@@ -49,6 +52,7 @@ public class NSQConnectionImpl implements NSQConnection {
         final int timeout = config.getTimeoutInSecond() <= 0 ? 1 : config.getTimeoutInSecond();
         this.timeoutInSecond = timeout;
         this.timeoutInMillisecond = timeout << 10;
+
     }
 
     @Override
@@ -162,6 +166,13 @@ public class NSQConnectionImpl implements NSQConnection {
     }
 
     /**
+     * @return the id
+     */
+    public int getId() {
+        return id;
+    }
+
+    /**
      * @return the address
      */
     @Override
@@ -180,8 +191,11 @@ public class NSQConnectionImpl implements NSQConnection {
         int result = 1;
         result = prime * result + ((address == null) ? 0 : address.hashCode());
         result = prime * result + ((channel == null) ? 0 : channel.hashCode());
+        result = prime * result + (closed ? 1231 : 1237);
+        result = prime * result + (closing ? 1231 : 1237);
         result = prime * result + ((config == null) ? 0 : config.hashCode());
         result = prime * result + (havingNegotiation ? 1231 : 1237);
+        result = prime * result + id;
         result = prime * result + ((requests == null) ? 0 : requests.hashCode());
         result = prime * result + ((responses == null) ? 0 : responses.hashCode());
         result = prime * result + (int) (timeoutInMillisecond ^ (timeoutInMillisecond >>> 32));
@@ -215,6 +229,12 @@ public class NSQConnectionImpl implements NSQConnection {
         } else if (!channel.equals(other.channel)) {
             return false;
         }
+        if (closed != other.closed) {
+            return false;
+        }
+        if (closing != other.closing) {
+            return false;
+        }
         if (config == null) {
             if (other.config != null) {
                 return false;
@@ -223,6 +243,9 @@ public class NSQConnectionImpl implements NSQConnection {
             return false;
         }
         if (havingNegotiation != other.havingNegotiation) {
+            return false;
+        }
+        if (id != other.id) {
             return false;
         }
         if (requests == null) {
@@ -251,9 +274,9 @@ public class NSQConnectionImpl implements NSQConnection {
     @Override
     public String toString() {
         // JDK8
-        return "NSQConnectionImpl [requests=" + requests + ", responses=" + responses + ", havingNegotiation="
-                + havingNegotiation + ", address=" + address + ", channel=" + channel + ", config=" + config
-                + ", timeoutInSecond=" + timeoutInSecond + ", timeoutInMillisecond=" + timeoutInMillisecond + "]";
+        return "NSQConnectionImpl [id=" + id + ", havingNegotiation=" + havingNegotiation + ", address=" + address
+                + ", channel=" + channel + ", config=" + config + ", timeoutInSecond=" + timeoutInSecond
+                + ", timeoutInMillisecond=" + timeoutInMillisecond + "]";
     }
 
 }

@@ -4,7 +4,9 @@
 package com.youzan.nsq.client.core;
 
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.pool2.BaseKeyedPooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
@@ -39,6 +41,8 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
 
     private static final Logger logger = LoggerFactory.getLogger(KeyedPooledConnectionFactory.class);
 
+    private final AtomicInteger idGenerator = new AtomicInteger(0);
+
     /**
      * Connection/Pool configurations
      */
@@ -49,7 +53,7 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
     private final Client client;
 
     private final EventLoopGroup eventLoopGroup;
-    private final ConcurrentHashMap<Address, Bootstrap> bootstraps = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Address, Bootstrap> bootstraps = new ConcurrentHashMap<>();
 
     public KeyedPooledConnectionFactory(NSQConfig config, Client client) {
         this.config = config;
@@ -85,7 +89,7 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
             throw new NSQNoConnectionException("Connect " + addr + " is wrong.", future.cause());
         }
 
-        final NSQConnection conn = new NSQConnectionImpl(addr, channel, config);
+        final NSQConnection conn = new NSQConnectionImpl(addr, channel, config, idGenerator.incrementAndGet());
         // Netty async+sync programming
         channel.attr(NSQConnection.STATE).set(conn);
         channel.attr(Client.STATE).set(client);

@@ -14,28 +14,35 @@ public interface Producer extends Client, Closeable {
     void start() throws NSQException;
 
     /**
+     * @see {@link #publish(byte[], String)}
+     */
+    @Deprecated
+    void publish(byte[] message) throws NSQException;
+
+    /**
+     * @see {@link #publish(byte[], String)}
+     */
+    @Deprecated
+    void publish(String message) throws NSQException;
+
+    /**
+     * @see {@link #publishMulti(List, String)}
+     */
+    @Deprecated
+    void publishMulti(List<byte[]> messages) throws NSQException;
+
+    /**
      * 生产单条的'消息'
      * 
      * Use it to produce only one 'message' sending to MQ.
      * 
      * @param message
      *            the client sets it that is be published
+     * @param topic
+     *            the specified topic name
      * @throws NSQException
-     *             if an error occurs
      */
-    void publish(byte[] message) throws NSQException;
-
     void publish(byte[] message, String topic) throws NSQException;
-
-    /**
-     * @param message
-     *            the client sets it that is be published
-     * @throws NSQException
-     *             if an error occurs
-     * @see publish through byte[]
-     */
-    @Deprecated
-    void publish(String message) throws NSQException;
 
     /**
      * 生产一批的'消息'. 如果一批超过30条,那么SDK会给你按照FIFO顺序的分批(每批30条)发送出去!
@@ -47,10 +54,12 @@ public interface Producer extends Client, Closeable {
      * 
      * @param messages
      *            the client sets it that is be published
+     * @param topic
+     *            the specified topic name
      * @throws NSQException
      *             if an error occurs
      */
-    void publishMulti(List<byte[]> messages) throws NSQException;
+    void publishMulti(List<byte[]> messages, String topic) throws NSQException;
 
     /**
      * Perform the action quietly. No exceptions.

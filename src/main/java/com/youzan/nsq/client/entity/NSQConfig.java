@@ -42,6 +42,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      */
     private String lookupAddresses;
 
+    @Deprecated
     private String topic;
     /**
      * In NSQ, it is a channel.
@@ -164,6 +165,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * @return the topic
      */
+    @Deprecated
     public String getTopic() {
         return topic;
     }
@@ -172,6 +174,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * @param topic
      *            the topic to set
      */
+    @Deprecated
     public void setTopic(String topic) {
         this.topic = topic;
     }

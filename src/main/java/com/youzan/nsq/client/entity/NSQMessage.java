@@ -41,7 +41,7 @@ public class NSQMessage {
         this.messageID = messageID;
         this.messageBody = messageBody;
         this.address = address;
-        // Readable
+        // Readable , Version <= JDK7
         this.datetime = new Date(TimeUnit.NANOSECONDS.toMillis(toLong(timestamp)));
         this.readableAttempts = toUnsignedShort(attempts);
         this.readableMsgID = newHexString(this.messageID);

@@ -29,6 +29,8 @@ public interface NSQConnection extends Closeable {
 
     NSQConfig getConfig();
 
+    boolean isConnected();
+
     /**
      * If any client wants to use my connection, then the client need to pass
      * itself into me before calling init(this method) because of the usage of
@@ -38,8 +40,6 @@ public interface NSQConnection extends Closeable {
      *             a timeout error
      */
     void init() throws TimeoutException;
-
-    boolean isConnected();
 
     /**
      * Synchronize the protocol packet
