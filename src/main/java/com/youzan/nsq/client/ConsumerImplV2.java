@@ -95,11 +95,11 @@ public class ConsumerImplV2 implements Consumer {
     private final ExecutorService executor = Executors.newFixedThreadPool(WORKER_SIZE,
             new NamedThreadFactory(this.getClass().getName() + "-ClientBusiness", Thread.MAX_PRIORITY));
 
-    private final int messagesPerBatch = 10;
-    private final Rdy DEFAULT_RDY = new Rdy(messagesPerBatch);
-    private final Rdy MEDIUM_RDY = new Rdy((int) (messagesPerBatch * 0.3D));
-    private final Rdy LOW_RDY = new Rdy(1);
-    private volatile Rdy currentRdy = DEFAULT_RDY;
+    private final int messagesPerBatch;
+    private final Rdy DEFAULT_RDY;
+    private final Rdy MEDIUM_RDY;
+    private final Rdy LOW_RDY;
+    private volatile Rdy currentRdy;
     private volatile boolean autoFinish = true;
 
     /**
@@ -115,6 +115,12 @@ public class ConsumerImplV2 implements Consumer {
         this.poolConfig = new GenericKeyedObjectPoolConfig();
         this.simpleClient = new NSQSimpleClient(config.getLookupAddresses());
         this.factory = new KeyedPooledConnectionFactory(this.config, this);
+
+        messagesPerBatch = config.getRdy();
+        DEFAULT_RDY = new Rdy(Math.max(messagesPerBatch, 1));
+        MEDIUM_RDY = new Rdy(Math.max((int) (messagesPerBatch * 0.3D), 1));
+        LOW_RDY = new Rdy(1);
+        currentRdy = DEFAULT_RDY;
     }
 
     @Override
@@ -378,6 +384,8 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     /**
+     * Have no need to return returnObject to the pool
+     * 
      * @param address
      */
     private void newConnections4OneBroker(Address address) {
@@ -413,15 +421,6 @@ public class ConsumerImplV2 implements Consumer {
                         holdingConnections.get(address).remove(newConn);
                     }
                 }
-            }
-        }
-        // finally
-        for (NSQConnection c : okConns) {
-            try {
-                // long connected
-                bigPool.returnObject(c.getAddress(), c);
-            } catch (Exception e) {
-                logger.error("Exception", e);
             }
         }
         if (okConns.size() == config.getThreadPoolSize4IO()) {
