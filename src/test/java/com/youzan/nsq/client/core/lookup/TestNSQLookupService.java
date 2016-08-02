@@ -33,7 +33,7 @@ public class TestNSQLookupService {
 
     @Test
     public void simpleInit() {
-        try (LookupServiceImpl srv = new LookupServiceImpl("10.232.120.12:6411");) {
+        try (LookupServiceImpl srv = new LookupServiceImpl("10.232.120.12:6411")) {
             for (String addr : srv.getAddresses()) {
                 Assert.assertTrue(addr.split(":").length == 2);
                 Assert.assertEquals(addr, "10.232.120.12:6411");
@@ -43,7 +43,7 @@ public class TestNSQLookupService {
 
     @Test(dataProvider = "genIPs")
     public void testInit(String ips, List<String> expected) {
-        try (LookupServiceImpl srv = new LookupServiceImpl(ips);) {
+        try (LookupServiceImpl srv = new LookupServiceImpl(ips)) {
             Assert.assertEquals(srv.getAddresses(), expected);
         }
     }
