@@ -452,7 +452,7 @@ public class ConsumerImplV2 implements Consumer {
         final NSQFrame frame = newConn.commandAndGetResponse(new Sub(config.getTopic(), config.getConsumerName()));
         if (frame != null && frame.getType() == FrameType.ERROR_FRAME) {
             final ErrorFrame err = (ErrorFrame) frame;
-            logger.debug("***************************{}  , {}", err, err.getError());
+            logger.error("Address: {} got one error {} , that is {}", newConn.getAddress(), err, err.getError());
             switch (err.getError()) {
                 case E_FAILED_ON_NOT_LEADER: {
                 }
@@ -469,7 +469,7 @@ public class ConsumerImplV2 implements Consumer {
             }
         }
         currentRdy = DEFAULT_RDY;
-        newConn.command(DEFAULT_RDY);
+        newConn.command(currentRdy);
     }
 
     @Override
@@ -546,7 +546,7 @@ public class ConsumerImplV2 implements Consumer {
                             // restore the state
                             if (threshold <= 0.3D) {
                                 currentRdy = DEFAULT_RDY;
-                                conn.command(DEFAULT_RDY);
+                                conn.command(currentRdy);
                             }
                         }
                     }, delayInMillisecond, TimeUnit.MILLISECONDS);
@@ -713,7 +713,7 @@ public class ConsumerImplV2 implements Consumer {
     @Override
     public boolean validateHeartbeat(NSQConnection conn) {
         currentRdy = DEFAULT_RDY;
-        final ChannelFuture future = conn.command(DEFAULT_RDY);
+        final ChannelFuture future = conn.command(currentRdy);
         if (future.awaitUninterruptibly(50, TimeUnit.MILLISECONDS)) {
             return future.isSuccess();
         }
