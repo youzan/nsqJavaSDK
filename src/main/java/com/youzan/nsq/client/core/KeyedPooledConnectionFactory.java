@@ -41,7 +41,7 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
 
     private static final Logger logger = LoggerFactory.getLogger(KeyedPooledConnectionFactory.class);
 
-    private final AtomicInteger idGenerator = new AtomicInteger(0);
+    private final AtomicInteger connectionIDGenerator = new AtomicInteger(0);
 
     /**
      * Connection/Pool configurations
@@ -89,7 +89,8 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
             throw new NSQNoConnectionException("Connect " + addr + " is wrong.", future.cause());
         }
 
-        final NSQConnection conn = new NSQConnectionImpl(addr, channel, config, idGenerator.incrementAndGet());
+        final NSQConnection conn = new NSQConnectionImpl(connectionIDGenerator.incrementAndGet(), addr, channel,
+                config);
         // Netty async+sync programming
         channel.attr(NSQConnection.STATE).set(conn);
         channel.attr(Client.STATE).set(client);

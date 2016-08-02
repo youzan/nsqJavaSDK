@@ -31,6 +31,8 @@ public interface NSQConnection extends Closeable {
 
     boolean isConnected();
 
+    int getId();
+
     /**
      * If any client wants to use my connection, then the client need to pass
      * itself into me before calling init(this method) because of the usage of

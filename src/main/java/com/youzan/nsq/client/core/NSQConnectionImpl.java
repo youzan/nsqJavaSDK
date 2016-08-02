@@ -28,7 +28,7 @@ import io.netty.channel.ChannelFuture;
 public class NSQConnectionImpl implements NSQConnection {
     private static final Logger logger = LoggerFactory.getLogger(NSQConnectionImpl.class);
 
-    private final int id;
+    private final int id; // primary key
 
     private final LinkedBlockingQueue<NSQCommand> requests = new LinkedBlockingQueue<>(1);
     private final LinkedBlockingQueue<NSQFrame> responses = new LinkedBlockingQueue<>(1);
@@ -43,7 +43,7 @@ public class NSQConnectionImpl implements NSQConnection {
     private final int timeoutInSecond;
     private final long timeoutInMillisecond; // be approximate
 
-    public NSQConnectionImpl(Address address, Channel channel, NSQConfig config, int id) {
+    public NSQConnectionImpl(int id, Address address, Channel channel, NSQConfig config) {
         this.id = id;
         this.address = address;
         this.channel = channel;
@@ -166,7 +166,7 @@ public class NSQConnectionImpl implements NSQConnection {
     }
 
     /**
-     * @return the id
+     * @return the id , the primary key of the object
      */
     public int getId() {
         return id;

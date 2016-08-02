@@ -95,11 +95,11 @@ public class ConsumerImplV2 implements Consumer {
     private final ExecutorService executor = Executors.newFixedThreadPool(WORKER_SIZE,
             new NamedThreadFactory(this.getClass().getName() + "-ClientBusiness", Thread.MAX_PRIORITY));
 
-    private final int messagesPerBatch = 10;
-    private final Rdy DEFAULT_RDY = new Rdy(messagesPerBatch);
-    private final Rdy MEDIUM_RDY = new Rdy((int) (messagesPerBatch * 0.3D));
-    private final Rdy LOW_RDY = new Rdy(1);
-    private volatile Rdy currentRdy = DEFAULT_RDY;
+    private final int messagesPerBatch;
+    private final Rdy DEFAULT_RDY;
+    private final Rdy MEDIUM_RDY;
+    private final Rdy LOW_RDY;
+    private volatile Rdy currentRdy;
     private volatile boolean autoFinish = true;
 
     /**
@@ -115,6 +115,12 @@ public class ConsumerImplV2 implements Consumer {
         this.poolConfig = new GenericKeyedObjectPoolConfig();
         this.simpleClient = new NSQSimpleClient(config.getLookupAddresses());
         this.factory = new KeyedPooledConnectionFactory(this.config, this);
+
+        messagesPerBatch = config.getRdy();
+        DEFAULT_RDY = new Rdy(Math.max(messagesPerBatch, 1));
+        MEDIUM_RDY = new Rdy(Math.max((int) (messagesPerBatch * 0.3D), 1));
+        LOW_RDY = new Rdy(1);
+        currentRdy = DEFAULT_RDY;
     }
 
     @Override
@@ -135,10 +141,11 @@ public class ConsumerImplV2 implements Consumer {
             this.poolConfig.setTestOnReturn(true);
             this.poolConfig.setTestWhileIdle(true);
             this.poolConfig.setJmxEnabled(false);
-            // because of the latency's insensitivity, the Idle tiemout should
-            // be longer than CheckPeriod.
-            this.poolConfig.setMinEvictableIdleTimeMillis(4 * 60 * 1000);
-            this.poolConfig.setTimeBetweenEvictionRunsMillis(2 * 60 * 1000);
+            //
+            this.poolConfig.setMinEvictableIdleTimeMillis(-1);
+            this.poolConfig.setSoftMinEvictableIdleTimeMillis(-1);
+            this.poolConfig.setTimeBetweenEvictionRunsMillis(-1);
+            //
             this.poolConfig.setMinIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());
@@ -216,8 +223,10 @@ public class ConsumerImplV2 implements Consumer {
         });
         */
         // JDK7
+        final String topic = config.getTopic();
+        final ConcurrentSortedSet<Address> newNodes = getDataNodes(topic);
         final Set<Address> oldAddresses = this.holdingConnections.keySet();
-        final Set<Address> newDataNodes = getDataNodes(config.getTopic()).newSortedSet();
+        final Set<Address> newDataNodes = newNodes.newSortedSet();
         final Set<Address> oldDataNodes = new TreeSet<>(oldAddresses);
         logger.debug("Prepare to connect new data-nodes(NSQd): {} , old data-nodes(NSQd): {}", newDataNodes,
                 oldDataNodes);
@@ -304,7 +313,6 @@ public class ConsumerImplV2 implements Consumer {
          *                          干掉Broken Brokers.
          * =====================================================================
          */
-
         for (Address address : broken) {
             if (address == null) {
                 continue;
@@ -380,6 +388,7 @@ public class ConsumerImplV2 implements Consumer {
 
     /**
      * @param address
+     *            the broker address
      */
     private void newConnections4OneBroker(Address address) {
         if (address == null) {
@@ -469,7 +478,7 @@ public class ConsumerImplV2 implements Consumer {
             receiving.incrementAndGet();
             final MessageFrame msg = (MessageFrame) frame;
             final NSQMessage message = new NSQMessage(msg.getTimestamp(), msg.getAttempts(), msg.getMessageID(),
-                    msg.getMessageBody(), conn.getAddress());
+                    msg.getMessageBody(), conn.getAddress(), Integer.valueOf(conn.getId()));
             processMessage(message, conn);
             return;
         }
@@ -716,13 +725,18 @@ public class ConsumerImplV2 implements Consumer {
         final HashSet<NSQConnection> conns = holdingConnections.get(message.getAddress());
         if (conns != null) {
             for (NSQConnection c : conns) {
-                if (c.isConnected()) {
-                    c.command(new Finish(message.getMessageID()));
-                    return;
+                if (c.getId() == message.getConnectionID().intValue()) {
+                    if (c.isConnected()) {
+                        c.command(new Finish(message.getMessageID()));
+                        // It is OK.
+                        return;
+                    }
+                    break;
                 }
             }
         }
-        throw new NSQNoConnectionException("The connection is broken and please do it again.");
+        throw new NSQNoConnectionException(
+                "The connection is broken so that cann't retry. Please wait next consuming.");
     }
 
     @Override

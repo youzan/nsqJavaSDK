@@ -94,8 +94,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private Compression compression = Compression.NO_COMPRESSION;
     // ...
     private SslContext sslContext = null;
-
-    private int rdy = 10;
+    private int rdy = 3;
 
     public NSQConfig() throws NSQException {
         try {
@@ -419,9 +418,14 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     /**
      * @param rdy
-     *            the rdy to set
+     *            the rdy to set , it is ready to receive the pushing message
+     *            count
      */
     public void setRdy(int rdy) {
+        if (rdy <= 0) {
+            this.rdy = 1;
+            throw new IllegalArgumentException("Are you kidding me? The rdy should be positive.");
+        }
         this.rdy = rdy;
     }
 
