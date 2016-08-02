@@ -24,7 +24,7 @@ public class ITProducer {
     private Producer producer;
 
     @BeforeClass
-    public void init() throws NSQException, Exception {
+    public void init() throws Exception {
         logger.info("Now initialize {} at {} .", this.getClass().getName(), System.currentTimeMillis());
         final Properties props = new Properties();
         try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {
@@ -36,6 +36,8 @@ public class ITProducer {
         final String msgTimeoutInMillisecond = props.getProperty("msgTimeoutInMillisecond");
         final String threadPoolSize4IO = props.getProperty("threadPoolSize4IO");
 
+
+        logger.debug("The environment is {} .", env);
         config.setLookupAddresses(lookups);
         config.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
         config.setMsgTimeoutInMillisecond(Integer.valueOf(msgTimeoutInMillisecond));
