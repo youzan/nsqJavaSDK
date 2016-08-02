@@ -190,7 +190,7 @@
                                     <directory>src/assembly/conf/Dev/</directory>
                                 </resource>
                             </resources>
-                            <outputDirectory>target/classes</outputDirectory>
+                            <outputDirectory>target/test-classes</outputDirectory>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -219,7 +219,7 @@
                                     <directory>src/assembly/conf/QA/</directory>
                                 </resource>
                             </resources>
-                            <outputDirectory>target/classes</outputDirectory>
+                            <outputDirectory>target/test-classes</outputDirectory>
                         </configuration>
                     </plugin>
                 </plugins>

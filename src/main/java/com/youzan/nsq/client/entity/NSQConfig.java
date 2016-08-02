@@ -6,7 +6,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.youzan.nsq.client.Version;
-import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.util.HostUtil;
 import com.youzan.util.IPUtil;
 import com.youzan.util.NotThreadSafe;
@@ -109,14 +108,14 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private SslContext sslContext = null;
     private int rdy = 3;
 
-    public NSQConfig() throws NSQException {
+    public NSQConfig() {
         try {
             hostname = HostUtil.getLocalIP();
             // JDK8, string contact is OK.
             clientId = "IP:" + IPUtil.ipv4(hostname) + ", PID:" + SystemUtil.getPID() + ", ID:"
                     + (id.getAndIncrement());
         } catch (Exception e) {
-            throw new NSQException("System cann't get the IPv4!", e);
+            throw new RuntimeException("System cann't get the IPv4!", e);
         }
     }
 
