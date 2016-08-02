@@ -5,6 +5,7 @@ package com.youzan.nsq.client.core;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.pool2.BaseKeyedPooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
@@ -14,7 +15,7 @@ import org.slf4j.LoggerFactory;
 
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
-import com.youzan.nsq.client.exception.NoConnectionException;
+import com.youzan.nsq.client.exception.NSQNoConnectionException;
 import com.youzan.nsq.client.network.netty.NSQClientInitializer;
 import com.youzan.util.IOUtil;
 
@@ -38,6 +39,8 @@ import io.netty.util.concurrent.Future;
 public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<Address, NSQConnection> {
 
     private static final Logger logger = LoggerFactory.getLogger(KeyedPooledConnectionFactory.class);
+
+    private final AtomicInteger connectionIDGenerator = new AtomicInteger(0);
 
     /**
      * Connection/Pool configurations
@@ -75,17 +78,18 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
 
         // Wait until the connection attempt succeeds or fails.
         if (!future.awaitUninterruptibly(config.getConnectTimeoutInMillisecond(), TimeUnit.MILLISECONDS)) {
-            throw new NoConnectionException(future.cause());
+            throw new NSQNoConnectionException(future.cause());
         }
         final Channel channel = future.channel();
         if (!future.isSuccess()) {
             if (channel != null) {
                 channel.close();
             }
-            throw new NoConnectionException("Connect " + addr + " is wrong.", future.cause());
+            throw new NSQNoConnectionException("Connect " + addr + " is wrong.", future.cause());
         }
 
-        final NSQConnection conn = new NSQConnectionImpl(addr, channel, config);
+        final NSQConnection conn = new NSQConnectionImpl(connectionIDGenerator.incrementAndGet(), addr, channel,
+                config);
         // Netty async+sync programming
         channel.attr(NSQConnection.STATE).set(conn);
         channel.attr(Client.STATE).set(client);
@@ -93,12 +97,12 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
             conn.init();
         } catch (Exception e) {
             IOUtil.closeQuietly(conn);
-            throw new NoConnectionException("Creating a connection and having a negotiation fails!", e);
+            throw new NSQNoConnectionException("Creating a connection and having a negotiation fails!", e);
         }
 
         if (!conn.isConnected()) {
             IOUtil.closeQuietly(conn);
-            throw new NoConnectionException("Pool failed in connecting to NSQd!");
+            throw new NSQNoConnectionException("Pool failed in connecting to NSQd!");
         }
         return conn;
     }

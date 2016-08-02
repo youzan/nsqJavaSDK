@@ -20,6 +20,7 @@ public class NSQMessage {
     private final byte[] messageID;
     private final byte[] messageBody;
     private final Address address;
+    private final Integer connectionID; // be sure that is not null
 
     /**
      * all the parameters is the NSQ message format!
@@ -34,14 +35,18 @@ public class NSQMessage {
      *            the raw bytes from the data-node
      * @param address
      *            the address of the message
+     * @param connectionID
+     *            the primary key of the connection
      */
-    public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] messageBody, Address address) {
+    public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] messageBody, Address address,
+            Integer connectionID) {
         this.timestamp = timestamp;
         this.attempts = attempts;
         this.messageID = messageID;
         this.messageBody = messageBody;
         this.address = address;
-        // Readable
+        this.connectionID = connectionID;
+        // Readable, java.util.Date <= JDK7
         this.datetime = new Date(TimeUnit.NANOSECONDS.toMillis(toLong(timestamp)));
         this.readableAttempts = toUnsignedShort(attempts);
         this.readableMsgID = newHexString(this.messageID);
@@ -134,6 +139,13 @@ public class NSQMessage {
      */
     public Address getAddress() {
         return address;
+    }
+
+    /**
+     * @return the connectionID
+     */
+    public Integer getConnectionID() {
+        return connectionID;
     }
 
     private long toLong(byte[] bytes) {
@@ -242,7 +254,7 @@ public class NSQMessage {
     @Override
     public String toString() {
         return "NSQMessage [messageID=" + readableMsgID + ", datetime=" + datetime + ", readableAttempts="
-                + readableAttempts + "]";
+                + readableAttempts + ", address=" + address + ", connectionID=" + connectionID + "]";
     }
 
 }
