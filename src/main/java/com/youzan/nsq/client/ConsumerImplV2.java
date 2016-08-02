@@ -152,11 +152,7 @@ public class ConsumerImplV2 implements Consumer {
             // aquire connection waiting time underlying the inner network
             this.poolConfig.setMaxWaitMillis(50);
             this.poolConfig.setBlockWhenExhausted(true);
-            try {
-                this.simpleClient.start();
-            } catch (Exception e) {
-                logger.error("Exception", e);
-            }
+            this.simpleClient.start();
             createBigPool();
             // POST
             connect();
@@ -374,33 +370,20 @@ public class ConsumerImplV2 implements Consumer {
                 logger.error("Exception", e);
             }
         }
-        // JDK8
-        /*
-        brokers.parallelStream().forEach((address) -> {
-            try {
-                newConnections4OneBroker(address);
-            } catch (Exception e) {
-                logger.error("Exception", e);
-            }
-        });
-        */
     }
 
     /**
      * @param address
      *            the broker address
+     * @throws NSQException
      */
-    private void newConnections4OneBroker(Address address) {
+    private void newConnections4OneBroker(Address address) throws NSQException, Exception {
         if (address == null) {
             logger.error("Your input address is blank!");
             return;
         }
-        try {
-            bigPool.clear(address);
-            bigPool.preparePool(address);
-        } catch (Exception e) {
-            logger.error("Address: {} . Exception: {}", address, e);
-        }
+        bigPool.clear(address);
+        bigPool.preparePool(address);
         // create new pool(connect to one broker)
         final List<NSQConnection> okConns = new ArrayList<>(config.getThreadPoolSize4IO());
         for (int i = 0; i < config.getThreadPoolSize4IO(); i++) {
@@ -422,6 +405,9 @@ public class ConsumerImplV2 implements Consumer {
                     if (holdingConnections.get(address) != null) {
                         holdingConnections.get(address).remove(newConn);
                     }
+                }
+                if (e instanceof NSQException) {
+                    throw (NSQException) e;
                 }
             }
         }
