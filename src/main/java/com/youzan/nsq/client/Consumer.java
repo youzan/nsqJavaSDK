@@ -17,6 +17,8 @@ public interface Consumer extends Client, Closeable {
      * initialize some parameters for the consumer
      * 
      * @param topics
+     *            the client wanna subscribe some topics and this API appends
+     *            into a topics collector
      */
     void subscribe(String... topics);
 
