@@ -68,15 +68,28 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * =========================================================================
      *                             All of Timeout
      */
+    /**
+     * the message interactive timeout between client and server
+     */
     private int msgTimeoutInMillisecond = 60 * 1000;
     /**
      * Perform a TCP connecting action
      */
     private int connectTimeoutInMillisecond = 50;
     /**
+     * Perform one interactive action between request and response underlying
+     * Netty handling TCP
+     */
+    private int queryTimeoutInMillisecond = 2000;
+    /**
      * Perform one action during specified timeout
      */
+    @Deprecated
     private int timeoutInSecond = 1;
+    /**
+     * the timeout after which any data that nsqd has buffered will be flushed
+     * to this client
+     */
     private Integer outputBufferTimeoutInMillisecond = null;
     /*-
      *                             All of Timeout
@@ -142,6 +155,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * @return the timeoutInSecond
      */
+    @Deprecated
     public int getTimeoutInSecond() {
         return timeoutInSecond;
     }
@@ -150,6 +164,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * @param timeoutInSecond
      *            the timeoutInSecond to set
      */
+    @Deprecated
     public void setTimeoutInSecond(int timeoutInSecond) {
         this.timeoutInSecond = timeoutInSecond;
     }
@@ -429,6 +444,32 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         this.rdy = rdy;
     }
 
+    /**
+     * @return the queryTimeoutInMillisecond
+     */
+    public int getQueryTimeoutInMillisecond() {
+        return queryTimeoutInMillisecond;
+    }
+
+    /**
+     * @param queryTimeoutInMillisecond
+     *            the queryTimeoutInMillisecond to set
+     */
+    public void setQueryTimeoutInMillisecond(int queryTimeoutInMillisecond) {
+        this.queryTimeoutInMillisecond = queryTimeoutInMillisecond;
+    }
+
+    private static Logger getLogger() {
+        return logger;
+    }
+
+    /**
+     * @return the id
+     */
+    public static AtomicInteger getId() {
+        return id;
+    }
+
     public String identify() {
         final StringBuffer buffer = new StringBuffer(300);
         buffer.append("{\"client_id\":\"" + clientId + "\", ");
@@ -471,6 +512,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         } catch (CloneNotSupportedException e) {
             logger.error("Exception", e);
         }
+        assert newCfg != null;
         return newCfg;
     }
 

@@ -40,8 +40,7 @@ public class NSQConnectionImpl implements NSQConnection {
     private final Address address;
     private final Channel channel;
     private final NSQConfig config;
-    private final int timeoutInSecond;
-    private final long timeoutInMillisecond; // be approximate
+    private final long timeoutInMillisecond;
 
     public NSQConnectionImpl(int id, Address address, Channel channel, NSQConfig config) {
         this.id = id;
@@ -49,9 +48,7 @@ public class NSQConnectionImpl implements NSQConnection {
         this.channel = channel;
         this.config = config;
 
-        final int timeout = config.getTimeoutInSecond() <= 0 ? 1 : config.getTimeoutInSecond();
-        this.timeoutInSecond = timeout;
-        this.timeoutInMillisecond = timeout << 10;
+        this.timeoutInMillisecond = config.getQueryTimeoutInMillisecond();
 
     }
 
@@ -151,7 +148,7 @@ public class NSQConnectionImpl implements NSQConnection {
     public void addResponseFrame(ResponseFrame frame) {
         if (!requests.isEmpty()) {
             try {
-                responses.offer(frame, timeoutInSecond, TimeUnit.SECONDS);
+                responses.offer(frame, timeoutInMillisecond, TimeUnit.MILLISECONDS);
             } catch (final InterruptedException e) {
                 close();
                 Thread.currentThread().interrupt();
@@ -168,6 +165,7 @@ public class NSQConnectionImpl implements NSQConnection {
     /**
      * @return the id , the primary key of the object
      */
+    @Override
     public int getId() {
         return id;
     }
@@ -199,7 +197,6 @@ public class NSQConnectionImpl implements NSQConnection {
         result = prime * result + ((requests == null) ? 0 : requests.hashCode());
         result = prime * result + ((responses == null) ? 0 : responses.hashCode());
         result = prime * result + (int) (timeoutInMillisecond ^ (timeoutInMillisecond >>> 32));
-        result = prime * result + timeoutInSecond;
         return result;
     }
 
@@ -265,9 +262,6 @@ public class NSQConnectionImpl implements NSQConnection {
         if (timeoutInMillisecond != other.timeoutInMillisecond) {
             return false;
         }
-        if (timeoutInSecond != other.timeoutInSecond) {
-            return false;
-        }
         return true;
     }
 
@@ -275,8 +269,8 @@ public class NSQConnectionImpl implements NSQConnection {
     public String toString() {
         // JDK8
         return "NSQConnectionImpl [id=" + id + ", havingNegotiation=" + havingNegotiation + ", address=" + address
-                + ", channel=" + channel + ", config=" + config + ", timeoutInSecond=" + timeoutInSecond
-                + ", timeoutInMillisecond=" + timeoutInMillisecond + "]";
+                + ", channel=" + channel + ", config=" + config + ", timeoutInMillisecond=" + timeoutInMillisecond
+                + "]";
     }
 
 }
