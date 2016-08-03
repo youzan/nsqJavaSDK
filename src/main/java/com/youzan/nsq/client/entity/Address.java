@@ -8,9 +8,9 @@ public class Address implements java.io.Serializable, Comparable<Address> {
 
     /**
      * @param host
-     *            a {@code String}
+     *            a {@link String}
      * @param port
-     *            a {@code String}
+     *            a {@link String}
      */
     public Address(String host, String port) {
         this.host = host;
@@ -19,7 +19,7 @@ public class Address implements java.io.Serializable, Comparable<Address> {
 
     /**
      * @param host
-     *            a {@code String}
+     *            a {@link String}
      * @param port
      *            a integer number
      */

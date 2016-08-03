@@ -7,7 +7,7 @@ import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.exception.NSQException;
 
 /**
- * Try consume the message using the {@code MessageHandler} again after having a
+ * Try consume the message using the {@link MessageHandler} again after having a
  * exception.
  * 
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>

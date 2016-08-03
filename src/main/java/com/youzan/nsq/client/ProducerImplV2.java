@@ -32,9 +32,9 @@ import com.youzan.util.Lists;
 
 /**
  * <pre>
- * Use {@code NSQConfig} to set the lookup cluster.
+ * Use {@link NSQConfig} to set the lookup cluster.
  * It uses one connection pool(client connects to one broker) underlying TCP and uses
- * {@code GenericKeyedObjectPool} which is composed of many sub-pools.
+ * {@link GenericKeyedObjectPool} which is composed of many sub-pools.
  * </pre>
  * 
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
@@ -113,7 +113,7 @@ public class ProducerImplV2 implements Producer {
      * 
      * @param topic
      *            a topic name
-     * @return a validated {@code NSQConnection}
+     * @return a validated {@link NSQConnection}
      * @throws NSQNoConnectionException
      *             that is having done a negotiation
      */
@@ -164,7 +164,7 @@ public class ProducerImplV2 implements Producer {
             }
         }
         /**
-         * no available {@code NSQConnection}
+         * no available {@link NSQConnection}
          */
         return null;
     }

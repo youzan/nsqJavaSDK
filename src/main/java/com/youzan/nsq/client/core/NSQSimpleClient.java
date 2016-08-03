@@ -32,7 +32,7 @@ import com.youzan.util.NamedThreadFactory;
 import io.netty.channel.ChannelFuture;
 
 /**
- * The intersection between {@code Producer} and {@code Consumer}.
+ * The intersection between {@link Producer} and {@link Consumer}.
  * 
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
