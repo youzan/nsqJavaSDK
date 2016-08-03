@@ -49,7 +49,9 @@ public class ITProducer {
 
     public void publish() throws NSQException {
         final byte[] message = new byte[64];
-        random.nextBytes(message);
-        producer.publish(message, "JavaTesting-Producer-Base");
+        for (int i = 0; i < 10; i++) {
+            random.nextBytes(message);
+            producer.publish(message, "JavaTesting-Producer-Base");
+        }
     }
 }
