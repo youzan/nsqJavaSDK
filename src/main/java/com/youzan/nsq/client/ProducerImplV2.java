@@ -36,7 +36,7 @@ import com.youzan.util.Lists;
  * It uses one connection pool(client connects to one broker) underlying TCP and uses
  * {@link GenericKeyedObjectPool} which is composed of many sub-pools.
  * </pre>
- * 
+ *
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
 public class ProducerImplV2 implements Producer {
@@ -57,8 +57,7 @@ public class ProducerImplV2 implements Producer {
     private long lastTimeInMillisOfClientRequest = System.currentTimeMillis();
 
     /**
-     * @param config
-     *            NSQConfig
+     * @param config NSQConfig
      */
     public ProducerImplV2(NSQConfig config) {
         this.config = config;
@@ -110,12 +109,10 @@ public class ProducerImplV2 implements Producer {
     /**
      * Get a connection foreach every broker in one loop because I don't believe
      * that every broker is down or every pool is busy.
-     * 
-     * @param topic
-     *            a topic name
+     *
+     * @param topic a topic name
      * @return a validated {@link NSQConnection}
-     * @throws NSQNoConnectionException
-     *             that is having done a negotiation
+     * @throws NSQNoConnectionException that is having done a negotiation
      */
     protected NSQConnection getNSQConnection(String topic) throws NSQNoConnectionException {
         final ConcurrentSortedSet<Address> dataNodes = getDataNodes(topic);
@@ -160,6 +157,9 @@ public class ProducerImplV2 implements Producer {
                 logger.error("CurrentRetries: {} , Address: {} , Exception:", c, addr, e);
             } catch (Exception e) {
                 IOUtil.closeQuietly(conn);
+                if (conn != null) {
+                    bigPool.returnObject(conn.getAddress(), conn);
+                }
                 logger.error("CurrentRetries: {} , Address: {} , Exception:", c, addr, e);
             }
         }
