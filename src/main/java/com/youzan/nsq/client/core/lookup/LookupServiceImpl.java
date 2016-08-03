@@ -179,8 +179,8 @@ public class LookupServiceImpl implements LookupService {
             for (JsonNode node : producers) {
                 final String host = node.get("broadcast_address").asText();
                 final int port = node.get("tcp_port").asInt();
-                final Address addr = new Address(host, port);
-                dataNodes.add(addr);
+                final Address address = new Address(host, port);
+                dataNodes.add(address);
             }
             logger.debug("The server response info after looking up some DataNodes: {}", rootNode.toString());
             return dataNodes; // maybe it is empty
