@@ -1,9 +1,8 @@
 package it.youzan.nsq.client;
 
-import com.youzan.nsq.client.Producer;
-import com.youzan.nsq.client.ProducerImplV2;
-import com.youzan.nsq.client.entity.NSQConfig;
-import com.youzan.nsq.client.exception.NSQException;
+import com.youzan.nsq.client.core.lookup.LookupService;
+import com.youzan.nsq.client.core.lookup.LookupServiceImpl;
+import com.youzan.nsq.client.exception.NSQLookupException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeClass;
@@ -19,6 +18,7 @@ public class ITLookup {
     private static final Logger logger = LoggerFactory.getLogger(ITLookup.class);
 
     private final Random random = new Random();
+    private LookupService lookup;
 
     @BeforeClass
     public void init() throws Exception {
@@ -32,6 +32,11 @@ public class ITLookup {
 
 
         logger.debug("The environment is {} .", env);
+        lookup = new LookupServiceImpl(lookups);
+    }
+
+    public void lookup() throws NSQLookupException {
+        lookup.lookup("JavaTesting-Producer-Base", true);
     }
 
 }

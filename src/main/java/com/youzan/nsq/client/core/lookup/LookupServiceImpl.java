@@ -172,7 +172,7 @@ public class LookupServiceImpl implements LookupService {
         final int index = ((offset++) & Integer.MAX_VALUE) % this.addresses.size();
         final String lookup = this.addresses.get(index);
         final String url = String.format("http://%s/lookup?topic=%s&access=%s", lookup, topic, writable ? "w" : "r"); // readable
-        logger.debug("Begin to lookup some DataNodes from URL: {}", url);
+        logger.debug("Begin to lookup some DataNodes from URL {}", url);
         try {
             final JsonNode rootNode = mapper.readTree(new URL(url));
             final JsonNode producers = rootNode.get("data").get("producers");
