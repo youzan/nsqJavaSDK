@@ -45,7 +45,8 @@ public class Rdy implements NSQCommand {
         return EMPTY_BODY;
     }
 
-    public int getRdyCount() {
-        return count;
+    @Override
+    public String toString() {
+        return "Rdy{" + "count=" + count + '}';
     }
 }
