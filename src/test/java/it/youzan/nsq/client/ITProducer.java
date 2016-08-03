@@ -14,7 +14,7 @@ import com.youzan.nsq.client.ProducerImplV2;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.exception.NSQException;
 
-@Test(groups = "ITProducer")
+@Test(groups = "ITProducer-Base")
 public class ITProducer {
 
     private static final Logger logger = LoggerFactory.getLogger(ITProducer.class);

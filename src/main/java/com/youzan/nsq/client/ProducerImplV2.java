@@ -86,7 +86,7 @@ public class ProducerImplV2 implements Producer {
             this.poolConfig.setMinIdlePerKey(1);
             this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());
-            // aquire connection waiting time
+            // acquire connection waiting time
             this.poolConfig.setMaxWaitMillis(50);
             this.poolConfig.setBlockWhenExhausted(true);
             this.offset = _r.nextInt(100);

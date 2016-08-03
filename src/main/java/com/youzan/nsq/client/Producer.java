@@ -7,6 +7,8 @@ import com.youzan.nsq.client.core.Client;
 import com.youzan.nsq.client.exception.NSQException;
 
 /**
+ * Because of too many topics, we create some connections with brokers when actually first time uses.
+ *
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
 public interface Producer extends Client, Closeable {
