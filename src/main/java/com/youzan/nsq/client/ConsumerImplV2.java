@@ -1,37 +1,10 @@
 package com.youzan.nsq.client;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
-import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.youzan.nsq.client.core.Client;
 import com.youzan.nsq.client.core.KeyedPooledConnectionFactory;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
-import com.youzan.nsq.client.core.command.Close;
-import com.youzan.nsq.client.core.command.Finish;
-import com.youzan.nsq.client.core.command.NSQCommand;
-import com.youzan.nsq.client.core.command.Rdy;
-import com.youzan.nsq.client.core.command.ReQueue;
-import com.youzan.nsq.client.core.command.Sub;
+import com.youzan.nsq.client.core.command.*;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
@@ -46,8 +19,16 @@ import com.youzan.nsq.client.network.frame.NSQFrame.FrameType;
 import com.youzan.util.ConcurrentSortedSet;
 import com.youzan.util.IOUtil;
 import com.youzan.util.NamedThreadFactory;
-
 import io.netty.channel.ChannelFuture;
+import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
+import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * <pre>
@@ -665,27 +646,6 @@ public class ConsumerImplV2 implements Consumer {
                 }
             }
         }
-
-        /*
-        holdingConnections.values().parallelStream().forEach((conns) -> {
-            for (final NSQConnection c : conns) {
-                try {
-                    backoff(c);
-                    final NSQFrame frame = c.commandAndGetResponse(Close.getInstance());
-                    if (frame != null && frame.getType() == FrameType.ERROR_FRAME) {
-                        final Response err = ((ErrorFrame) frame).getError();
-                        if (err != null) {
-                            logger.error(err.getContent());
-                        }
-                    }
-                } catch (Exception e) {
-                    logger.error("Exception", e);
-                } finally {
-                    IOUtil.closeQuietly(c);
-                }
-            }
-        });
-        */
 
         holdingConnections.clear();
     }
