@@ -36,8 +36,6 @@ public interface Client extends Closeable {
 
     void start() throws NSQException;
 
-    void putTopic(String topic);
-
     /**
      * Receive the frame of NSQ.
      * 

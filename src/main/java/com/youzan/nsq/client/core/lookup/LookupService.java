@@ -18,6 +18,8 @@ import com.youzan.nsq.client.exception.NSQLookupException;
 public interface LookupService extends java.io.Serializable, Closeable {
     Random _r = new Random(10000);
 
+    void start();
+
     /**
      *
      * lookup the writable NSQd (DataNode)

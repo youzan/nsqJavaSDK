@@ -9,6 +9,7 @@ import com.youzan.util.NamedThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URL;
 import java.util.*;
@@ -37,49 +38,55 @@ public class LookupServiceImpl implements LookupService {
     /**
      * Load-Balancing Strategy: round-robin
      */
-    private volatile int offset;
+    private volatile int offset = 0;
     private volatile ScheduledExecutorService scheduler;
+    private volatile boolean started = false;
 
     /**
-     * @param addresses the NSQ-Lookup addresses
+     * @param addresses the lookup addresses
      */
     public LookupServiceImpl(List<String> addresses) {
-        if (addresses == null || addresses.isEmpty()) {
-            throw new IllegalArgumentException("Your input addresses is blank!");
-        }
-        Collections.sort(addresses);
-        setAddresses(addresses);
-        init();
-    }
-
-    public void init() {
-        if (null == scheduler) {
-            scheduler = Executors
-                    .newSingleThreadScheduledExecutor(new NamedThreadFactory("LookupChecker", Thread.MAX_PRIORITY));
-        }
-        offset = _r.nextInt(100);
-        keepLookupServers();
+        initAddresses(addresses);
     }
 
     /**
-     * @param addresses the lookup address
+     * @param addresses the lookup addresses
      */
     public LookupServiceImpl(String addresses) {
         if (addresses == null || addresses.isEmpty()) {
             throw new IllegalArgumentException("Your input 'addresses' is blank!");
         }
         final String[] tmp = addresses.split(",");
-        final List<String> tmpList;
-
-        tmpList = new ArrayList<>(tmp.length);
+        final List<String> tmpList = new ArrayList<>(tmp.length);
         for (String address : tmp) {
             address = address.trim();
             address = address.replace(" ", "");
             tmpList.add(address);
         }
-        Collections.sort(tmpList);
-        setAddresses(tmpList);
-        init();
+        initAddresses(tmpList);
+    }
+
+    private void initAddresses(List<String> addresses) {
+        if (addresses == null || addresses.isEmpty()) {
+            throw new IllegalArgumentException("Your input addresses is blank!");
+        }
+        Collections.sort(addresses);
+        setAddresses(addresses);
+    }
+
+    @Override
+    public void start() {
+        if (!started) {
+            // begin: a light implement way
+            started = true;
+            if (null == scheduler) {
+                scheduler = Executors
+                        .newSingleThreadScheduledExecutor(new NamedThreadFactory("LookupChecker", Thread.MAX_PRIORITY));
+            }
+            offset = _r.nextInt(100);
+            keepLookupServers();
+        }
+        started = true;
     }
 
     /**
@@ -110,6 +117,8 @@ public class LookupServiceImpl implements LookupService {
             public void run() {
                 try {
                     newLookupServers();
+                } catch(FileNotFoundException e){
+                    logger.warn("You run with the lower server version.");
                 } catch (Exception e) {
                     logger.error("Exception", e);
                 }
@@ -187,5 +196,4 @@ public class LookupServiceImpl implements LookupService {
             scheduler.shutdownNow();
         }
     }
-
 }

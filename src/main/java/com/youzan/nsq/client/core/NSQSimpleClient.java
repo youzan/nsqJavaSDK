@@ -34,7 +34,6 @@ public class NSQSimpleClient implements Client, Closeable {
     private final ConcurrentMap<String, ConcurrentSortedSet<Address>> topic_2_dataNodes = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, Long> topic_2_lastActiveTime = new ConcurrentHashMap<>();
     private final LookupService lookup;
-    private volatile LookupService migratingLookup = null;
 
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.MAX_PRIORITY));
