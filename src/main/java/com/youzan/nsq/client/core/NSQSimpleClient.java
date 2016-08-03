@@ -40,7 +40,6 @@ public class NSQSimpleClient implements Client, Closeable {
 
     public NSQSimpleClient(final String lookupAddresses) {
         this.lookup = new LookupServiceImpl(lookupAddresses);
-        keepDataNodes();
     }
 
     @Override
@@ -50,6 +49,7 @@ public class NSQSimpleClient implements Client, Closeable {
         } catch (Exception e) {
             logger.error("Exception", e);
         }
+        keepDataNodes();
     }
 
     private void keepDataNodes() {

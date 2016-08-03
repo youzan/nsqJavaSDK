@@ -1,6 +1,7 @@
 package it.youzan.nsq.client;
 
-import com.youzan.nsq.client.core.lookup.LookupServiceImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
