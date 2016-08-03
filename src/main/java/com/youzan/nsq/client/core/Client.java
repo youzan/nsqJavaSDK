@@ -23,18 +23,20 @@ import io.netty.util.AttributeKey;
  */
 public interface Client extends Closeable {
 
-    static final Logger logger = LoggerFactory.getLogger(Client.class);
+    Logger logger = LoggerFactory.getLogger(Client.class);
 
-    static final AttributeKey<Client> STATE = AttributeKey.valueOf("Client.State");
+    AttributeKey<Client> STATE = AttributeKey.valueOf("Client.State");
 
-    static final Random _r = new Random(10000);
+    Random _r = new Random(10000);
 
     /**
      * For NSQd(data-node).
      */
-    static final int _INTERVAL_IN_SECOND = 10;
+    int _INTERVAL_IN_SECOND = 10;
 
     void start() throws NSQException;
+
+    void putTopic(String topic);
 
     /**
      * Receive the frame of NSQ.
@@ -58,7 +60,6 @@ public interface Client extends Closeable {
 
     /**
      * @param topic
-     *            TODO
      * @return Always it is new.
      */
     ConcurrentSortedSet<Address> getDataNodes(String topic);

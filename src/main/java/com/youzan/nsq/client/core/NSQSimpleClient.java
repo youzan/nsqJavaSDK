@@ -1,5 +1,5 @@
 /**
- * 
+ *
  */
 package com.youzan.nsq.client.core;
 
@@ -24,14 +24,15 @@ import java.io.Closeable;
 import java.util.concurrent.*;
 
 /**
- * The intersection between {@link Producer} and {@link Consumer}.
- * 
+ * The intersection between {@link  com.youzan.nsq.client.Producer} and {@link com.youzan.nsq.client.Consumer}.
+ *
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
 public class NSQSimpleClient implements Client, Closeable {
     private static final Logger logger = LoggerFactory.getLogger(NSQSimpleClient.class);
 
     private final ConcurrentMap<String, ConcurrentSortedSet<Address>> topic_2_dataNodes = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Long> topic_2_lastActiveTime = new ConcurrentHashMap<>();
     private final LookupService lookup;
     private volatile LookupService migratingLookup = null;
 
@@ -49,6 +50,17 @@ public class NSQSimpleClient implements Client, Closeable {
             newDataNodes();
         } catch (Exception e) {
             logger.error("Exception", e);
+        }
+    }
+
+    @Override
+    public void putTopic(String topic) {
+        if (topic == null || topic.isEmpty()) {
+            return;
+        }
+        if (!topic_2_dataNodes.containsKey(topic)) {
+            final ConcurrentSortedSet dataNode = new ConcurrentSortedSet();
+            topic_2_dataNodes.putIfAbsent(topic, dataNode);
         }
     }
 
