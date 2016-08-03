@@ -107,7 +107,7 @@ public class ProducerImplV2 implements Producer {
     }
 
     /**
-     * Get a connection foreach every broker in one loop because I don't believe
+     * Get a connection foreach every broker in one loop till get one available because I don't believe
      * that every broker is down or every pool is busy.
      *
      * @param topic a topic name

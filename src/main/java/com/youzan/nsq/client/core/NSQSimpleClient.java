@@ -3,18 +3,6 @@
  */
 package com.youzan.nsq.client.core;
 
-import java.io.Closeable;
-import java.util.Set;
-import java.util.SortedSet;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.youzan.nsq.client.core.command.Nop;
 import com.youzan.nsq.client.core.command.Rdy;
 import com.youzan.nsq.client.core.lookup.LookupService;
@@ -28,8 +16,12 @@ import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
 import com.youzan.util.ConcurrentSortedSet;
 import com.youzan.util.NamedThreadFactory;
-
 import io.netty.channel.ChannelFuture;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.Closeable;
+import java.util.concurrent.*;
 
 /**
  * The intersection between {@link Producer} and {@link Consumer}.
@@ -75,26 +67,6 @@ public class NSQSimpleClient implements Client, Closeable {
     }
 
     private void newDataNodes() throws NSQLookupException {
-        final Set<String> topics = this.lookup.getAllTopics();
-        if (topics == null) {
-            throw new NSQLookupException("I cann't get all the topics.");
-        }
-
-        for (String topic : topics) {
-            final SortedSet<Address> nodes = this.lookup.lookup(topic);
-            if (nodes != null && !nodes.isEmpty()) {
-                final ConcurrentSortedSet<Address> target;
-                if (this.topic_2_dataNodes.containsKey(topic)) {
-                    target = this.topic_2_dataNodes.get(topic);
-                } else {
-                    target = new ConcurrentSortedSet<Address>();
-                    this.topic_2_dataNodes.putIfAbsent(topic, target);
-                }
-                target.swap(nodes);
-                logger.debug("Now get the current topic: {} , and new data-nodes(NSQd) are {}", topic, nodes);
-            }
-        }
-        topics.clear();
     }
 
     @Override
