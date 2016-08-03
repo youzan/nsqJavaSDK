@@ -1,5 +1,5 @@
 /**
- * 
+ *
  */
 package com.youzan.nsq.client.core;
 
@@ -86,7 +86,7 @@ public class NSQConnectionImpl implements NSQConnection {
         final long start = System.currentTimeMillis();
         try {
             long timeout = timeoutInMillisecond - (0L);
-            if (!requests.offer(command, timeoutInMillisecond, TimeUnit.MILLISECONDS)) {
+            if (!requests.offer(command, timeout, TimeUnit.MILLISECONDS)) {
                 throw new TimeoutException(
                         "The command is timeout. The command name is : " + command.getClass().getName());
             }
@@ -113,9 +113,27 @@ public class NSQConnectionImpl implements NSQConnection {
         } catch (InterruptedException e) {
             close();
             Thread.currentThread().interrupt();
-            logger.error("Thread was interruped, probably shuthing down! Close connection!", e);
+            logger.error("Thread was interrupted, probably shutting down! Close connection!", e);
         }
         return null;
+    }
+
+    @Override
+    public void addResponseFrame(ResponseFrame frame) {
+        if (!requests.isEmpty()) {
+            try {
+                responses.offer(frame, timeoutInMillisecond, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                close();
+                Thread.currentThread().interrupt();
+                logger.error("Thread was interrupted, probably shutting down!", e);
+            }
+        }
+    }
+
+    @Override
+    public void addErrorFrame(ErrorFrame frame) {
+        responses.add(frame);
     }
 
     @Override
@@ -142,24 +160,6 @@ public class NSQConnectionImpl implements NSQConnection {
             }
         }
         closed = true;
-    }
-
-    @Override
-    public void addResponseFrame(ResponseFrame frame) {
-        if (!requests.isEmpty()) {
-            try {
-                responses.offer(frame, timeoutInMillisecond, TimeUnit.MILLISECONDS);
-            } catch (final InterruptedException e) {
-                close();
-                Thread.currentThread().interrupt();
-                logger.error("Thread was interruped, probably shuthing down!", e);
-            }
-        }
-    }
-
-    @Override
-    public void addErrorFrame(ErrorFrame frame) {
-        responses.add(frame);
     }
 
     /**
