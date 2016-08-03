@@ -95,7 +95,6 @@ public class ConsumerImplV2 implements Consumer {
     private final ExecutorService executor = Executors.newFixedThreadPool(WORKER_SIZE,
             new NamedThreadFactory(this.getClass().getName() + "-ClientBusiness", Thread.MAX_PRIORITY));
 
-    private final int messagesPerBatch;
     private final Rdy DEFAULT_RDY;
     private final Rdy MEDIUM_RDY;
     private final Rdy LOW_RDY;
@@ -116,7 +115,7 @@ public class ConsumerImplV2 implements Consumer {
         this.simpleClient = new NSQSimpleClient(config.getLookupAddresses());
         this.factory = new KeyedPooledConnectionFactory(this.config, this);
 
-        messagesPerBatch = config.getRdy();
+        int messagesPerBatch = config.getRdy();
         DEFAULT_RDY = new Rdy(Math.max(messagesPerBatch, 1));
         MEDIUM_RDY = new Rdy(Math.max((int) (messagesPerBatch * 0.3D), 1));
         LOW_RDY = new Rdy(1);

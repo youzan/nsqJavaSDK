@@ -52,17 +52,6 @@ public class NSQSimpleClient implements Client, Closeable {
         }
     }
 
-    @Override
-    public void putTopic(String topic) {
-        if (topic == null || topic.isEmpty()) {
-            return;
-        }
-        if (!topic_2_dataNodes.containsKey(topic)) {
-            final ConcurrentSortedSet dataNode = new ConcurrentSortedSet();
-            topic_2_dataNodes.putIfAbsent(topic, dataNode);
-        }
-    }
-
     private void keepDataNodes() {
         final int delay = _r.nextInt(60) + 45; // seconds
         scheduler.scheduleWithFixedDelay(new Runnable() {

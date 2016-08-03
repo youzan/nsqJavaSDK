@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
 public final class HostUtil {
     private static final Logger logger = LoggerFactory.getLogger(HostUtil.class);
 
-    public static final String getLocalIP() throws IOException {
+    public static String getLocalIP() throws IOException {
         try {
             final List<String> ips = new ArrayList<>(5);
             final Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();

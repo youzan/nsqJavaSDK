@@ -27,11 +27,7 @@ public class ITLookup {
         try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {
             props.load(is);
         }
-        final String env = props.getProperty("env");
         final String lookups = props.getProperty("lookup-addresses");
-
-
-        logger.debug("The environment is {} .", env);
         lookup = new LookupServiceImpl(lookups);
     }
 

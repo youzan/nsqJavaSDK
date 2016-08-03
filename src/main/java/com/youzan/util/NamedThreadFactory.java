@@ -16,7 +16,7 @@ public class NamedThreadFactory implements ThreadFactory {
     private final AtomicInteger threadNumber = new AtomicInteger(1);
 
     private final String namePrefix;
-    private final int priority;
+    private int priority = Integer.MIN_VALUE;
 
     final static UncaughtExceptionHandler uncaughtExceptionHandler = new UncaughtExceptionHandler() {
         @Override
@@ -43,8 +43,16 @@ public class NamedThreadFactory implements ThreadFactory {
         if (t.isDaemon()) {
             t.setDaemon(false);
         }
-        if (t.getPriority() != Thread.NORM_PRIORITY) {
-            t.setPriority(Thread.NORM_PRIORITY);
+        switch(priority){
+            case Thread.MAX_PRIORITY :
+            case Thread.MIN_PRIORITY:
+            case Thread.NORM_PRIORITY:
+                t.setPriority(priority);
+                break;
+            default: {
+                t.setPriority(Thread.NORM_PRIORITY);
+            }
+
         }
         Thread.setDefaultUncaughtExceptionHandler(uncaughtExceptionHandler);
         return t;
