@@ -175,16 +175,18 @@ public class ProducerImplV2 implements Producer {
             throw new IllegalStateException("Producer must be started before producing messages!");
         }
         if (message == null || message.length <= 0) {
-            throw new IllegalArgumentException("Your input is blank! Please check it!");
+            throw new IllegalArgumentException("Your input essage is blank! Please check it!");
         }
         if (null == topic || topic.isEmpty()) {
-            throw new IllegalArgumentException("Topic name is blank!");
+            throw new IllegalArgumentException("Your input topic name is blank!");
         }
         total.incrementAndGet();
         lastTimeInMillisOfClientRequest = System.currentTimeMillis();
         final Pub pub = new Pub(topic, message);
+
+        final int maxRetries = 6;
         int c = 0; // be continuous
-        while (c++ < 6) {
+        while (c++ < maxRetries) {
             if (c > 1) {
                 logger.debug("Sleep. CurrentRetries: {}", c);
                 sleep((1 << (c - 1)) * 1000);
@@ -197,11 +199,12 @@ public class ProducerImplV2 implements Producer {
             logger.debug("Having acquired a {} NSQConnection! CurrentRetries: {}", conn.getAddress(), c);
             try {
                 final NSQFrame frame = conn.commandAndGetResponse(pub);
-                // delegate to method: incomming(...)
+                // delegate to method: incoming(...)
+                incoming(frame, conn);
                 return;
             } catch (Exception e) {
                 IOUtil.closeQuietly(conn);
-                logger.error("CurrentRetries: {} , Address: {} , Topic: {}, RawMessage: {} , Exception:", c,
+                logger.error("MaxRetries: {} , CurrentRetries: {} , Address: {} , Topic: {}, RawMessage: {} , Exception:", maxRetries,
                         conn.getAddress(), topic, message, e);
                 // Continue to retry
                 continue;
@@ -260,7 +263,7 @@ public class ProducerImplV2 implements Producer {
             }
             try {
                 final NSQFrame frame = conn.commandAndGetResponse(pub);
-                // delegate to method: incomming(...)
+                // delegate to method: incoming(...)
                 return;
             } catch (Exception e) {
                 IOUtil.closeQuietly(conn);
