@@ -25,4 +25,8 @@ public class ITBase {
         final String env = props.getProperty("env");
         logger.debug("The environment is {} .", env);
     }
+
+    public void test() {
+        
+    }
 }
