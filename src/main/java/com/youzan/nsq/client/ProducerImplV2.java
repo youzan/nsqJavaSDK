@@ -3,18 +3,15 @@ package com.youzan.nsq.client;
 import com.youzan.nsq.client.core.KeyedPooledConnectionFactory;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
-import com.youzan.nsq.client.core.command.Mpub;
 import com.youzan.nsq.client.core.command.Pub;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.exception.*;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
-import com.youzan.nsq.client.network.frame.NSQFrame.FrameType;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
 import com.youzan.util.ConcurrentSortedSet;
 import com.youzan.util.IOUtil;
-import com.youzan.util.Lists;
 import com.youzan.util.NamedThreadFactory;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
@@ -47,12 +44,11 @@ public class ProducerImplV2 implements Producer {
     private final GenericKeyedObjectPoolConfig poolConfig;
     private final KeyedPooledConnectionFactory factory;
     private GenericKeyedObjectPool<Address, NSQConnection> bigPool = null;
-    private final ExecutorService executor = Executors.newFixedThreadPool(WORKER_SIZE,
-            new NamedThreadFactory(this.getClass().getName() + "-ClientBusiness", Thread.MAX_PRIORITY));
+//    private final ExecutorService executor = Executors.newFixedThreadPool(WORKER_SIZE,
+//            new NamedThreadFactory(this.getClass().getName() + "-ClientBusiness", Thread.MAX_PRIORITY));
 
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger total = new AtomicInteger(0);
-    private final ConcurrentMap<Address, Long> address_2_lastActiveTime = new ConcurrentHashMap<>();
 
     private final NSQConfig config;
     private final NSQSimpleClient simpleClient;
@@ -103,20 +99,20 @@ public class ProducerImplV2 implements Producer {
      *
      * @param topic a topic name
      * @return a validated {@link NSQConnection}
-     * @throws NSQNoConnectionException that is having done a negotiation
+     * @throws NSQException that is having done a negotiation
      */
-    protected NSQConnection getNSQConnection(String topic) throws NSQNoConnectionException {
-        final ConcurrentSortedSet<Address> dataNodes = getDataNodes(topic);
+    private NSQConnection getNSQConnection(String topic) throws NSQException {
+        final ConcurrentSortedSet<Address> dataNodes = simpleClient.getDataNodes(topic);
         if (dataNodes.isEmpty()) {
-            throw new NSQNoConnectionException("You still didn't start NSQd / lookup-topic / producer.start() !");
+            throw new NSQNoConnectionException("You still do not producer.start() or the server is down(contact the administrator)!");
         }
         final int size = dataNodes.size();
-        final Address[] addrs = dataNodes.newArray(new Address[size]);
+        final Address[] addresses = dataNodes.newArray(new Address[size]);
         int c = 0, index = (this.offset++);
         while (c++ < size) {
             // current broker | next broker when have a try again
             final int effectedIndex = (index++ & Integer.MAX_VALUE) % size;
-            final Address addr = addrs[effectedIndex];
+            final Address addr = addresses[effectedIndex];
             logger.debug("Load-Balancing algorithm is Round-Robin! Size: {} , Index: {} , Got {}", size, effectedIndex,
                     addr);
             NSQConnection conn = null;

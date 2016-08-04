@@ -23,7 +23,7 @@ import io.netty.util.AttributeKey;
  */
 public interface NSQConnection extends Closeable {
 
-    public static final AttributeKey<NSQConnection> STATE = AttributeKey.valueOf("Connection.State");
+    AttributeKey<NSQConnection> STATE = AttributeKey.valueOf("Connection.State");
 
     Address getAddress();
 

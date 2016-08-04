@@ -1,6 +1,5 @@
 package com.youzan.nsq.client;
 
-import com.youzan.nsq.client.core.Client;
 import com.youzan.nsq.client.core.KeyedPooledConnectionFactory;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
@@ -43,7 +42,7 @@ public class ConsumerImplV2 implements Consumer {
     private volatile boolean started = false;
     private final AtomicBoolean closing = new AtomicBoolean(false);
 
-    private final Client simpleClient;
+    private final NSQSimpleClient simpleClient;
     private final NSQConfig config;
     private final GenericKeyedObjectPoolConfig poolConfig;
     private final KeyedPooledConnectionFactory factory;
@@ -52,10 +51,6 @@ public class ConsumerImplV2 implements Consumer {
     private final AtomicInteger receiving = new AtomicInteger(0);
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger total = new AtomicInteger(0);
-    /**
-     * Record the client's request time
-     */
-    private long lastTimeInMillisOfClientRequest = System.currentTimeMillis();
 
     /*-
      * =========================================================================
@@ -169,7 +164,7 @@ public class ConsumerImplV2 implements Consumer {
      * Connect to all the brokers with the config, making sure the new are OK
      * and the old are clear.
      */
-    private void connect() {
+    private void connect() throws NSQException {
         final Set<Address> broken = new HashSet<>();
         for (final HashSet<NSQConnection> connections : holdingConnections.values()) {
             for (final NSQConnection c : connections) {
@@ -183,24 +178,9 @@ public class ConsumerImplV2 implements Consumer {
                 }
             }
         }
-        // JDK8
-        /*
-         holdingConnections.values().parallelStream().forEach((conns) -> {
-            for (final NSQConnection c : conns) {
-                try {
-                    if (!c.isConnected()) {
-                        c.close();
-                        broken.add(c.getAddress());
-                    }
-                } catch (Exception e) {
-                    logger.error("Exception occurs while detecting broken connections!", e);
-                }
-            }
-        });
-        */
         // JDK7
         final String topic = config.getTopic();
-        final ConcurrentSortedSet<Address> newNodes = getDataNodes(topic);
+        final ConcurrentSortedSet<Address> newNodes = simpleClient.getDataNodes(topic);
         final Set<Address> oldAddresses = this.holdingConnections.keySet();
         final Set<Address> newDataNodes = newNodes.newSortedSet();
         final Set<Address> oldDataNodes = new TreeSet<>(oldAddresses);
@@ -257,30 +237,6 @@ public class ConsumerImplV2 implements Consumer {
                 }
                 holdingConnections.remove(address);
             }
-            // JDK8
-            /*
-            except2.parallelStream().forEach((address) -> {
-                if (address == null) {
-                    return;
-                }
-                bigPool.clear(address);
-                if (holdingConnections.containsKey(address)) {
-                    final Set<NSQConnection> conns = holdingConnections.get(address);
-                    if (conns != null) {
-                        conns.forEach((c) -> {
-                            try {
-                                backoff(c);
-                            } catch (Exception e) {
-                                logger.error("It can not backoff the connection!", e);
-                            } finally {
-                                IOUtil.closeQuietly(c);
-                            }
-                        });
-                    }
-                }
-                holdingConnections.remove(address);
-            });
-            */
         }
 
         /*-
@@ -483,9 +439,6 @@ public class ConsumerImplV2 implements Consumer {
         resumeRateLimiting(conn, 1000);
     }
 
-    /**
-     * @param NSQConnection
-     */
     private void resumeRateLimiting(final NSQConnection conn, final int delayInMillisecond) {
         if (executor instanceof ThreadPoolExecutor) {
             if (delayInMillisecond <= 0) {
@@ -627,11 +580,6 @@ public class ConsumerImplV2 implements Consumer {
         }
 
         holdingConnections.clear();
-    }
-
-    @Override
-    public ConcurrentSortedSet<Address> getDataNodes(String topic) {
-        return simpleClient.getDataNodes(topic);
     }
 
     @Override
