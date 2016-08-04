@@ -238,10 +238,6 @@ public class NSQSimpleClient implements Client, Closeable {
     }
 
     @Override
-    public void clearDataNode(Address address) {
-    }
-
-    @Override
     public boolean validateHeartbeat(NSQConnection conn) {
         final ChannelFuture future = conn.command(Nop.getInstance());
         return future.awaitUninterruptibly(500, TimeUnit.MILLISECONDS) && future.isSuccess();
@@ -259,7 +255,7 @@ public class NSQSimpleClient implements Client, Closeable {
         }
     }
 
-    void sleep(final long millisecond) {
+    private void sleep(final long millisecond) {
         logger.debug("Sleep {} millisecond.", millisecond);
         try {
             Thread.sleep(millisecond);

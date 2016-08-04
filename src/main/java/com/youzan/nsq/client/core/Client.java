@@ -56,7 +56,5 @@ public interface Client extends Closeable {
      */
     void backoff(final NSQConnection conn);
 
-    void clearDataNode(Address address);
-
     boolean validateHeartbeat(final NSQConnection conn);
 }

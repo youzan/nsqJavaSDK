@@ -12,13 +12,17 @@ import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
 import com.youzan.util.ConcurrentSortedSet;
 import com.youzan.util.IOUtil;
+import com.youzan.util.NamedThreadFactory;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashSet;
 import java.util.List;
-import java.util.NoSuchElementException;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -39,8 +43,10 @@ public class ProducerImplV2 implements Producer {
     private final GenericKeyedObjectPoolConfig poolConfig;
     private final KeyedPooledConnectionFactory factory;
     private GenericKeyedObjectPool<Address, NSQConnection> bigPool = null;
-//    private final ExecutorService executor = Executors.newFixedThreadPool(WORKER_SIZE,
-//            new NamedThreadFactory(this.getClass().getName() + "-ClientBusiness", Thread.MAX_PRIORITY));
+    private final ScheduledExecutorService scheduler = Executors
+            .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
+    private final ConcurrentMap<String, Long> topic_2_lastActiveTime = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Address, Long> address_2_lastActiveTime = new ConcurrentHashMap<>();
 
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger total = new AtomicInteger(0);
@@ -84,6 +90,46 @@ public class ProducerImplV2 implements Producer {
             this.bigPool = new GenericKeyedObjectPool<>(this.factory, this.poolConfig);
             //
             this.simpleClient.start();
+            scheduler.scheduleAtFixedRate(new Runnable() {
+                @Override
+                public void run() {
+                    // We make a decision that the resources life time should be less than 2 hours
+                    // Normal max lifetime is 1 hour
+                    // Extreme max lifetime is 1.5 hours
+                    final long allow = System.currentTimeMillis() - 3600 * 1000L;
+                    final Set<String> expiredTopics = new HashSet<>();
+                    final Set<Address> expiredAddresses = new HashSet<>();
+                    for (Map.Entry<String, Long> pair : topic_2_lastActiveTime.entrySet()) {
+                        if (pair.getValue().longValue() < allow) {
+                            expiredTopics.add(pair.getKey());
+                        }
+                    }
+                    for (Map.Entry<Address, Long> pair : address_2_lastActiveTime.entrySet()) {
+                        if (pair.getValue().longValue() < allow) {
+                            expiredAddresses.add(pair.getKey());
+                        }
+                    }
+                    for (Address address : expiredAddresses) {
+                        address_2_lastActiveTime.remove(address);
+                        try {
+                            bigPool.clear(address);
+                            factory.clear(address);
+                        } catch (Exception e) {
+                            logger.error("Exception", e);
+                        }
+                    }
+                    for (String topic : expiredTopics) {
+                        topic_2_lastActiveTime.remove(topic);
+                        try {
+                            simpleClient.removeTopic(topic);
+                        } catch (Exception e) {
+                            logger.error("Exception", e);
+                        }
+                    }
+                    expiredTopics.clear();
+                    expiredAddresses.clear();
+                }
+            }, 30, 30, TimeUnit.MINUTES);
         }
         logger.info("Producer is started.");
     }
@@ -97,6 +143,8 @@ public class ProducerImplV2 implements Producer {
      * @throws NSQException that is having done a negotiation
      */
     private NSQConnection getNSQConnection(String topic) throws NSQException {
+        final Long now = Long.valueOf(System.currentTimeMillis());
+        topic_2_lastActiveTime.putIfAbsent(topic, now);
         final ConcurrentSortedSet<Address> dataNodes = simpleClient.getDataNodes(topic);
         if (dataNodes.isEmpty()) {
             throw new NSQNoConnectionException("You still do not producer.start() or the server is down(contact the administrator)!");
@@ -108,45 +156,22 @@ public class ProducerImplV2 implements Producer {
             // current broker | next broker when have a try again
             final int effectedIndex = (index++ & Integer.MAX_VALUE) % size;
             final Address address = addresses[effectedIndex];
+            address_2_lastActiveTime.putIfAbsent(address, now);
             logger.debug("Load-Balancing algorithm is Round-Robin! Size: {} , Index: {} , Got {}", size, effectedIndex,
                     address);
-            NSQConnection conn = null;
             try {
                 logger.debug("Begin to borrowObject from the address: {}", address);
-                conn = bigPool.borrowObject(address);
-                return conn;
-            } catch (NoSuchElementException e) {
-                // Either the pool is too busy or broker is down.
-                // So ugly handler
-                final boolean exhausted;
-                final String poolTip = e.getMessage();
-                if (poolTip != null) {
-                    final String tmp = poolTip.trim().toLowerCase();
-                    if (tmp.startsWith("pool exhausted") || tmp.contains("exhausted")) {
-                        exhausted = true;
-                    } else {
-                        exhausted = false;
-                    }
-                } else {
-                    exhausted = false;
-                }
-                if (!exhausted) {
-                    // broker is down
-                    clearDataNode(address);
-                }
-                logger.error("CurrentRetries: {} , Address: {} , Exception:", c, address, e);
+                return bigPool.borrowObject(address);
             } catch (Exception e) {
-                IOUtil.closeQuietly(conn);
-                if (conn != null) {
-                    bigPool.returnObject(conn.getAddress(), conn);
-                }
                 logger.error("CurrentRetries: {} , Address: {} , Exception:", c, address, e);
             }
         }
-        /**
-         * no available {@link NSQConnection}
-         */
+        // no available {@link NSQConnection}
         return null;
+    }
+
+    public void publish(String message, String topic) throws NSQException {
+        publish(message.getBytes(IOUtil.DEFAULT_CHARSET), topic);
     }
 
     @Override
@@ -193,30 +218,10 @@ public class ProducerImplV2 implements Producer {
         throw new NSQDataNodesDownException();
     }
 
-    @Override
-    public void publish(String message) throws NSQException {
-        if (message == null || message.isEmpty()) {
-            throw new NSQInvalidMessageException("Your input is blank!");
-        }
-        publish(message.getBytes(IOUtil.DEFAULT_CHARSET));
-    }
-
-    @Override
-    public void publish(byte[] message) throws NSQException {
-        final String topic = config.getTopic();
-        publish(message, topic);
-    }
-
-    @Override
-    public void publishMulti(List<byte[]> messages) throws NSQException {
-    }
-
-    private void publishSmallBatch(List<byte[]> batch, String topic) throws NSQException {
 //        final List<List<byte[]>> batches = Lists.partition(messages, 30);
 //        for (List<byte[]> batch : batches) {
 //            publishSmallBatch(batch);
 //        }
-    }
 
     private void handleResponse(NSQFrame frame, NSQConnection conn) throws NSQException {
         if (frame == null) {
@@ -268,16 +273,6 @@ public class ProducerImplV2 implements Producer {
         simpleClient.backoff(conn);
     }
 
-    @Override
-    public void clearDataNode(final Address address) {
-        if (address == null) {
-            return;
-        }
-        factory.clear(address);
-        bigPool.clear(address);
-        simpleClient.clearDataNode(address);
-    }
-
 
     @Override
     public void publishMulti(List<byte[]> messages, String topic) throws NSQException {
@@ -299,7 +294,7 @@ public class ProducerImplV2 implements Producer {
         IOUtil.closeQuietly(simpleClient);
     }
 
-    void sleep(final long millisecond) {
+    private void sleep(final long millisecond) {
         logger.debug("Sleep {} millisecond.", millisecond);
         try {
             Thread.sleep(millisecond);
