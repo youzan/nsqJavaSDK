@@ -43,18 +43,18 @@ public class ProducerImplV2 implements Producer {
 
     private static final Logger logger = LoggerFactory.getLogger(ProducerImplV2.class);
     private volatile boolean started = false;
-    private final Client simpleClient;
-    private final NSQConfig config;
     private volatile int offset = 0;
+
     private final GenericKeyedObjectPoolConfig poolConfig;
     private final KeyedPooledConnectionFactory factory;
     private GenericKeyedObjectPool<Address, NSQConnection> bigPool = null;
+
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger total = new AtomicInteger(0);
-    /**
-     * Record the client's request time
-     */
-    private long lastTimeInMillisOfClientRequest = System.currentTimeMillis();
+    private final ConcurrentMap<String, Long> topic_2_lastActiveTime = new ConcurrentHashMap<>();
+
+    private final NSQConfig config;
+    private final NSQSimpleClient simpleClient;
 
     /**
      * @param config NSQConfig
@@ -89,14 +89,10 @@ public class ProducerImplV2 implements Producer {
             this.poolConfig.setMaxWaitMillis(50);
             this.poolConfig.setBlockWhenExhausted(true);
             this.offset = _r.nextInt(100);
-            try {
-                this.simpleClient.start();
-            } catch (Exception e) {
-                logger.error("Exception", e);
-            }
+            this.simpleClient.start();
             createBigPool();
         }
-        logger.debug("Producer is started.");
+        logger.info("Producer is started.");
     }
 
     /**
@@ -329,11 +325,6 @@ public class ProducerImplV2 implements Producer {
             bigPool.close();
         }
         IOUtil.closeQuietly(simpleClient);
-    }
-
-    @Override
-    public ConcurrentSortedSet<Address> getDataNodes(String topic) {
-        return simpleClient.getDataNodes(topic);
     }
 
     @Override

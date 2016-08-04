@@ -200,21 +200,27 @@ public class NSQSimpleClient implements Client, Closeable {
     }
 
     public ConcurrentSortedSet<Address> getDataNodes(String topic) throws NSQException {
+        SortedSet<Address> first = null;
         lock.readLock().lock();
         try {
-            ConcurrentSortedSet<Address> dataNodes = topic_2_dataNodes.get(topic);
+            final ConcurrentSortedSet<Address> dataNodes = topic_2_dataNodes.get(topic);
             if (dataNodes != null && !dataNodes.isEmpty()) {
                 return dataNodes;
             }
-            final SortedSet<Address> addresses = lookup.lookup(topic);
-            if (addresses != null && !addresses.isEmpty()) {
-                dataNodes = new ConcurrentSortedSet<>();
-                dataNodes.addAll(addresses);
-                topic_2_dataNodes.put(topic, dataNodes);
-                return dataNodes;
-            }
+            first = lookup.lookup(topic);
         } finally {
             lock.readLock().unlock();
+        }
+        if (first != null && !first.isEmpty()) {
+            final ConcurrentSortedSet<Address> dataNodes = new ConcurrentSortedSet<>();
+            dataNodes.addAll(first);
+            lock.writeLock().lock();
+            try {
+                topic_2_dataNodes.put(topic, dataNodes);
+                return dataNodes;
+            } finally {
+                lock.writeLock().unlock();
+            }
         }
         throw new NSQInvalidTopicException();
     }
