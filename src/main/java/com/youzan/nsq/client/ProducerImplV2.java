@@ -12,7 +12,6 @@ import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
 import com.youzan.util.ConcurrentSortedSet;
 import com.youzan.util.IOUtil;
-import com.youzan.util.NamedThreadFactory;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 import org.slf4j.Logger;
@@ -20,10 +19,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -112,13 +107,13 @@ public class ProducerImplV2 implements Producer {
         while (c++ < size) {
             // current broker | next broker when have a try again
             final int effectedIndex = (index++ & Integer.MAX_VALUE) % size;
-            final Address addr = addresses[effectedIndex];
+            final Address address = addresses[effectedIndex];
             logger.debug("Load-Balancing algorithm is Round-Robin! Size: {} , Index: {} , Got {}", size, effectedIndex,
-                    addr);
+                    address);
             NSQConnection conn = null;
             try {
-                logger.debug("Begin to borrowObject from the address: {}", addr);
-                conn = bigPool.borrowObject(addr);
+                logger.debug("Begin to borrowObject from the address: {}", address);
+                conn = bigPool.borrowObject(address);
                 return conn;
             } catch (NoSuchElementException e) {
                 // Either the pool is too busy or broker is down.
@@ -127,9 +122,7 @@ public class ProducerImplV2 implements Producer {
                 final String poolTip = e.getMessage();
                 if (poolTip != null) {
                     final String tmp = poolTip.trim().toLowerCase();
-                    if (tmp.startsWith("pool exhausted")) {
-                        exhausted = true;
-                    } else if (tmp.contains("exhausted")) {
+                    if (tmp.startsWith("pool exhausted") || tmp.contains("exhausted")) {
                         exhausted = true;
                     } else {
                         exhausted = false;
@@ -139,15 +132,15 @@ public class ProducerImplV2 implements Producer {
                 }
                 if (!exhausted) {
                     // broker is down
-                    clearDataNode(addr);
+                    clearDataNode(address);
                 }
-                logger.error("CurrentRetries: {} , Address: {} , Exception:", c, addr, e);
+                logger.error("CurrentRetries: {} , Address: {} , Exception:", c, address, e);
             } catch (Exception e) {
                 IOUtil.closeQuietly(conn);
                 if (conn != null) {
                     bigPool.returnObject(conn.getAddress(), conn);
                 }
-                logger.error("CurrentRetries: {} , Address: {} , Exception:", c, addr, e);
+                logger.error("CurrentRetries: {} , Address: {} , Exception:", c, address, e);
             }
         }
         /**
