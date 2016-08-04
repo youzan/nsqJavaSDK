@@ -56,12 +56,6 @@ public interface Client extends Closeable {
      */
     void backoff(final NSQConnection conn);
 
-    /**
-     * @param topic
-     * @return Always it is new.
-     */
-    ConcurrentSortedSet<Address> getDataNodes(String topic);
-
     void clearDataNode(Address address);
 
     boolean validateHeartbeat(final NSQConnection conn);

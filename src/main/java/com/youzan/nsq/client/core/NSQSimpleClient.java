@@ -1,6 +1,3 @@
-/**
- *
- */
 package com.youzan.nsq.client.core;
 
 import com.youzan.nsq.client.core.command.Nop;
@@ -9,6 +6,7 @@ import com.youzan.nsq.client.core.lookup.LookupService;
 import com.youzan.nsq.client.core.lookup.LookupServiceImpl;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.exception.NSQException;
+import com.youzan.nsq.client.exception.NSQInvalidTopicException;
 import com.youzan.nsq.client.exception.NSQLookupException;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.util.ConcurrentSortedSet;
@@ -36,7 +34,7 @@ public class NSQSimpleClient implements Client, Closeable {
 
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
     private final Map<String, ConcurrentSortedSet<Address>> topic_2_dataNodes = new HashMap<>();
-    private final Set<Address> dataNodes = new HashSet<>();
+    private final ConcurrentSortedSet<Address> dataNodes = new ConcurrentSortedSet<>();
 
     private volatile boolean started;
     private final ScheduledExecutorService scheduler = Executors
@@ -160,11 +158,16 @@ public class NSQSimpleClient implements Client, Closeable {
         if (topic == null || topic.isEmpty()) {
             return;
         }
+        lock.writeLock().lock();
+        try {
+            topic_2_dataNodes.remove(topic);
+        } finally {
+            lock.writeLock().unlock();
+        }
     }
 
     @Override
     public void incoming(final NSQFrame frame, final NSQConnection conn) throws NSQException {
-        return;
         /*switch (frame.getType()) {
             case RESPONSE_FRAME: {
                 final String resp = frame.getMessage();
@@ -196,26 +199,36 @@ public class NSQSimpleClient implements Client, Closeable {
         conn.command(new Rdy(0));
     }
 
-    @Override
-    public ConcurrentSortedSet<Address> getDataNodes(String topic) {
-        // TODO
-        return null;
+    public ConcurrentSortedSet<Address> getDataNodes(String topic) throws NSQException {
+        lock.readLock().lock();
+        try {
+            final ConcurrentSortedSet dataNodes = topic_2_dataNodes.get(topic);
+            if (dataNodes != null && !dataNodes.isEmpty()) {
+                return dataNodes;
+            }
+        } finally {
+            lock.readLock().unlock();
+        }
+        throw new NSQInvalidTopicException();
+    }
+
+    public ConcurrentSortedSet<Address> getAllDataNodes() {
+        lock.readLock().lock();
+        try {
+            return dataNodes;
+        } finally {
+            lock.readLock().lock();
+        }
     }
 
     @Override
     public void clearDataNode(Address address) {
-        if (address == null) {
-            return;
-        }
     }
 
     @Override
     public boolean validateHeartbeat(NSQConnection conn) {
         final ChannelFuture future = conn.command(Nop.getInstance());
-        if (future.awaitUninterruptibly(500, TimeUnit.MILLISECONDS)) {
-            return future.isSuccess();
-        }
-        return false;
+        return future.awaitUninterruptibly(500, TimeUnit.MILLISECONDS) && future.isSuccess();
     }
 
     @Override
