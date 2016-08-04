@@ -31,7 +31,6 @@ public class NSQConnectionImpl implements NSQConnection {
 
     private final int id; // primary key
 
-    private final ReentrantLock lock = new ReentrantLock();
     private final LinkedBlockingQueue<NSQCommand> requests = new LinkedBlockingQueue<>(1);
     private final LinkedBlockingQueue<NSQFrame> responses = new LinkedBlockingQueue<>(1);
 
@@ -61,8 +60,8 @@ public class NSQConnectionImpl implements NSQConnection {
 
         if (!havingNegotiation) {
             command(Magic.getInstance());
-            final NSQCommand ident = new Identify(config);
-            final NSQFrame response = commandAndGetResponse(ident);
+            final NSQCommand identify = new Identify(config);
+            final NSQFrame response = commandAndGetResponse(identify);
             if (null == response) {
                 throw new IllegalStateException("Bad Identify Response! Close connection!");
             }
@@ -85,44 +84,39 @@ public class NSQConnectionImpl implements NSQConnection {
 
     @Override
     public NSQFrame commandAndGetResponse(final NSQCommand command) throws TimeoutException {
-        lock.lock();
+        final long start = System.currentTimeMillis();
         try {
-            final long start = System.currentTimeMillis();
-            try {
-                long timeout = timeoutInMillisecond - (0L);
-                if (!requests.offer(command, timeout, TimeUnit.MILLISECONDS)) {
-                    throw new TimeoutException(
-                            "The command is timeout. The command name is : " + command.getClass().getName());
-                }
-
-                responses.clear(); // clear
-                // write data
-                final ChannelFuture future = command(command);
-
-                // wait to get the response
-                timeout = timeoutInMillisecond - (start - System.currentTimeMillis());
-                if (!future.await(timeout, TimeUnit.MILLISECONDS)) {
-                    throw new TimeoutException(
-                            "The command is timeout. The command name is : " + command.getClass().getName());
-                }
-                timeout = timeoutInMillisecond - (start - System.currentTimeMillis());
-                final NSQFrame frame = responses.poll(timeout, TimeUnit.MILLISECONDS);
-                if (frame == null) {
-                    throw new TimeoutException(
-                            "The command is timeout. The command name is : " + command.getClass().getName());
-                }
-
-                requests.poll(); // clear
-                return frame;
-            } catch (InterruptedException e) {
-                close();
-                Thread.currentThread().interrupt();
-                logger.error("Thread was interrupted, probably shutting down! Close connection!", e);
+            long timeout = timeoutInMillisecond - (0L);
+            if (!requests.offer(command, timeout, TimeUnit.MILLISECONDS)) {
+                throw new TimeoutException(
+                        "The command is timeout. The command name is : " + command.getClass().getName());
             }
-            return null;
-        } finally {
-            lock.unlock();
+
+            responses.clear(); // clear
+            // write data
+            final ChannelFuture future = command(command);
+
+            // wait to get the response
+            timeout = timeoutInMillisecond - (start - System.currentTimeMillis());
+            if (!future.await(timeout, TimeUnit.MILLISECONDS)) {
+                throw new TimeoutException(
+                        "The command is timeout. The command name is : " + command.getClass().getName());
+            }
+            timeout = timeoutInMillisecond - (start - System.currentTimeMillis());
+            final NSQFrame frame = responses.poll(timeout, TimeUnit.MILLISECONDS);
+            if (frame == null) {
+                throw new TimeoutException(
+                        "The command is timeout. The command name is : " + command.getClass().getName());
+            }
+
+            requests.poll(); // clear
+            return frame;
+        } catch (InterruptedException e) {
+            close();
+            Thread.currentThread().interrupt();
+            logger.error("Thread was interrupted, probably shutting down! Close connection!", e);
         }
+        return null;
     }
 
     @Override
@@ -160,25 +154,20 @@ public class NSQConnectionImpl implements NSQConnection {
         if (closing && closed) {
             return;
         }
-        lock.lock();
-        try {
-            if (!closing) {
-                closing = true;
-                if (null != channel) {
-                    // It is very important!
-                    channel.attr(NSQConnection.STATE).remove();
-                    channel.attr(Client.STATE).remove();
-                    channel.close();
-                    havingNegotiation = false;
-                    logger.info("Having closed {} OK!", this);
-                } else {
-                    logger.error("No channel has be set...");
-                }
+        if (!closing) {
+            closing = true;
+            if (null != channel) {
+                // It is very important!
+                channel.attr(NSQConnection.STATE).remove();
+                channel.attr(Client.STATE).remove();
+                channel.close();
+                havingNegotiation = false;
+                logger.info("Having closed {} OK!", this);
+            } else {
+                logger.error("No channel has be set...");
             }
-            closed = true;
-        } finally {
-            lock.unlock();
         }
+        closed = true;
     }
 
     /**
