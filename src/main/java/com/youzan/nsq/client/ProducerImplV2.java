@@ -1,15 +1,5 @@
 package com.youzan.nsq.client;
 
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
-import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.youzan.nsq.client.core.Client;
 import com.youzan.nsq.client.core.KeyedPooledConnectionFactory;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
@@ -17,18 +7,23 @@ import com.youzan.nsq.client.core.command.Mpub;
 import com.youzan.nsq.client.core.command.Pub;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
-import com.youzan.nsq.client.exception.NSQDataNodesDownException;
-import com.youzan.nsq.client.exception.NSQException;
-import com.youzan.nsq.client.exception.NSQInvalidDataNodeException;
-import com.youzan.nsq.client.exception.NSQInvalidMessageException;
-import com.youzan.nsq.client.exception.NSQInvalidTopicException;
-import com.youzan.nsq.client.exception.NSQNoConnectionException;
+import com.youzan.nsq.client.exception.*;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame.FrameType;
 import com.youzan.util.ConcurrentSortedSet;
 import com.youzan.util.IOUtil;
 import com.youzan.util.Lists;
+import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
+import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * <pre>
@@ -51,7 +46,7 @@ public class ProducerImplV2 implements Producer {
 
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger total = new AtomicInteger(0);
-    private final ConcurrentMap<String, Long> topic_2_lastActiveTime = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Address, Long> address_2_lastActiveTime = new ConcurrentHashMap<>();
 
     private final NSQConfig config;
     private final NSQSimpleClient simpleClient;
@@ -61,9 +56,9 @@ public class ProducerImplV2 implements Producer {
      */
     public ProducerImplV2(NSQConfig config) {
         this.config = config;
-        this.poolConfig = new GenericKeyedObjectPoolConfig();
-
         this.simpleClient = new NSQSimpleClient(config.getLookupAddresses());
+
+        this.poolConfig = new GenericKeyedObjectPoolConfig();
         this.factory = new KeyedPooledConnectionFactory(this.config, this);
     }
 
@@ -86,7 +81,7 @@ public class ProducerImplV2 implements Producer {
             this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());
             // acquire connection waiting time
-            this.poolConfig.setMaxWaitMillis(50);
+            this.poolConfig.setMaxWaitMillis(this.config.getQueryTimeoutInMillisecond());
             this.poolConfig.setBlockWhenExhausted(true);
             this.offset = _r.nextInt(100);
             this.simpleClient.start();
@@ -171,13 +166,13 @@ public class ProducerImplV2 implements Producer {
             throw new IllegalStateException("Producer must be started before producing messages!");
         }
         if (message == null || message.length <= 0) {
-            throw new IllegalArgumentException("Your input essage is blank! Please check it!");
+            throw new IllegalArgumentException("Your input message is blank! Please check it!");
         }
         if (null == topic || topic.isEmpty()) {
             throw new IllegalArgumentException("Your input topic name is blank!");
         }
         total.incrementAndGet();
-        lastTimeInMillisOfClientRequest = System.currentTimeMillis();
+        final ConcurrentSortedSet<Address> dataNodes = simpleClient.getDataNodes(topic);
         final Pub pub = new Pub(topic, message);
 
         final int maxRetries = 6;
@@ -316,6 +311,16 @@ public class ProducerImplV2 implements Producer {
         simpleClient.clearDataNode(address);
     }
 
+
+    @Override
+    public void publishMulti(List<byte[]> messages, String topic) throws NSQException {
+    }
+
+    @Override
+    public boolean validateHeartbeat(NSQConnection conn) {
+        return simpleClient.validateHeartbeat(conn);
+    }
+
     @Override
     public void close() {
         if (factory != null) {
@@ -327,11 +332,6 @@ public class ProducerImplV2 implements Producer {
         IOUtil.closeQuietly(simpleClient);
     }
 
-    @Override
-    public boolean validateHeartbeat(NSQConnection conn) {
-        return simpleClient.validateHeartbeat(conn);
-    }
-
     void sleep(final long millisecond) {
         logger.debug("Sleep {} millisecond.", millisecond);
         try {
@@ -341,9 +341,4 @@ public class ProducerImplV2 implements Producer {
             logger.error("Your machine is too busy! Please check it!");
         }
     }
-
-    @Override
-    public void publishMulti(List<byte[]> messages, String topic) throws NSQException {
-    }
-
 }
