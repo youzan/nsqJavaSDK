@@ -1,5 +1,5 @@
 /**
- * Java implemention of NSQ Client
+ * Java implementation of NSQ Client
  */
 /**
  * Share the same @{code NSQConfig }

@@ -14,6 +14,7 @@ import com.youzan.nsq.client.network.frame.NSQFrame.FrameType;
 import com.youzan.util.ConcurrentSortedSet;
 import com.youzan.util.IOUtil;
 import com.youzan.util.Lists;
+import com.youzan.util.NamedThreadFactory;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 import org.slf4j.Logger;
@@ -23,6 +24,8 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -43,6 +46,8 @@ public class ProducerImplV2 implements Producer {
     private final GenericKeyedObjectPoolConfig poolConfig;
     private final KeyedPooledConnectionFactory factory;
     private GenericKeyedObjectPool<Address, NSQConnection> bigPool = null;
+    private final ExecutorService executor = Executors.newFixedThreadPool(WORKER_SIZE,
+            new NamedThreadFactory(this.getClass().getName() + "-ClientBusiness", Thread.MAX_PRIORITY));
 
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger total = new AtomicInteger(0);
@@ -67,34 +72,28 @@ public class ProducerImplV2 implements Producer {
         if (!this.started) {
             this.started = true;
             // setting all of the configs
+            this.offset = _r.nextInt(100);
             this.poolConfig.setLifo(true);
             this.poolConfig.setFairness(false);
             this.poolConfig.setTestOnBorrow(true);
             this.poolConfig.setTestOnReturn(false);
             this.poolConfig.setTestWhileIdle(true);
             this.poolConfig.setJmxEnabled(false);
-            // because of the latency's insensitivity, the Idle tiemout * 1.5
-            // should be less-equals than CheckPeriod.
             this.poolConfig.setMinEvictableIdleTimeMillis(60 * 1000);
-            this.poolConfig.setTimeBetweenEvictionRunsMillis(2 * 60 * 1000);
+            this.poolConfig.setSoftMinEvictableIdleTimeMillis(60 * 1000);
+            this.poolConfig.setTimeBetweenEvictionRunsMillis(15 * 1000);
             this.poolConfig.setMinIdlePerKey(1);
             this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());
             // acquire connection waiting time
             this.poolConfig.setMaxWaitMillis(this.config.getQueryTimeoutInMillisecond());
-            this.poolConfig.setBlockWhenExhausted(true);
-            this.offset = _r.nextInt(100);
+            this.poolConfig.setBlockWhenExhausted(false);
+            // new instance without performing to connect
+            this.bigPool = new GenericKeyedObjectPool<>(this.factory, this.poolConfig);
+            //
             this.simpleClient.start();
-            createBigPool();
         }
         logger.info("Producer is started.");
-    }
-
-    /**
-     * new instance without performing to connect
-     */
-    private void createBigPool() {
-        this.bigPool = new GenericKeyedObjectPool<>(this.factory, this.poolConfig);
     }
 
     /**
@@ -162,19 +161,17 @@ public class ProducerImplV2 implements Producer {
 
     @Override
     public void publish(byte[] message, String topic) throws NSQException {
-        if (!started) {
-            throw new IllegalStateException("Producer must be started before producing messages!");
-        }
         if (message == null || message.length <= 0) {
             throw new IllegalArgumentException("Your input message is blank! Please check it!");
         }
         if (null == topic || topic.isEmpty()) {
             throw new IllegalArgumentException("Your input topic name is blank!");
         }
+        if (!started) {
+            throw new IllegalStateException("Producer must be started before producing messages!");
+        }
         total.incrementAndGet();
-        final ConcurrentSortedSet<Address> dataNodes = simpleClient.getDataNodes(topic);
         final Pub pub = new Pub(topic, message);
-
         final int maxRetries = 6;
         int c = 0; // be continuous
         while (c++ < maxRetries) {
@@ -184,21 +181,18 @@ public class ProducerImplV2 implements Producer {
             }
             final NSQConnection conn = getNSQConnection(topic);
             if (conn == null) {
-                // Continue to retry
                 continue;
             }
             logger.debug("Having acquired a {} NSQConnection! CurrentRetries: {}", conn.getAddress(), c);
             try {
                 final NSQFrame frame = conn.commandAndGetResponse(pub);
-                // delegate to method: incoming(...)
-                incoming(frame, conn);
+                handleResponse(frame, conn);
+                success.incrementAndGet();
                 return;
             } catch (Exception e) {
                 IOUtil.closeQuietly(conn);
                 logger.error("MaxRetries: {} , CurrentRetries: {} , Address: {} , Topic: {}, RawMessage: {} , Exception:", maxRetries,
                         conn.getAddress(), topic, message, e);
-                // Continue to retry
-                continue;
             } finally {
                 bigPool.returnObject(conn.getAddress(), conn);
             }
@@ -228,43 +222,14 @@ public class ProducerImplV2 implements Producer {
             throw new IllegalArgumentException("Your input is blank!");
         }
         total.addAndGet(messages.size());
-        lastTimeInMillisOfClientRequest = System.currentTimeMillis();
         final List<List<byte[]>> batches = Lists.partition(messages, 30);
         for (List<byte[]> batch : batches) {
             publishSmallBatch(batch);
         }
     }
 
-    /**
-     * @param batch
-     * @throws NSQException
-     */
-    private void publishSmallBatch(List<byte[]> batch) throws NSQException {
-        final Mpub pub = new Mpub(config.getTopic(), batch);
-        int c = 0; // be continuous
-        while (c++ < 6) {
-            if (c > 1) {
-                logger.debug("Sleep. CurrentRetries: {}", c);
-                sleep((1 << (c - 1)) * 1000);
-            }
-            final NSQConnection conn = getNSQConnection(config.getTopic());
-            if (conn == null) {
-                // Continue to retry
-                continue;
-            }
-            try {
-                final NSQFrame frame = conn.commandAndGetResponse(pub);
-                // delegate to method: incoming(...)
-                return;
-            } catch (Exception e) {
-                IOUtil.closeQuietly(conn);
-                // Continue to retry
-                logger.error("CurrentRetries: {} , Address: {} , Exception:", c, conn.getAddress(), e);
-                continue;
-            } finally {
-                bigPool.returnObject(conn.getAddress(), conn);
-            }
-        }
+    private void publishSmallBatch(List<byte[]> batch, String topic) throws NSQException {
+        final Mpub pub = new Mpub(topic, batch);
         throw new NSQDataNodesDownException();
     }
 
@@ -285,16 +250,18 @@ public class ProducerImplV2 implements Producer {
                 }
                 case E_TOPIC_NOT_EXIST: {
                     clearDataNode(conn.getAddress());
-                    logger.error("Adress: {} , Frame: {}", conn.getAddress(), frame);
+                    logger.error("Address: {} , Frame: {}", conn.getAddress(), frame);
                     throw new NSQInvalidDataNodeException();
                 }
                 default: {
-                    throw new NSQException("Unkown response error!");
+                    throw new NSQException("Unknown response error!");
                 }
             }
         }
         simpleClient.incoming(frame, conn);
     }
+
+
 
     @Override
     public void backoff(NSQConnection conn) {

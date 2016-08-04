@@ -6,6 +6,7 @@ package com.youzan.nsq.client.core;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +31,7 @@ public class NSQConnectionImpl implements NSQConnection {
 
     private final int id; // primary key
 
+    private final ReentrantLock lock = new ReentrantLock();
     private final LinkedBlockingQueue<NSQCommand> requests = new LinkedBlockingQueue<>(1);
     private final LinkedBlockingQueue<NSQFrame> responses = new LinkedBlockingQueue<>(1);
 
@@ -83,57 +85,69 @@ public class NSQConnectionImpl implements NSQConnection {
 
     @Override
     public NSQFrame commandAndGetResponse(final NSQCommand command) throws TimeoutException {
-        final long start = System.currentTimeMillis();
+        lock.lock();
         try {
-            long timeout = timeoutInMillisecond - (0L);
-            if (!requests.offer(command, timeout, TimeUnit.MILLISECONDS)) {
-                throw new TimeoutException(
-                        "The command is timeout. The command name is : " + command.getClass().getName());
-            }
+            final long start = System.currentTimeMillis();
+            try {
+                long timeout = timeoutInMillisecond - (0L);
+                if (!requests.offer(command, timeout, TimeUnit.MILLISECONDS)) {
+                    throw new TimeoutException(
+                            "The command is timeout. The command name is : " + command.getClass().getName());
+                }
 
-            responses.clear(); // clear
-            // write data
-            final ChannelFuture future = command(command);
+                responses.clear(); // clear
+                // write data
+                final ChannelFuture future = command(command);
 
-            // wait to get the response
-            timeout = timeoutInMillisecond - (start - System.currentTimeMillis());
-            if (!future.await(timeout, TimeUnit.MILLISECONDS)) {
-                throw new TimeoutException(
-                        "The command is timeout. The command name is : " + command.getClass().getName());
-            }
-            timeout = timeoutInMillisecond - (start - System.currentTimeMillis());
-            final NSQFrame frame = responses.poll(timeout, TimeUnit.MILLISECONDS);
-            if (frame == null) {
-                throw new TimeoutException(
-                        "The command is timeout. The command name is : " + command.getClass().getName());
-            }
+                // wait to get the response
+                timeout = timeoutInMillisecond - (start - System.currentTimeMillis());
+                if (!future.await(timeout, TimeUnit.MILLISECONDS)) {
+                    throw new TimeoutException(
+                            "The command is timeout. The command name is : " + command.getClass().getName());
+                }
+                timeout = timeoutInMillisecond - (start - System.currentTimeMillis());
+                final NSQFrame frame = responses.poll(timeout, TimeUnit.MILLISECONDS);
+                if (frame == null) {
+                    throw new TimeoutException(
+                            "The command is timeout. The command name is : " + command.getClass().getName());
+                }
 
-            requests.poll(); // clear
-            return frame;
-        } catch (InterruptedException e) {
-            close();
-            Thread.currentThread().interrupt();
-            logger.error("Thread was interrupted, probably shutting down! Close connection!", e);
+                requests.poll(); // clear
+                return frame;
+            } catch (InterruptedException e) {
+                close();
+                Thread.currentThread().interrupt();
+                logger.error("Thread was interrupted, probably shutting down! Close connection!", e);
+            }
+            return null;
+        } finally {
+            lock.unlock();
         }
-        return null;
     }
 
     @Override
     public void addResponseFrame(ResponseFrame frame) {
         if (!requests.isEmpty()) {
             try {
-                responses.offer(frame, timeoutInMillisecond, TimeUnit.MILLISECONDS);
+                responses.offer(frame, timeoutInMillisecond * 2, TimeUnit.MILLISECONDS);
             } catch (InterruptedException e) {
                 close();
                 Thread.currentThread().interrupt();
                 logger.error("Thread was interrupted, probably shutting down!", e);
             }
+        } else {
+            logger.error("No request to send, but get a frame from the server.");
         }
     }
 
     @Override
     public void addErrorFrame(ErrorFrame frame) {
-        responses.add(frame);
+        try {
+            responses.offer(frame, timeoutInMillisecond, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Thread was interrupted, probably shutting down!", e);
+        }
     }
 
     @Override
