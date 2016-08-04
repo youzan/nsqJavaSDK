@@ -245,10 +245,7 @@ public class NSQMessage {
         } else if (!nextConsumingInSecond.equals(other.nextConsumingInSecond)) {
             return false;
         }
-        if (!Arrays.equals(timestamp, other.timestamp)) {
-            return false;
-        }
-        return true;
+        return Arrays.equals(timestamp, other.timestamp);
     }
 
     @Override

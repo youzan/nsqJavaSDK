@@ -79,10 +79,7 @@ public class Address implements java.io.Serializable, Comparable<Address> {
         } else if (!host.equals(other.host)) {
             return false;
         }
-        if (port != other.port) {
-            return false;
-        }
-        return true;
+        return port == other.port;
     }
 
 }

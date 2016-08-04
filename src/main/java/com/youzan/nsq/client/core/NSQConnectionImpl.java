@@ -267,10 +267,7 @@ public class NSQConnectionImpl implements NSQConnection {
         } else if (!responses.equals(other.responses)) {
             return false;
         }
-        if (timeoutInMillisecond != other.timeoutInMillisecond) {
-            return false;
-        }
-        return true;
+        return timeoutInMillisecond == other.timeoutInMillisecond;
     }
 
     @Override

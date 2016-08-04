@@ -14,17 +14,17 @@ import java.util.List;
  */
 public interface NSQCommand {
 
-    public static final Charset ASCII = StandardCharsets.US_ASCII;
-    public static final Charset UTF8 = StandardCharsets.UTF_8;
-    public static final Charset DEFAULT_CHARSET = UTF8;
+    Charset ASCII = StandardCharsets.US_ASCII;
+    Charset UTF8 = StandardCharsets.UTF_8;
+    Charset DEFAULT_CHARSET = UTF8;
 
     /**
      * The encoding's result between UTF-8 and US-ASCII is the same underlying
      * LINE_SEPARATOR.
      */
-    static final byte LINE_SEPARATOR = '\n';
-    static final byte SPACE = ' ';
-    static final List<byte[]> EMPTY_BODY = new ArrayList<>(0);
+    byte LINE_SEPARATOR = '\n';
+    byte SPACE = ' ';
+    List<byte[]> EMPTY_BODY = new ArrayList<>(0);
 
     // *************************************************************************
     // Normal command

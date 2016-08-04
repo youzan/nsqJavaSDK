@@ -313,7 +313,7 @@ public class ConsumerImplV2 implements Consumer {
      *            the broker address
      * @throws NSQException
      */
-    private void newConnections4OneBroker(Address address) throws NSQException, Exception {
+    private void newConnections4OneBroker(Address address) throws Exception {
         if (address == null) {
             logger.error("Your input address is blank!");
             return;
@@ -343,7 +343,7 @@ public class ConsumerImplV2 implements Consumer {
                     }
                 }
                 if (e instanceof NSQException) {
-                    throw (NSQException) e;
+                    throw e;
                 }
             }
         }
