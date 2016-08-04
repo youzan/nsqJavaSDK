@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <pre>
  * Expose to Client Code. Connect to one cluster(includes many brokers).
  * </pre>
- * 
+ *
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
 public class ConsumerImplV2 implements Consumer {
@@ -48,9 +48,8 @@ public class ConsumerImplV2 implements Consumer {
     private final KeyedPooledConnectionFactory factory;
     private GenericKeyedObjectPool<Address, NSQConnection> bigPool = null;
 
-    private final AtomicInteger receiving = new AtomicInteger(0);
+    private final AtomicInteger received = new AtomicInteger(0);
     private final AtomicInteger success = new AtomicInteger(0);
-    private final AtomicInteger total = new AtomicInteger(0);
 
     /*-
      * =========================================================================
@@ -78,10 +77,8 @@ public class ConsumerImplV2 implements Consumer {
     private volatile boolean autoFinish = true;
 
     /**
-     * @param config
-     *            NSQConfig
-     * @param handler
-     *            the client code sets it
+     * @param config  NSQConfig
+     * @param handler the client code sets it
      */
     public ConsumerImplV2(NSQConfig config, MessageHandler handler) {
         this.config = config;
@@ -281,10 +278,8 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     /**
-     * @param address
-     *            the data-node(NSQd)'s address
+     * @param address the data-node(NSQd)'s address
      */
-    @Override
     public void clearDataNode(Address address) {
         if (address == null) {
             return;
@@ -295,8 +290,7 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     /**
-     * @param brokers
-     *            the data-node(NSQd)'s addresses
+     * @param brokers the data-node(NSQd)'s addresses
      */
     private void newConnections(final Set<Address> brokers) {
         for (Address address : brokers) {
@@ -309,8 +303,7 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     /**
-     * @param address
-     *            the broker address
+     * @param address the broker address
      * @throws NSQException
      */
     private void newConnections4OneBroker(Address address) throws Exception {
@@ -397,7 +390,7 @@ public class ConsumerImplV2 implements Consumer {
     @Override
     public void incoming(final NSQFrame frame, final NSQConnection conn) throws NSQException {
         if (frame != null && frame.getType() == FrameType.MESSAGE_FRAME) {
-            receiving.incrementAndGet();
+            received.incrementAndGet();
             final MessageFrame msg = (MessageFrame) frame;
             final NSQMessage message = new NSQMessage(msg.getTimestamp(), msg.getAttempts(), msg.getMessageID(),
                     msg.getMessageBody(), conn.getAddress(), Integer.valueOf(conn.getId()));
@@ -435,7 +428,6 @@ public class ConsumerImplV2 implements Consumer {
                 logger.error("I can not handle it MessageID:{}, {}", message.getMessageID(), e);
             }
         }
-        total.incrementAndGet();
         resumeRateLimiting(conn, 1000);
     }
 
@@ -472,7 +464,7 @@ public class ConsumerImplV2 implements Consumer {
                 }
             }
         } else {
-            logger.error("Initing the executor is wroing.");
+            logger.error("Initializing the executor is wrong.");
         }
         assert currentRdy != null;
     }

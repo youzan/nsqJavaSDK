@@ -270,7 +270,6 @@ public class ProducerImplV2 implements Producer {
 
     @Override
     public void backoff(NSQConnection conn) {
-        simpleClient.backoff(conn);
     }
 
 
