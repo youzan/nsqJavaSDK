@@ -476,7 +476,7 @@ public class ConsumerImplV2 implements Consumer {
                 logger.info("Do a re-queue. MessageID:{}", message.getMessageID());
                 resumeRateLimiting(conn, 0);
             } catch (Exception e) {
-                logger.error("I cann't handle it MessageID:{}, {}", message.getMessageID(), e);
+                logger.error("I can not handle it MessageID:{}, {}", message.getMessageID(), e);
             }
         }
         total.incrementAndGet();
@@ -541,7 +541,7 @@ public class ConsumerImplV2 implements Consumer {
                 logger.error("CurrentRetries: {} , Exception: {}", c, e);
             }
         }
-        // The client commands requeue into NSQd.
+        // The client commands ReQueue into NSQd.
         final Integer timeout = message.getNextConsumingInSecond();
         // It is too complex.
         NSQCommand cmd = null;
@@ -584,27 +584,6 @@ public class ConsumerImplV2 implements Consumer {
         if (!ok) {
             logger.error("{} , exception occurs but you don't catch it! Please check it right now!!!", message);
         }
-        /*
-        if (timeout != null) {
-            if (message.getReadableAttempts() > 10) {
-                logger.error("{} , Processing 10 times is still a failure!", message);
-            }
-            if (!ok) {
-                cmd = new ReQueue(message.getMessageID(), message.getNextConsumingInSecond());
-                logger.info("Do a re-queue. MessageID: {}", message.getMessageID());
-                conn.command(cmd);
-            } else {
-            }
-        } else {
-            if (autoFinish) {
-                cmd = new Finish(message.getMessageID());
-                conn.command(cmd);
-            }
-            if (!ok) {
-                logger.error("{} , exception occurs but you don't catch it! Please check it right now!!!", message);
-            }
-        }
-        */
     }
 
     @Override
@@ -667,9 +646,9 @@ public class ConsumerImplV2 implements Consumer {
 
     @Override
     public void finish(NSQMessage message) throws NSQException {
-        final HashSet<NSQConnection> conns = holdingConnections.get(message.getAddress());
-        if (conns != null) {
-            for (NSQConnection c : conns) {
+        final HashSet<NSQConnection> connections = holdingConnections.get(message.getAddress());
+        if (connections != null) {
+            for (NSQConnection c : connections) {
                 if (c.getId() == message.getConnectionID().intValue()) {
                     if (c.isConnected()) {
                         c.command(new Finish(message.getMessageID()));

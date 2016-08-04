@@ -39,8 +39,8 @@ public class LookupServiceImpl implements LookupService {
      * Load-Balancing Strategy: round-robin
      */
     private volatile int offset = 0;
-    private volatile ScheduledExecutorService scheduler;
     private volatile boolean started = false;
+    private volatile ScheduledExecutorService scheduler;
 
     /**
      * @param addresses the lookup addresses
@@ -138,7 +138,7 @@ public class LookupServiceImpl implements LookupService {
         final JsonNode rootNode = mapper.readTree(new URL(url));
         final JsonNode nodes = rootNode.get("data").get("lookupdnodes");
         if (null == nodes) {
-            logger.error("NSQ Server do response without any lookupd!");
+            logger.error("NSQ Server do response without any lookup servers!");
             return;
         }
         final List<String> newLookups = new ArrayList<>(nodes.size());
@@ -149,9 +149,10 @@ public class LookupServiceImpl implements LookupService {
             newLookups.add(address);
         }
         if (!newLookups.isEmpty()) {
+            Collections.sort(newLookups);
             this.addresses = newLookups;
         }
-        logger.debug("Having got the new lookup servers : {}", this.addresses);
+        logger.debug("Recently have got the lookup servers : {}", this.addresses);
     }
 
     @Override

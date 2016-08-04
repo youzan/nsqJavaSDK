@@ -21,7 +21,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
-import java.util.concurrent.*;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * The intersection between {@link  com.youzan.nsq.client.Producer} and {@link com.youzan.nsq.client.Consumer}.
@@ -31,12 +39,17 @@ import java.util.concurrent.*;
 public class NSQSimpleClient implements Client, Closeable {
     private static final Logger logger = LoggerFactory.getLogger(NSQSimpleClient.class);
 
-    private final ConcurrentMap<String, ConcurrentSortedSet<Address>> topic_2_dataNodes = new ConcurrentHashMap<>();
-    private final ConcurrentMap<String, Long> topic_2_lastActiveTime = new ConcurrentHashMap<>();
-    private final LookupService lookup;
+    private final Lock lock = new ReentrantLock();
+    private final ConcurrentHashMap<String, ConcurrentSortedSet<Address>> topic_2_dataNodes = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Long> topic_2_lastActiveTime = new ConcurrentHashMap<>();
+    private final Set<Address> dataNodes = new HashSet<>();
+    private final ConcurrentHashMap<Address, Long> dataNode_2_lastActiveTime = new ConcurrentHashMap<>();
 
+    private volatile boolean started;
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.MAX_PRIORITY));
+
+    private final LookupService lookup;
 
     public NSQSimpleClient(final String lookupAddresses) {
         this.lookup = new LookupServiceImpl(lookupAddresses);
@@ -44,12 +57,12 @@ public class NSQSimpleClient implements Client, Closeable {
 
     @Override
     public void start() {
-        try {
-            newDataNodes();
-        } catch (Exception e) {
-            logger.error("Exception", e);
+        if (!started) {
+            started = true;
+            lookup.start();
+            keepDataNodes();
         }
-        keepDataNodes();
+        started = true;
     }
 
     private void keepDataNodes() {
@@ -67,10 +80,39 @@ public class NSQSimpleClient implements Client, Closeable {
     }
 
     private void newDataNodes() throws NSQLookupException {
+        final long now = System.currentTimeMillis();
+        final long duration = 3600L;
+        final long allow = now - duration;
+        final Set<String> expiredTopics = new HashSet<>();
+        final Set<Address> expiredAddresses = new HashSet<>();
+        for (Map.Entry<String, Long> pair : topic_2_lastActiveTime.entrySet()) {
+            logger.debug("Topic Recentness: {} , AllowActive: {}", pair.getValue(), allow);
+            if (pair.getValue().longValue() < allow) {
+                expiredTopics.add(pair.getKey());
+            }
+        }
+        for (Map.Entry<Address, Long> pair : dataNode_2_lastActiveTime.entrySet()) {
+            if (pair.getValue().longValue() < allow) {
+                expiredAddresses.add(pair.getKey());
+            }
+        }
+        for (String topic : expiredTopics) {
+            topic_2_lastActiveTime.remove(topic);
+            topic_2_dataNodes.remove(topic);
+        }
+    }
+
+    public void putTopic(String topic) {
+        if (topic == null || topic.isEmpty()) {
+            return;
+        }
+        final Long now = Long.valueOf(System.currentTimeMillis());
+        topic_2_lastActiveTime.put(topic, now);
     }
 
     @Override
     public void incoming(final NSQFrame frame, final NSQConnection conn) throws NSQException {
+        // TODO
         switch (frame.getType()) {
             case RESPONSE_FRAME: {
                 final String resp = frame.getMessage();
