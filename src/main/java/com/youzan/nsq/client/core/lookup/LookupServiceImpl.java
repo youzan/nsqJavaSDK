@@ -111,13 +111,13 @@ public class LookupServiceImpl implements LookupService {
      * Asynchronized processing
      */
     private void keepLookupServers() {
-        final int delay = _r.nextInt(60) + 45; // seconds
+        final int delay = _r.nextInt(60); // seconds
         scheduler.scheduleWithFixedDelay(new Runnable() {
             @Override
             public void run() {
                 try {
                     newLookupServers();
-                } catch(FileNotFoundException e){
+                } catch (FileNotFoundException e) {
                     logger.warn("You run with the lower server version.");
                 } catch (Exception e) {
                     logger.error("Exception", e);
@@ -186,7 +186,7 @@ public class LookupServiceImpl implements LookupService {
             logger.debug("The server response info after looking up some DataNodes: {}", rootNode.toString());
             return dataNodes; // maybe it is empty
         } catch (Exception e) {
-            final String tip = "SDK can't get the right lookup info.";
+            final String tip = "SDK can't get the right lookup info. " + url;
             throw new NSQLookupException(tip, e);
         }
     }

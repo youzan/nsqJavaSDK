@@ -8,42 +8,35 @@ import com.youzan.nsq.client.core.command.Rdy;
 import com.youzan.nsq.client.core.lookup.LookupService;
 import com.youzan.nsq.client.core.lookup.LookupServiceImpl;
 import com.youzan.nsq.client.entity.Address;
-import com.youzan.nsq.client.entity.Response;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQLookupException;
-import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
-import com.youzan.nsq.client.network.frame.ResponseFrame;
 import com.youzan.util.ConcurrentSortedSet;
 import com.youzan.util.NamedThreadFactory;
+import com.youzan.util.ThreadSafe;
 import io.netty.channel.ChannelFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * The intersection between {@link  com.youzan.nsq.client.Producer} and {@link com.youzan.nsq.client.Consumer}.
  *
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
+@ThreadSafe
 public class NSQSimpleClient implements Client, Closeable {
     private static final Logger logger = LoggerFactory.getLogger(NSQSimpleClient.class);
 
-    private final Lock lock = new ReentrantLock();
-    private final ConcurrentHashMap<String, ConcurrentSortedSet<Address>> topic_2_dataNodes = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Long> topic_2_lastActiveTime = new ConcurrentHashMap<>();
+    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+    private final Map<String, ConcurrentSortedSet<Address>> topic_2_dataNodes = new HashMap<>();
     private final Set<Address> dataNodes = new HashSet<>();
-    private final ConcurrentHashMap<Address, Long> dataNode_2_lastActiveTime = new ConcurrentHashMap<>();
 
     private volatile boolean started;
     private final ScheduledExecutorService scheduler = Executors
@@ -57,16 +50,21 @@ public class NSQSimpleClient implements Client, Closeable {
 
     @Override
     public void start() {
-        if (!started) {
+        lock.writeLock().lock();
+        try {
+            if (!started) {
+                started = true;
+                lookup.start();
+                keepDataNodes();
+            }
             started = true;
-            lookup.start();
-            keepDataNodes();
+        } finally {
+            lock.writeLock().unlock();
         }
-        started = true;
     }
 
     private void keepDataNodes() {
-        final int delay = _r.nextInt(60) + 45; // seconds
+        final int delay = _r.nextInt(60); // seconds
         scheduler.scheduleWithFixedDelay(new Runnable() {
             @Override
             public void run() {
@@ -80,25 +78,66 @@ public class NSQSimpleClient implements Client, Closeable {
     }
 
     private void newDataNodes() throws NSQLookupException {
-        final long now = System.currentTimeMillis();
-        final long duration = 3600L;
-        final long allow = now - duration;
-        final Set<String> expiredTopics = new HashSet<>();
-        final Set<Address> expiredAddresses = new HashSet<>();
-        for (Map.Entry<String, Long> pair : topic_2_lastActiveTime.entrySet()) {
-            logger.debug("Topic Recentness: {} , AllowActive: {}", pair.getValue(), allow);
-            if (pair.getValue().longValue() < allow) {
-                expiredTopics.add(pair.getKey());
+        lock.writeLock().lock();
+        try {
+            Set<String> brokenTopic = new HashSet<>();
+            for (Map.Entry<String, ConcurrentSortedSet<Address>> pair : topic_2_dataNodes.entrySet()) {
+                if (pair.getValue() == null) {
+                    brokenTopic.add(pair.getKey());
+                }
+            }
+            for (String topic : brokenTopic) {
+                topic_2_dataNodes.remove(topic);
+            }
+        } finally {
+            lock.writeLock().unlock();
+        }
+
+        // HTTP costs long time.
+        final Set<String> topics = new HashSet<>();
+        lock.writeLock().lock();
+        try {
+            for (String topic : topic_2_dataNodes.keySet()) {
+                topics.add(topic);
+            }
+        } finally {
+            lock.writeLock().unlock();
+        }
+
+        final Set<Address> newDataNodes = new HashSet<>();
+        for (String topic : topics) {
+            try {
+                final SortedSet<Address> addresses = lookup.lookup(topic);
+                if (!addresses.isEmpty()) {
+                    newDataNodes.addAll(addresses);
+                    lock.writeLock().lock();
+                    try {
+                        final ConcurrentSortedSet<Address> oldAddresses;
+                        if (topic_2_dataNodes.containsKey(topic)) {
+                            oldAddresses = topic_2_dataNodes.get(topic);
+                            oldAddresses.swap(addresses);
+                        } else {
+                            oldAddresses = new ConcurrentSortedSet<>();
+                            oldAddresses.addAll(addresses);
+                        }
+                        topic_2_dataNodes.put(topic, oldAddresses);
+                    } finally {
+                        lock.writeLock().unlock();
+                    }
+                } else {
+                    logger.info("Having got an empty data nodes from topic: {}", topic);
+                }
+            } catch (Exception e) {
+                logger.error("Exception", e);
             }
         }
-        for (Map.Entry<Address, Long> pair : dataNode_2_lastActiveTime.entrySet()) {
-            if (pair.getValue().longValue() < allow) {
-                expiredAddresses.add(pair.getKey());
-            }
-        }
-        for (String topic : expiredTopics) {
-            topic_2_lastActiveTime.remove(topic);
-            topic_2_dataNodes.remove(topic);
+
+        lock.writeLock().lock();
+        try {
+            dataNodes.clear();
+            dataNodes.addAll(newDataNodes);
+        } finally {
+            lock.writeLock().unlock();
         }
     }
 
@@ -106,14 +145,27 @@ public class NSQSimpleClient implements Client, Closeable {
         if (topic == null || topic.isEmpty()) {
             return;
         }
-        final Long now = Long.valueOf(System.currentTimeMillis());
-        topic_2_lastActiveTime.put(topic, now);
+        lock.writeLock().lock();
+        try {
+            if (!topic_2_dataNodes.containsKey(topic)) {
+                final ConcurrentSortedSet<Address> empty = new ConcurrentSortedSet<>();
+                topic_2_dataNodes.put(topic, empty);
+            }
+        } finally {
+            lock.writeLock().unlock();
+        }
+    }
+
+    public void removeTopic(String topic) {
+        if (topic == null || topic.isEmpty()) {
+            return;
+        }
     }
 
     @Override
     public void incoming(final NSQFrame frame, final NSQConnection conn) throws NSQException {
-        // TODO
-        switch (frame.getType()) {
+        return;
+        /*switch (frame.getType()) {
             case RESPONSE_FRAME: {
                 final String resp = frame.getMessage();
                 if (Response._HEARTBEAT_.getContent().equals(resp)) {
@@ -136,8 +188,7 @@ public class NSQSimpleClient implements Client, Closeable {
                 logger.error("Invalid frame-type from {} , frame: {}", conn.getAddress(), frame);
                 break;
             }
-        }
-        return;
+        }*/
     }
 
     @Override
@@ -147,19 +198,14 @@ public class NSQSimpleClient implements Client, Closeable {
 
     @Override
     public ConcurrentSortedSet<Address> getDataNodes(String topic) {
-        return topic_2_dataNodes.get(topic);
+        // TODO
+        return null;
     }
 
     @Override
     public void clearDataNode(Address address) {
         if (address == null) {
             return;
-        }
-
-        if (topic_2_dataNodes.containsKey(address)) {
-            topic_2_dataNodes.remove(address);
-            final ConcurrentSortedSet<Address> nodes = topic_2_dataNodes.get(address);
-            nodes.clear();
         }
     }
 
@@ -174,8 +220,14 @@ public class NSQSimpleClient implements Client, Closeable {
 
     @Override
     public void close() {
-        topic_2_dataNodes.clear();
-        scheduler.shutdownNow();
+        lock.writeLock().lock();
+        try {
+            topic_2_dataNodes.clear();
+            dataNodes.clear();
+            scheduler.shutdownNow();
+        } finally {
+            lock.writeLock().unlock();
+        }
     }
 
     void sleep(final long millisecond) {

@@ -152,7 +152,7 @@ public class ConsumerImplV2 implements Consumer {
      * schedule action
      */
     private void keepConnecting() {
-        final int delay = _r.nextInt(60) + 45; // seconds
+        final int delay = _r.nextInt(60); // seconds
         scheduler.scheduleWithFixedDelay(new Runnable() {
             @Override
             public void run() {
@@ -171,8 +171,8 @@ public class ConsumerImplV2 implements Consumer {
      */
     private void connect() {
         final Set<Address> broken = new HashSet<>();
-        for (final HashSet<NSQConnection> conns : holdingConnections.values()) {
-            for (final NSQConnection c : conns) {
+        for (final HashSet<NSQConnection> connections : holdingConnections.values()) {
+            for (final NSQConnection c : connections) {
                 try {
                     if (!c.isConnected()) {
                         c.close();
