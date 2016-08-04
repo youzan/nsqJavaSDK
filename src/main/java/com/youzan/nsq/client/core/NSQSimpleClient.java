@@ -5,10 +5,13 @@ import com.youzan.nsq.client.core.command.Rdy;
 import com.youzan.nsq.client.core.lookup.LookupService;
 import com.youzan.nsq.client.core.lookup.LookupServiceImpl;
 import com.youzan.nsq.client.entity.Address;
+import com.youzan.nsq.client.entity.Response;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQInvalidTopicException;
 import com.youzan.nsq.client.exception.NSQLookupException;
+import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
+import com.youzan.nsq.client.network.frame.ResponseFrame;
 import com.youzan.util.ConcurrentSortedSet;
 import com.youzan.util.NamedThreadFactory;
 import com.youzan.util.ThreadSafe;
@@ -168,7 +171,7 @@ public class NSQSimpleClient implements Client, Closeable {
 
     @Override
     public void incoming(final NSQFrame frame, final NSQConnection conn) throws NSQException {
-        /*switch (frame.getType()) {
+        switch (frame.getType()) {
             case RESPONSE_FRAME: {
                 final String resp = frame.getMessage();
                 if (Response._HEARTBEAT_.getContent().equals(resp)) {
@@ -188,10 +191,10 @@ public class NSQSimpleClient implements Client, Closeable {
                 }
             }
             default: {
-                logger.error("Invalid frame-type from {} , frame: {}", conn.getAddress(), frame);
+                logger.warn("Invalid frame-type from {} , frame: {}", conn.getAddress(), frame);
                 break;
             }
-        }*/
+        }
     }
 
     @Override

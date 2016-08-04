@@ -160,20 +160,25 @@ public class NSQConnectionImpl implements NSQConnection {
         if (closing && closed) {
             return;
         }
-        if (closing == false) {
-            closing = true;
-            if (null != channel) {
-                // It is very important!
-                channel.attr(NSQConnection.STATE).remove();
-                channel.attr(Client.STATE).remove();
-                channel.close();
-                havingNegotiation = false;
-                logger.info("Having closed {} OK!", this);
-            } else {
-                logger.error("No channel be setted?");
+        lock.lock();
+        try {
+            if (!closing) {
+                closing = true;
+                if (null != channel) {
+                    // It is very important!
+                    channel.attr(NSQConnection.STATE).remove();
+                    channel.attr(Client.STATE).remove();
+                    channel.close();
+                    havingNegotiation = false;
+                    logger.info("Having closed {} OK!", this);
+                } else {
+                    logger.error("No channel has be set...");
+                }
             }
+            closed = true;
+        } finally {
+            lock.unlock();
         }
-        closed = true;
     }
 
     /**

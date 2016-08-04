@@ -11,6 +11,7 @@ import com.youzan.nsq.client.exception.*;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame.FrameType;
+import com.youzan.nsq.client.network.frame.ResponseFrame;
 import com.youzan.util.ConcurrentSortedSet;
 import com.youzan.util.IOUtil;
 import com.youzan.util.Lists;
@@ -193,6 +194,9 @@ public class ProducerImplV2 implements Producer {
                 IOUtil.closeQuietly(conn);
                 logger.error("MaxRetries: {} , CurrentRetries: {} , Address: {} , Topic: {}, RawMessage: {} , Exception:", maxRetries,
                         conn.getAddress(), topic, message, e);
+                if (c >= maxRetries) {
+                    throw new NSQException(e);
+                }
             } finally {
                 bigPool.returnObject(conn.getAddress(), conn);
             }
@@ -210,57 +214,64 @@ public class ProducerImplV2 implements Producer {
 
     @Override
     public void publish(byte[] message) throws NSQException {
-        publish(message, config.getTopic());
+        final String topic = config.getTopic();
+        publish(message, topic);
     }
 
     @Override
     public void publishMulti(List<byte[]> messages) throws NSQException {
-        if (!started) {
-            throw new IllegalStateException("Producer must be started before producing messages!");
-        }
-        if (messages == null || messages.isEmpty()) {
-            throw new IllegalArgumentException("Your input is blank!");
-        }
-        total.addAndGet(messages.size());
-        final List<List<byte[]>> batches = Lists.partition(messages, 30);
-        for (List<byte[]> batch : batches) {
-            publishSmallBatch(batch);
-        }
     }
 
     private void publishSmallBatch(List<byte[]> batch, String topic) throws NSQException {
-        final Mpub pub = new Mpub(topic, batch);
-        throw new NSQDataNodesDownException();
+//        final List<List<byte[]>> batches = Lists.partition(messages, 30);
+//        for (List<byte[]> batch : batches) {
+//            publishSmallBatch(batch);
+//        }
+    }
+
+    private void handleResponse(NSQFrame frame, NSQConnection conn) throws NSQException {
+        if (frame == null) {
+            logger.warn("SDK bug: the frame is null.");
+            return;
+        }
+        switch (frame.getType()) {
+            case RESPONSE_FRAME: {
+                final ResponseFrame f = (ResponseFrame) frame;
+                logger.debug("Publish ok, get response is {}", f.getMessage());
+                break;
+            }
+            case ERROR_FRAME: {
+                final ErrorFrame err = (ErrorFrame) frame;
+                switch (err.getError()) {
+                    case E_BAD_TOPIC: {
+                        throw new NSQInvalidTopicException();
+                    }
+                    case E_BAD_MESSAGE: {
+                        throw new NSQInvalidMessageException();
+                    }
+                    case E_FAILED_ON_NOT_LEADER: {
+                    }
+                    case E_FAILED_ON_NOT_WRITABLE: {
+                    }
+                    case E_TOPIC_NOT_EXIST: {
+                        logger.error("Address: {} , Frame: {}", conn.getAddress(), frame);
+                        throw new NSQInvalidDataNodeException();
+                    }
+                    default: {
+                        throw new NSQException("Unknown response error! The error frame is " + err);
+                    }
+                }
+            }
+            default: {
+                logger.warn("When handle a response, expect FrameTypeResponse or FrameTypeError, but not.");
+            }
+        }
     }
 
     @Override
     public void incoming(NSQFrame frame, NSQConnection conn) throws NSQException {
-        if (frame != null && frame.getType() == FrameType.ERROR_FRAME) {
-            final ErrorFrame err = (ErrorFrame) frame;
-            switch (err.getError()) {
-                case E_BAD_TOPIC: {
-                    throw new NSQInvalidTopicException();
-                }
-                case E_BAD_MESSAGE: {
-                    throw new NSQInvalidMessageException();
-                }
-                case E_FAILED_ON_NOT_LEADER: {
-                }
-                case E_FAILED_ON_NOT_WRITABLE: {
-                }
-                case E_TOPIC_NOT_EXIST: {
-                    clearDataNode(conn.getAddress());
-                    logger.error("Address: {} , Frame: {}", conn.getAddress(), frame);
-                    throw new NSQInvalidDataNodeException();
-                }
-                default: {
-                    throw new NSQException("Unknown response error!");
-                }
-            }
-        }
         simpleClient.incoming(frame, conn);
     }
-
 
 
     @Override
