@@ -33,12 +33,15 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <pre>
  * Expose to Client Code. Connect to one cluster(includes many brokers).
  * </pre>
+ * <p>
+ * Use JDK7
  *
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
 public class ConsumerImplV2 implements Consumer {
 
     private static final Logger logger = LoggerFactory.getLogger(ConsumerImplV2.class);
+    private final Object lock = new Object();
     private volatile boolean started = false;
     private final AtomicBoolean closing = new AtomicBoolean(false);
 
@@ -55,25 +58,27 @@ public class ConsumerImplV2 implements Consumer {
      * =========================================================================
      */
     private final Set<String> topics = new HashSet<>();
-    private final ConcurrentHashMap<Address, Long> address_2_lastActiveTime = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<Address, HashSet<NSQConnection>> holdingConnections = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Address, Set<NSQConnection>> holdingConnections = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
 
     /*-
      * =========================================================================
      *                          Client delegate to me
-     * =========================================================================
      */
     private final MessageHandler handler;
     private final int WORKER_SIZE = Runtime.getRuntime().availableProcessors() * 4;
     private final ExecutorService executor = Executors.newFixedThreadPool(WORKER_SIZE,
             new NamedThreadFactory(this.getClass().getName() + "-ClientBusiness", Thread.MAX_PRIORITY));
+    /*-
+     *                          Client delegate to me
+     * =========================================================================
+     */
 
     private final Rdy DEFAULT_RDY;
     private final Rdy MEDIUM_RDY;
     private final Rdy LOW_RDY;
-    private volatile Rdy currentRdy;
+    private volatile Rdy currentRdy = null;
     private volatile boolean autoFinish = true;
 
 
@@ -114,35 +119,37 @@ public class ConsumerImplV2 implements Consumer {
         if (this.config.getConsumerName() == null || this.config.getConsumerName().isEmpty()) {
             throw new IllegalArgumentException("Consumer Name is blank! Please check it!");
         }
-        if (!this.started) {
-            this.started = true;
-            // setting all of the configs
-            this.poolConfig.setLifo(false);
-            this.poolConfig.setFairness(true);
-            this.poolConfig.setTestOnBorrow(false);
-            this.poolConfig.setTestOnReturn(true);
-            this.poolConfig.setTestWhileIdle(true);
-            this.poolConfig.setJmxEnabled(false);
-            //
-            this.poolConfig.setMinEvictableIdleTimeMillis(-1);
-            this.poolConfig.setSoftMinEvictableIdleTimeMillis(-1);
-            this.poolConfig.setTimeBetweenEvictionRunsMillis(-1);
-            //
-            this.poolConfig.setMinIdlePerKey(this.config.getThreadPoolSize4IO());
-            this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
-            this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());
-            // acquire connection waiting time underlying the inner network
-            this.poolConfig.setMaxWaitMillis(50);
-            this.poolConfig.setBlockWhenExhausted(true);
-            //  new instance without performing to connect
-            this.bigPool = new GenericKeyedObjectPool<>(this.factory, this.poolConfig);
-            this.simpleClient.start();
-            // -----------------------------------------------------------------
-            //                       First async keep
-            keepConnecting();
-            connect();
-            // -----------------------------------------------------------------
-            logger.info("The consumer is started.");
+        synchronized (lock) {
+            if (!this.started) {
+                this.started = true;
+                // setting all of the configs
+                this.poolConfig.setLifo(false);
+                this.poolConfig.setFairness(true);
+                this.poolConfig.setTestOnBorrow(false);
+                this.poolConfig.setTestOnReturn(true);
+                this.poolConfig.setTestWhileIdle(false);
+                this.poolConfig.setJmxEnabled(false);
+                //
+                this.poolConfig.setMinEvictableIdleTimeMillis(-1);
+                this.poolConfig.setSoftMinEvictableIdleTimeMillis(-1);
+                this.poolConfig.setTimeBetweenEvictionRunsMillis(-1);
+                //
+                this.poolConfig.setMinIdlePerKey(this.config.getThreadPoolSize4IO());
+                this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
+                this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());
+                // acquire connection waiting time underlying the inner network
+                this.poolConfig.setMaxWaitMillis(this.config.getConnectTimeoutInMillisecond() + this.config.getQueryTimeoutInMillisecond() / 3);
+                this.poolConfig.setBlockWhenExhausted(true);
+                //  new instance without performing to connect
+                this.bigPool = new GenericKeyedObjectPool<>(this.factory, this.poolConfig);
+                this.simpleClient.start();
+                // -----------------------------------------------------------------
+                //                       First, async keep
+                keepConnecting();
+                connect();
+                // -----------------------------------------------------------------
+                logger.info("The consumer is started.");
+            }
         }
     }
 
@@ -164,123 +171,192 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     /**
-     * Connect to all the brokers with the config, making sure the new are OK
-     * and the old are clear.
+     * Make it be a {@link NSQConnection}
+     *
+     * @param address
+     * @throws Exception
+     */
+    private void connect(final Address address) throws Exception {
+        if (address == null) {
+            logger.error("Your input address is blank!");
+            return;
+        }
+        synchronized (address) {
+            bigPool.clear(address);
+            bigPool.preparePool(address);
+            logger.info("A consumer creates the {} pool.");
+        }
+    }
+
+    /**
+     * Make it be a consumer-connection
+     *
+     * @param connection
+     * @param topic
+     * @throws TimeoutException
+     * @throws NSQException
+     */
+    private void subscribe(NSQConnection connection, String topic) throws TimeoutException, NSQException {
+        synchronized (connection) {
+            final NSQFrame frame = connection.commandAndGetResponse(new Sub(topic, config.getConsumerName()));
+            handleResponse(frame, connection);
+            currentRdy = DEFAULT_RDY;
+            connection.command(currentRdy);
+        }
+    }
+
+    /**
+     * Connect to all the brokers with the config, making sure the new is OK
+     * and the old is clear.
      */
     private void connect() throws NSQException {
         final Set<Address> broken = new HashSet<>();
-        for (final HashSet<NSQConnection> connections : holdingConnections.values()) {
-            for (final NSQConnection c : connections) {
-                try {
-                    if (!c.isConnected()) {
-                        c.close();
-                        broken.add(c.getAddress());
+        synchronized (lock) {
+            addresses:
+            for (final Set<NSQConnection> connections : holdingConnections.values()) {
+                for (final NSQConnection c : connections) {
+                    try {
+                        if (!c.isConnected()) {
+                            c.close();
+                            broken.add(c.getAddress());
+                            continue addresses;
+                        }
+                    } catch (Exception e) {
+                        logger.error("Exception occurs while detecting broken connections!", e);
                     }
-                } catch (Exception e) {
-                    logger.error("Exception occurs while detecting broken connections!", e);
                 }
             }
-        }
-        // JDK7
-        final String topic = config.getTopic();
-        final ConcurrentSortedSet<Address> newNodes = simpleClient.getDataNodes(topic);
-        final Set<Address> oldAddresses = this.holdingConnections.keySet();
-        final Set<Address> newDataNodes = newNodes.newSortedSet();
-        final Set<Address> oldDataNodes = new TreeSet<>(oldAddresses);
-        logger.debug("Prepare to connect new data-nodes(NSQd): {} , old data-nodes(NSQd): {}", newDataNodes,
-                oldDataNodes);
-        if (newDataNodes.isEmpty() && oldDataNodes.isEmpty()) {
-            return;
-        }
-        if (newDataNodes.isEmpty()) {
-            logger.error("Get the current new DataNodes (NSQd). It will create a new pool next time!");
-        }
-        /*-
-         * =====================================================================
-         *                                Step 1:
-         *                    以newDataNodes为主的差集: 新建Brokers
-         * =====================================================================
-         */
-        final Set<Address> except1 = new HashSet<>(newDataNodes);
-        except1.removeAll(oldDataNodes);
-        if (except1.isEmpty()) {
-            // logger.debug("No need to create new NSQd connections!");
-        } else {
-            newConnections(except1);
-        }
-        /*-
-         * =====================================================================
-         *                                Step 2:
-         *                    以oldDataNodes为主的差集: 删除Brokers
-         * =====================================================================
-         */
-        final Set<Address> except2 = new HashSet<>(oldDataNodes);
-        except2.removeAll(newDataNodes);
-        if (except2.isEmpty()) {
-            // logger.debug("No need to destory old NSQd connections!");
-        } else {
-            for (Address address : except2) {
-                if (address == null) {
-                    return;
+            /*-
+             * =====================================================================
+             *                                First Step:
+             *                          干掉Broken Brokers.
+             * =====================================================================
+             */
+            for (Address address : broken) {
+                try {
+                    clearDataNode(address);
+                } catch (Exception e) {
+                    logger.error("Exception", e);
                 }
-                bigPool.clear(address);
-                if (holdingConnections.containsKey(address)) {
-                    final Set<NSQConnection> conns = holdingConnections.get(address);
-                    if (conns != null) {
-                        for (NSQConnection c : conns) {
-                            try {
-                                backoff(c);
-                            } catch (Exception e) {
-                                logger.error("It can not backoff the connection!", e);
-                            } finally {
-                                IOUtil.closeQuietly(c);
+            }
+
+            final ConcurrentHashMap<Address, Set<String>> address_2_topics = new ConcurrentHashMap<>();
+            final Set<Address> targetAddresses = new TreeSet<>();
+            for (String topic : topics) {
+                final ConcurrentSortedSet<Address> dataNodes = simpleClient.getDataNodes(topic);
+                final Set<Address> addresses = (Set) dataNodes.newSortedSet();
+
+                for (Address a : addresses) {
+                    final Set<String> tmpTopics;
+                    if (address_2_topics.containsKey(a)) {
+                        tmpTopics = address_2_topics.get(a);
+                    } else {
+                        tmpTopics = new TreeSet<>();
+                        address_2_topics.put(a, tmpTopics);
+                    }
+                    tmpTopics.add(topic);
+                }
+                targetAddresses.addAll(addresses);
+            }
+            logger.debug("address_2_topics: {}", address_2_topics);
+
+            final Set<Address> oldAddresses = new TreeSet<>(this.holdingConnections.keySet());
+            if (targetAddresses.isEmpty() && oldAddresses.isEmpty()) {
+                return;
+            }
+            logger.debug("Prepare to connect new data-nodes(NSQd): {} , old data-nodes(NSQd): {}", targetAddresses,
+                    oldAddresses);
+            if (targetAddresses.isEmpty()) {
+                logger.error("Get the current new DataNodes (NSQd). It will create a new pool next time! Now begin to clear up old data-nodes(NSQd) {}", oldAddresses);
+            }
+            /*-
+             * =====================================================================
+             *                                Step :
+             *                    以old data-nodes为主的差集: 删除Brokers
+             *                           <<<比新建优先级高>>>
+             * =====================================================================
+             */
+            final Set<Address> except2 = new HashSet<>(oldAddresses);
+            except2.removeAll(targetAddresses);
+            if (!except2.isEmpty()) {
+                for (Address address : except2) {
+                    if (address == null) {
+                        continue;
+                    }
+                    if (holdingConnections.containsKey(address)) {
+                        final Set<NSQConnection> holding = holdingConnections.get(address);
+                        if (holding != null) {
+                            for (NSQConnection c : holding) {
+                                try {
+                                    backoff(c);
+                                } catch (Exception e) {
+                                    logger.error("It can not backoff the connection!", e);
+                                } finally {
+                                    IOUtil.closeQuietly(c);
+                                }
                             }
                         }
                     }
+                    clearDataNode(address);
                 }
-                holdingConnections.remove(address);
             }
-        }
+            /*-
+             * =====================================================================
+             *                                Step :
+             *                    以new data-nodes为主的差集: 新建Brokers
+             * =====================================================================
+             */
+            final Set<Address> except1 = new HashSet<>(targetAddresses);
+            except1.removeAll(oldAddresses);
+            if (!except1.isEmpty()) {
+                for (Address a : except1) {
+                    try {
+                        connect(a);
+                    } catch (Exception e) {
+                        logger.error("Exception", e);
+                        clearDataNode(a);
+                    }
+                }
+                // subscribe and get all the connections
+                for (Map.Entry<Address, Set<String>> pair : address_2_topics.entrySet()) {
+                    Address a = pair.getKey();
+                    Set<String> topics = pair.getValue();
+                    try {
+                        for (int i = 0; i < config.getThreadPoolSize4IO(); i++) {
+                            final NSQConnection connection = bigPool.borrowObject(pair.getKey());
+                            for (String t : topics) {
+                                subscribe(connection, t);
+                            }
+                            final Set<NSQConnection> holding;
+                            if (holdingConnections.containsKey(a)) {
+                                holding = holdingConnections.get(a);
+                            } else {
+                                holding = new TreeSet<>();
+                                holdingConnections.put(a, holding);
+                            }
+                            holding.add(connection);
+                            bigPool.returnObject(a, connection);
+                        }
+                    } catch (Exception e) {
+                        clearDataNode(pair.getKey());
+                        logger.error("Address: {} , Exception", a, e);
+                    }
+                }
+            }
 
-        /*-
-         * =====================================================================
-         *                                Step 3:
-         *                          干掉Broken Brokers.
-         * =====================================================================
-         */
-        for (Address address : broken) {
-            if (address == null) {
-                continue;
-            }
-            try {
-                clearDataNode(address);
-            } catch (Exception e) {
-                logger.error("Exception", e);
-            }
+            /*-
+             * =====================================================================
+             *                                Last Step:
+             *                          Clean up local resources
+             * =====================================================================
+             */
+            broken.clear();
+            except1.clear();
+            except2.clear();
+            address_2_topics.clear();
+            targetAddresses.clear();
+            oldAddresses.clear();
         }
-
-        // JDK8
-        /*
-        broken.parallelStream().forEach((address) -> {
-            if (address == null) {
-                return;
-            }
-            try {
-                clearDataNode(address);
-            } catch (Exception e) {
-                logger.error("Exception", e);
-            }
-        });
-        */
-        /*-
-         * =====================================================================
-         *                                Step 4:
-         *                          Clean up local resources
-         * =====================================================================
-         */
-        broken.clear();
-        except1.clear();
-        except2.clear();
     }
 
     /**
@@ -313,70 +389,9 @@ public class ConsumerImplV2 implements Consumer {
      * @throws NSQException
      */
     private void newConnections4OneBroker(Address address) throws Exception {
-        if (address == null) {
-            logger.error("Your input address is blank!");
-            return;
-        }
-        bigPool.clear(address);
-        bigPool.preparePool(address);
-        // create new pool(connect to one broker)
-        final List<NSQConnection> connections = new ArrayList<>(config.getThreadPoolSize4IO());
-        for (int i = 0; i < config.getThreadPoolSize4IO(); i++) {
-            NSQConnection newConn = null;
-            try {
-                newConn = bigPool.borrowObject(address);
-                initConn(newConn); // subscribe
-                if (!holdingConnections.containsKey(address)) {
-                    // JDK7
-                    holdingConnections.putIfAbsent(address, new HashSet<NSQConnection>());
-                }
-                holdingConnections.get(address).add(newConn);
-                connections.add(newConn);
-            } catch (Exception e) {
-                logger.error("Address: {} . Exception: {}", address, e);
-                if (newConn != null) {
-                    IOUtil.closeQuietly(newConn);
-                    bigPool.returnObject(address, newConn);
-                    if (holdingConnections.get(address) != null) {
-                        holdingConnections.get(address).remove(newConn);
-                    }
-                }
-                if (e instanceof NSQException) {
-                    throw e;
-                }
-            }
-        }
-        // finally
-        for (NSQConnection c : connections) {
-            try {
-                // long connected
-                bigPool.returnObject(c.getAddress(), c);
-            } catch (Exception e) {
-                logger.error("Exception", e);
-            }
-        }
-        if (connections.size() == config.getThreadPoolSize4IO()) {
-            logger.info("Having created a pool for one broker ( {} connections to 1 DataNode {} ), it felt good.",
-                    connections.size(), address);
-        } else {
-            logger.info("Want the pool size {} , actually the size {}, to 1 DataNode {}", config.getThreadPoolSize4IO(), connections.size(), address);
-        }
-        connections.clear();
+
     }
 
-    /**
-     * @param newConn
-     * @throws TimeoutException
-     * @throws NSQException
-     */
-    private void initConn(NSQConnection newConn) throws TimeoutExcept, NSQException {
-        synchronized (newConn) {
-            final NSQFrame frame = newConn.commandAndGetResponse(new Sub(config.getTopic(), config.getConsumerName()));
-            handleResponse(frame, newConn);
-            currentRdy = DEFAULT_RDY;
-            newConn.command(currentRdy);
-        }
-    }
 
     @Override
     public void incoming(final NSQFrame frame, final NSQConnection conn) throws NSQException {
@@ -474,7 +489,7 @@ public class ConsumerImplV2 implements Consumer {
                 break;
             } catch (Exception e) {
                 ok = false;
-                logger.error("CurrentRetries: {} , Exception: {}", c, e);
+                logger.error("CurrentRetries: {} , Exception:", c, e);
             }
         }
         // The client commands ReQueue into NSQd.
@@ -540,10 +555,11 @@ public class ConsumerImplV2 implements Consumer {
             bigPool.close();
         }
         IOUtil.closeQuietly(simpleClient);
+        topics.clear();
     }
 
     private void cleanClose() {
-        for (HashSet<NSQConnection> connections : holdingConnections.values()) {
+        for (Set<NSQConnection> connections : holdingConnections.values()) {
             for (final NSQConnection c : connections) {
                 try {
                     backoff(c);
@@ -573,15 +589,15 @@ public class ConsumerImplV2 implements Consumer {
         }
         if (frame != null && frame.getType() == FrameType.ERROR_FRAME) {
             final ErrorFrame err = (ErrorFrame) frame;
-            logger.error("Address: {} got one error {} , that is {}", newConn.getAddress(), err, err.getError());
+            logger.error("Address: {} got one error {} , that is {}", connection.getAddress(), err, err.getError());
             switch (err.getError()) {
                 case E_FAILED_ON_NOT_LEADER: {
                 }
                 case E_FAILED_ON_NOT_WRITABLE: {
                 }
                 case E_TOPIC_NOT_EXIST: {
-                    clearDataNode(newConn.getAddress());
-                    logger.error("Address: {} , Frame: {}", newConn.getAddress(), frame);
+                    clearDataNode(connection.getAddress());
+                    logger.error("Address: {} , Frame: {}", connection.getAddress(), frame);
                     throw new NSQInvalidDataNodeException();
                 }
                 default: {
@@ -603,7 +619,7 @@ public class ConsumerImplV2 implements Consumer {
 
     @Override
     public void finish(NSQMessage message) throws NSQException {
-        final HashSet<NSQConnection> connections = holdingConnections.get(message.getAddress());
+        final Set<NSQConnection> connections = holdingConnections.get(message.getAddress());
         if (connections != null) {
             for (NSQConnection c : connections) {
                 if (c.getId() == message.getConnectionID().intValue()) {

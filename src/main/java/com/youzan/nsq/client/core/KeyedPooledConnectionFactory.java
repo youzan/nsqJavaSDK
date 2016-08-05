@@ -144,11 +144,11 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
 
     @Override
     public boolean validateObject(Address address, PooledObject<NSQConnection> p) {
-        final NSQConnection conn = p.getObject();
+        final NSQConnection connection = p.getObject();
         // another implementation : use client.heartbeat,or called
         // client.validateConnection
-        if (null != conn && conn.isConnected()) {
-            return client.validateHeartbeat(conn);
+        if (null != connection && connection.isConnected()) {
+            return client.validateHeartbeat(connection);
         }
         logger.debug("Validate {} connection! The statue is wrong.", address);
         return false;

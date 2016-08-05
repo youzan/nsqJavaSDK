@@ -75,7 +75,7 @@ public class ProducerImplV2 implements Producer {
             this.poolConfig.setTestOnBorrow(true);
             this.poolConfig.setTestOnReturn(false);
             this.poolConfig.setTestWhileIdle(true);
-            this.poolConfig.setJmxEnabled(false);
+            this.poolConfig.setJmxEnabled(true);
             this.poolConfig.setMinEvictableIdleTimeMillis(60 * 1000);
             this.poolConfig.setSoftMinEvictableIdleTimeMillis(60 * 1000);
             this.poolConfig.setTimeBetweenEvictionRunsMillis(15 * 1000);
