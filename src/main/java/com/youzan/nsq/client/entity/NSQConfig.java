@@ -32,7 +32,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     private boolean havingMonitoring = false;
 
-    public enum Compression {
+    private enum Compression {
         NO_COMPRESSION, DEFLATE, SNAPPY
     }
 
