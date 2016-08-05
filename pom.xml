@@ -187,7 +187,7 @@
                                 </resource>
                                 <resource>
                                     <filtering>false</filtering>
-                                    <directory>src/assembly/conf/Dev/</directory>
+                                    <directory>src/assembly/conf/dev/</directory>
                                 </resource>
                             </resources>
                             <outputDirectory>target/test-classes</outputDirectory>
