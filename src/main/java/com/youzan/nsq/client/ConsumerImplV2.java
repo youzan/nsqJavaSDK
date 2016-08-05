@@ -56,7 +56,7 @@ public class ConsumerImplV2 implements Consumer {
      * =========================================================================
      */
     private final Set<String> topics = new HashSet<>();
-    private final ConcurrentHashMap<Address, Set<NSQConnection>> holdingConnections = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Address, Set<NSQConnection>> address_2_holdingConnections = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
 
@@ -213,7 +213,7 @@ public class ConsumerImplV2 implements Consumer {
         final Set<Address> targetAddresses = new TreeSet<>();
         synchronized (lock) {
             addresses:
-            for (final Set<NSQConnection> connections : holdingConnections.values()) {
+            for (final Set<NSQConnection> connections : address_2_holdingConnections.values()) {
                 for (final NSQConnection c : connections) {
                     try {
                         if (!c.isConnected()) {
@@ -255,7 +255,7 @@ public class ConsumerImplV2 implements Consumer {
             }
             logger.debug("address_2_topics: {}", address_2_topics);
 
-            final Set<Address> oldAddresses = new TreeSet<>(this.holdingConnections.keySet());
+            final Set<Address> oldAddresses = new TreeSet<>(this.address_2_holdingConnections.keySet());
             if (targetAddresses.isEmpty() && oldAddresses.isEmpty()) {
                 return;
             }
@@ -278,8 +278,8 @@ public class ConsumerImplV2 implements Consumer {
                     if (address == null) {
                         continue;
                     }
-                    if (holdingConnections.containsKey(address)) {
-                        final Set<NSQConnection> holding = holdingConnections.get(address);
+                    if (address_2_holdingConnections.containsKey(address)) {
+                        final Set<NSQConnection> holding = address_2_holdingConnections.get(address);
                         if (holding != null) {
                             for (NSQConnection c : holding) {
                                 try {
@@ -323,11 +323,11 @@ public class ConsumerImplV2 implements Consumer {
                                 subscribe(connection, t);
                             }
                             final Set<NSQConnection> holding;
-                            if (holdingConnections.containsKey(a)) {
-                                holding = holdingConnections.get(a);
+                            if (address_2_holdingConnections.containsKey(a)) {
+                                holding = address_2_holdingConnections.get(a);
                             } else {
                                 holding = new TreeSet<>();
-                                holdingConnections.put(a, holding);
+                                address_2_holdingConnections.put(a, holding);
                             }
                             holding.add(connection);
                             bigPool.returnObject(a, connection);
@@ -363,11 +363,11 @@ public class ConsumerImplV2 implements Consumer {
             return;
         }
         try {
-            final Set<NSQConnection> holding = holdingConnections.get(address);
+            final Set<NSQConnection> holding = address_2_holdingConnections.get(address);
             cleanClose(holding);
             holding.clear();
 
-            holdingConnections.remove(address);
+            address_2_holdingConnections.remove(address);
             bigPool.clear(address);
         } catch (Exception e) {
             logger.warn("SDK can not clear the {} resources normally.", address);
@@ -543,10 +543,10 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     private void cleanClose() {
-        for (Set<NSQConnection> connections : holdingConnections.values()) {
+        for (Set<NSQConnection> connections : address_2_holdingConnections.values()) {
             cleanClose(connections);
         }
-        holdingConnections.clear();
+        address_2_holdingConnections.clear();
     }
 
     private void cleanClose(Set<NSQConnection> connections) {
@@ -605,7 +605,7 @@ public class ConsumerImplV2 implements Consumer {
 
     @Override
     public void finish(NSQMessage message) throws NSQException {
-        final Set<NSQConnection> connections = holdingConnections.get(message.getAddress());
+        final Set<NSQConnection> connections = address_2_holdingConnections.get(message.getAddress());
         if (connections != null) {
             for (NSQConnection c : connections) {
                 if (c.getId() == message.getConnectionID().intValue()) {
