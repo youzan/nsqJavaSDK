@@ -109,9 +109,7 @@ public class ConsumerImplV2 implements Consumer {
         if (topics == null) {
             return;
         }
-        for (String t : topics) {
-            this.topics.add(t);
-        }
+        Collections.addAll(this.topics, topics);
     }
 
     @Override
@@ -323,7 +321,7 @@ public class ConsumerImplV2 implements Consumer {
                     Set<String> topics = pair.getValue();
                     try {
                         for (int i = 0; i < config.getThreadPoolSize4IO(); i++) {
-                            final NSQConnection connection = bigPool.borrowObject(pair.getKey());
+                            final NSQConnection connection = bigPool.borrowObject(a);
                             for (String t : topics) {
                                 subscribe(connection, t);
                             }
@@ -338,7 +336,7 @@ public class ConsumerImplV2 implements Consumer {
                             bigPool.returnObject(a, connection);
                         }
                     } catch (Exception e) {
-                        clearDataNode(pair.getKey());
+                        clearDataNode(a);
                         logger.error("Address: {} , Exception", a, e);
                     }
                 }

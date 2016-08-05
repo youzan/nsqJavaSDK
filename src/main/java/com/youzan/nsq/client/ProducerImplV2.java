@@ -111,6 +111,7 @@ public class ProducerImplV2 implements Producer {
                         }
                     }
                     expiredTopics.clear();
+                    logger.info("Publish. Total: {} , Success: {}", total.get(), success.get());
                 }
             }, 30, 30, TimeUnit.MINUTES);
         }
