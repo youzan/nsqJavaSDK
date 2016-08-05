@@ -14,5 +14,5 @@
   * QA_Test_JavaClient_StringType_BeEmpty
   
 ## New Topics
-
- * JavaTesting
+ 
+  * JavaTesting
