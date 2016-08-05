@@ -4,7 +4,7 @@
 
     <groupId>com.youzan</groupId>
     <artifactId>NSQ-Client</artifactId>
-    <version>2.1.0803-RELEASE</version>
+    <version>2-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>NSQ-Client</name>
@@ -109,6 +109,22 @@
             </plugins>
         </pluginManagement>
         <plugins>
+            <!--
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.0.2</version>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>default-jar</id>
+                        <phase>none</phase>
+                    </execution>
+                </executions>
+            </plugin>
+            -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>templating-maven-plugin</artifactId>
@@ -154,7 +170,7 @@
     </build>
     <profiles>
         <profile>
-            <id>Dev</id>
+            <id>dev</id>
             <activation>
                 <activeByDefault>true</activeByDefault>
             </activation>
@@ -173,7 +189,7 @@
                                 </resource>
                                 <resource>
                                     <filtering>false</filtering>
-                                    <directory>src/assembly/conf/Dev/</directory>
+                                    <directory>src/assembly/conf/dev/</directory>
                                 </resource>
                             </resources>
                             <outputDirectory>target/test-classes</outputDirectory>

@@ -48,7 +48,7 @@ public class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
      * @param ctx
      *            ChannelHandlerContext
      * @param msg
-     *            a {@code NSQFrame}
+     *            a {@link NSQFrame}
      */
     @Override
     public void channelRead0(final ChannelHandlerContext ctx, final NSQFrame msg) {

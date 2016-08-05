@@ -16,8 +16,9 @@ import com.youzan.nsq.client.exception.NSQLookupException;
  * 
  */
 public interface LookupService extends java.io.Serializable, Closeable {
+    Random _r = new Random(10000);
 
-    static final Random _r = new Random(10000);
+    void start();
 
     /**
      *
@@ -43,8 +44,6 @@ public interface LookupService extends java.io.Serializable, Closeable {
      *             if an error occurs
      */
     SortedSet<Address> lookup(String topic, boolean writable) throws NSQLookupException;
-
-    Set<String> getAllTopics() throws NSQLookupException;
 
     /**
      * Perform the action quietly. No exceptions.

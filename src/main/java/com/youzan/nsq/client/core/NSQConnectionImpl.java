@@ -1,11 +1,12 @@
 /**
- * 
+ *
  */
 package com.youzan.nsq.client.core;
 
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +26,7 @@ import io.netty.channel.ChannelFuture;
 /**
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
-public class NSQConnectionImpl implements NSQConnection {
+public class NSQConnectionImpl implements NSQConnection, Comparable {
     private static final Logger logger = LoggerFactory.getLogger(NSQConnectionImpl.class);
 
     private final int id; // primary key
@@ -40,8 +41,7 @@ public class NSQConnectionImpl implements NSQConnection {
     private final Address address;
     private final Channel channel;
     private final NSQConfig config;
-    private final int timeoutInSecond;
-    private final long timeoutInMillisecond; // be approximate
+    private final long timeoutInMillisecond;
 
     public NSQConnectionImpl(int id, Address address, Channel channel, NSQConfig config) {
         this.id = id;
@@ -49,9 +49,8 @@ public class NSQConnectionImpl implements NSQConnection {
         this.channel = channel;
         this.config = config;
 
-        final int timeout = config.getTimeoutInSecond() <= 0 ? 1 : config.getTimeoutInSecond();
-        this.timeoutInSecond = timeout;
-        this.timeoutInMillisecond = timeout << 10;
+        this.timeoutInMillisecond = config.getQueryTimeoutInMillisecond();
+
     }
 
     @Override
@@ -61,8 +60,8 @@ public class NSQConnectionImpl implements NSQConnection {
 
         if (!havingNegotiation) {
             command(Magic.getInstance());
-            final NSQCommand ident = new Identify(config);
-            final NSQFrame response = commandAndGetResponse(ident);
+            final NSQCommand identify = new Identify(config);
+            final NSQFrame response = commandAndGetResponse(identify);
             if (null == response) {
                 throw new IllegalStateException("Bad Identify Response! Close connection!");
             }
@@ -88,7 +87,7 @@ public class NSQConnectionImpl implements NSQConnection {
         final long start = System.currentTimeMillis();
         try {
             long timeout = timeoutInMillisecond - (0L);
-            if (!requests.offer(command, timeoutInMillisecond, TimeUnit.MILLISECONDS)) {
+            if (!requests.offer(command, timeout, TimeUnit.MILLISECONDS)) {
                 throw new TimeoutException(
                         "The command is timeout. The command name is : " + command.getClass().getName());
             }
@@ -115,9 +114,34 @@ public class NSQConnectionImpl implements NSQConnection {
         } catch (InterruptedException e) {
             close();
             Thread.currentThread().interrupt();
-            logger.error("Thread was interruped, probably shuthing down! Close connection!", e);
+            logger.error("Thread was interrupted, probably shutting down! Close connection!", e);
         }
         return null;
+    }
+
+    @Override
+    public void addResponseFrame(ResponseFrame frame) {
+        if (!requests.isEmpty()) {
+            try {
+                responses.offer(frame, timeoutInMillisecond * 2, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                close();
+                Thread.currentThread().interrupt();
+                logger.error("Thread was interrupted, probably shutting down!", e);
+            }
+        } else {
+            logger.error("No request to send, but get a frame from the server.");
+        }
+    }
+
+    @Override
+    public void addErrorFrame(ErrorFrame frame) {
+        try {
+            responses.offer(frame, timeoutInMillisecond, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Thread was interrupted, probably shutting down!", e);
+        }
     }
 
     @Override
@@ -130,7 +154,7 @@ public class NSQConnectionImpl implements NSQConnection {
         if (closing && closed) {
             return;
         }
-        if (closing == false) {
+        if (!closing) {
             closing = true;
             if (null != channel) {
                 // It is very important!
@@ -140,33 +164,16 @@ public class NSQConnectionImpl implements NSQConnection {
                 havingNegotiation = false;
                 logger.info("Having closed {} OK!", this);
             } else {
-                logger.error("No channel be setted?");
+                logger.error("No channel has be set...");
             }
         }
         closed = true;
     }
 
-    @Override
-    public void addResponseFrame(ResponseFrame frame) {
-        if (!requests.isEmpty()) {
-            try {
-                responses.offer(frame, timeoutInSecond, TimeUnit.SECONDS);
-            } catch (final InterruptedException e) {
-                close();
-                Thread.currentThread().interrupt();
-                logger.error("Thread was interruped, probably shuthing down!", e);
-            }
-        }
-    }
-
-    @Override
-    public void addErrorFrame(ErrorFrame frame) {
-        responses.add(frame);
-    }
-
     /**
      * @return the id , the primary key of the object
      */
+    @Override
     public int getId() {
         return id;
     }
@@ -198,7 +205,6 @@ public class NSQConnectionImpl implements NSQConnection {
         result = prime * result + ((requests == null) ? 0 : requests.hashCode());
         result = prime * result + ((responses == null) ? 0 : responses.hashCode());
         result = prime * result + (int) (timeoutInMillisecond ^ (timeoutInMillisecond >>> 32));
-        result = prime * result + timeoutInSecond;
         return result;
     }
 
@@ -261,21 +267,23 @@ public class NSQConnectionImpl implements NSQConnection {
         } else if (!responses.equals(other.responses)) {
             return false;
         }
-        if (timeoutInMillisecond != other.timeoutInMillisecond) {
-            return false;
-        }
-        if (timeoutInSecond != other.timeoutInSecond) {
-            return false;
-        }
-        return true;
+        return timeoutInMillisecond == other.timeoutInMillisecond;
     }
+
+
+    @Override
+    public int compareTo(Object o) {
+        return getId() - ((NSQConnectionImpl) o).getId();
+    }
+
 
     @Override
     public String toString() {
         // JDK8
         return "NSQConnectionImpl [id=" + id + ", havingNegotiation=" + havingNegotiation + ", address=" + address
-                + ", channel=" + channel + ", config=" + config + ", timeoutInSecond=" + timeoutInSecond
-                + ", timeoutInMillisecond=" + timeoutInMillisecond + "]";
+                + ", channel=" + channel + ", config=" + config + ", timeoutInMillisecond=" + timeoutInMillisecond
+                + "]";
     }
+
 
 }

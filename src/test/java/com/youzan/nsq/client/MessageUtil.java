@@ -1,4 +1,4 @@
-package it.youzan.nsq.client;
+package com.youzan.nsq.client;
 
 public final class MessageUtil {
 

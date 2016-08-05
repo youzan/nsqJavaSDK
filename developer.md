@@ -12,3 +12,7 @@
   * test_reQueue
   * QA_Test_JavaClient_BinaryType_BeEmpty
   * QA_Test_JavaClient_StringType_BeEmpty
+  
+## New Topics
+
+ * JavaTesting

@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
-<suite name="ITProcessingMethod-Suite" parallel="methods">
-    <test name="ITProcessingMethod-Test" group-by-instances="true">
-        <classes>
-            <class name="it.youzan.nsq.client.ITProcessing" />
-        </classes>
-    </test>
-</suite>

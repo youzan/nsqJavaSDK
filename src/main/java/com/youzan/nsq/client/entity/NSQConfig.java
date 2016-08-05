@@ -6,7 +6,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.youzan.nsq.client.Version;
-import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.util.HostUtil;
 import com.youzan.util.IPUtil;
 import com.youzan.util.NotThreadSafe;
@@ -29,7 +28,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private static final long serialVersionUID = 6624842850216901700L;
     private static final Logger logger = LoggerFactory.getLogger(NSQConfig.class);
 
-    private static AtomicInteger id = new AtomicInteger(0);
+    private static final AtomicInteger id = new AtomicInteger(0);
 
     private boolean havingMonitoring = false;
 
@@ -42,14 +41,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      */
     private String lookupAddresses;
 
-    /**
-     * Perform a TCP connecting action
-     */
-    private int connectTimeoutInMillisecond = 50;
-    /**
-     * Perform one action during specified timeout
-     */
-    private int timeoutInSecond = 1;
+    @Deprecated
     private String topic;
     /**
      * In NSQ, it is a channel.
@@ -71,11 +63,42 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private final String hostname;
     private boolean featureNegotiation;
 
+    /*-
+     * =========================================================================
+     *                             All of Timeout
+     */
+    /**
+     * the message interactive timeout between client and server
+     */
     private int msgTimeoutInMillisecond = 60 * 1000;
+    /**
+     * Perform a TCP connecting action
+     */
+    private int connectTimeoutInMillisecond = 50;
+    /**
+     * Perform one interactive action between request and response underlying
+     * Netty handling TCP
+     */
+    private int queryTimeoutInMillisecond = 2000;
+    /**
+     * Perform one action during specified timeout
+     */
+    @Deprecated
+    private int timeoutInSecond = 1;
+    /**
+     * the timeout after which any data that nsqd has buffered will be flushed
+     * to this client
+     */
+    private Integer outputBufferTimeoutInMillisecond = null;
+    /*-
+     *                             All of Timeout
+     * =========================================================================
+     */
+
     private Integer heartbeatIntervalInMillisecond = null;
 
     private Integer outputBufferSize = null;
-    private Integer outputBufferTimeoutInMillisecond = null;
+
     private boolean tlsV1 = false;
     private Integer deflateLevel = null;
     private Integer sampleRate = null;
@@ -85,14 +108,14 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private SslContext sslContext = null;
     private int rdy = 3;
 
-    public NSQConfig() throws NSQException {
+    public NSQConfig() {
         try {
             hostname = HostUtil.getLocalIP();
             // JDK8, string contact is OK.
             clientId = "IP:" + IPUtil.ipv4(hostname) + ", PID:" + SystemUtil.getPID() + ", ID:"
                     + (id.getAndIncrement());
         } catch (Exception e) {
-            throw new NSQException("System cann't get the IPv4!", e);
+            throw new RuntimeException("System cann't get the IPv4!", e);
         }
     }
 
@@ -131,6 +154,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * @return the timeoutInSecond
      */
+    @Deprecated
     public int getTimeoutInSecond() {
         return timeoutInSecond;
     }
@@ -139,6 +163,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * @param timeoutInSecond
      *            the timeoutInSecond to set
      */
+    @Deprecated
     public void setTimeoutInSecond(int timeoutInSecond) {
         this.timeoutInSecond = timeoutInSecond;
     }
@@ -153,6 +178,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * @return the topic
      */
+    @Deprecated
     public String getTopic() {
         return topic;
     }
@@ -161,6 +187,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * @param topic
      *            the topic to set
      */
+    @Deprecated
     public void setTopic(String topic) {
         this.topic = topic;
     }
@@ -416,6 +443,32 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         this.rdy = rdy;
     }
 
+    /**
+     * @return the queryTimeoutInMillisecond
+     */
+    public int getQueryTimeoutInMillisecond() {
+        return queryTimeoutInMillisecond;
+    }
+
+    /**
+     * @param queryTimeoutInMillisecond
+     *            the queryTimeoutInMillisecond to set
+     */
+    public void setQueryTimeoutInMillisecond(int queryTimeoutInMillisecond) {
+        this.queryTimeoutInMillisecond = queryTimeoutInMillisecond;
+    }
+
+    private static Logger getLogger() {
+        return logger;
+    }
+
+    /**
+     * @return the id
+     */
+    public static AtomicInteger getId() {
+        return id;
+    }
+
     public String identify() {
         final StringBuffer buffer = new StringBuffer(300);
         buffer.append("{\"client_id\":\"" + clientId + "\", ");
@@ -458,6 +511,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         } catch (CloneNotSupportedException e) {
             logger.error("Exception", e);
         }
+        assert newCfg != null;
         return newCfg;
     }
 

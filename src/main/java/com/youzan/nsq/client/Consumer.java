@@ -7,12 +7,21 @@ import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.exception.NSQException;
 
 /**
- * Try consume the message using the {@code MessageHandler} again after having a
+ * Try consume the message using the {@link MessageHandler} again after having a
  * exception.
  * 
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
 public interface Consumer extends Client, Closeable {
+    /**
+     * initialize some parameters for the consumer
+     * 
+     * @param topics
+     *            the client wanna subscribe some topics and this API appends
+     *            into a topics collector
+     */
+    void subscribe(String... topics);
+
     @Override
     void start() throws NSQException;
 

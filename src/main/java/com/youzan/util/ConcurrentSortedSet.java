@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Blocking when try-lock. It is for the small size collection. It consists of
- * one {@code SortedSet}
+ * one {@link SortedSet}
  * 
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  *
@@ -131,7 +131,7 @@ public class ConcurrentSortedSet<T> implements java.io.Serializable {
     /**
      * Never return null.
      * 
-     * @return the new {@code SortedSet}
+     * @return the new {@link SortedSet}
      */
     public SortedSet<T> newSortedSet() {
         r.lock();

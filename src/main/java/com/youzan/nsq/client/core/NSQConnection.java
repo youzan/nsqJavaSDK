@@ -18,16 +18,18 @@ import io.netty.util.AttributeKey;
  * NSQ Connection Definition.
  * This is underlying Netty Pipeline with decoder and encoder.
  * </pre>
- * 
+ *
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
 public interface NSQConnection extends Closeable {
 
-    public static final AttributeKey<NSQConnection> STATE = AttributeKey.valueOf("Connection.State");
+    AttributeKey<NSQConnection> STATE = AttributeKey.valueOf("Connection.State");
 
     Address getAddress();
 
     NSQConfig getConfig();
+
+    boolean isConnected();
 
     int getId();
 
@@ -35,22 +37,17 @@ public interface NSQConnection extends Closeable {
      * If any client wants to use my connection, then the client need to pass
      * itself into me before calling init(this method) because of the usage of
      * Netty.
-     * 
-     * @throws TimeoutException
-     *             a timeout error
+     *
+     * @throws TimeoutException a timeout error
      */
     void init() throws TimeoutException;
 
-    boolean isConnected();
-
     /**
      * Synchronize the protocol packet
-     * 
-     * @param command
-     *            a {@code NSQCommand}
-     * @return a {@code NSQFrame} after send a request
-     * @throws TimeoutException
-     *             a timed out error
+     *
+     * @param command   a {@link NSQCommand}
+     * @return a {@link NSQFrame}  after send a request
+     * @throws TimeoutException  a timed out error
      */
     NSQFrame commandAndGetResponse(final NSQCommand command) throws TimeoutException;
 
