@@ -7,7 +7,6 @@ import com.youzan.nsq.client.core.command.*;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
-import com.youzan.nsq.client.entity.Response;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQInvalidDataNodeException;
 import com.youzan.nsq.client.exception.NSQNoConnectionException;
@@ -164,6 +163,7 @@ public class ConsumerImplV2 implements Consumer {
                 } catch (Exception e) {
                     logger.error("Exception", e);
                 }
+                logger.debug("Consumer, client received {} messages , success {}", received, success);
             }
         }, delay, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
     }
@@ -220,7 +220,7 @@ public class ConsumerImplV2 implements Consumer {
                             continue addresses;
                         }
                     } catch (Exception e) {
-                        logger.error("Exception occurs while detecting broken connections!", e);
+                        logger.error("While detecting broken connections, Exception:", e);
                     }
                 }
             }
@@ -289,7 +289,7 @@ public class ConsumerImplV2 implements Consumer {
                                 try {
                                     backoff(c);
                                 } catch (Exception e) {
-                                    logger.error("It can not backoff the connection!", e);
+                                    logger.error("It can not backoff the connection! Exception:", e);
                                 } finally {
                                     IOUtil.closeQuietly(c);
                                 }
@@ -338,7 +338,7 @@ public class ConsumerImplV2 implements Consumer {
                         }
                     } catch (Exception e) {
                         clearDataNode(a);
-                        logger.error("Address: {} , Exception", a, e);
+                        logger.error("Address: {} , Exception:", a, e);
                     }
                 }
             }
@@ -376,7 +376,10 @@ public class ConsumerImplV2 implements Consumer {
 
     @Override
     public void incoming(final NSQFrame frame, final NSQConnection conn) throws NSQException {
-        if (frame != null && frame.getType() == FrameType.MESSAGE_FRAME) {
+        if (frame == null) {
+            return;
+        }
+        if (frame.getType() == FrameType.MESSAGE_FRAME) {
             received.incrementAndGet();
             final MessageFrame msg = (MessageFrame) frame;
             final NSQMessage message = new NSQMessage(msg.getTimestamp(), msg.getAttempts(), msg.getMessageID(),
@@ -412,7 +415,7 @@ public class ConsumerImplV2 implements Consumer {
                 logger.info("Do a re-queue. MessageID:{}", message.getMessageID());
                 resumeRateLimiting(conn, 0);
             } catch (Exception e) {
-                logger.error("I can not handle it MessageID:{}, {}", message.getMessageID(), e);
+                logger.error("SDK can not handle it MessageID:{}, Exception:", message.getMessageID(), e);
             }
         }
         resumeRateLimiting(conn, 1000);
@@ -564,16 +567,12 @@ public class ConsumerImplV2 implements Consumer {
             logger.warn("SDK bug: the frame is null.");
             return;
         }
-        // TODO
-        if (frame != null && frame.getType() == FrameType.ERROR_FRAME) {
-            final Response err = ((ErrorFrame) frame).getError();
-            if (err != null) {
-                logger.error(err.getContent());
-            }
+        if (frame.getType() == FrameType.RESPONSE_FRAME) {
+            return;
         }
-        if (frame != null && frame.getType() == FrameType.ERROR_FRAME) {
+        if (frame.getType() == FrameType.ERROR_FRAME) {
             final ErrorFrame err = (ErrorFrame) frame;
-            logger.error("Address: {} got one error {} , that is {}", connection.getAddress(), err, err.getError());
+            logger.error("Connection: {} got one error {} , that is {}", connection, err, err.getError());
             switch (err.getError()) {
                 case E_FAILED_ON_NOT_LEADER: {
                 }
@@ -581,7 +580,6 @@ public class ConsumerImplV2 implements Consumer {
                 }
                 case E_TOPIC_NOT_EXIST: {
                     clearDataNode(connection.getAddress());
-                    logger.error("Address: {} , Frame: {}", connection.getAddress(), frame);
                     throw new NSQInvalidDataNodeException();
                 }
                 default: {
@@ -617,7 +615,7 @@ public class ConsumerImplV2 implements Consumer {
             }
         }
         throw new NSQNoConnectionException(
-                "The connection is broken so that cann't retry. Please wait next consuming.");
+                "The connection is broken so that can not retry. Please wait next consuming.");
     }
 
     @Override

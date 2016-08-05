@@ -244,6 +244,11 @@ public class NSQSimpleClient implements Client, Closeable {
     }
 
     @Override
+    public void clearDataNode(Address address) {
+        dataNodes.remove(address);
+    }
+
+    @Override
     public void close() {
         lock.writeLock().lock();
         try {
