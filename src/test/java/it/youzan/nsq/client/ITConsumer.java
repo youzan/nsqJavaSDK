@@ -18,12 +18,13 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-@Test(groups = "ITProducer-Base")
+@Test(groups = "ITConsumer-Base")
 public class ITConsumer {
 
     private static final Logger logger = LoggerFactory.getLogger(ITConsumer.class);
 
     private final Random random = new Random();
+    private final int rdy = 2;
     private final NSQConfig config = new NSQConfig();
     private Consumer consumer;
 
@@ -44,11 +45,12 @@ public class ITConsumer {
         config.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
         config.setMsgTimeoutInMillisecond(Integer.valueOf(msgTimeoutInMillisecond));
         config.setThreadPoolSize4IO(Integer.valueOf(threadPoolSize4IO));
-        config.setRdy(2);
+        config.setRdy(rdy);
+        config.setConsumerName("BaseConsumer");
     }
 
     public void test() throws NSQException, InterruptedException {
-        final CountDownLatch latch = new CountDownLatch(1);
+        final CountDownLatch latch = new CountDownLatch(rdy);
         final AtomicInteger received = new AtomicInteger(0);
         consumer = new ConsumerImplV2(config, new MessageHandler() {
             @Override
@@ -57,6 +59,7 @@ public class ITConsumer {
                 latch.countDown();
             }
         });
+        consumer.setAutoFinish(true);
         consumer.subscribe("JavaTesting-Producer-Base");
         consumer.start();
         latch.await(1, TimeUnit.MINUTES);

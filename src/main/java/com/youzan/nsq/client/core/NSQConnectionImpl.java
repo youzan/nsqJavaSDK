@@ -26,7 +26,7 @@ import io.netty.channel.ChannelFuture;
 /**
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
-public class NSQConnectionImpl implements NSQConnection {
+public class NSQConnectionImpl implements NSQConnection, Comparable {
     private static final Logger logger = LoggerFactory.getLogger(NSQConnectionImpl.class);
 
     private final int id; // primary key
@@ -270,6 +270,13 @@ public class NSQConnectionImpl implements NSQConnection {
         return timeoutInMillisecond == other.timeoutInMillisecond;
     }
 
+
+    @Override
+    public int compareTo(Object o) {
+        return getId() - ((NSQConnectionImpl) o).getId();
+    }
+
+
     @Override
     public String toString() {
         // JDK8
@@ -277,5 +284,6 @@ public class NSQConnectionImpl implements NSQConnection {
                 + ", channel=" + channel + ", config=" + config + ", timeoutInMillisecond=" + timeoutInMillisecond
                 + "]";
     }
+
 
 }

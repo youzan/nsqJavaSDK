@@ -181,8 +181,8 @@ public class ConsumerImplV2 implements Consumer {
         synchronized (address) {
             bigPool.clear(address);
             bigPool.preparePool(address);
-            logger.info("A consumer creates the {} pool.");
         }
+        logger.info("A consumer creates the {} pool.", address);
     }
 
     /**
@@ -458,7 +458,11 @@ public class ConsumerImplV2 implements Consumer {
         assert currentRdy != null;
     }
 
-    private void consume(final NSQMessage message, final NSQConnection conn) {
+    /**
+     * @param message    a NSQMessage
+     * @param connection a NSQConnection
+     */
+    private void consume(final NSQMessage message, final NSQConnection connection) {
         boolean ok = false;
         int c = 0;
         while (c++ < 2) {
@@ -505,7 +509,7 @@ public class ConsumerImplV2 implements Consumer {
             }
         }
         if (cmd != null) {
-            conn.command(cmd);
+            connection.command(cmd);
         }
         // Post
         if (message.getReadableAttempts() > 10) {
