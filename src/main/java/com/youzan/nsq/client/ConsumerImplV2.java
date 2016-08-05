@@ -366,32 +366,14 @@ public class ConsumerImplV2 implements Consumer {
         if (address == null) {
             return;
         }
+
+        final Set<NSQConnection> holding = holdingConnections.get(address);
+        cleanClose(holding);
+        holding.clear();
+
         holdingConnections.remove(address);
-        factory.clear(address);
         bigPool.clear(address);
     }
-
-    /**
-     * @param brokers the data-node(NSQd)'s addresses
-     */
-    private void newConnections(final Set<Address> brokers) {
-        for (Address address : brokers) {
-            try {
-                newConnections4OneBroker(address);
-            } catch (Exception e) {
-                logger.error("Exception", e);
-            }
-        }
-    }
-
-    /**
-     * @param address the broker address
-     * @throws NSQException
-     */
-    private void newConnections4OneBroker(Address address) throws Exception {
-
-    }
-
 
     @Override
     public void incoming(final NSQFrame frame, final NSQConnection conn) throws NSQException {
@@ -560,19 +542,26 @@ public class ConsumerImplV2 implements Consumer {
 
     private void cleanClose() {
         for (Set<NSQConnection> connections : holdingConnections.values()) {
-            for (final NSQConnection c : connections) {
-                try {
-                    backoff(c);
-                    final NSQFrame frame = c.commandAndGetResponse(Close.getInstance());
-                    handleResponse(frame, c);
-                } catch (Exception e) {
-                    logger.error("Exception", e);
-                } finally {
-                    IOUtil.closeQuietly(c);
-                }
-            }
+            cleanClose(connections);
         }
         holdingConnections.clear();
+    }
+
+    private void cleanClose(Set<NSQConnection> connections) {
+        if (connections == null) {
+            return;
+        }
+        for (final NSQConnection c : connections) {
+            try {
+                backoff(c);
+                final NSQFrame frame = c.commandAndGetResponse(Close.getInstance());
+                handleResponse(frame, c);
+            } catch (Exception e) {
+                logger.error("Exception", e);
+            } finally {
+                IOUtil.closeQuietly(c);
+            }
+        }
     }
 
     private void handleResponse(NSQFrame frame, NSQConnection connection) throws NSQException {

@@ -82,7 +82,7 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
                     }
                 }
                 for (Address a : expired) {
-                    clear(a);
+                    clearDataNode(a);
                 }
             }
         }, 30, 30, TimeUnit.MINUTES);
@@ -159,9 +159,10 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
         p.getObject().close();
     }
 
-    public void clear(Address address) {
+    public void clearDataNode(Address address) {
         bootstraps.remove(address);
         address_2_bootedTime.remove(address);
+        client.clearDataNode(address);
     }
 
     public void close() {

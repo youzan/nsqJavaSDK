@@ -265,6 +265,10 @@ public class ProducerImplV2 implements Producer {
     }
 
     @Override
+    public void clearDataNode(Address address) {
+    }
+
+    @Override
     public void close() {
         if (factory != null) {
             factory.close();
