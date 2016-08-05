@@ -209,6 +209,8 @@ public class ConsumerImplV2 implements Consumer {
      */
     private void connect() throws NSQException {
         final Set<Address> broken = new HashSet<>();
+        final ConcurrentHashMap<Address, Set<String>> address_2_topics = new ConcurrentHashMap<>();
+        final Set<Address> targetAddresses = new TreeSet<>();
         synchronized (lock) {
             addresses:
             for (final Set<NSQConnection> connections : holdingConnections.values()) {
@@ -234,8 +236,6 @@ public class ConsumerImplV2 implements Consumer {
                 clearDataNode(address);
             }
 
-            final ConcurrentHashMap<Address, Set<String>> address_2_topics = new ConcurrentHashMap<>();
-            final Set<Address> targetAddresses = new TreeSet<>();
             for (String topic : topics) {
                 final ConcurrentSortedSet<Address> dataNodes = simpleClient.getDataNodes(topic);
                 final Set<Address> addresses = new TreeSet<>();
@@ -345,13 +345,13 @@ public class ConsumerImplV2 implements Consumer {
              *                          Clean up local resources
              * =====================================================================
              */
-            broken.clear();
             except1.clear();
             except2.clear();
-            address_2_topics.clear();
-            targetAddresses.clear();
             oldAddresses.clear();
         }
+        broken.clear();
+        address_2_topics.clear();
+        targetAddresses.clear();
     }
 
     /**

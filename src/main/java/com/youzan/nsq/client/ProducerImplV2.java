@@ -45,7 +45,7 @@ public class ProducerImplV2 implements Producer {
     private GenericKeyedObjectPool<Address, NSQConnection> bigPool = null;
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
-    private final ConcurrentMap<String, Long> topic_2_lastActiveTime = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Long> topic_2_lastActiveTime = new ConcurrentHashMap<>();
 
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger total = new AtomicInteger(0);
@@ -128,7 +128,7 @@ public class ProducerImplV2 implements Producer {
      */
     private NSQConnection getNSQConnection(String topic) throws NSQException {
         final Long now = Long.valueOf(System.currentTimeMillis());
-        topic_2_lastActiveTime.putIfAbsent(topic, now);
+        topic_2_lastActiveTime.put(topic, now);
         final ConcurrentSortedSet<Address> dataNodes = simpleClient.getDataNodes(topic);
         if (dataNodes.isEmpty()) {
             throw new NSQNoConnectionException("You still do not producer.start() or the server is down(contact the administrator)!");
