@@ -46,7 +46,6 @@ public class ProducerImplV2 implements Producer {
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
     private final ConcurrentMap<String, Long> topic_2_lastActiveTime = new ConcurrentHashMap<>();
-    private final ConcurrentMap<Address, Long> address_2_lastActiveTime = new ConcurrentHashMap<>();
 
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger total = new AtomicInteger(0);
@@ -98,24 +97,9 @@ public class ProducerImplV2 implements Producer {
                     // Extreme max lifetime is 1.5 hours
                     final long allow = System.currentTimeMillis() - 3600 * 1000L;
                     final Set<String> expiredTopics = new HashSet<>();
-                    final Set<Address> expiredAddresses = new HashSet<>();
                     for (Map.Entry<String, Long> pair : topic_2_lastActiveTime.entrySet()) {
                         if (pair.getValue().longValue() < allow) {
                             expiredTopics.add(pair.getKey());
-                        }
-                    }
-                    for (Map.Entry<Address, Long> pair : address_2_lastActiveTime.entrySet()) {
-                        if (pair.getValue().longValue() < allow) {
-                            expiredAddresses.add(pair.getKey());
-                        }
-                    }
-                    for (Address address : expiredAddresses) {
-                        address_2_lastActiveTime.remove(address);
-                        try {
-                            bigPool.clear(address);
-                            factory.clear(address);
-                        } catch (Exception e) {
-                            logger.error("Exception", e);
                         }
                     }
                     for (String topic : expiredTopics) {
@@ -127,7 +111,6 @@ public class ProducerImplV2 implements Producer {
                         }
                     }
                     expiredTopics.clear();
-                    expiredAddresses.clear();
                 }
             }, 30, 30, TimeUnit.MINUTES);
         }
@@ -156,7 +139,6 @@ public class ProducerImplV2 implements Producer {
             // current broker | next broker when have a try again
             final int effectedIndex = (index++ & Integer.MAX_VALUE) % size;
             final Address address = addresses[effectedIndex];
-            address_2_lastActiveTime.putIfAbsent(address, now);
             logger.debug("Load-Balancing algorithm is Round-Robin! Size: {} , Index: {} , Got {}", size, effectedIndex,
                     address);
             try {

@@ -42,8 +42,6 @@ public class ConsumerImplV2 implements Consumer {
     private volatile boolean started = false;
     private final AtomicBoolean closing = new AtomicBoolean(false);
 
-    private final NSQSimpleClient simpleClient;
-    private final NSQConfig config;
     private final GenericKeyedObjectPoolConfig poolConfig;
     private final KeyedPooledConnectionFactory factory;
     private GenericKeyedObjectPool<Address, NSQConnection> bigPool = null;
@@ -56,7 +54,9 @@ public class ConsumerImplV2 implements Consumer {
      * 
      * =========================================================================
      */
-    private final ConcurrentMap<Address, HashSet<NSQConnection>> holdingConnections = new ConcurrentHashMap<>();
+    private final Set<String> topics = new HashSet<>();
+    private final ConcurrentHashMap<Address, Long> address_2_lastActiveTime = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Address, HashSet<NSQConnection>> holdingConnections = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
 
@@ -75,6 +75,10 @@ public class ConsumerImplV2 implements Consumer {
     private final Rdy LOW_RDY;
     private volatile Rdy currentRdy;
     private volatile boolean autoFinish = true;
+
+
+    private final NSQSimpleClient simpleClient;
+    private final NSQConfig config;
 
     /**
      * @param config  NSQConfig
@@ -97,6 +101,12 @@ public class ConsumerImplV2 implements Consumer {
 
     @Override
     public void subscribe(String... topics) {
+        if (topics == null) {
+            return;
+        }
+        for (String t : topics) {
+            this.topics.add(t);
+        }
     }
 
     @Override
@@ -121,23 +131,19 @@ public class ConsumerImplV2 implements Consumer {
             this.poolConfig.setMinIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());
-            // aquire connection waiting time underlying the inner network
+            // acquire connection waiting time underlying the inner network
             this.poolConfig.setMaxWaitMillis(50);
             this.poolConfig.setBlockWhenExhausted(true);
+            //  new instance without performing to connect
+            this.bigPool = new GenericKeyedObjectPool<>(this.factory, this.poolConfig);
             this.simpleClient.start();
-            createBigPool();
-            // POST
-            connect();
+            // -----------------------------------------------------------------
+            //                       First async keep
             keepConnecting();
+            connect();
+            // -----------------------------------------------------------------
             logger.info("The consumer is started.");
         }
-    }
-
-    /**
-     * new instance without performing to connect
-     */
-    private void createBigPool() {
-        this.bigPool = new GenericKeyedObjectPool<>(this.factory, this.poolConfig);
     }
 
     /**
@@ -314,7 +320,7 @@ public class ConsumerImplV2 implements Consumer {
         bigPool.clear(address);
         bigPool.preparePool(address);
         // create new pool(connect to one broker)
-        final List<NSQConnection> okConns = new ArrayList<>(config.getThreadPoolSize4IO());
+        final List<NSQConnection> connections = new ArrayList<>(config.getThreadPoolSize4IO());
         for (int i = 0; i < config.getThreadPoolSize4IO(); i++) {
             NSQConnection newConn = null;
             try {
@@ -325,7 +331,7 @@ public class ConsumerImplV2 implements Consumer {
                     holdingConnections.putIfAbsent(address, new HashSet<NSQConnection>());
                 }
                 holdingConnections.get(address).add(newConn);
-                okConns.add(newConn);
+                connections.add(newConn);
             } catch (Exception e) {
                 logger.error("Address: {} . Exception: {}", address, e);
                 if (newConn != null) {
@@ -341,7 +347,7 @@ public class ConsumerImplV2 implements Consumer {
             }
         }
         // finally
-        for (NSQConnection c : okConns) {
+        for (NSQConnection c : connections) {
             try {
                 // long connected
                 bigPool.returnObject(c.getAddress(), c);
@@ -349,13 +355,13 @@ public class ConsumerImplV2 implements Consumer {
                 logger.error("Exception", e);
             }
         }
-        if (okConns.size() == config.getThreadPoolSize4IO()) {
-            logger.info("Having created a pool for one broker ( {} connections to 1 broker ), it felt good.",
-                    okConns.size());
+        if (connections.size() == config.getThreadPoolSize4IO()) {
+            logger.info("Having created a pool for one broker ( {} connections to 1 DataNode {} ), it felt good.",
+                    connections.size(), address);
         } else {
-            logger.info("Want the pool size {} , actually the size {}", config.getThreadPoolSize4IO(), okConns.size());
+            logger.info("Want the pool size {} , actually the size {}, to 1 DataNode {}", config.getThreadPoolSize4IO(), connections.size(), address);
         }
-        okConns.clear();
+        connections.clear();
     }
 
     /**
@@ -363,28 +369,13 @@ public class ConsumerImplV2 implements Consumer {
      * @throws TimeoutException
      * @throws NSQException
      */
-    private void initConn(NSQConnection newConn) throws TimeoutException, NSQException {
-        final NSQFrame frame = newConn.commandAndGetResponse(new Sub(config.getTopic(), config.getConsumerName()));
-        if (frame != null && frame.getType() == FrameType.ERROR_FRAME) {
-            final ErrorFrame err = (ErrorFrame) frame;
-            logger.error("Address: {} got one error {} , that is {}", newConn.getAddress(), err, err.getError());
-            switch (err.getError()) {
-                case E_FAILED_ON_NOT_LEADER: {
-                }
-                case E_FAILED_ON_NOT_WRITABLE: {
-                }
-                case E_TOPIC_NOT_EXIST: {
-                    clearDataNode(newConn.getAddress());
-                    logger.error("Adress: {} , Frame: {}", newConn.getAddress(), frame);
-                    throw new NSQInvalidDataNodeException();
-                }
-                default: {
-                    throw new NSQException("Unkown response error!");
-                }
-            }
+    private void initConn(NSQConnection newConn) throws TimeoutExcept, NSQException {
+        synchronized (newConn) {
+            final NSQFrame frame = newConn.commandAndGetResponse(new Sub(config.getTopic(), config.getConsumerName()));
+            handleResponse(frame, newConn);
+            currentRdy = DEFAULT_RDY;
+            newConn.command(currentRdy);
         }
-        currentRdy = DEFAULT_RDY;
-        newConn.command(currentRdy);
     }
 
     @Override
@@ -552,17 +543,12 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     private void cleanClose() {
-        for (HashSet<NSQConnection> conns : holdingConnections.values()) {
-            for (final NSQConnection c : conns) {
+        for (HashSet<NSQConnection> connections : holdingConnections.values()) {
+            for (final NSQConnection c : connections) {
                 try {
                     backoff(c);
                     final NSQFrame frame = c.commandAndGetResponse(Close.getInstance());
-                    if (frame != null && frame.getType() == FrameType.ERROR_FRAME) {
-                        final Response err = ((ErrorFrame) frame).getError();
-                        if (err != null) {
-                            logger.error(err.getContent());
-                        }
-                    }
+                    handleResponse(frame, c);
                 } catch (Exception e) {
                     logger.error("Exception", e);
                 } finally {
@@ -570,8 +556,39 @@ public class ConsumerImplV2 implements Consumer {
                 }
             }
         }
-
         holdingConnections.clear();
+    }
+
+    private void handleResponse(NSQFrame frame, NSQConnection connection) throws NSQException {
+        if (frame == null) {
+            logger.warn("SDK bug: the frame is null.");
+            return;
+        }
+        // TODO
+        if (frame != null && frame.getType() == FrameType.ERROR_FRAME) {
+            final Response err = ((ErrorFrame) frame).getError();
+            if (err != null) {
+                logger.error(err.getContent());
+            }
+        }
+        if (frame != null && frame.getType() == FrameType.ERROR_FRAME) {
+            final ErrorFrame err = (ErrorFrame) frame;
+            logger.error("Address: {} got one error {} , that is {}", newConn.getAddress(), err, err.getError());
+            switch (err.getError()) {
+                case E_FAILED_ON_NOT_LEADER: {
+                }
+                case E_FAILED_ON_NOT_WRITABLE: {
+                }
+                case E_TOPIC_NOT_EXIST: {
+                    clearDataNode(newConn.getAddress());
+                    logger.error("Address: {} , Frame: {}", newConn.getAddress(), frame);
+                    throw new NSQInvalidDataNodeException();
+                }
+                default: {
+                    throw new NSQException("Unknown response error!");
+                }
+            }
+        }
     }
 
     @Override
