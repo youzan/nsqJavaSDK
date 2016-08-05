@@ -22,7 +22,6 @@ public interface Producer extends Client, Closeable {
      * @param message the client sets it that is be published
      * @param topic   the specified topic name
      * @throws NSQException
-     * @see {@link this#publish(byte[], String)}
      */
     @Deprecated
     void publish(String message, String topic) throws NSQException;
