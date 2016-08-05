@@ -171,8 +171,8 @@ public class ConsumerImplV2 implements Consumer {
     /**
      * Make it be a {@link NSQConnection}
      *
-     * @param address
-     * @throws Exception
+     * @param address the data-node
+     * @throws Exception if an error occurs
      */
     private void connect(final Address address) throws Exception {
         if (address == null) {
@@ -189,10 +189,10 @@ public class ConsumerImplV2 implements Consumer {
     /**
      * Make it be a consumer-connection
      *
-     * @param connection
-     * @param topic
-     * @throws TimeoutException
-     * @throws NSQException
+     * @param connection a NSQConnection
+     * @param topic      a topic
+     * @throws TimeoutException if the CPU is too busy or network is too worst
+     * @throws NSQException     if an error occurs
      */
     private void subscribe(NSQConnection connection, String topic) throws TimeoutException, NSQException {
         synchronized (connection) {
@@ -242,7 +242,8 @@ public class ConsumerImplV2 implements Consumer {
             final Set<Address> targetAddresses = new TreeSet<>();
             for (String topic : topics) {
                 final ConcurrentSortedSet<Address> dataNodes = simpleClient.getDataNodes(topic);
-                final Set<Address> addresses = (Set) dataNodes.newSortedSet();
+                final Set<Address> addresses = new TreeSet<>();
+                addresses.addAll(dataNodes.newSortedSet());
 
                 for (Address a : addresses) {
                     final Set<String> tmpTopics;
@@ -386,7 +387,7 @@ public class ConsumerImplV2 implements Consumer {
         simpleClient.incoming(frame, conn);
     }
 
-    protected void processMessage(final NSQMessage message, final NSQConnection conn) {
+    private void processMessage(final NSQMessage message, final NSQConnection conn) {
         if (handler == null) {
             logger.error("No MessageHandler then drop the message {}", message);
             return;
@@ -455,10 +456,6 @@ public class ConsumerImplV2 implements Consumer {
         assert currentRdy != null;
     }
 
-    /**
-     * @param message
-     * @param conn
-     */
     private void consume(final NSQMessage message, final NSQConnection conn) {
         boolean ok = false;
         int c = 0;
