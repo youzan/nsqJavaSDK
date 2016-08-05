@@ -231,11 +231,7 @@ public class ConsumerImplV2 implements Consumer {
              * =====================================================================
              */
             for (Address address : broken) {
-                try {
-                    clearDataNode(address);
-                } catch (Exception e) {
-                    logger.error("Exception", e);
-                }
+                clearDataNode(address);
             }
 
             final ConcurrentHashMap<Address, Set<String>> address_2_topics = new ConcurrentHashMap<>();
@@ -359,19 +355,23 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     /**
+     * No any exception
      * @param address the data-node(NSQd)'s address
      */
     public void clearDataNode(Address address) {
         if (address == null) {
             return;
         }
+        try {
+            final Set<NSQConnection> holding = holdingConnections.get(address);
+            cleanClose(holding);
+            holding.clear();
 
-        final Set<NSQConnection> holding = holdingConnections.get(address);
-        cleanClose(holding);
-        holding.clear();
-
-        holdingConnections.remove(address);
-        bigPool.clear(address);
+            holdingConnections.remove(address);
+            bigPool.clear(address);
+        } catch (Exception e) {
+            logger.warn("SDK can not clear the {} resources normally.", address);
+        }
     }
 
     @Override
