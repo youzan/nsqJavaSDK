@@ -8,7 +8,6 @@ import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.exception.NSQException;
-import com.youzan.nsq.client.exception.NSQInvalidDataNodeException;
 import com.youzan.nsq.client.exception.NSQNoConnectionException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.MessageFrame;
@@ -572,7 +571,7 @@ public class ConsumerImplV2 implements Consumer {
         }
         if (frame.getType() == FrameType.ERROR_FRAME) {
             final ErrorFrame err = (ErrorFrame) frame;
-            logger.error("Connection: {} got one error {} , that is {}", connection, err, err.getError());
+            logger.info("Connection: {} got one error {} , that is {}", connection, err, err.getError());
             switch (err.getError()) {
                 case E_FAILED_ON_NOT_LEADER: {
                 }
@@ -580,10 +579,10 @@ public class ConsumerImplV2 implements Consumer {
                 }
                 case E_TOPIC_NOT_EXIST: {
                     clearDataNode(connection.getAddress());
-                    throw new NSQInvalidDataNodeException();
+                    logger.info("NSQInvalidDataNode");
                 }
                 default: {
-                    throw new NSQException("Unknown response error!");
+                    logger.info("Unknown type in ERROR_FRAME!");
                 }
             }
         }
