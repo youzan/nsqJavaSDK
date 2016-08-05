@@ -4,8 +4,10 @@ import java.io.InputStream;
 import java.util.Properties;
 import java.util.Random;
 
+import com.youzan.util.IOUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -51,5 +53,10 @@ public class ITProducer {
             random.nextBytes(message);
             producer.publish(message, "JavaTesting-Producer-Base");
         }
+    }
+
+    @AfterClass
+    public void close() {
+        IOUtil.closeQuietly(producer);
     }
 }
