@@ -12,7 +12,7 @@ import java.io.InputStream;
 import java.util.Properties;
 import java.util.Random;
 
-@Test
+@Test(priority = 1)
 public class ITLookup {
     private static final Logger logger = LoggerFactory.getLogger(ITLookup.class);
 
