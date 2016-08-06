@@ -40,7 +40,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     private final Address address;
     private final Channel channel;
     private final NSQConfig config;
-    private final long timeoutInMillisecond;
+    private final long queryTimeoutInMillisecond;
 
     public NSQConnectionImpl(int id, Address address, Channel channel, NSQConfig config) {
         this.id = id;
@@ -48,7 +48,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         this.channel = channel;
         this.config = config;
 
-        this.timeoutInMillisecond = config.getQueryTimeoutInMillisecond();
+        this.queryTimeoutInMillisecond = config.getQueryTimeoutInMillisecond();
 
     }
 
@@ -85,7 +85,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     public NSQFrame commandAndGetResponse(final NSQCommand command) throws TimeoutException {
         final long start = System.currentTimeMillis();
         try {
-            long timeout = timeoutInMillisecond - (0L);
+            long timeout = queryTimeoutInMillisecond - (0L);
             if (!requests.offer(command, timeout, TimeUnit.MILLISECONDS)) {
                 throw new TimeoutException(
                         "The command is timeout. The command name is : " + command.getClass().getName());
@@ -96,12 +96,12 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
             final ChannelFuture future = command(command);
 
             // wait to get the response
-            timeout = timeoutInMillisecond - (start - System.currentTimeMillis());
+            timeout = queryTimeoutInMillisecond - (start - System.currentTimeMillis());
             if (!future.await(timeout, TimeUnit.MILLISECONDS)) {
                 throw new TimeoutException(
                         "The command is timeout. The command name is : " + command.getClass().getName());
             }
-            timeout = timeoutInMillisecond - (start - System.currentTimeMillis());
+            timeout = queryTimeoutInMillisecond - (start - System.currentTimeMillis());
             final NSQFrame frame = responses.poll(timeout, TimeUnit.MILLISECONDS);
             if (frame == null) {
                 throw new TimeoutException(
@@ -122,7 +122,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     public void addResponseFrame(ResponseFrame frame) {
         if (!requests.isEmpty()) {
             try {
-                responses.offer(frame, timeoutInMillisecond * 2, TimeUnit.MILLISECONDS);
+                responses.offer(frame, queryTimeoutInMillisecond * 2, TimeUnit.MILLISECONDS);
             } catch (InterruptedException e) {
                 close();
                 Thread.currentThread().interrupt();
@@ -136,7 +136,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     @Override
     public void addErrorFrame(ErrorFrame frame) {
         try {
-            responses.offer(frame, timeoutInMillisecond, TimeUnit.MILLISECONDS);
+            responses.offer(frame, queryTimeoutInMillisecond, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             logger.error("Thread was interrupted, probably shutting down!", e);
@@ -203,7 +203,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         result = prime * result + id;
         result = prime * result + ((requests == null) ? 0 : requests.hashCode());
         result = prime * result + ((responses == null) ? 0 : responses.hashCode());
-        result = prime * result + (int) (timeoutInMillisecond ^ (timeoutInMillisecond >>> 32));
+        result = prime * result + (int) (queryTimeoutInMillisecond ^ (queryTimeoutInMillisecond >>> 32));
         return result;
     }
 
@@ -266,7 +266,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         } else if (!responses.equals(other.responses)) {
             return false;
         }
-        return timeoutInMillisecond == other.timeoutInMillisecond;
+        return queryTimeoutInMillisecond == other.queryTimeoutInMillisecond;
     }
 
 
@@ -280,7 +280,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     public String toString() {
         // JDK8
         return "NSQConnectionImpl [id=" + id + ", havingNegotiation=" + havingNegotiation + ", address=" + address
-                + ", channel=" + channel + ", config=" + config + ", timeoutInMillisecond=" + timeoutInMillisecond
+                + ", channel=" + channel + ", config=" + config + ", queryTimeoutInMillisecond=" + queryTimeoutInMillisecond
                 + "]";
     }
 
