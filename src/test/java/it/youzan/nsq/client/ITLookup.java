@@ -14,10 +14,8 @@ import java.util.Random;
 
 @Test
 public class ITLookup {
-
     private static final Logger logger = LoggerFactory.getLogger(ITLookup.class);
 
-    private final Random random = new Random();
     private LookupService lookup;
 
     @BeforeClass

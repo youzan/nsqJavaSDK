@@ -278,6 +278,7 @@ public class ProducerImplV2 implements Producer {
             bigPool.close();
         }
         IOUtil.closeQuietly(simpleClient);
+        logger.info("The producer has been closed.");
     }
 
     private void sleep(final long millisecond) {
