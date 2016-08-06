@@ -1,5 +1,7 @@
 package com.youzan.nsq.client.network.frame;
 
+import java.util.Arrays;
+
 public class MessageFrame extends NSQFrame {
     /*-
      * =========================================================================
@@ -57,8 +59,7 @@ public class MessageFrame extends NSQFrame {
     }
 
     /**
-     * @param messageBody
-     *            the messageBody to set
+     * @param messageBody the messageBody to set
      */
     private void setMessageBody(byte[] messageBody) {
         this.messageBody = messageBody;
@@ -82,5 +83,14 @@ public class MessageFrame extends NSQFrame {
     @Override
     public String getMessage() {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public String toString() {
+        return "MessageFrame{" +
+                " messageID=" + Arrays.toString(messageID) +
+                ", attempts=" + Arrays.toString(attempts) +
+                ", timestamp=" + Arrays.toString(timestamp) +
+                '}';
     }
 }

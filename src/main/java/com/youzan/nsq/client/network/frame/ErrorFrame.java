@@ -58,6 +58,6 @@ public class ErrorFrame extends NSQFrame {
 
     @Override
     public String toString() {
-        return getMessage();
+        return "ErrorFrame: " + this.getMessage();
     }
 }
