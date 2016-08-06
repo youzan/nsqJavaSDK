@@ -3,14 +3,6 @@
  */
 package com.youzan.nsq.client.core;
 
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.locks.ReentrantLock;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.youzan.nsq.client.core.command.Identify;
 import com.youzan.nsq.client.core.command.Magic;
 import com.youzan.nsq.client.core.command.NSQCommand;
@@ -19,15 +11,22 @@ import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
-
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.Serializable;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
-public class NSQConnectionImpl implements NSQConnection, Comparable {
+public class NSQConnectionImpl implements Serializable, NSQConnection, Comparable {
     private static final Logger logger = LoggerFactory.getLogger(NSQConnectionImpl.class);
+    private static final long serialVersionUID = 7139923487863469738L;
 
     private final int id; // primary key
 
