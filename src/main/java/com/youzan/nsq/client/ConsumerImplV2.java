@@ -388,7 +388,7 @@ public class ConsumerImplV2 implements Consumer {
             final MessageFrame msg = (MessageFrame) frame;
             final NSQMessage message = new NSQMessage(msg.getTimestamp(), msg.getAttempts(), msg.getMessageID(),
                     msg.getMessageBody(), conn.getAddress(), Integer.valueOf(conn.getId()));
-            return;
+            processMessage(message, conn);
         } else {
             simpleClient.incoming(frame, conn);
         }
