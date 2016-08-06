@@ -97,7 +97,7 @@ public class ConsumerImplV2 implements Consumer {
 
         int messagesPerBatch = config.getRdy();
         DEFAULT_RDY = new Rdy(Math.max(messagesPerBatch, 1));
-        MEDIUM_RDY = new Rdy(Math.max((int) (messagesPerBatch * 0.3D), 1));
+        MEDIUM_RDY = new Rdy(Math.max((int) (messagesPerBatch * 0.5D), 1));
         currentRdy = DEFAULT_RDY;
         logger.info("Initialize the Rdy is {}", currentRdy);
     }
@@ -426,23 +426,28 @@ public class ConsumerImplV2 implements Consumer {
 
     private void resumeRateLimiting(final NSQConnection conn, final int delayInMillisecond) {
         if (executor instanceof ThreadPoolExecutor) {
+            final ThreadPoolExecutor pools = (ThreadPoolExecutor) executor;
+            final double threshold = pools.getActiveCount() / (1.0D * pools.getPoolSize());
             if (delayInMillisecond <= 0) {
-                final ThreadPoolExecutor pools = (ThreadPoolExecutor) executor;
-                final double threshold = pools.getActiveCount() / (1.0D * pools.getPoolSize());
                 logger.info("Current status is not good. threshold: {}", threshold);
+                boolean willSleep = false; // too , too busy
                 if (threshold >= 0.9D) {
+                    if (currentRdy == LOW_RDY) {
+                        willSleep = true;
+                    }
                     currentRdy = LOW_RDY;
-                } else if (threshold >= 0.8D) {
+                } else if (threshold >= 0.5D) {
                     currentRdy = MEDIUM_RDY;
                 } else {
                     currentRdy = DEFAULT_RDY;
                 }
                 // Ignore the data-race
                 conn.command(currentRdy);
+                if (willSleep) {
+                    sleep(100);
+                }
             } else {
                 if (currentRdy != DEFAULT_RDY) {
-                    final ThreadPoolExecutor pools = (ThreadPoolExecutor) executor;
-                    final double threshold = pools.getActiveCount() / (1.0D * pools.getPoolSize());
                     logger.info("Current threshold state: {}", threshold);
                     scheduler.schedule(new Runnable() {
                         @Override
@@ -631,4 +636,13 @@ public class ConsumerImplV2 implements Consumer {
         this.autoFinish = autoFinish;
     }
 
+    private void sleep(final long millisecond) {
+        logger.debug("Sleep {} millisecond.", millisecond);
+        try {
+            Thread.sleep(millisecond);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Your machine is too busy! Please check it!");
+        }
+    }
 }
