@@ -48,7 +48,7 @@
             <version>${logback.version}</version>
             <scope>test</scope>
         </dependency>
-        <!-- testing lib, don't use JUint -->
+        <!-- testing lib, don't use JUnit -->
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
