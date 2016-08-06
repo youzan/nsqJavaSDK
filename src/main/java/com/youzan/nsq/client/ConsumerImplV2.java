@@ -545,6 +545,7 @@ public class ConsumerImplV2 implements Consumer {
         }
         IOUtil.closeQuietly(simpleClient);
         topics.clear();
+        logger.info("The consumer has been closed.");
     }
 
     private void cleanClose() {
