@@ -1,17 +1,16 @@
 package com.youzan.nsq.client.core;
 
-import java.io.Closeable;
-import java.util.concurrent.TimeoutException;
-
 import com.youzan.nsq.client.core.command.NSQCommand;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
-
 import io.netty.channel.ChannelFuture;
 import io.netty.util.AttributeKey;
+
+import java.io.Closeable;
+import java.util.concurrent.TimeoutException;
 
 /**
  * <pre>
@@ -45,9 +44,9 @@ public interface NSQConnection extends Closeable {
     /**
      * Synchronize the protocol packet
      *
-     * @param command   a {@link NSQCommand}
+     * @param command a {@link NSQCommand}
      * @return a {@link NSQFrame}  after send a request
-     * @throws TimeoutException  a timed out error
+     * @throws TimeoutException a timed out error
      */
     NSQFrame commandAndGetResponse(final NSQCommand command) throws TimeoutException;
 
