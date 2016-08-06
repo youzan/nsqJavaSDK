@@ -1,16 +1,14 @@
 package com.youzan.nsq.client.entity;
 
 public class Address implements java.io.Serializable, Comparable<Address> {
-
     private static final long serialVersionUID = -5091525135068063293L;
+
     private final String host;
     private final int port;
 
     /**
-     * @param host
-     *            a {@link String}
-     * @param port
-     *            a {@link String}
+     * @param host a {@link String}
+     * @param port a {@link String}
      */
     public Address(String host, String port) {
         this.host = host;
@@ -18,10 +16,8 @@ public class Address implements java.io.Serializable, Comparable<Address> {
     }
 
     /**
-     * @param host
-     *            a {@link String}
-     * @param port
-     *            a integer number
+     * @param host a {@link String}
+     * @param port a integer number
      */
     public Address(String host, int port) {
         this.host = host;
