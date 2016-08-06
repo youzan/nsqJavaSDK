@@ -115,7 +115,7 @@ public class ProducerImplV2 implements Producer {
                 }
             }, 30, 30, TimeUnit.MINUTES);
         }
-        logger.info("Producer is started.");
+        logger.info("Producer has been started.");
     }
 
     /**

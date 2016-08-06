@@ -145,9 +145,9 @@ public class ConsumerImplV2 implements Consumer {
                 keepConnecting();
                 connect();
                 // -----------------------------------------------------------------
-                logger.info("The consumer is started.");
             }
         }
+        logger.info("The consumer has been started.");
     }
 
     /**
@@ -183,7 +183,7 @@ public class ConsumerImplV2 implements Consumer {
             bigPool.clear(address);
             bigPool.preparePool(address);
         }
-        logger.info("A consumer creates the {} pool.", address);
+        logger.info("A consumer has created the {} pool.", address);
     }
 
     /**
