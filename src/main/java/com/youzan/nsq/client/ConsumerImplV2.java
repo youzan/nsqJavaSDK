@@ -356,6 +356,7 @@ public class ConsumerImplV2 implements Consumer {
 
     /**
      * No any exception
+     *
      * @param address the data-node(NSQd)'s address
      */
     public void clearDataNode(Address address) {
@@ -379,15 +380,18 @@ public class ConsumerImplV2 implements Consumer {
         if (frame == null) {
             return;
         }
+        if (conn == null) {
+            logger.warn("The consumer connection is closed and removed. {}", frame);
+        }
         if (frame.getType() == FrameType.MESSAGE_FRAME) {
             received.incrementAndGet();
             final MessageFrame msg = (MessageFrame) frame;
             final NSQMessage message = new NSQMessage(msg.getTimestamp(), msg.getAttempts(), msg.getMessageID(),
                     msg.getMessageBody(), conn.getAddress(), Integer.valueOf(conn.getId()));
-            processMessage(message, conn);
             return;
+        } else {
+            simpleClient.incoming(frame, conn);
         }
-        simpleClient.incoming(frame, conn);
     }
 
     private void processMessage(final NSQMessage message, final NSQConnection conn) {

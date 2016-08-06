@@ -171,6 +171,9 @@ public class NSQSimpleClient implements Client, Closeable {
 
     @Override
     public void incoming(final NSQFrame frame, final NSQConnection conn) throws NSQException {
+        if (frame == null) {
+            return;
+        }
         switch (frame.getType()) {
             case RESPONSE_FRAME: {
                 final String resp = frame.getMessage();
