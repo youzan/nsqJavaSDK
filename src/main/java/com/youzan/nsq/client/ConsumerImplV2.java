@@ -382,6 +382,7 @@ public class ConsumerImplV2 implements Consumer {
         }
         if (conn == null) {
             logger.warn("The consumer connection is closed and removed. {}", frame);
+            return;
         }
         if (frame.getType() == FrameType.MESSAGE_FRAME) {
             received.incrementAndGet();
