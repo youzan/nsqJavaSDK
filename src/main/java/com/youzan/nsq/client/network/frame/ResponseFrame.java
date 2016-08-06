@@ -18,7 +18,7 @@ public class ResponseFrame extends NSQFrame {
 
     @Override
     public String toString() {
-        return "Response: " + this.getMessage();
+        return "ResponseFrame: " + this.getMessage();
     }
 
 }
