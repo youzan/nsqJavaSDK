@@ -20,10 +20,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 @Test(groups = "ITConsumer-Base")
 public class ITConsumer {
-
     private static final Logger logger = LoggerFactory.getLogger(ITConsumer.class);
 
-    private final Random random = new Random();
     private final int rdy = 2;
     private final NSQConfig config = new NSQConfig();
     private Consumer consumer;
