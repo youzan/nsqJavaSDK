@@ -75,8 +75,8 @@ public class ConsumerImplV2 implements Consumer {
 
     private final Rdy DEFAULT_RDY;
     private final Rdy MEDIUM_RDY;
-    private final Rdy LOW_RDY;
-    private volatile Rdy currentRdy = null;
+    private final Rdy LOW_RDY = new Rdy(1);
+    private volatile Rdy currentRdy = LOW_RDY;
     private volatile boolean autoFinish = true;
 
 
@@ -98,7 +98,6 @@ public class ConsumerImplV2 implements Consumer {
         int messagesPerBatch = config.getRdy();
         DEFAULT_RDY = new Rdy(Math.max(messagesPerBatch, 1));
         MEDIUM_RDY = new Rdy(Math.max((int) (messagesPerBatch * 0.3D), 1));
-        LOW_RDY = new Rdy(1);
         currentRdy = DEFAULT_RDY;
         logger.info("Initialize the Rdy is {}", currentRdy);
     }
@@ -198,7 +197,6 @@ public class ConsumerImplV2 implements Consumer {
         synchronized (connection) {
             final NSQFrame frame = connection.commandAndGetResponse(new Sub(topic, config.getConsumerName()));
             handleResponse(frame, connection);
-            currentRdy = DEFAULT_RDY;
             connection.command(currentRdy);
         }
     }
@@ -395,7 +393,7 @@ public class ConsumerImplV2 implements Consumer {
         }
     }
 
-    private void processMessage(final NSQMessage message, final NSQConnection conn) {
+    private void processMessage(final NSQMessage message, final NSQConnection connection) {
         if (handler == null) {
             logger.error("No MessageHandler then drop the message {}", message);
             return;
@@ -405,25 +403,25 @@ public class ConsumerImplV2 implements Consumer {
                 @Override
                 public void run() {
                     try {
-                        consume(message, conn);
+                        consume(message, connection);
                         success.incrementAndGet();
                     } catch (Exception e) {
-                        IOUtil.closeQuietly(conn);
+                        IOUtil.closeQuietly(connection);
                         logger.error("Exception", e);
                     }
                 }
             });
         } catch (RejectedExecutionException re) {
             try {
-                backoff(conn);
-                conn.command(new ReQueue(message.getMessageID(), 3));
+                backoff(connection);
+                connection.command(new ReQueue(message.getMessageID(), 3));
                 logger.info("Do a re-queue. MessageID:{}", message.getMessageID());
-                resumeRateLimiting(conn, 0);
+                resumeRateLimiting(connection, 0);
             } catch (Exception e) {
                 logger.error("SDK can not handle it MessageID:{}, Exception:", message.getMessageID(), e);
             }
         }
-        resumeRateLimiting(conn, 1000);
+        resumeRateLimiting(connection, 1000);
     }
 
     private void resumeRateLimiting(final NSQConnection conn, final int delayInMillisecond) {
