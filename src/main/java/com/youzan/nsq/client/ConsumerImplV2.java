@@ -182,7 +182,7 @@ public class ConsumerImplV2 implements Consumer {
             bigPool.clear(address);
             bigPool.preparePool(address);
         }
-        logger.info("A consumer has created the {} pool.", address);
+        logger.info("The consumer has created the {} pool.", address);
     }
 
     /**
