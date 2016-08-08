@@ -212,7 +212,7 @@ public class ConsumerImplV2 implements Consumer {
         }
         if (this.topics.isEmpty()) {
             logger.error("Are you kidding me? You did not subscribe any topic. Please check it right now!");
-            return;
+            // Still check the resources , do not return right now
         }
 
         final Set<Address> broken = new HashSet<>();
