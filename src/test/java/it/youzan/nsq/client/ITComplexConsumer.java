@@ -1,18 +1,18 @@
 package it.youzan.nsq.client;
 
 import com.youzan.nsq.client.*;
+import com.youzan.nsq.client.core.lookup.LookupServiceImpl;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.util.IOUtil;
-import org.apache.http.NameValuePair;
+import org.apache.http.HttpEntity;
 import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.message.BasicNameValuePair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -32,7 +32,7 @@ import java.util.concurrent.TimeUnit;
 public class ITComplexConsumer {
     private static final Logger logger = LoggerFactory.getLogger(ITComplexConsumer.class);
 
-    private final String consumerName = "ConsumerBase";
+    private final String consumerName = "BaseConsumer";
 
     private final Random _r = new Random();
     private final NSQConfig config = new NSQConfig();
@@ -57,31 +57,32 @@ public class ITComplexConsumer {
         config.setLookupAddresses(lookups);
         config.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
         config.setThreadPoolSize4IO(Runtime.getRuntime().availableProcessors() * 2);
+
         // empty channel
         // curl -X POST http://127.0.0.1:4151/channel/empty?topic=name&channel=name
+        // curl -X /api/topics/:topic/:channel    body: {"action":"empty"}
         String[] topics = new String[]{"JavaTesting-Finish", "JavaTesting-ReQueue"};
         for (String t : topics) {
-            String url = String.format("http://%s/channel/empty", admin);
+            final String url = String.format("http://%s/api/topics/%s/%s", admin, t, consumerName);
             logger.debug("Empty channel {}", url);
 
-            CloseableHttpClient httpclient = HttpClients.createDefault();
-            HttpPost httpPost = new HttpPost(url);
-            List<NameValuePair> paris = new ArrayList<>();
-            paris.add(new BasicNameValuePair("topic", t));
-            paris.add(new BasicNameValuePair("channel", consumerName));
-            httpPost.setEntity(new UrlEncodedFormEntity(paris));
-            CloseableHttpResponse response = httpclient.execute(httpPost);
             RequestConfig requestConfig = RequestConfig.custom()
                     .setConnectTimeout(5 * 1000)
                     .setConnectionRequestTimeout(10 * 1000)
                     .build();
-            HttpPost post = new HttpPost(url);
-            post.setConfig(requestConfig);
-            httpclient.execute(post);
+            HttpEntity entity = new StringEntity("{\"action\":\"empty\"}");
+
+            CloseableHttpClient httpclient = HttpClients.createDefault();
+            HttpPost httpPost = new HttpPost(url);
+            httpPost.setConfig(requestConfig);
+            httpPost.setEntity(entity);
+            CloseableHttpResponse response = httpclient.execute(httpPost);
             response.close();
         }
         // create new instances
         producer = new ProducerImplV2(config);
+        producer.start();
+
     }
 
     @Test(groups = "Finish")
