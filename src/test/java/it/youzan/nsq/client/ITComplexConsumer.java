@@ -26,7 +26,6 @@ import java.util.concurrent.TimeUnit;
 /**
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
-@Test
 public class ITComplexConsumer {
     private static final Logger logger = LoggerFactory.getLogger(ITComplexConsumer.class);
 
@@ -43,7 +42,7 @@ public class ITComplexConsumer {
 
     @BeforeClass
     public void init() throws Exception {
-        logger.info("Now initialize {} at {} .", this.getClass().getName(), System.currentTimeMillis());
+        logger.info("At {} , initialize: {}", System.currentTimeMillis(), this.getClass().getName());
         final Properties props = new Properties();
         try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {
             props.load(is);
@@ -83,7 +82,7 @@ public class ITComplexConsumer {
 
     }
 
-    @Test(groups = "Finish")
+    @Test(groups = "Finish", priority = 9)
     public void produceFinish() throws NSQException {
         for (int i = 0; i < 10; i++) {
             final byte[] message = new byte[32];
@@ -93,7 +92,7 @@ public class ITComplexConsumer {
         }
     }
 
-    @Test(dependsOnGroups = "Finish")
+    @Test(dependsOnGroups = "Finish", priority = 9)
     public void testFinish() throws InterruptedException, NSQException {
         final CountDownLatch latch = new CountDownLatch(10);
         final HashSet<byte[]> actualMessages = new HashSet<>();
@@ -121,7 +120,7 @@ public class ITComplexConsumer {
         }
     }
 
-    @Test(groups = "ReQueue")
+    @Test(groups = "ReQueue", priority = 9)
     public void produceReQueue() throws NSQException {
         for (int i = 0; i < 10; i++) {
             final byte[] message = new byte[32];
@@ -131,7 +130,7 @@ public class ITComplexConsumer {
         }
     }
 
-    @Test(dependsOnGroups = "ReQueue")
+    @Test(dependsOnGroups = "ReQueue", priority = 9)
     public void testReQueue() throws InterruptedException, NSQException {
         final CountDownLatch latch = new CountDownLatch(10);
         final HashSet<byte[]> actualMessages = new HashSet<>();
