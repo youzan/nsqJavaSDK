@@ -8,9 +8,6 @@ import org.testng.annotations.Test;
 import java.io.InputStream;
 import java.util.Properties;
 
-/**
- * Created by linzuxiong on 08/03/2016.
- */
 @Test
 public class ITBase {
     private static final Logger logger = LoggerFactory.getLogger(ITBase.class);
