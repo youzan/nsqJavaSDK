@@ -6,3 +6,5 @@
 ## New Topics
  
   * JavaTesting-Producer-Base
+  * JavaTesting-ReQueue
+  * JavaTesting-Finish
