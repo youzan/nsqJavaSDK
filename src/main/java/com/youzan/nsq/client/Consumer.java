@@ -14,7 +14,7 @@ import com.youzan.nsq.client.exception.NSQException;
  */
 public interface Consumer extends Client, Closeable {
     /**
-     * initialize some parameters for the consumer
+     * Initialize some parameters for the consumer
      * 
      * @param topics
      *            the client wanna subscribe some topics and this API appends
