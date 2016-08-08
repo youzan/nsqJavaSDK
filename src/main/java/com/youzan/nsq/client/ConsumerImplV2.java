@@ -206,7 +206,7 @@ public class ConsumerImplV2 implements Consumer {
      * and the old is clear.
      */
     private void connect() throws NSQException {
-        if (topics.isEmpty()) {
+        if (this.topics.isEmpty()) {
             logger.error("Are you kidding me? You did not subscribe any topic. Please check it right now!");
             return;
         }
