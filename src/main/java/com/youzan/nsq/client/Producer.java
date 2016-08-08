@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.youzan.nsq.client.core.Client;
 import com.youzan.nsq.client.exception.NSQException;
+import com.youzan.util.IOUtil;
 
 /**
  * Because of too many topics, we create some connections with brokers when actually first time uses.
@@ -17,7 +18,8 @@ public interface Producer extends Client, Closeable {
 
 
     /**
-     * Default UTF-8 encoding
+     * Default UTF-8 Encoding
+     * {@link IOUtil#DEFAULT_CHARSET}
      *
      * @param message the client sets it that is be published
      * @param topic   the specified topic name
