@@ -255,6 +255,7 @@ public class NSQSimpleClient implements Client, Closeable {
     public void close() {
         lock.writeLock().lock();
         try {
+            lookup.close();
             topic_2_dataNodes.clear();
             dataNodes.clear();
             scheduler.shutdownNow();

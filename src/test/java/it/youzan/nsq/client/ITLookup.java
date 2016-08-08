@@ -3,8 +3,10 @@ package it.youzan.nsq.client;
 import com.youzan.nsq.client.core.lookup.LookupService;
 import com.youzan.nsq.client.core.lookup.LookupServiceImpl;
 import com.youzan.nsq.client.exception.NSQLookupException;
+import com.youzan.util.IOUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -31,6 +33,11 @@ public class ITLookup {
 
     public void lookup() throws NSQLookupException {
         lookup.lookup("JavaTesting-Producer-Base", true);
+    }
+
+    @AfterClass
+    public void close() {
+        IOUtil.closeQuietly(lookup);
     }
 
 }
