@@ -18,7 +18,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-@Test(groups = "ITConsumer-Base", priority = 1)
+@Test(groups = "ITConsumer-Base", priority = 5)
 public class ITConsumer {
     private static final Logger logger = LoggerFactory.getLogger(ITConsumer.class);
 
@@ -28,7 +28,7 @@ public class ITConsumer {
 
     @BeforeClass
     public void init() throws Exception {
-        logger.info("Now initialize {} at {} .", this.getClass().getName(), System.currentTimeMillis());
+        logger.info("At {} , initialize: {}", System.currentTimeMillis(), this.getClass().getName());
         final Properties props = new Properties();
         try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {
             props.load(is);
