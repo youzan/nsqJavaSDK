@@ -207,7 +207,11 @@ public class ConsumerImplV2 implements Consumer {
      */
     private void connect() throws NSQException {
         if (!this.started) {
-            logger.error("Consumer has not been started. Maybe you close the consumer if you started some minutes ago!");
+            if (closing.get()) {
+                logger.error("You have closed the consumer sometimes ago!");
+            } else {
+                logger.error("Are you kidding me? You do not call the start method yet.");
+            }
             return;
         }
         if (this.topics.isEmpty()) {
