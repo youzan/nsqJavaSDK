@@ -206,7 +206,11 @@ public class ConsumerImplV2 implements Consumer {
      * and the old is clear.
      */
     private void connect() throws NSQException {
-        if (topics.isEmpty()) {
+        if (!this.started) {
+            logger.error("Consumer has not been started. Maybe you close the consumer if you started some minutes ago!");
+            return;
+        }
+        if (this.topics.isEmpty()) {
             logger.error("Are you kidding me? You did not subscribe any topic. Please check it right now!");
             return;
         }
@@ -553,7 +557,7 @@ public class ConsumerImplV2 implements Consumer {
             bigPool.close();
         }
         IOUtil.closeQuietly(simpleClient);
-        topics.clear();
+        this.topics.clear();
         logger.info("The consumer has been closed.");
     }
 
