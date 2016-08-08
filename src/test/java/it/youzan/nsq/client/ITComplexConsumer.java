@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
-@Test()
+@Test
 public class ITComplexConsumer {
     private static final Logger logger = LoggerFactory.getLogger(ITComplexConsumer.class);
 
@@ -94,7 +94,7 @@ public class ITComplexConsumer {
         }
     }
 
-    @Test
+    @Test(dependsOnGroups = "Finish")
     public void testFinish() throws InterruptedException, NSQException {
         final CountDownLatch latch = new CountDownLatch(10);
         final HashSet<byte[]> actualMessages = new HashSet<>();
@@ -121,7 +121,7 @@ public class ITComplexConsumer {
         Assert.assertEquals(actualMessages, messages4Finish);
     }
 
-    @Test(groups = "ReQueue")
+    //    @Test(groups = "ReQueue")
     public void produceReQueue() throws NSQException {
         for (int i = 0; i < 10; i++) {
             final byte[] message = new byte[32];
@@ -131,7 +131,7 @@ public class ITComplexConsumer {
         }
     }
 
-    @Test(dependsOnGroups = "ReQueue")
+    //    @Test(dependsOnGroups = "ReQueue")
     public void testReQueue() throws InterruptedException, NSQException {
         final CountDownLatch latch = new CountDownLatch(10);
         final HashSet<byte[]> actualMessages = new HashSet<>();
