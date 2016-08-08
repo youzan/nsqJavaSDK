@@ -14,7 +14,7 @@ import java.io.InputStream;
 import java.util.Properties;
 import java.util.Random;
 
-@Test(priority = 1)
+@Test(priority = 3)
 public class ITLookup {
     private static final Logger logger = LoggerFactory.getLogger(ITLookup.class);
 
@@ -22,7 +22,7 @@ public class ITLookup {
 
     @BeforeClass
     public void init() throws Exception {
-        logger.info("Now initialize {} at {} .", this.getClass().getName(), System.currentTimeMillis());
+        logger.info("At {} , initialize: {}", System.currentTimeMillis(), this.getClass().getName());
         final Properties props = new Properties();
         try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {
             props.load(is);
