@@ -114,7 +114,7 @@ public class ITComplexConsumer {
         consumer4Finish.setAutoFinish(false);
         consumer4Finish.subscribe("JavaTesting-Finish");
         consumer4Finish.start();
-        latch.await(2, TimeUnit.MINUTES);
+        latch.await(1, TimeUnit.MINUTES);
         List<NSQMessage> received = new ArrayList<>(actualNSQMessages);
         for (NSQMessage m : received) {
             consumer4Finish.finish(m);
@@ -154,9 +154,9 @@ public class ITComplexConsumer {
         config.setConsumerName(consumerName);
         config.setThreadPoolSize4IO(Math.max(2, Runtime.getRuntime().availableProcessors()));
         consumer4ReQueue = new ConsumerImplV2(config, handler);
-        consumer4Finish.subscribe("JavaTesting-ReQueue");
+        consumer4ReQueue.subscribe("JavaTesting-ReQueue");
         consumer4ReQueue.start();
-        latch.await(2, TimeUnit.MINUTES);
+        latch.await(1, TimeUnit.MINUTES);
     }
 
     @AfterClass
