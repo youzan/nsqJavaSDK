@@ -206,6 +206,11 @@ public class ConsumerImplV2 implements Consumer {
      * and the old is clear.
      */
     private void connect() throws NSQException {
+        if (topics.isEmpty()) {
+            logger.error("Are you kidding me? You did not subscribe any topic. Please check it right now!");
+            return;
+        }
+
         final Set<Address> broken = new HashSet<>();
         final ConcurrentHashMap<Address, Set<String>> address_2_topics = new ConcurrentHashMap<>();
         final Set<Address> targetAddresses = new TreeSet<>();
@@ -233,6 +238,7 @@ public class ConsumerImplV2 implements Consumer {
             for (Address address : broken) {
                 clearDataNode(address);
             }
+
 
             for (String topic : topics) {
                 final ConcurrentSortedSet<Address> dataNodes = simpleClient.getDataNodes(topic);
