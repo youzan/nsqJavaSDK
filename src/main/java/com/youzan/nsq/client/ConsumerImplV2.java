@@ -75,8 +75,8 @@ public class ConsumerImplV2 implements Consumer {
 
     private final Rdy DEFAULT_RDY;
     private final Rdy MEDIUM_RDY;
-    private final Rdy LOW_RDY;
-    private volatile Rdy currentRdy = null;
+    private final Rdy LOW_RDY = new Rdy(1);
+    private volatile Rdy currentRdy = LOW_RDY;
     private volatile boolean autoFinish = true;
 
 
@@ -97,8 +97,7 @@ public class ConsumerImplV2 implements Consumer {
 
         int messagesPerBatch = config.getRdy();
         DEFAULT_RDY = new Rdy(Math.max(messagesPerBatch, 1));
-        MEDIUM_RDY = new Rdy(Math.max((int) (messagesPerBatch * 0.3D), 1));
-        LOW_RDY = new Rdy(1);
+        MEDIUM_RDY = new Rdy(Math.max((int) (messagesPerBatch * 0.5D), 1));
         currentRdy = DEFAULT_RDY;
         logger.info("Initialize the Rdy is {}", currentRdy);
     }
@@ -183,7 +182,7 @@ public class ConsumerImplV2 implements Consumer {
             bigPool.clear(address);
             bigPool.preparePool(address);
         }
-        logger.info("A consumer has created the {} pool.", address);
+        logger.info("The consumer has created the {} pool.", address);
     }
 
     /**
@@ -198,7 +197,6 @@ public class ConsumerImplV2 implements Consumer {
         synchronized (connection) {
             final NSQFrame frame = connection.commandAndGetResponse(new Sub(topic, config.getConsumerName()));
             handleResponse(frame, connection);
-            currentRdy = DEFAULT_RDY;
             connection.command(currentRdy);
         }
     }
@@ -208,6 +206,11 @@ public class ConsumerImplV2 implements Consumer {
      * and the old is clear.
      */
     private void connect() throws NSQException {
+        if (topics.isEmpty()) {
+            logger.error("Are you kidding me? You did not subscribe any topic. Please check it right now!");
+            return;
+        }
+
         final Set<Address> broken = new HashSet<>();
         final ConcurrentHashMap<Address, Set<String>> address_2_topics = new ConcurrentHashMap<>();
         final Set<Address> targetAddresses = new TreeSet<>();
@@ -235,6 +238,7 @@ public class ConsumerImplV2 implements Consumer {
             for (Address address : broken) {
                 clearDataNode(address);
             }
+
 
             for (String topic : topics) {
                 final ConcurrentSortedSet<Address> dataNodes = simpleClient.getDataNodes(topic);
@@ -395,7 +399,7 @@ public class ConsumerImplV2 implements Consumer {
         }
     }
 
-    private void processMessage(final NSQMessage message, final NSQConnection conn) {
+    private void processMessage(final NSQMessage message, final NSQConnection connection) {
         if (handler == null) {
             logger.error("No MessageHandler then drop the message {}", message);
             return;
@@ -405,46 +409,51 @@ public class ConsumerImplV2 implements Consumer {
                 @Override
                 public void run() {
                     try {
-                        consume(message, conn);
+                        consume(message, connection);
                         success.incrementAndGet();
                     } catch (Exception e) {
-                        IOUtil.closeQuietly(conn);
+                        IOUtil.closeQuietly(connection);
                         logger.error("Exception", e);
                     }
                 }
             });
         } catch (RejectedExecutionException re) {
             try {
-                backoff(conn);
-                conn.command(new ReQueue(message.getMessageID(), 3));
+                backoff(connection);
+                connection.command(new ReQueue(message.getMessageID(), 3));
                 logger.info("Do a re-queue. MessageID:{}", message.getMessageID());
-                resumeRateLimiting(conn, 0);
+                resumeRateLimiting(connection, 0);
             } catch (Exception e) {
                 logger.error("SDK can not handle it MessageID:{}, Exception:", message.getMessageID(), e);
             }
         }
-        resumeRateLimiting(conn, 1000);
+        resumeRateLimiting(connection, 1000);
     }
 
     private void resumeRateLimiting(final NSQConnection conn, final int delayInMillisecond) {
         if (executor instanceof ThreadPoolExecutor) {
+            final ThreadPoolExecutor pools = (ThreadPoolExecutor) executor;
+            final double threshold = pools.getActiveCount() / (1.0D * pools.getPoolSize());
             if (delayInMillisecond <= 0) {
-                final ThreadPoolExecutor pools = (ThreadPoolExecutor) executor;
-                final double threshold = pools.getActiveCount() / (1.0D * pools.getPoolSize());
                 logger.info("Current status is not good. threshold: {}", threshold);
+                boolean willSleep = false; // too , too busy
                 if (threshold >= 0.9D) {
+                    if (currentRdy == LOW_RDY) {
+                        willSleep = true;
+                    }
                     currentRdy = LOW_RDY;
-                } else if (threshold >= 0.8D) {
+                } else if (threshold >= 0.5D) {
                     currentRdy = MEDIUM_RDY;
                 } else {
                     currentRdy = DEFAULT_RDY;
                 }
                 // Ignore the data-race
                 conn.command(currentRdy);
+                if (willSleep) {
+                    sleep(100);
+                }
             } else {
                 if (currentRdy != DEFAULT_RDY) {
-                    final ThreadPoolExecutor pools = (ThreadPoolExecutor) executor;
-                    final double threshold = pools.getActiveCount() / (1.0D * pools.getPoolSize());
                     logger.info("Current threshold state: {}", threshold);
                     scheduler.schedule(new Runnable() {
                         @Override
@@ -633,4 +642,13 @@ public class ConsumerImplV2 implements Consumer {
         this.autoFinish = autoFinish;
     }
 
+    private void sleep(final long millisecond) {
+        logger.debug("Sleep {} millisecond.", millisecond);
+        try {
+            Thread.sleep(millisecond);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Your machine is too busy! Please check it!");
+        }
+    }
 }
