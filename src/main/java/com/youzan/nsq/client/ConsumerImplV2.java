@@ -210,6 +210,10 @@ public class ConsumerImplV2 implements Consumer {
             logger.error("Are you kidding me? You did not subscribe any topic. Please check it right now!");
             return;
         }
+        if (!this.started) {
+            logger.error("Consumer has not been started. Maybe you close the consumer!");
+            return;
+        }
 
         final Set<Address> broken = new HashSet<>();
         final ConcurrentHashMap<Address, Set<String>> address_2_topics = new ConcurrentHashMap<>();
@@ -553,7 +557,7 @@ public class ConsumerImplV2 implements Consumer {
             bigPool.close();
         }
         IOUtil.closeQuietly(simpleClient);
-        topics.clear();
+        this.topics.clear();
         logger.info("The consumer has been closed.");
     }
 
