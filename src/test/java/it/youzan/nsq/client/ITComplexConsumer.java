@@ -71,11 +71,11 @@ public class ITComplexConsumer {
                     .build();
             HttpEntity entity = new StringEntity("{\"action\":\"empty\"}");
 
-            CloseableHttpClient httpclient = HttpClients.createDefault();
-            HttpPost httpPost = new HttpPost(url);
+            final CloseableHttpClient httpclient = HttpClients.createDefault();
+            final HttpPost httpPost = new HttpPost(url);
             httpPost.setConfig(requestConfig);
             httpPost.setEntity(entity);
-            CloseableHttpResponse response = httpclient.execute(httpPost);
+            final CloseableHttpResponse response = httpclient.execute(httpPost);
             response.close();
         }
         // create new instances
