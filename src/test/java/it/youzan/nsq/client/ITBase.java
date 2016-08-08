@@ -14,7 +14,7 @@ public class ITBase {
 
     @BeforeClass
     public void init() throws Exception {
-        logger.info("Now initialize {} at {} .", this.getClass().getName(), System.currentTimeMillis());
+        logger.info("At {} , initialize: {}", System.currentTimeMillis(), this.getClass().getName());
         final Properties props = new Properties();
         try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {
             props.load(is);
@@ -24,6 +24,5 @@ public class ITBase {
     }
 
     public void test() {
-        
     }
 }
