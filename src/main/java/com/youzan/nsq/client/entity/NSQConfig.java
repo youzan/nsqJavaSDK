@@ -14,13 +14,9 @@ import com.youzan.util.SystemUtil;
 import io.netty.handler.ssl.SslContext;
 
 /**
- * One config to One cluster with specific topic. <br>
  * It is used for Producer or Consumer, and not both two.
- * 
- * 
- * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  *
- * 
+ * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
 @NotThreadSafe
 public class NSQConfig implements java.io.Serializable, Cloneable {
@@ -40,9 +36,6 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * One lookup cluster
      */
     private String lookupAddresses;
-
-    @Deprecated
-    private String topic;
     /**
      * In NSQ, it is a channel.
      */
@@ -80,11 +73,6 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * Netty handling TCP
      */
     private int queryTimeoutInMillisecond = 2000;
-    /**
-     * Perform one action during specified timeout
-     */
-    @Deprecated
-    private int timeoutInSecond = 1;
     /**
      * the timeout after which any data that nsqd has buffered will be flushed
      * to this client
@@ -152,44 +140,10 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * @return the timeoutInSecond
-     */
-    @Deprecated
-    public int getTimeoutInSecond() {
-        return timeoutInSecond;
-    }
-
-    /**
-     * @param timeoutInSecond
-     *            the timeoutInSecond to set
-     */
-    @Deprecated
-    public void setTimeoutInSecond(int timeoutInSecond) {
-        this.timeoutInSecond = timeoutInSecond;
-    }
-
-    /**
      * @return the serialversionuid
      */
     public static long getSerialversionuid() {
         return serialVersionUID;
-    }
-
-    /**
-     * @return the topic
-     */
-    @Deprecated
-    public String getTopic() {
-        return topic;
-    }
-
-    /**
-     * @param topic
-     *            the topic to set
-     */
-    @Deprecated
-    public void setTopic(String topic) {
-        this.topic = topic;
     }
 
     /**
