@@ -16,7 +16,7 @@ import com.youzan.nsq.client.ProducerImplV2;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.exception.NSQException;
 
-@Test(groups = "ITProducer-Base", priority = 1)
+@Test(groups = "ITProducer-Base", priority = 5)
 public class ITProducer {
 
     private static final Logger logger = LoggerFactory.getLogger(ITProducer.class);
@@ -27,7 +27,7 @@ public class ITProducer {
 
     @BeforeClass
     public void init() throws Exception {
-        logger.info("Now initialize {} at {} .", this.getClass().getName(), System.currentTimeMillis());
+        logger.info("At {} , initialize: {}", System.currentTimeMillis(), this.getClass().getName());
         final Properties props = new Properties();
         try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {
             props.load(is);
