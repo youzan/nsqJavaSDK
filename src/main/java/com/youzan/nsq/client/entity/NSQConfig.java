@@ -74,7 +74,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * Perform a TCP connecting action
      */
-    private int connectTimeoutInMillisecond = 50;
+    private int connectTimeoutInMillisecond = 200;
     /**
      * Perform one interactive action between request and response underlying
      * Netty handling TCP

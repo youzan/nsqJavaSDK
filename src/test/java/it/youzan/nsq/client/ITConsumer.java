@@ -18,7 +18,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-@Test(groups = "ITConsumer-Base")
+@Test(groups = "ITConsumer-Base", priority = 1)
 public class ITConsumer {
     private static final Logger logger = LoggerFactory.getLogger(ITConsumer.class);
 
@@ -62,7 +62,6 @@ public class ITConsumer {
         consumer.start();
         latch.await(1, TimeUnit.MINUTES);
         logger.info("Consumer received {} messages.", received.get());
-        consumer.close();
     }
 
     @AfterClass
