@@ -628,6 +628,9 @@ public class ConsumerImplV2 implements Consumer {
 
     @Override
     public void finish(NSQMessage message) throws NSQException {
+        if (message == null) {
+            return;
+        }
         final Set<NSQConnection> connections = address_2_holdingConnections.get(message.getAddress());
         if (connections != null) {
             for (NSQConnection c : connections) {
