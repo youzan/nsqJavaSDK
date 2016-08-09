@@ -12,6 +12,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.InputStream;
+import java.sql.Time;
 import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.BlockingQueue;
@@ -53,7 +54,7 @@ public class StableCaseTest {
             return;
         }
         final String hoursProp = System.getProperty("hour", "4");
-        allowedRunDeadline = Long.valueOf(hoursProp) * 10 * 1000L + System.currentTimeMillis();
+        allowedRunDeadline = TimeUnit.HOURS.toMillis(Long.valueOf(hoursProp)) + System.currentTimeMillis();
 
         final Properties props = new Properties();
         try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {

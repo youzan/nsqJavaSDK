@@ -99,7 +99,7 @@ public class ConsumerImplV2 implements Consumer {
         DEFAULT_RDY = new Rdy(Math.max(messagesPerBatch, 1));
         MEDIUM_RDY = new Rdy(Math.max((int) (messagesPerBatch * 0.5D), 1));
         currentRdy = DEFAULT_RDY;
-        logger.info("Initialize the Rdy is {}", currentRdy);
+        logger.info("Initialize the Rdy, that is {}", currentRdy);
     }
 
     @Override
