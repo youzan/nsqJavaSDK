@@ -189,7 +189,7 @@ public class ProducerImplV2 implements Producer {
                 return;
             } catch (Exception e) {
                 IOUtil.closeQuietly(conn);
-                logger.error("MaxRetries: {} , CurrentRetries: {} , Address: {} , Topic: {}, RawMessage: {} , Exception:", maxRetries,
+                logger.error("MaxRetries: {} , CurrentRetries: {} , Address: {} , Topic: {}, RawMessage: {} , Exception:", maxRetries, c,
                         conn.getAddress(), topic, message, e);
                 if (c >= maxRetries) {
                     throw new NSQException(e);
