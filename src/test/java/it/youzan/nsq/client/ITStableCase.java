@@ -48,12 +48,15 @@ public class ITStableCase {
         logger.info("At {} , initialize: {}", System.currentTimeMillis(), this.getClass().getName());
 
         final String stableProp = System.getProperty("stable", "false");
+        logger.debug("stable: {}", stableProp);
         stable = Boolean.valueOf(stableProp);
         if (!stable) {
+            logger.info("Skipped");
             return;
         }
-        final String hours = System.getProperty("hours", "4");
-        allowedRunDeadline = Long.valueOf(hours) * 3600 * 1000L + System.currentTimeMillis();
+        final String hoursProp = System.getProperty("hours", "4");
+        logger.debug("hours: {}", hoursProp);
+        allowedRunDeadline = Long.valueOf(hoursProp) * 3600 * 1000L + System.currentTimeMillis();
 
         final Properties props = new Properties();
         try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {
