@@ -157,9 +157,11 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
     }
 
     private void clearDataNode(Address address) {
-        bootstraps.remove(address);
-        address_2_bootedTime.remove(address);
-        client.clearDataNode(address);
+        synchronized (address) {
+            bootstraps.remove(address);
+            address_2_bootedTime.remove(address);
+            client.clearDataNode(address);
+        }
     }
 
     public void close() {
