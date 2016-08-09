@@ -12,7 +12,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.InputStream;
-import java.sql.Time;
 import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.BlockingQueue;
@@ -23,8 +22,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
-public class StableCaseTest {
-    private static final Logger logger = LoggerFactory.getLogger(StableCaseTest.class);
+public class ITStableCase {
+    private static final Logger logger = LoggerFactory.getLogger(ITStableCase.class);
 
     private final String consumerName = "BaseConsumer";
 
@@ -53,7 +52,7 @@ public class StableCaseTest {
         if (!stable) {
             return;
         }
-        final String hoursProp = System.getProperty("hour", "4");
+        final String hoursProp = System.getProperty("hours", "4");
         allowedRunDeadline = TimeUnit.HOURS.toMillis(Long.valueOf(hoursProp)) + System.currentTimeMillis();
 
         final Properties props = new Properties();
