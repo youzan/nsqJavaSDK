@@ -118,6 +118,7 @@ public class ConsumerImplV2 implements Consumer {
         synchronized (lock) {
             if (!this.started) {
                 this.started = true;
+                this.closing.set(false);
                 // setting all of the configs
                 this.poolConfig.setLifo(false);
                 this.poolConfig.setFairness(true);

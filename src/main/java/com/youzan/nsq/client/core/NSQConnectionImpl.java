@@ -69,7 +69,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         assert havingNegotiation;
         assert channel.isActive();
         assert isConnected();
-        logger.info("Having initiated {}", this);
+        logger.debug("Having initiated {}", this);
     }
 
     @Override
