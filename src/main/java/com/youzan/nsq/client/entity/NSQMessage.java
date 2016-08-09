@@ -24,22 +24,16 @@ public class NSQMessage {
 
     /**
      * all the parameters is the NSQ message format!
-     * 
-     * @param timestamp
-     *            the raw bytes from the data-node
-     * @param attempts
-     *            the raw bytes from the data-node
-     * @param messageID
-     *            the raw bytes from the data-node
-     * @param messageBody
-     *            the raw bytes from the data-node
-     * @param address
-     *            the address of the message
-     * @param connectionID
-     *            the primary key of the connection
+     *
+     * @param timestamp    the raw bytes from the data-node
+     * @param attempts     the raw bytes from the data-node
+     * @param messageID    the raw bytes from the data-node
+     * @param messageBody  the raw bytes from the data-node
+     * @param address      the address of the message
+     * @param connectionID the primary key of the connection
      */
     public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] messageBody, Address address,
-            Integer connectionID) {
+                      Integer connectionID) {
         this.timestamp = timestamp;
         this.attempts = attempts;
         this.messageID = messageID;
@@ -98,6 +92,9 @@ public class NSQMessage {
     static int _DEFAULT_NEXT_CONSUMING_IN_SECOND = 3 * 60;
 
     /**
+     * Default UTF-8 Decoding
+     * {@link IOUtil#DEFAULT_CHARSET}
+     *
      * @return the readableContent
      */
     public String getReadableContent() {
@@ -113,8 +110,7 @@ public class NSQMessage {
     }
 
     /**
-     * @param readableContent
-     *            the readableContent to set
+     * @param readableContent the readableContent to set
      */
     private void setReadableContent(String readableContent) {
         this.readableContent = readableContent;
@@ -168,11 +164,9 @@ public class NSQMessage {
     }
 
     /**
-     * @param nextConsumingInSecond
-     *            1s less-equals the nextConsumingInSecond to set less-equals
-     *            180 days
-     * @throws NSQException
-     *             if an invalid parameter error occurs
+     * @param nextConsumingInSecond 1s less-equals the nextConsumingInSecond to set less-equals
+     *                              180 days
+     * @throws NSQException if an invalid parameter error occurs
      */
     public void setNextConsumingInSecond(Integer nextConsumingInSecond) throws NSQException {
         if (nextConsumingInSecond != null) {

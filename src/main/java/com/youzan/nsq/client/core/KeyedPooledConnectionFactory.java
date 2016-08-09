@@ -1,6 +1,3 @@
-/**
- *
- */
 package com.youzan.nsq.client.core;
 
 import com.youzan.nsq.client.entity.Address;
@@ -159,7 +156,7 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
         p.getObject().close();
     }
 
-    public void clearDataNode(Address address) {
+    private void clearDataNode(Address address) {
         bootstraps.remove(address);
         address_2_bootedTime.remove(address);
         client.clearDataNode(address);
