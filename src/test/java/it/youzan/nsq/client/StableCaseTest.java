@@ -21,9 +21,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
-@Test(priority = 12)
-public class ITStableCase {
-    private static final Logger logger = LoggerFactory.getLogger(ITStableCase.class);
+public class StableCaseTest {
+    private static final Logger logger = LoggerFactory.getLogger(StableCaseTest.class);
 
     private final String consumerName = "BaseConsumer";
 
@@ -68,39 +67,37 @@ public class ITStableCase {
         config.setLookupAddresses(lookups);
         config.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
         config.setThreadPoolSize4IO(Runtime.getRuntime().availableProcessors() * 2);
-
-        // create new instances
-        producer = new ProducerImplV2(config);
-        producer.start();
-        sleep(60 * 1000);
-
     }
 
-    public void produceFinish() throws NSQException {
-        if (producer == null) {
-            return;
-        }
+    @Test(priority = 12)
+    public void produce() throws NSQException {
+        logger.debug("Pub............");
         if (!stable) {
             logger.info("Skipped");
             return;
         }
+        final NSQConfig config = (NSQConfig) this.config.clone();
+        producer = new ProducerImplV2(config);
+        producer.start();
+        logger.debug("Pub....111...................");
         for (long now = 0; now < allowedRunDeadline; now = System.currentTimeMillis()) {
             final byte[] message = new byte[512];
             _r.nextBytes(message);
             try {
+                logger.debug("Pub.......................");
                 totalPub.getAndIncrement();
                 producer.publish(message, "JavaTesting-Finish");
                 successPub.getAndIncrement();
+                logger.debug("Pub.......................");
             } catch (Exception e) {
                 logger.error("Exception", e);
             }
         }
+        logger.debug("Pub.........OK..............");
     }
 
-    public void testFinish() throws InterruptedException, NSQException {
-        if (producer == null) {
-            return;
-        }
+    @Test(priority = 12)
+    public void consume() throws InterruptedException, NSQException {
         if (!stable) {
             logger.info("Skipped");
             return;
@@ -109,11 +106,13 @@ public class ITStableCase {
             @Override
             public void process(NSQMessage message) {
                 received.getAndIncrement();
+                logger.debug("receiving....");
                 store.offer(message);
+                logger.debug("put .......");
             }
         };
         final NSQConfig config = (NSQConfig) this.config.clone();
-        config.setRdy(2);
+        config.setRdy(10);
         config.setConsumerName(consumerName);
         config.setThreadPoolSize4IO(Math.max(2, Runtime.getRuntime().availableProcessors()));
         consumer = new ConsumerImplV2(config, handler);
@@ -121,16 +120,20 @@ public class ITStableCase {
         consumer.subscribe("JavaTesting-Finish");
         consumer.start();
 
+
         for (long now = 0; now < allowedRunDeadline; now = System.currentTimeMillis()) {
+            logger.debug("begin consumer.....");
             try {
                 final NSQMessage message = store.poll();
                 consumer.finish(message);
                 successFinish.getAndIncrement();
+                logger.debug("consumer one...........................");
             } catch (Exception e) {
                 logger.error("Exception", e);
             }
         }
     }
+
 
     private void sleep(final long millisecond) {
         logger.debug("Sleep {} millisecond.", millisecond);
