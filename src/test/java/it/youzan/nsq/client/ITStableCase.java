@@ -5,6 +5,7 @@ import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.util.IOUtil;
+import com.youzan.util.SystemUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterClass;
@@ -54,6 +55,8 @@ public class ITStableCase {
         }
         final String hoursProp = System.getProperty("hours", "4");
         allowedRunDeadline = TimeUnit.HOURS.toMillis(Long.valueOf(hoursProp)) + System.currentTimeMillis();
+        logger.info("Now {} , allowedRunDeadline {} . Got {} hours", System.currentTimeMillis(), allowedRunDeadline, hoursProp);
+
 
         final Properties props = new Properties();
         try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {
