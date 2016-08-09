@@ -19,36 +19,29 @@ public class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
     private static final Logger logger = LoggerFactory.getLogger(NSQHandler.class);
 
     /**
-     * @param ctx
-     *            ChannelHandlerContext
-     * @throws Exception
-     *             if an error occurs
+     * @param ctx ChannelHandlerContext
+     * @throws Exception if an error occurs
      */
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         super.channelInactive(ctx);
-        destory(ctx.channel());
+        destroy(ctx.channel());
     }
 
     /**
-     * @param ctx
-     *            ChannelHandlerContext
-     * @param cause
-     *            Throwable
-     * @throws Exception
-     *             if an error occurs
+     * @param ctx   ChannelHandlerContext
+     * @param cause Throwable
+     * @throws Exception if an error occurs
      */
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         super.exceptionCaught(ctx, cause);
-        destory(ctx.channel());
+        destroy(ctx.channel());
     }
 
     /**
-     * @param ctx
-     *            ChannelHandlerContext
-     * @param msg
-     *            a {@link NSQFrame}
+     * @param ctx ChannelHandlerContext
+     * @param msg a {@link NSQFrame}
      */
     @Override
     public void channelRead0(final ChannelHandlerContext ctx, final NSQFrame msg) {
@@ -81,29 +74,26 @@ public class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
             if (((IdleStateEvent) evt).state() == IdleState.READER_IDLE) {
                 final NSQConnection conn = ctx.channel().attr(NSQConnection.STATE).get();
                 final Client worker = ctx.channel().attr(Client.STATE).get();
-                worker.validateHeartbeat(conn);
+                final boolean valid = worker.validateHeartbeat(conn);
+                if (!valid) {
+                    destroy(ctx.channel());
+                }
             }
         }
     }
 
     /**
      * Do it very very quietly!
-     * 
+     *
      * @param channel
      */
-    private void destory(final Channel channel) {
+    private void destroy(final Channel channel) {
         if (null == channel) {
             return;
         }
         final NSQConnection conn = channel.attr(NSQConnection.STATE).get();
         if (null != conn) {
             IOUtil.closeQuietly(conn);
-        } else {
-            try {
-                channel.close();
-            } catch (Exception e) {
-                logger.error("Exception", e);
-            }
         }
     }
 

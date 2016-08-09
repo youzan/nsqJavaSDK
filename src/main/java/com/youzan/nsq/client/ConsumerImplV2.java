@@ -195,7 +195,10 @@ public class ConsumerImplV2 implements Consumer {
      * @throws NSQException     if an error occurs
      */
     private void subscribe(NSQConnection connection, String topic) throws TimeoutException, NSQException {
-        synchronized (connection) {
+        synchronized (connection.getAddress()) {
+            if (!connection.isConnected()) {
+                return;
+            }
             final NSQFrame frame = connection.commandAndGetResponse(new Sub(topic, config.getConsumerName()));
             handleResponse(frame, connection);
             connection.command(currentRdy);
@@ -332,6 +335,10 @@ public class ConsumerImplV2 implements Consumer {
                     try {
                         for (int i = 0; i < config.getThreadPoolSize4IO(); i++) {
                             final NSQConnection connection = bigPool.borrowObject(a);
+                            if (!connection.isConnected()) {
+                                bigPool.returnObject(a, connection);
+                                continue;
+                            }
                             for (String t : topics) {
                                 subscribe(connection, t);
                             }
@@ -377,12 +384,14 @@ public class ConsumerImplV2 implements Consumer {
             return;
         }
         try {
-            final Set<NSQConnection> holding = address_2_holdingConnections.get(address);
-            cleanClose(holding);
-            holding.clear();
+            synchronized (address) {
+                final Set<NSQConnection> holding = address_2_holdingConnections.get(address);
+                cleanClose(holding);
+                holding.clear();
 
-            address_2_holdingConnections.remove(address);
-            bigPool.clear(address);
+                address_2_holdingConnections.remove(address);
+                bigPool.clear(address);
+            }
         } catch (Exception e) {
             logger.warn("SDK can not clear the {} resources normally.", address);
         }
@@ -619,6 +628,9 @@ public class ConsumerImplV2 implements Consumer {
 
     @Override
     public boolean validateHeartbeat(NSQConnection conn) {
+        if (!conn.isConnected()) {
+            return false;
+        }
         currentRdy = DEFAULT_RDY;
         final ChannelFuture future = conn.command(currentRdy);
         if (future.awaitUninterruptibly(50, TimeUnit.MILLISECONDS)) {
