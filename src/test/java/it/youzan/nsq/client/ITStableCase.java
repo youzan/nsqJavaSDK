@@ -67,7 +67,7 @@ public class ITStableCase {
         final String connTimeout = props.getProperty("connectTimeoutInMillisecond");
         config.setLookupAddresses(lookups);
         config.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
-        config.setThreadPoolSize4IO(Runtime.getRuntime().availableProcessors() * 2);
+        config.setThreadPoolSize4IO(1);
     }
 
     @Test(priority = 12)
@@ -76,6 +76,7 @@ public class ITStableCase {
             return;
         }
         final NSQConfig config = (NSQConfig) this.config.clone();
+        config.setThreadPoolSize4IO(1);
         producer = new ProducerImplV2(config);
         producer.start();
         for (long now = 0; now < allowedRunDeadline; now = System.currentTimeMillis()) {
