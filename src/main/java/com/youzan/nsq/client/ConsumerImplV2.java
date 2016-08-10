@@ -498,7 +498,7 @@ public class ConsumerImplV2 implements Consumer {
     private void consume(final NSQMessage message, final NSQConnection connection) {
         boolean ok = false;
         int c = 0;
-        while (c++ < 2) {
+        while ((c = c + 1) < 2) {
             try {
                 handler.process(message);
                 ok = true;

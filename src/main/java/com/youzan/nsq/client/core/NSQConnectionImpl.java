@@ -86,6 +86,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         final long start = System.currentTimeMillis();
         try {
             long timeout = queryTimeoutInMillisecond - (0L);
+            logger.debug("=========================timeout {}", timeout);
             if (!requests.offer(command, timeout, TimeUnit.MILLISECONDS)) {
                 throw new TimeoutException(
                         "The command is timeout. The command name is : " + command.getClass().getName());
@@ -97,11 +98,13 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
             // wait to get the response
             timeout = queryTimeoutInMillisecond - (start - System.currentTimeMillis());
+            logger.debug("=========================timeout {}", timeout);
             if (!future.await(timeout, TimeUnit.MILLISECONDS)) {
                 throw new TimeoutException(
                         "The command is timeout. The command name is : " + command.getClass().getName());
             }
             timeout = queryTimeoutInMillisecond - (start - System.currentTimeMillis());
+            logger.debug("=========================timeout {}", timeout);
             final NSQFrame frame = responses.poll(timeout, TimeUnit.MILLISECONDS);
             if (frame == null) {
                 throw new TimeoutException(
