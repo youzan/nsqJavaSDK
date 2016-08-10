@@ -393,7 +393,7 @@ public class ConsumerImplV2 implements Consumer {
                 bigPool.clear(address);
             }
         } catch (Exception e) {
-            logger.warn("SDK can not clear the {} resources normally.", address);
+            logger.error("SDK can not clear the {} resources normally. Exception:", address, e);
         }
     }
 
