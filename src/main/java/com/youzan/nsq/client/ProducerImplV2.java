@@ -140,13 +140,13 @@ public class ProducerImplV2 implements Producer {
             // current broker | next broker when have a try again
             final int effectedIndex = (index++ & Integer.MAX_VALUE) % size;
             final Address address = addresses[effectedIndex];
-            logger.debug("Load-Balancing algorithm is Round-Robin! Size: {} , Index: {} , Got {}", size, effectedIndex,
+            logger.debug("Load-Balancing algorithm is Round-Robin! DataNode Size: {} , Index: {} , Got {}", size, effectedIndex,
                     address);
             try {
-                logger.debug("Begin to borrowObject from the address: {}", address);
+//                logger.debug("Begin to borrowObject from the address: {}", address);
                 return bigPool.borrowObject(address);
             } catch (Exception e) {
-                logger.error("Size: {} , CurrentRetries: {} , Address: {} , Exception:", size, c, address, e);
+                logger.error("DataNode Size: {} , CurrentRetries: {} , Address: {} , Exception:", size, c, address, e);
             }
         }
         // no available {@link NSQConnection}
@@ -213,7 +213,6 @@ public class ProducerImplV2 implements Producer {
         switch (frame.getType()) {
             case RESPONSE_FRAME: {
                 final ResponseFrame f = (ResponseFrame) frame;
-                logger.debug("Publish ok, get response is {}", f.getMessage());
                 break;
             }
             case ERROR_FRAME: {
