@@ -136,7 +136,7 @@ public class ProducerImplV2 implements Producer {
         final int size = dataNodes.size();
         final Address[] addresses = dataNodes.newArray(new Address[size]);
         int c = 0, index = (this.offset++);
-        while (c++ < size) {
+        while ((c = c + 1) < size) {
             // current broker | next broker when have a try again
             final int effectedIndex = (index++ & Integer.MAX_VALUE) % size;
             final Address address = addresses[effectedIndex];
@@ -146,7 +146,7 @@ public class ProducerImplV2 implements Producer {
                 logger.debug("Begin to borrowObject from the address: {}", address);
                 return bigPool.borrowObject(address);
             } catch (Exception e) {
-                logger.error("CurrentRetries: {} , Address: {} , Exception:", c, address, e);
+                logger.error("Size: {} , CurrentRetries: {} , Address: {} , Exception:", size, c, address, e);
             }
         }
         // no available {@link NSQConnection}
@@ -172,7 +172,7 @@ public class ProducerImplV2 implements Producer {
         final Pub pub = new Pub(topic, message);
         final int maxRetries = 6;
         int c = 0; // be continuous
-        while (c++ < maxRetries) {
+        while ((c = c + 1) < maxRetries) {
             if (c > 1) {
                 logger.debug("Sleep. CurrentRetries: {}", c);
                 sleep((1 << (c - 1)) * 1000);
