@@ -67,12 +67,12 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * Perform a TCP connecting action
      */
-    private int connectTimeoutInMillisecond = 200;
+    private int connectTimeoutInMillisecond = 500;
     /**
      * Perform one interactive action between request and response underlying
      * Netty handling TCP
      */
-    private int queryTimeoutInMillisecond = 2000;
+    private int queryTimeoutInMillisecond = 5000;
     /**
      * the timeout after which any data that nsqd has buffered will be flushed
      * to this client
