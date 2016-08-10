@@ -198,7 +198,6 @@ public class ProducerImplV2 implements Producer {
                 bigPool.returnObject(conn.getAddress(), conn);
             }
         }
-        throw new NSQDataNodesDownException();
     }
 
 //        final List<List<byte[]>> batches = Lists.partition(messages, 30);
