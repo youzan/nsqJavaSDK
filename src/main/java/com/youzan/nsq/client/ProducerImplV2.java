@@ -192,7 +192,7 @@ public class ProducerImplV2 implements Producer {
                 logger.error("MaxRetries: {} , CurrentRetries: {} , Address: {} , Topic: {}, RawMessage: {} , Exception:", maxRetries, c,
                         conn.getAddress(), topic, message, e);
                 if (c >= maxRetries) {
-                    throw new NSQException(e);
+                    throw new NSQDataNodesDownException(e);
                 }
             } finally {
                 bigPool.returnObject(conn.getAddress(), conn);
