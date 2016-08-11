@@ -588,11 +588,13 @@ public class ConsumerImplV2 implements Consumer {
         }
         for (final NSQConnection c : connections) {
             try {
-                backoff(c);
-                final NSQFrame frame = c.commandAndGetResponse(Close.getInstance());
-                handleResponse(frame, c);
+                if (c.isConnected()) {
+                    backoff(c);
+                    final NSQFrame frame = c.commandAndGetResponse(Close.getInstance());
+                    handleResponse(frame, c);
+                }
             } catch (Exception e) {
-                logger.error("Exception", e);
+                logger.warn("Exception", e.toString());
             } finally {
                 IOUtil.closeQuietly(c);
             }
