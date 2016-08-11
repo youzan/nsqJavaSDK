@@ -182,8 +182,10 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * @param threadPoolSize4IO the threadPoolSize4IO to set
      */
     public void setThreadPoolSize4IO(int threadPoolSize4IO) {
-//        this.threadPoolSize4IO = threadPoolSize4IO;
-        this.threadPoolSize4IO = 1;
+        this.threadPoolSize4IO = threadPoolSize4IO;
+        if (threadPoolSize4IO > 1) {
+            logger.warn("SDK does not recommend the size > 1.");
+        }
     }
 
     /**
