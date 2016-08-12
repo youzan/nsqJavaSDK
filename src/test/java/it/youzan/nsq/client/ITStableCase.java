@@ -109,7 +109,7 @@ public class ITStableCase {
         config.setConsumerName(consumerName);
         config.setThreadPoolSize4IO(Math.max(2, Runtime.getRuntime().availableProcessors()));
         consumer = new ConsumerImplV2(config, handler);
-        consumer.setAutoFinish(true);
+        consumer.setAutoFinish(false);
         consumer.subscribe("JavaTesting-Finish");
         consumer.start();
 
