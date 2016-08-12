@@ -1,5 +1,6 @@
-package com.youzan.nsq.client.core;
+package com.youzan.nsq.client.core.pool.producer;
 
+import com.youzan.nsq.client.core.NSQConnection;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 import org.testng.annotations.Test;

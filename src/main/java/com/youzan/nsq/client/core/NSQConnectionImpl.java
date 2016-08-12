@@ -1,6 +1,3 @@
-/**
- *
- */
 package com.youzan.nsq.client.core;
 
 import com.youzan.nsq.client.core.command.Identify;
@@ -28,19 +25,20 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     private static final Logger logger = LoggerFactory.getLogger(NSQConnectionImpl.class);
     private static final long serialVersionUID = 7139923487863469738L;
 
+    private final Object lock = new Object();
     private final int id; // primary key
+    private final long queryTimeoutInMillisecond;
+
+    private boolean started = false;
+    private boolean closing = false;
+    private boolean havingNegotiation = false;
 
     private final LinkedBlockingQueue<NSQCommand> requests = new LinkedBlockingQueue<>(1);
     private final LinkedBlockingQueue<NSQFrame> responses = new LinkedBlockingQueue<>(1);
 
-    private volatile boolean closing = false;
-    private volatile boolean closed = false;
-    private boolean havingNegotiation = false;
-
     private final Address address;
     private final Channel channel;
     private final NSQConfig config;
-    private final long queryTimeoutInMillisecond;
 
     public NSQConnectionImpl(int id, Address address, Channel channel, NSQConfig config) {
         this.id = id;
@@ -56,17 +54,18 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     public void init() throws TimeoutException {
         assert address != null;
         assert config != null;
-
-        if (!havingNegotiation) {
-            command(Magic.getInstance());
-            final NSQCommand identify = new Identify(config);
-            final NSQFrame response = commandAndGetResponse(identify);
-            if (null == response) {
-                throw new IllegalStateException("Bad Identify Response! Close connection!");
+        synchronized (lock) {
+            if (!havingNegotiation) {
+                command(Magic.getInstance());
+                final NSQCommand identify = new Identify(config);
+                final NSQFrame response = commandAndGetResponse(identify);
+                if (null == response) {
+                    throw new IllegalStateException("Bad Identify Response! Close connection!");
+                }
+                havingNegotiation = true;
             }
-            havingNegotiation = true;
+            started = true;
         }
-        assert havingNegotiation;
         assert channel.isActive();
         assert isConnected();
         logger.debug("Having initiated {}", this);
@@ -145,29 +144,28 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     @Override
     public boolean isConnected() {
-        return channel.isActive() && havingNegotiation;
+        synchronized (lock) {
+            return channel.isActive() && havingNegotiation;
+        }
     }
 
     @Override
     public void close() {
-        synchronized (this) {
-            if (closing && closed) {
+        synchronized (lock) {
+            if (closing) {
                 return;
             }
-            if (!closing) {
-                closing = true;
-                if (null != channel) {
-                    // It is very important!
-                    channel.attr(NSQConnection.STATE).remove();
-                    channel.attr(Client.STATE).remove();
-                    channel.close();
-                    havingNegotiation = false;
-                    logger.info("Having closed {} OK!", this);
-                } else {
-                    logger.error("No channel has be set...");
-                }
+            closing = true;
+            if (null != channel) {
+                // It is very important!
+                havingNegotiation = false;
+                channel.attr(NSQConnection.STATE).remove();
+                channel.attr(Client.STATE).remove();
+                channel.close();
+                logger.info("Having closed {} OK!", this);
+            } else {
+                logger.error("No channel has be set...");
             }
-            closed = true;
         }
     }
 
@@ -192,91 +190,48 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         return config;
     }
 
-    @Override
-    public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + ((address == null) ? 0 : address.hashCode());
-        result = prime * result + ((channel == null) ? 0 : channel.hashCode());
-        result = prime * result + (closed ? 1231 : 1237);
-        result = prime * result + (closing ? 1231 : 1237);
-        result = prime * result + ((config == null) ? 0 : config.hashCode());
-        result = prime * result + (havingNegotiation ? 1231 : 1237);
-        result = prime * result + id;
-        result = prime * result + ((requests == null) ? 0 : requests.hashCode());
-        result = prime * result + ((responses == null) ? 0 : responses.hashCode());
-        result = prime * result + (int) (queryTimeoutInMillisecond ^ (queryTimeoutInMillisecond >>> 32));
-        return result;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null) {
-            return false;
-        }
-        if (getClass() != obj.getClass()) {
-            return false;
-        }
-        NSQConnectionImpl other = (NSQConnectionImpl) obj;
-        if (address == null) {
-            if (other.address != null) {
-                return false;
-            }
-        } else if (!address.equals(other.address)) {
-            return false;
-        }
-        if (channel == null) {
-            if (other.channel != null) {
-                return false;
-            }
-        } else if (!channel.equals(other.channel)) {
-            return false;
-        }
-        if (closed != other.closed) {
-            return false;
-        }
-        if (closing != other.closing) {
-            return false;
-        }
-        if (config == null) {
-            if (other.config != null) {
-                return false;
-            }
-        } else if (!config.equals(other.config)) {
-            return false;
-        }
-        if (havingNegotiation != other.havingNegotiation) {
-            return false;
-        }
-        if (id != other.id) {
-            return false;
-        }
-        if (requests == null) {
-            if (other.requests != null) {
-                return false;
-            }
-        } else if (!requests.equals(other.requests)) {
-            return false;
-        }
-        if (responses == null) {
-            if (other.responses != null) {
-                return false;
-            }
-        } else if (!responses.equals(other.responses)) {
-            return false;
-        }
-        return queryTimeoutInMillisecond == other.queryTimeoutInMillisecond;
-    }
-
 
     @Override
     public int compareTo(Object o) {
         return getId() - ((NSQConnectionImpl) o).getId();
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        NSQConnectionImpl that = (NSQConnectionImpl) o;
+
+        if (id != that.id) return false;
+        if (queryTimeoutInMillisecond != that.queryTimeoutInMillisecond) return false;
+        if (started != that.started) return false;
+        if (closing != that.closing) return false;
+        if (havingNegotiation != that.havingNegotiation) return false;
+        if (lock != null ? !lock.equals(that.lock) : that.lock != null) return false;
+        if (requests != null ? !requests.equals(that.requests) : that.requests != null) return false;
+        if (responses != null ? !responses.equals(that.responses) : that.responses != null) return false;
+        if (address != null ? !address.equals(that.address) : that.address != null) return false;
+        if (channel != null ? !channel.equals(that.channel) : that.channel != null) return false;
+        return config != null ? config.equals(that.config) : that.config == null;
+
+    }
+
+    @Override
+    public int hashCode() {
+        int result = lock != null ? lock.hashCode() : 0;
+        result = 31 * result + id;
+        result = 31 * result + (int) (queryTimeoutInMillisecond ^ (queryTimeoutInMillisecond >>> 32));
+        result = 31 * result + (requests != null ? requests.hashCode() : 0);
+        result = 31 * result + (responses != null ? responses.hashCode() : 0);
+        result = 31 * result + (started ? 1 : 0);
+        result = 31 * result + (closing ? 1 : 0);
+        result = 31 * result + (havingNegotiation ? 1 : 0);
+        result = 31 * result + (address != null ? address.hashCode() : 0);
+        result = 31 * result + (channel != null ? channel.hashCode() : 0);
+        result = 31 * result + (config != null ? config.hashCode() : 0);
+        return result;
+    }
 
     @Override
     public String toString() {
