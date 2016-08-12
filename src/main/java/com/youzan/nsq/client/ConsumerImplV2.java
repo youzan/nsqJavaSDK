@@ -633,6 +633,7 @@ public class ConsumerImplV2 implements Consumer {
                     synchronized (c) {
                         if (c.isConnected()) {
                             c.command(new Finish(message.getMessageID()));
+                            finished.incrementAndGet();
                             // It is OK.
                             return;
                         }
