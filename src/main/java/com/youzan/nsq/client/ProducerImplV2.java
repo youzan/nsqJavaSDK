@@ -74,7 +74,7 @@ public class ProducerImplV2 implements Producer {
             this.offset = _r.nextInt(100);
             this.poolConfig.setLifo(true);
             this.poolConfig.setFairness(false);
-            this.poolConfig.setTestOnBorrow(true);
+            this.poolConfig.setTestOnBorrow(false);
             this.poolConfig.setTestOnReturn(false);
             this.poolConfig.setTestWhileIdle(true);
             this.poolConfig.setJmxEnabled(true);
@@ -82,8 +82,8 @@ public class ProducerImplV2 implements Producer {
             this.poolConfig.setSoftMinEvictableIdleTimeMillis(5 * 60 * 1000);
             this.poolConfig.setTimeBetweenEvictionRunsMillis(1 * 60 * 1000);
             this.poolConfig.setMinIdlePerKey(1);
-            this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
-            this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());
+            this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO() + 1);
+            this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO() + 1);
             // acquire connection waiting time
             this.poolConfig.setMaxWaitMillis(this.config.getQueryTimeoutInMillisecond());
             this.poolConfig.setBlockWhenExhausted(false);
