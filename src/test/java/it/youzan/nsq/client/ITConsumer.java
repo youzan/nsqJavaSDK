@@ -66,6 +66,7 @@ public class ITConsumer {
 
     @AfterClass
     public void close() {
+        logger.info("Consumer closed.");
         IOUtil.closeQuietly(consumer);
     }
 }
