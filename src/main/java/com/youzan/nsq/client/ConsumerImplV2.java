@@ -158,7 +158,7 @@ public class ConsumerImplV2 implements Consumer {
         lastConnecting = System.currentTimeMillis();
         if (!this.started) {
             if (closing) {
-                logger.error("You have closed the consumer sometimes ago!");
+                logger.info("You have closed the consumer sometimes ago!");
             }
             return;
         }
