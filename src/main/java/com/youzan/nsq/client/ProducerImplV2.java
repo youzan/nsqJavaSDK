@@ -1,15 +1,14 @@
 package com.youzan.nsq.client;
 
-import com.youzan.nsq.client.core.KeyedPooledConnectionFactory;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
 import com.youzan.nsq.client.core.command.Pub;
+import com.youzan.nsq.client.core.pool.producer.KeyedPooledConnectionFactory;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.exception.*;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
-import com.youzan.nsq.client.network.frame.ResponseFrame;
 import com.youzan.util.ConcurrentSortedSet;
 import com.youzan.util.IOUtil;
 import com.youzan.util.NamedThreadFactory;
@@ -22,7 +21,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -76,9 +78,9 @@ public class ProducerImplV2 implements Producer {
             this.poolConfig.setTestOnReturn(false);
             this.poolConfig.setTestWhileIdle(true);
             this.poolConfig.setJmxEnabled(true);
-            this.poolConfig.setMinEvictableIdleTimeMillis(60 * 1000);
-            this.poolConfig.setSoftMinEvictableIdleTimeMillis(60 * 1000);
-            this.poolConfig.setTimeBetweenEvictionRunsMillis(15 * 1000);
+            this.poolConfig.setMinEvictableIdleTimeMillis(5 * 60 * 1000);
+            this.poolConfig.setSoftMinEvictableIdleTimeMillis(5 * 60 * 1000);
+            this.poolConfig.setTimeBetweenEvictionRunsMillis(1 * 60 * 1000);
             this.poolConfig.setMinIdlePerKey(1);
             this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO());
             this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO());
@@ -111,7 +113,7 @@ public class ProducerImplV2 implements Producer {
                         }
                     }
                     expiredTopics.clear();
-                    logger.info("Publish. Total: {} , Success: {}", total.get(), success.get());
+                    logger.info("Publish. Total: {} , Success: {} . Two values do not use a lock action.", total.get(), success.get());
                 }
             }, 30, 30, TimeUnit.MINUTES);
         }
@@ -212,7 +214,6 @@ public class ProducerImplV2 implements Producer {
         }
         switch (frame.getType()) {
             case RESPONSE_FRAME: {
-                final ResponseFrame f = (ResponseFrame) frame;
                 break;
             }
             case ERROR_FRAME: {
@@ -277,6 +278,9 @@ public class ProducerImplV2 implements Producer {
         }
         IOUtil.closeQuietly(simpleClient);
         logger.info("The producer has been closed.");
+    }
+
+    public void close(NSQConnection conn) {
     }
 
     private void sleep(final long millisecond) {

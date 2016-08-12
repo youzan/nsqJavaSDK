@@ -73,7 +73,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      */
     private int queryTimeoutInMillisecond = 5000;
     /**
-     * the timeout after which any data that nsqd has buffered will be flushed
+     * the timeout after which any data that NSQd has buffered will be flushed
      * to this client
      */
     private Integer outputBufferTimeoutInMillisecond = null;
