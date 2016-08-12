@@ -46,6 +46,7 @@ public class ConsumerImplV2 implements Consumer {
 
     private final AtomicInteger received = new AtomicInteger(0);
     private final AtomicInteger success = new AtomicInteger(0);
+    private final AtomicInteger finished = new AtomicInteger(0);
 
     /*-
      * =========================================================================
@@ -142,7 +143,7 @@ public class ConsumerImplV2 implements Consumer {
                 } catch (Exception e) {
                     logger.error("Exception", e);
                 }
-                logger.info("Client received {} messages , success {} . Two values do not use a lock action.", received, success);
+                logger.info("Client received {} messages , success {} , finished {} . The values do not use a lock action.", received, success, finished);
             }
         }, delay, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
     }
@@ -508,6 +509,9 @@ public class ConsumerImplV2 implements Consumer {
         }
         if (cmd != null) {
             connection.command(cmd);
+            if (cmd instanceof Finish) {
+                finished.incrementAndGet();
+            }
         }
         // Post
         if (message.getReadableAttempts() > 10) {
