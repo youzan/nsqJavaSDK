@@ -172,6 +172,7 @@ public class NSQSimpleClient implements Client, Closeable {
     @Override
     public void incoming(final NSQFrame frame, final NSQConnection conn) throws NSQException {
         if (frame == null) {
+            logger.info("The frame is null because of SDK's bug in the {}", this.getClass().getName());
             return;
         }
         switch (frame.getType()) {
@@ -248,7 +249,7 @@ public class NSQSimpleClient implements Client, Closeable {
     @Override
     public boolean validateHeartbeat(NSQConnection conn) {
         final ChannelFuture future = conn.command(Nop.getInstance());
-        return future.awaitUninterruptibly(500, TimeUnit.MILLISECONDS) && future.isSuccess();
+        return future.awaitUninterruptibly(2000, TimeUnit.MILLISECONDS) && future.isSuccess();
     }
 
     @Override
@@ -267,6 +268,9 @@ public class NSQSimpleClient implements Client, Closeable {
         } finally {
             lock.writeLock().unlock();
         }
+    }
+
+    public void close(NSQConnection conn) {
     }
 
     private void sleep(final long millisecond) {
