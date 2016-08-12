@@ -48,10 +48,9 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * <pre>
      * Set the thread_pool_size for IO running.
      * It is also used for Netty.
-     * In recommended, the size is (CPUs - 1) and bind CPU affinity.
      * </pre>
      */
-    private int threadPoolSize4IO = Runtime.getRuntime().availableProcessors() - 1;
+    private int threadPoolSize4IO = 1;
     private final String clientId;
     private final String hostname;
     private boolean featureNegotiation;
@@ -67,14 +66,14 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * Perform a TCP connecting action
      */
-    private int connectTimeoutInMillisecond = 200;
+    private int connectTimeoutInMillisecond = 500;
     /**
      * Perform one interactive action between request and response underlying
      * Netty handling TCP
      */
-    private int queryTimeoutInMillisecond = 2000;
+    private int queryTimeoutInMillisecond = 5000;
     /**
-     * the timeout after which any data that nsqd has buffered will be flushed
+     * the timeout after which any data that NSQd has buffered will be flushed
      * to this client
      */
     private Integer outputBufferTimeoutInMillisecond = null;
@@ -109,7 +108,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     /**
      * One lookup cluster
-     * 
+     *
      * @return the lookupAddresses
      */
     public String getLookupAddresses() {
@@ -117,8 +116,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * @param lookupAddresses
-     *            the lookupAddresses to set
+     * @param lookupAddresses the lookupAddresses to set
      */
     public void setLookupAddresses(String lookupAddresses) {
         this.lookupAddresses = lookupAddresses;
@@ -132,8 +130,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * @param connectTimeoutInMillisecond
-     *            the connectTimeoutInMillisecond to set
+     * @param connectTimeoutInMillisecond the connectTimeoutInMillisecond to set
      */
     public void setConnectTimeoutInMillisecond(int connectTimeoutInMillisecond) {
         this.connectTimeoutInMillisecond = connectTimeoutInMillisecond;
@@ -154,8 +151,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * @param consumerName
-     *            the consumerName to set
+     * @param consumerName the consumerName to set
      */
     public void setConsumerName(String consumerName) {
         this.consumerName = consumerName;
@@ -169,8 +165,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * @param ordered
-     *            the ordered to set
+     * @param ordered the ordered to set
      */
     public void setOrdered(boolean ordered) {
         this.ordered = ordered;
@@ -184,11 +179,13 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * @param threadPoolSize4IO
-     *            the threadPoolSize4IO to set
+     * @param threadPoolSize4IO the threadPoolSize4IO to set
      */
     public void setThreadPoolSize4IO(int threadPoolSize4IO) {
         this.threadPoolSize4IO = threadPoolSize4IO;
+        if (threadPoolSize4IO > 1) {
+            logger.warn("SDK does not recommend the size > 1.");
+        }
     }
 
     /**
@@ -213,8 +210,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * @param msgTimeoutInMillisecond
-     *            the msgTimeoutInMillisecond to set
+     * @param msgTimeoutInMillisecond the msgTimeoutInMillisecond to set
      */
     public void setMsgTimeoutInMillisecond(int msgTimeoutInMillisecond) {
         this.msgTimeoutInMillisecond = msgTimeoutInMillisecond;
@@ -231,8 +227,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * @param heartbeatIntervalInMillisecond
-     *            the heartbeatIntervalInMillisecond to set
+     * @param heartbeatIntervalInMillisecond the heartbeatIntervalInMillisecond to set
      */
     public void setHeartbeatIntervalInMillisecond(Integer heartbeatIntervalInMillisecond) {
         this.heartbeatIntervalInMillisecond = heartbeatIntervalInMillisecond;
@@ -246,8 +241,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * @param featureNegotiation
-     *            the featureNegotiation to set
+     * @param featureNegotiation the featureNegotiation to set
      */
     public void setFeatureNegotiation(boolean featureNegotiation) {
         this.featureNegotiation = featureNegotiation;
@@ -261,8 +255,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * @param outputBufferSize
-     *            the outputBufferSize to set
+     * @param outputBufferSize the outputBufferSize to set
      */
     public void setOutputBufferSize(Integer outputBufferSize) {
         this.outputBufferSize = outputBufferSize;
@@ -276,8 +269,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * @param outputBufferTimeoutInMillisecond
-     *            the outputBufferTimeoutInMillisecond to set
+     * @param outputBufferTimeoutInMillisecond the outputBufferTimeoutInMillisecond to set
      */
     public void setOutputBufferTimeoutInMillisecond(Integer outputBufferTimeoutInMillisecond) {
         this.outputBufferTimeoutInMillisecond = outputBufferTimeoutInMillisecond;
@@ -298,8 +290,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * @param havingMonitoring
-     *            the havingMonitoring to set
+     * @param havingMonitoring the havingMonitoring to set
      */
     public void setHavingMonitoring(boolean havingMonitoring) {
         this.havingMonitoring = havingMonitoring;
@@ -325,8 +316,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * @param tlsV1
-     *            the tlsV1 to set
+     * @param tlsV1 the tlsV1 to set
      */
     public void setTlsV1(boolean tlsV1) {
         this.tlsV1 = tlsV1;
@@ -340,8 +330,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * @param compression
-     *            the compression to set
+     * @param compression the compression to set
      */
     public void setCompression(Compression compression) {
         this.compression = compression;
@@ -355,8 +344,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * @param deflateLevel
-     *            the deflateLevel to set
+     * @param deflateLevel the deflateLevel to set
      */
     public void setDeflateLevel(Integer deflateLevel) {
         this.deflateLevel = deflateLevel;
@@ -370,8 +358,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * @param sampleRate
-     *            the sampleRate to set
+     * @param sampleRate the sampleRate to set
      */
     public void setSampleRate(Integer sampleRate) {
         this.sampleRate = sampleRate;
@@ -385,8 +372,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * @param rdy
-     *            the rdy to set , it is ready to receive the pushing message
+     * @param rdy the rdy to set , it is ready to receive the pushing message
      *            count
      */
     public void setRdy(int rdy) {
@@ -405,8 +391,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * @param queryTimeoutInMillisecond
-     *            the queryTimeoutInMillisecond to set
+     * @param queryTimeoutInMillisecond the queryTimeoutInMillisecond to set
      */
     public void setQueryTimeoutInMillisecond(int queryTimeoutInMillisecond) {
         this.queryTimeoutInMillisecond = queryTimeoutInMillisecond;

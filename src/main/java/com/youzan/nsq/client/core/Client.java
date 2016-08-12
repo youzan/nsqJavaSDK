@@ -1,5 +1,5 @@
 /**
- * 
+ *
  */
 package com.youzan.nsq.client.core;
 
@@ -18,7 +18,7 @@ import io.netty.util.AttributeKey;
 
 /**
  * NSQ business processing.
- * 
+ *
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
 public interface Client extends Closeable {
@@ -32,31 +32,29 @@ public interface Client extends Closeable {
     /**
      * For NSQd(data-node).
      */
-    int _INTERVAL_IN_SECOND = 10;
+    int _INTERVAL_IN_SECOND = 20;
 
     void start() throws NSQException;
 
     /**
      * Receive the frame of NSQ.
-     * 
-     * @param frame
-     *            NSQFrame to be handled
-     * @param conn
-     *            NSQConnection
-     * @throws NSQException
-     *             Client code should be catch
+     *
+     * @param frame NSQFrame to be handled
+     * @param conn  NSQConnection
+     * @throws NSQException Client code should be catch
      */
     void incoming(final NSQFrame frame, final NSQConnection conn) throws NSQException;
 
     /**
      * No messages will be sent to the client.
-     * 
-     * @param conn
-     *            NSQConnection
+     *
+     * @param conn NSQConnection
      */
     void backoff(final NSQConnection conn);
 
     boolean validateHeartbeat(final NSQConnection conn);
 
     void clearDataNode(Address address);
+
+    void close(final NSQConnection conn);
 }

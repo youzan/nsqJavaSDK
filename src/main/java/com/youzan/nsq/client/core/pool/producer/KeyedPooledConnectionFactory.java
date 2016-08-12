@@ -1,8 +1,8 @@
-/**
- *
- */
-package com.youzan.nsq.client.core;
+package com.youzan.nsq.client.core.pool.producer;
 
+import com.youzan.nsq.client.core.Client;
+import com.youzan.nsq.client.core.NSQConnection;
+import com.youzan.nsq.client.core.NSQConnectionImpl;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.exception.NSQNoConnectionException;
@@ -150,7 +150,7 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
         if (null != connection && connection.isConnected()) {
             return client.validateHeartbeat(connection);
         }
-        logger.debug("Validate {} connection! The statue is wrong.", address);
+        logger.warn("Validate {} connection! The statue is wrong.", address);
         return false;
     }
 
@@ -159,10 +159,12 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
         p.getObject().close();
     }
 
-    public void clearDataNode(Address address) {
-        bootstraps.remove(address);
-        address_2_bootedTime.remove(address);
-        client.clearDataNode(address);
+    private void clearDataNode(Address address) {
+        synchronized (address) {
+            bootstraps.remove(address);
+            address_2_bootedTime.remove(address);
+            client.clearDataNode(address);
+        }
     }
 
     public void close() {

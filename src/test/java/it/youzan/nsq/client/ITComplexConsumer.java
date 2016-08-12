@@ -14,6 +14,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -22,6 +23,7 @@ import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
@@ -31,13 +33,13 @@ public class ITComplexConsumer {
 
     private final String consumerName = "BaseConsumer";
 
+    private final AtomicInteger counter = new AtomicInteger(0);
     private final Random _r = new Random();
     private final NSQConfig config = new NSQConfig();
     private Producer producer;
     private Consumer consumer4ReQueue;
     private Consumer consumer4Finish;
-    private HashSet<byte[]> messages4ReQueue = new HashSet<>();
-    private HashSet<byte[]> messages4Finish = new HashSet<>();
+    private HashSet<String> messages4Finish = new HashSet<>();
 
 
     @BeforeClass
@@ -69,39 +71,37 @@ public class ITComplexConsumer {
                     .build();
             HttpEntity entity = new StringEntity("{\"action\":\"empty\"}");
 
-            CloseableHttpClient httpclient = HttpClients.createDefault();
-            HttpPost httpPost = new HttpPost(url);
+            final CloseableHttpClient httpclient = HttpClients.createDefault();
+            final HttpPost httpPost = new HttpPost(url);
             httpPost.setConfig(requestConfig);
             httpPost.setEntity(entity);
-            CloseableHttpResponse response = httpclient.execute(httpPost);
+            final CloseableHttpResponse response = httpclient.execute(httpPost);
             response.close();
         }
         // create new instances
         producer = new ProducerImplV2(config);
         producer.start();
-
     }
 
-    @Test(groups = "Finish", priority = 9)
+    @Test(priority = 9, groups = {"Finish"})
     public void produceFinish() throws NSQException {
         for (int i = 0; i < 10; i++) {
-            final byte[] message = new byte[32];
-            _r.nextBytes(message);
+            String message = newMessage();
             producer.publish(message, "JavaTesting-Finish");
             messages4Finish.add(message);
         }
     }
 
-    @Test(dependsOnGroups = "Finish", priority = 9)
+    @Test(priority = 9, dependsOnGroups = {"Finish"})
     public void testFinish() throws InterruptedException, NSQException {
         final CountDownLatch latch = new CountDownLatch(10);
-        final HashSet<byte[]> actualMessages = new HashSet<>();
+        final HashSet<String> actualMessages = new HashSet<>();
         final List<NSQMessage> actualNSQMessages = new ArrayList<>();
         final MessageHandler handler = new MessageHandler() {
             @Override
             public void process(NSQMessage message) {
                 latch.countDown();
-                actualMessages.add(message.getMessageBody());
+                actualMessages.add(message.getReadableContent());
                 actualNSQMessages.add(message);
             }
         };
@@ -118,29 +118,25 @@ public class ITComplexConsumer {
         for (NSQMessage m : received) {
             consumer4Finish.finish(m);
         }
+        Assert.assertEquals(messages4Finish, actualMessages);
     }
 
-    @Test(groups = "ReQueue", priority = 9)
+    @Test(priority = 9, groups = {"ReQueue"})
     public void produceReQueue() throws NSQException {
         for (int i = 0; i < 10; i++) {
             final byte[] message = new byte[32];
             _r.nextBytes(message);
             producer.publish(message, "JavaTesting-ReQueue");
-            messages4ReQueue.add(message);
         }
     }
 
-    @Test(dependsOnGroups = "ReQueue", priority = 9)
+    @Test(priority = 9, dependsOnGroups = {"ReQueue"})
     public void testReQueue() throws InterruptedException, NSQException {
         final CountDownLatch latch = new CountDownLatch(10);
-        final HashSet<byte[]> actualMessages = new HashSet<>();
-        final List<NSQMessage> actualNSQMessages = new ArrayList<>();
         final MessageHandler handler = new MessageHandler() {
             @Override
             public void process(NSQMessage message) {
                 latch.countDown();
-                actualMessages.add(message.getMessageBody());
-                actualNSQMessages.add(message);
                 try {
                     message.setNextConsumingInSecond(120);
                 } catch (NSQException e) {
@@ -156,6 +152,11 @@ public class ITComplexConsumer {
         consumer4ReQueue.subscribe("JavaTesting-ReQueue");
         consumer4ReQueue.start();
         latch.await(1, TimeUnit.MINUTES);
+    }
+
+
+    private String newMessage() {
+        return "String Message: " + counter.getAndIncrement() + " . At: " + System.currentTimeMillis();
     }
 
     @AfterClass

@@ -18,7 +18,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-@Test(groups = "ITConsumer-Base", priority = 5)
+@Test(groups = {"ITConsumer-Base"}, dependsOnGroups = {"ITProducer-Base"}, priority = 5)
 public class ITConsumer {
     private static final Logger logger = LoggerFactory.getLogger(ITConsumer.class);
 
@@ -48,7 +48,7 @@ public class ITConsumer {
     }
 
     public void test() throws NSQException, InterruptedException {
-        final CountDownLatch latch = new CountDownLatch(rdy);
+        final CountDownLatch latch = new CountDownLatch(10);
         final AtomicInteger received = new AtomicInteger(0);
         consumer = new ConsumerImplV2(config, new MessageHandler() {
             @Override
@@ -66,6 +66,7 @@ public class ITConsumer {
 
     @AfterClass
     public void close() {
+        logger.info("Consumer closed.");
         IOUtil.closeQuietly(consumer);
     }
 }
