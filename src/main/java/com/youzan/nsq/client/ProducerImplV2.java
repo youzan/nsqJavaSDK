@@ -280,6 +280,7 @@ public class ProducerImplV2 implements Producer {
     }
 
     public void close(NSQConnection conn) {
+        conn.close();
     }
 
     private void sleep(final long millisecond) {
