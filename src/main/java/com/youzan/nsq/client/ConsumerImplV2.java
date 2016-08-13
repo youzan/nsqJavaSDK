@@ -110,6 +110,9 @@ public class ConsumerImplV2 implements Consumer {
             return;
         }
         Collections.addAll(this.topics, topics);
+        for (String topic : topics) {
+            simpleClient.putTopic(topic);
+        }
     }
 
     @Override
