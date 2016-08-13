@@ -292,7 +292,7 @@ public class ConsumerImplV2 implements Consumer {
      * @param topics  client cares about the specified topics
      */
     private void connect(Address address, Set<String> topics) throws Exception {
-        if (topics == null) {
+        if (topics == null || topics.isEmpty()) {
             return;
         }
         final int topicSize = topics.size();
