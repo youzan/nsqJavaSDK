@@ -224,7 +224,19 @@ public class NSQSimpleClient implements Client, Closeable {
             lock.readLock().unlock();
         }
         if (first != null && !first.isEmpty()) {
-            final ConcurrentSortedSet<Address> dataNodes = new ConcurrentSortedSet<>();
+            final ConcurrentSortedSet<Address> old;
+            lock.readLock().lock();
+            try {
+                old = topic_2_dataNodes.get(topic);
+            } finally {
+                lock.readLock().unlock();
+            }
+            final ConcurrentSortedSet<Address> dataNodes;
+            if (old == null) {
+                dataNodes = new ConcurrentSortedSet<>();
+            } else {
+                dataNodes = old;
+            }
             dataNodes.addAll(first);
             lock.writeLock().lock();
             try {
@@ -235,15 +247,6 @@ public class NSQSimpleClient implements Client, Closeable {
             }
         }
         throw new NSQInvalidTopicException();
-    }
-
-    public ConcurrentSortedSet<Address> getAllDataNodes() {
-        lock.readLock().lock();
-        try {
-            return dataNodes;
-        } finally {
-            lock.readLock().lock();
-        }
     }
 
     @Override
@@ -273,13 +276,4 @@ public class NSQSimpleClient implements Client, Closeable {
     public void close(NSQConnection conn) {
     }
 
-    private void sleep(final long millisecond) {
-        logger.debug("Sleep {} millisecond.", millisecond);
-        try {
-            Thread.sleep(millisecond);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            logger.error("Your machine is too busy! Please check it!");
-        }
-    }
 }
