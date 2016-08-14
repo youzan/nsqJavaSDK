@@ -134,6 +134,9 @@ public class LookupServiceImpl implements LookupService {
         }
         lastConnecting = System.currentTimeMillis();
         if (!this.started) {
+            if (closing) {
+                logger.warn("Having closed the lookup service.");
+            }
             return;
         }
         final int index = ((offset++) & Integer.MAX_VALUE) % this.addresses.size();
