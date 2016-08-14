@@ -162,6 +162,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
                 channel.attr(NSQConnection.STATE).remove();
                 channel.attr(Client.STATE).remove();
                 channel.close();
+                channel.deregister();
                 logger.info("Having closed {} OK!", this);
             } else {
                 logger.error("No channel has be set...");

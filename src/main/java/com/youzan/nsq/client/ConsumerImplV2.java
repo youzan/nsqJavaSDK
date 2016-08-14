@@ -47,6 +47,8 @@ public class ConsumerImplV2 implements Consumer {
     private final AtomicInteger received = new AtomicInteger(0);
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger finished = new AtomicInteger(0);
+    private final AtomicInteger re = new AtomicInteger(0); // have done reQueue
+
 
     /*-
      * =========================================================================
@@ -105,6 +107,9 @@ public class ConsumerImplV2 implements Consumer {
             return;
         }
         Collections.addAll(this.topics, topics);
+        for (String topic : topics) {
+            simpleClient.putTopic(topic);
+        }
     }
 
     @Override
@@ -143,7 +148,7 @@ public class ConsumerImplV2 implements Consumer {
                 } catch (Exception e) {
                     logger.error("Exception", e);
                 }
-                logger.info("Client received {} messages , success {} , finished {} . The values do not use a lock action.", received, success, finished);
+                logger.info("Client received {} messages , success {} , finished {} , reQueue explicitly {}. The values do not use a lock action.", received, success, finished, re);
             }
         }, delay, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
     }
@@ -289,7 +294,7 @@ public class ConsumerImplV2 implements Consumer {
      * @param topics  client cares about the specified topics
      */
     private void connect(Address address, Set<String> topics) throws Exception {
-        if (topics == null) {
+        if (topics == null || topics.isEmpty()) {
             return;
         }
         final int topicSize = topics.size();
@@ -471,7 +476,7 @@ public class ConsumerImplV2 implements Consumer {
                 break;
             } catch (Exception e) {
                 ok = false;
-                logger.error("CurrentRetries: {} , Exception:", c, e);
+                logger.error("Client business has one error. CurrentRetries: {} , Exception:", c, e);
             }
         }
         // The client commands ReQueue into NSQd.
@@ -511,6 +516,8 @@ public class ConsumerImplV2 implements Consumer {
             connection.command(cmd);
             if (cmd instanceof Finish) {
                 finished.incrementAndGet();
+            } else {
+                re.incrementAndGet();
             }
         }
         // Post
@@ -537,6 +544,7 @@ public class ConsumerImplV2 implements Consumer {
             closing = true;
             cleanClose();
             IOUtil.closeQuietly(simpleClient);
+            scheduler.shutdownNow();
         }
         logger.info("The consumer has been closed.");
     }
