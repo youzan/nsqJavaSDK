@@ -483,7 +483,7 @@ public class ConsumerImplV2 implements Consumer {
                 break;
             } catch (Exception e) {
                 ok = false;
-                logger.error("CurrentRetries: {} , Exception:", c, e);
+                logger.error("Client business has one error. CurrentRetries: {} , Exception:", c, e);
             }
         }
         // The client commands ReQueue into NSQd.
