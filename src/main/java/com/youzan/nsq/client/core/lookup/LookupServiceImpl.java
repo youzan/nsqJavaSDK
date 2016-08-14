@@ -39,8 +39,12 @@ public class LookupServiceImpl implements LookupService {
      * Load-Balancing Strategy: round-robin
      */
     private volatile int offset = 0;
-    private volatile boolean started = false;
-    private volatile ScheduledExecutorService scheduler;
+    private boolean started = false;
+    private boolean closing = false;
+    private volatile long lastConnecting = 0L;
+    private final int _INTERVAL_IN_SECOND = 60;
+    private final ScheduledExecutorService scheduler = Executors
+            .newSingleThreadScheduledExecutor(new NamedThreadFactory("LookupChecker", Thread.MAX_PRIORITY));
 
     /**
      * @param addresses the lookup addresses
@@ -79,14 +83,9 @@ public class LookupServiceImpl implements LookupService {
         if (!started) {
             // begin: a light implement way
             started = true;
-            if (null == scheduler) {
-                scheduler = Executors
-                        .newSingleThreadScheduledExecutor(new NamedThreadFactory("LookupChecker", Thread.MAX_PRIORITY));
-            }
             offset = _r.nextInt(100);
             keepLookupServers();
         }
-        started = true;
     }
 
     /**
@@ -123,11 +122,18 @@ public class LookupServiceImpl implements LookupService {
                     logger.error("Exception", e);
                 }
             }
-        }, delay, 60, TimeUnit.SECONDS);
+        }, delay, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
     }
 
     private void newLookupServers() throws IOException {
         if (this.addresses == null || this.addresses.isEmpty()) {
+            return;
+        }
+        if (System.currentTimeMillis() < lastConnecting + TimeUnit.SECONDS.toMillis(_INTERVAL_IN_SECOND)) {
+            return;
+        }
+        lastConnecting = System.currentTimeMillis();
+        if (!this.started) {
             return;
         }
         final int index = ((offset++) & Integer.MAX_VALUE) % this.addresses.size();
@@ -193,8 +199,7 @@ public class LookupServiceImpl implements LookupService {
 
     @Override
     public void close() {
-        if (null != scheduler) {
-            scheduler.shutdownNow();
-        }
+        closing = true;
+        scheduler.shutdownNow();
     }
 }
