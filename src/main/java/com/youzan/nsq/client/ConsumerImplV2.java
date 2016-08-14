@@ -47,6 +47,8 @@ public class ConsumerImplV2 implements Consumer {
     private final AtomicInteger received = new AtomicInteger(0);
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger finished = new AtomicInteger(0);
+    private final AtomicInteger re = new AtomicInteger(0); // have done reQueue
+
 
     /*-
      * =========================================================================
@@ -151,7 +153,7 @@ public class ConsumerImplV2 implements Consumer {
                 } catch (Exception e) {
                     logger.error("Exception", e);
                 }
-                logger.info("Client received {} messages , success {} , finished {} . The values do not use a lock action.", received, success, finished);
+                logger.info("Client received {} messages , success {} , finished {} , reQueue explicitly {}. The values do not use a lock action.", received, success, finished, re);
             }
         }, delay, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
     }
@@ -523,6 +525,8 @@ public class ConsumerImplV2 implements Consumer {
             connection.command(cmd);
             if (cmd instanceof Finish) {
                 finished.incrementAndGet();
+            } else {
+                re.incrementAndGet();
             }
         }
         // Post
