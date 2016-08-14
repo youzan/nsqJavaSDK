@@ -540,6 +540,7 @@ public class ConsumerImplV2 implements Consumer {
             closing = true;
             cleanClose();
             IOUtil.closeQuietly(simpleClient);
+            scheduler.shutdownNow();
         }
         logger.info("The consumer has been closed.");
     }
