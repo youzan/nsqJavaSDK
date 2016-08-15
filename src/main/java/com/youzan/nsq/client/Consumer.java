@@ -9,16 +9,15 @@ import com.youzan.nsq.client.exception.NSQException;
 /**
  * Try to consume the message using the {@link MessageHandler} again after having a
  * exception.
- * 
+ *
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
 public interface Consumer extends Client, Closeable {
     /**
      * Initialize some parameters for the consumer
-     * 
-     * @param topics
-     *            the client wanna subscribe some topics and this API appends
-     *            into a topics collector
+     *
+     * @param topics the client wanna subscribe some topics and this API appends
+     *               into a topics collector
      */
     void subscribe(String... topics);
 
