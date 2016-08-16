@@ -50,6 +50,10 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     }
 
+    /**
+     * initialize NSQConnection to NSQd by sending Identify Command
+     * @throws TimeoutException
+     */
     @Override
     public void init() throws TimeoutException {
         assert address != null;
