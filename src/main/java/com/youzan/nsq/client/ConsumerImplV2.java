@@ -54,6 +54,11 @@ public class ConsumerImplV2 implements Consumer {
      * =========================================================================
      */
     private final Set<String> topics = new HashSet<>(); // client subscribes
+    /*-
+      address_2_pool maps NSQd address to connections to topics specified by consumer.
+      Basically, consumer subscribe multi-topics to one NSQd, hence there is a mapping
+      between NSQd address and connections to topics
+     */
     private final ConcurrentHashMap<Address, FixedPool> address_2_pool = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
@@ -153,6 +158,8 @@ public class ConsumerImplV2 implements Consumer {
      * and the old is clear.
      */
     private void connect() throws NSQException {
+        //which equals to: System.currentTimeMillis() - lastConnecting < TimeUnit.SECONDS.toMillis(_INTERVAL_IN_SECOND))
+        //rest logic performs only when time elapse larger than _INTERNAL_IN_SECOND
         if (System.currentTimeMillis() < lastConnecting + TimeUnit.SECONDS.toMillis(_INTERVAL_IN_SECOND)) {
             return;
         }
@@ -168,6 +175,7 @@ public class ConsumerImplV2 implements Consumer {
             // Still check the resources , do not return right now
         }
 
+        //broken set to collect Address of connection which is not connected
         final Set<Address> broken = new HashSet<>();
         final ConcurrentHashMap<Address, Set<String>> address_2_topics = new ConcurrentHashMap<>();
         final Set<Address> targetAddresses = new TreeSet<>();
@@ -328,6 +336,7 @@ public class ConsumerImplV2 implements Consumer {
                 final Sub command = new Sub(topic, config.getConsumerName());
                 final NSQFrame frame = connection.commandAndGetResponse(command);
                 handleResponse(frame, connection);
+                //as there is no success response from nsq, command is enough here
                 connection.command(currentRdy);
             }
         }
