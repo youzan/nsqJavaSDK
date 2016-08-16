@@ -61,6 +61,7 @@ class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
             if (null == worker) {
                 logger.warn("No worker set for {}", ctx.channel());
             }
+            logger.warn("The original NSQFrame: {}", msg);
         }
     }
 
