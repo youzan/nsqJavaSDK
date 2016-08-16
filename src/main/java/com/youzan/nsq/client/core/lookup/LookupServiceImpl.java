@@ -11,6 +11,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.ConnectException;
+import java.net.HttpURLConnection;
+import java.net.InetAddress;
 import java.net.URL;
 import java.util.*;
 import java.util.concurrent.Executors;
@@ -144,7 +147,25 @@ public class LookupServiceImpl implements LookupService {
         final String url = String.format("http://%s/listlookup", lookup);
         logger.debug("Begin to get the new lookup servers. LB: Size: {}, Index: {}, From URL: {}",
                 this.addresses.size(), index, url);
-        final JsonNode rootNode = mapper.readTree(new URL(url));
+        final JsonNode rootNode;
+        JsonNode tmpRootNode = null;
+        URL lookupUrl = null;
+        try {
+            lookupUrl = new URL(url);
+            tmpRootNode = mapper.readTree(lookupUrl);
+        }catch(ConnectException ce){
+            //got a connection timeout exception(maybe), what we do here is:
+            //1. record the ip&addr of both client and server side for trace debug.
+            //2. improve timeout value of jackson parser to give it a retry, record
+            //   a trace about the result, if filed, throws exception to interrupt
+            //   lookup checker run().
+            _handleConnectionTimeout(url, lookup);
+            //simply retry here, since there is no way to customize http connection
+            // timeout in jackson
+            tmpRootNode = mapper.readTree(lookupUrl);
+        }finally {
+            rootNode = tmpRootNode;
+        }
         final JsonNode nodes = rootNode.get("data").get("lookupdnodes");
         if (null == nodes) {
             logger.error("NSQ Server do response without any lookup servers!");
@@ -162,6 +183,18 @@ public class LookupServiceImpl implements LookupService {
             this.addresses = newLookups;
         }
         logger.debug("Recently have got the lookup servers : {}", this.addresses);
+    }
+
+    private void _handleConnectionTimeout(String url, String lookup) throws IOException {
+        String ip="EMPTY", address="EMPTY";
+        try {
+            InetAddress addr = InetAddress.getLocalHost();
+            ip = addr.getHostAddress().toString();//ip where sdk resides
+            address = addr.getHostName().toString();//address where sdk resides
+        }catch(Exception e){
+            logger.error("Could not fetch ip or address form local client, should not occur.", e);
+        }
+        logger.warn("Fail to connect to NSQ lookup. client, ip:{} address:{}, remote:{}", ip, address, lookup);
     }
 
     @Override
