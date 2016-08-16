@@ -156,12 +156,11 @@ public class LookupServiceImpl implements LookupService {
         }catch(ConnectException ce){
             //got a connection timeout exception(maybe), what we do here is:
             //1. record the ip&addr of both client and server side for trace debug.
-            //2. improve timeout value of jackson parser to give it a retry, record
-            //   a trace about the result, if filed, throws exception to interrupt
+            //2. TODO: improve timeout value of jackson parser to give it a retry, record
+            //   a trace about the result, if failed, throws exception to interrupt
             //   lookup checker run().
-            _handleConnectionTimeout(lookup);
+            _handleConnectionTimeout(lookup, ce);
             return;
-            //TODO:simply retry here, since there is no way to customize http connection timeout in jackson
         }finally {
             //assign temp root node to rootNode, in both successful case and filed case
             rootNode = tmpRootNode;
@@ -185,7 +184,7 @@ public class LookupServiceImpl implements LookupService {
         logger.debug("Recently have got the lookup servers : {}", this.addresses);
     }
 
-    private void _handleConnectionTimeout(String lookup) throws IOException {
+    private void _handleConnectionTimeout(String lookup, ConnectException ce) throws IOException {
         String ip="EMPTY", address="EMPTY";
         try {
             InetAddress addr = InetAddress.getLocalHost();
@@ -194,7 +193,8 @@ public class LookupServiceImpl implements LookupService {
         }catch(Exception e){
             logger.error("Could not fetch ip or address form local client, should not occur.", e);
         }
-        logger.warn("Fail to connect to NSQ lookup. client, ip:{} address:{}, remote:{}, Will kick off another try in 60 seconds.", ip, address, lookup);
+        logger.warn("Fail to connect to NSQ lookup. SDK Client, ip:{} address:{}. Remote lookup:{}. Will kick off another try in 60 seconds.", ip, address, lookup);
+        logger.warn("Nested connection exception stacktrace:", ce);
     }
 
     @Override
