@@ -159,11 +159,11 @@ public class LookupServiceImpl implements LookupService {
             //2. improve timeout value of jackson parser to give it a retry, record
             //   a trace about the result, if filed, throws exception to interrupt
             //   lookup checker run().
-            _handleConnectionTimeout(url, lookup);
-            //simply retry here, since there is no way to customize http connection
-            // timeout in jackson
-            tmpRootNode = mapper.readTree(lookupUrl);
+            _handleConnectionTimeout(lookup);
+            return;
+            //TODO:simply retry here, since there is no way to customize http connection timeout in jackson
         }finally {
+            //assign temp root node to rootNode, in both successful case and filed case
             rootNode = tmpRootNode;
         }
         final JsonNode nodes = rootNode.get("data").get("lookupdnodes");
@@ -185,7 +185,7 @@ public class LookupServiceImpl implements LookupService {
         logger.debug("Recently have got the lookup servers : {}", this.addresses);
     }
 
-    private void _handleConnectionTimeout(String url, String lookup) throws IOException {
+    private void _handleConnectionTimeout(String lookup) throws IOException {
         String ip="EMPTY", address="EMPTY";
         try {
             InetAddress addr = InetAddress.getLocalHost();
@@ -194,7 +194,7 @@ public class LookupServiceImpl implements LookupService {
         }catch(Exception e){
             logger.error("Could not fetch ip or address form local client, should not occur.", e);
         }
-        logger.warn("Fail to connect to NSQ lookup. client, ip:{} address:{}, remote:{}", ip, address, lookup);
+        logger.warn("Fail to connect to NSQ lookup. client, ip:{} address:{}, remote:{}, Will kick off another try in 60 seconds.", ip, address, lookup);
     }
 
     @Override
