@@ -36,6 +36,7 @@ public class NSQSimpleClient implements Client, Closeable {
     private static final Logger logger = LoggerFactory.getLogger(NSQSimpleClient.class);
 
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+    //maintain a mapping from topic text to producer broadcast address
     private final Map<String, ConcurrentSortedSet<Address>> topic_2_dataNodes = new HashMap<>();
     private final ConcurrentSortedSet<Address> dataNodes = new ConcurrentSortedSet<>();
 
