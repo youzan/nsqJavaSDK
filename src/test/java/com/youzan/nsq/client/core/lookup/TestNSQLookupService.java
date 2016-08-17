@@ -4,8 +4,7 @@ import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.OutputStreamAppender;
-import ch.qos.logback.core.util.StatusPrinter;
-import org.apache.commons.codec.Charsets;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -17,6 +16,9 @@ import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -33,7 +35,7 @@ public class TestNSQLookupService {
         objs[0][0] = ips;
         objs[0][1] = expected;
 
-        ips = "10.232.120.13 : 6411";
+        ips = "10.232.120.13:6411";
         expected = new ArrayList<>(10);
         expected.add("10.232.120.13:6411");
         objs[1][0] = ips;
@@ -79,12 +81,38 @@ public class TestNSQLookupService {
     }
 
     @Test
-    public void makeBadOfLookup4ConnectionTimeoutTrace() throws NoSuchMethodException, NoSuchFieldException, IllegalAccessException, InvocationTargetException, InstantiationException, UnsupportedEncodingException {
-        //create LookupServiceImpl vis reflect, and inject appender into logger
+    /**
+     * two points need verification here,
+     * 1. http connection could fetch lookup stream to jackson;
+     * 2. add Accept: application/nvd.nsq; version=1.0 header and lookup
+     * returns right response
+     */
+    public void testFetchJsonFromLookUp() throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException, MalformedURLException {
+        //create LookupServiceImpl via reflect, and inject appender into logger
         Class lookupClazz = LookupServiceImpl.class;
         Constructor constructor = lookupClazz.getConstructor(String.class);
         LookupServiceImpl lsi = null;
-        lsi = (LookupServiceImpl) constructor.newInstance("127.0.0.1:2333");
+        URL url = new URL("http://sqs-qa.s.qima-inc.com:4161/listlookup");
+        lsi = (LookupServiceImpl) constructor.newInstance(url.toString());
+
+        Method readFromURL = lookupClazz.getDeclaredMethod("readFromUrl", URL.class);
+        readFromURL.setAccessible(true);
+        JsonNode rootNode = (JsonNode)readFromURL.invoke(lsi, url);
+
+        //verify, not ststus_code nor status_txt
+        Assert.assertNull(rootNode.get("status_code"), "Response in listlookup service should NOT contain status_code");
+        Assert.assertNull(rootNode.get("status_txt"), "Response in listlookup service should NOT contain status_txt");
+        Assert.assertNotNull(rootNode.get("lookupdleader"), "Response in listlookUp service should contain lookupleader");
+    }
+
+    @Test
+    public void makeBadOfLookup4ConnectionTimeoutTrace() throws NoSuchMethodException, NoSuchFieldException, IllegalAccessException, InvocationTargetException, InstantiationException, UnsupportedEncodingException {
+        //create LookupServiceImpl via reflect, and inject appender into logger
+        Class lookupClazz = LookupServiceImpl.class;
+        Constructor constructor = lookupClazz.getConstructor(String.class);
+        LookupServiceImpl lsi = null;
+        //lsi = (LookupServiceImpl) constructor.newInstance("127.0.0.1:2333");
+        lsi = (LookupServiceImpl) constructor.newInstance("nsq-dev.s.qima-inc.com:4161");
 
         //fetch the logger, which is a static private
         Field logFld = lookupClazz.getDeclaredField("logger");
@@ -103,7 +131,7 @@ public class TestNSQLookupService {
         }
         ByteArrayOutputStream baos = (ByteArrayOutputStream) appender.getOutputStream();
         String logOutput = baos.toString("utf-8");
-        Assert.assertTrue(logOutput.contains("Fail to connect to NSQ lookup. client, "));
+        Assert.assertTrue(logOutput.contains("Fail to connect to NSQ lookup. SDK Client, ip:"));
     }
 
     @Test(dataProvider = "genIPs")
