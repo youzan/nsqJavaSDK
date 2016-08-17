@@ -489,7 +489,7 @@ public class ConsumerImplV2 implements Consumer {
             }
         }
         // The client commands ReQueue into NSQd.
-        final Integer timeout = message.getNextConsumingInSecond();
+        final Integer nextConsumingWaiting = message.getNextConsumingInSecond();
         // It is too complex.
         NSQCommand cmd = null;
         if (autoFinish) {
@@ -498,9 +498,9 @@ public class ConsumerImplV2 implements Consumer {
                 // Finish
                 cmd = new Finish(message.getMessageID());
             } else {
-                if (timeout != null) {
+                if (nextConsumingWaiting != null) {
                     // ReQueue
-                    cmd = new ReQueue(message.getMessageID(), timeout.intValue());
+                    cmd = new ReQueue(message.getMessageID(), nextConsumingWaiting.intValue());
                     logger.info("Do a re-queue. MessageID: {}", message.getMessageID());
                 } else {
                     // Finish
@@ -511,9 +511,9 @@ public class ConsumerImplV2 implements Consumer {
             // Client code does finish explicitly.
             // Maybe ReQueue, but absolutely no Finish
             if (!ok) {
-                if (timeout != null) {
+                if (nextConsumingWaiting != null) {
                     // ReQueue
-                    cmd = new ReQueue(message.getMessageID(), timeout.intValue());
+                    cmd = new ReQueue(message.getMessageID(), nextConsumingWaiting.intValue());
                     logger.info("Do a re-queue. MessageID: {}", message.getMessageID());
                 }
             } else {
