@@ -152,7 +152,7 @@ public class LookupServiceImpl implements LookupService {
         URL lookupUrl = null;
         try {
             lookupUrl = new URL(url);
-            tmpRootNode = mapper.readTree(lookupUrl);
+            tmpRootNode = readFromUrl(lookupUrl);
         }catch(ConnectException ce){
             //got a connection timeout exception(maybe), what we do here is:
             //1. record the ip&addr of both client and server side for trace debug.
@@ -165,7 +165,7 @@ public class LookupServiceImpl implements LookupService {
             //assign temp root node to rootNode, in both successful case and filed case
             rootNode = tmpRootNode;
         }
-        final JsonNode nodes = rootNode.get("data").get("lookupdnodes");
+        final JsonNode nodes = rootNode.get("lookupdnodes");
         if (null == nodes) {
             logger.error("NSQ Server do response without any lookup servers!");
             return;
@@ -182,6 +182,27 @@ public class LookupServiceImpl implements LookupService {
             this.addresses = newLookups;
         }
         logger.debug("Recently have got the lookup servers : {}", this.addresses);
+    }
+
+    /**
+     * request http GET for pass in URL, then parse response to json, some predefined
+     * header properties are added here, like Accept: application/vnd.nsq;
+     * stream as json
+     * @param url
+     * @return
+     */
+    private JsonNode readFromUrl(final URL url) throws IOException {
+        HttpURLConnection con = (HttpURLConnection) url.openConnection();
+        //skip that, as GET is default operation
+        //con.setRequestMethod("GET");
+        //add request header, to support nsq of new version
+        con.setRequestProperty("Accept", "application/vnd.nsq; version=1.0");
+        if(logger.isDebugEnabled()){
+            logger.debug("Request to {} responses {}:{}.", url.toString(), con.getResponseCode(), con.getResponseMessage());
+        }
+        //jackson handles inputstream close operation
+        JsonNode treeNode = mapper.readTree(con.getInputStream());
+        return treeNode;
     }
 
     private void _handleConnectionTimeout(String lookup, ConnectException ce) throws IOException {
@@ -217,8 +238,8 @@ public class LookupServiceImpl implements LookupService {
         final String url = String.format("http://%s/lookup?topic=%s&access=%s", lookup, topic, writable ? "w" : "r"); // readable
         logger.debug("Begin to lookup some DataNodes from URL {}", url);
         try {
-            final JsonNode rootNode = mapper.readTree(new URL(url));
-            final JsonNode producers = rootNode.get("data").get("producers");
+            final JsonNode rootNode = readFromUrl(new URL(url));
+            final JsonNode producers = rootNode.get("producers");
             for (JsonNode node : producers) {
                 final String host = node.get("broadcast_address").asText();
                 final int port = node.get("tcp_port").asInt();
