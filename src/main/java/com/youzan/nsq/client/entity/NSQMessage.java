@@ -179,8 +179,8 @@ public class NSQMessage {
                 throw new IllegalArgumentException(
                         "Message.nextConsumingInSecond is illegal. It is too big." + _MAX_NEXT_CONSUMING_IN_SECOND);
             }
-            this.nextConsumingInSecond = nextConsumingInSecond;
         }
+        this.nextConsumingInSecond = nextConsumingInSecond;
     }
 
     public String newHexString(byte[] bs) {
