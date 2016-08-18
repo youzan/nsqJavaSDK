@@ -502,10 +502,8 @@ public class ConsumerImplV2 implements Consumer {
                     // ReQueue
                     cmd = new ReQueue(message.getMessageID(), nextConsumingWaiting.intValue());
                     logger.info("Do a re-queue. MessageID: {}", message.getMessageID());
-                } else {
-                    // Finish
-                    cmd = new Finish(message.getMessageID());
                 }
+                // beside client explicitly set NextConsumingInSecond is null
             }
         } else {
             // Client code does finish explicitly.
