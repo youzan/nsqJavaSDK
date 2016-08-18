@@ -497,13 +497,18 @@ public class ConsumerImplV2 implements Consumer {
             if (ok) {
                 // Finish
                 cmd = new Finish(message.getMessageID());
+                // do not log
             } else {
+                // an error occurs
                 if (nextConsumingWaiting != null) {
                     // ReQueue
                     cmd = new ReQueue(message.getMessageID(), nextConsumingWaiting.intValue());
-                    logger.info("Do a re-queue. MessageID: {}", message.getMessageID());
+                    logger.info("Do a re-queue by SDK that is a default behavior. MessageID: {}", message.getMessageID());
+                } else {
+                    // Finish: client explicitly sets NextConsumingInSecond is null
+                    cmd = new Finish(message.getMessageID());
+                    logger.info("Do a finish. MessageID: {}", message.getMessageID());
                 }
-                // beside client explicitly set NextConsumingInSecond is null
             }
         } else {
             // Client code does finish explicitly.
