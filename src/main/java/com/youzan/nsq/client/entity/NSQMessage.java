@@ -83,7 +83,7 @@ public class NSQMessage {
     private final int readableAttempts;
     private final String readableMsgID;
     private String readableContent = null;
-    private Integer nextConsumingInSecond = null;
+    private Integer nextConsumingInSecond = null; // recommend the value is 60 sec
     // 1 seconds
     static int _MIN_NEXT_CONSUMING_IN_SECOND = 1;
     // 180 days
