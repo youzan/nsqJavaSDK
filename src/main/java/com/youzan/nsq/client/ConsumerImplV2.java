@@ -4,9 +4,7 @@ import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
 import com.youzan.nsq.client.core.command.*;
 import com.youzan.nsq.client.core.pool.consumer.FixedPool;
-import com.youzan.nsq.client.entity.Address;
-import com.youzan.nsq.client.entity.NSQConfig;
-import com.youzan.nsq.client.entity.NSQMessage;
+import com.youzan.nsq.client.entity.*;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQNoConnectionException;
 import com.youzan.nsq.client.exception.RetryBusinessException;
@@ -22,7 +20,10 @@ import io.netty.channel.ChannelFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -36,7 +37,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  *
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
-public class ConsumerImplV2 implements Consumer {
+public class ConsumerImplV2 extends AbstractConsumer {
 
     private static final Logger logger = LoggerFactory.getLogger(ConsumerImplV2.class);
     private final Object lock = new Object();
@@ -56,7 +57,7 @@ public class ConsumerImplV2 implements Consumer {
      * 
      * =========================================================================
      */
-    private final Set<String> topics = new HashSet<>(); // client subscribes
+    private final Set<Topic> topics = new HashSet<>(); // client subscribes
     /*-
       address_2_pool maps NSQd address to connections to topics specified by consumer.
       Basically, consumer subscribe multi-topics to one NSQd, hence there is a mapping
@@ -78,8 +79,6 @@ public class ConsumerImplV2 implements Consumer {
      *                           Client delegates to me
      * =========================================================================
      */
-
-
     private final Rdy DEFAULT_RDY;
     private final Rdy MEDIUM_RDY;
     private final Rdy LOW_RDY = new Rdy(1);
@@ -109,12 +108,47 @@ public class ConsumerImplV2 implements Consumer {
 
     @Override
     public void subscribe(String... topics) {
+        subscribeTopics(topics, PartitionEnable.PARTITION_ID_NO_SPECIFY);
+    }
+
+    @Override
+    /**
+     * subscribe topics which have specified pass in partition id.
+     * As topic could be subscribe without any partition id. If the same
+     * topic is subscribe later, with a partition id, previous subscribe
+     * will be override, and vice versa.
+     *
+     * @param topics topics array which consumer interests in
+     * @param partitionId partition id which pass in topics array have
+     */
+    public void subscribe(String[] topics, int partitionId ) {
+        subscribeTopics(topics, partitionId);
+    }
+
+    private void subscribeTopics(String[] topics, int partitionId ){
         if (topics == null) {
             return;
         }
-        Collections.addAll(this.topics, topics);
-        for (String topic : topics) {
-            simpleClient.putTopic(topic);
+        for(String topicStr:topics){
+            TopicConsumer topic = new TopicConsumer(new Topic(topicStr, partitionId));
+            //if topic has partition id, we need to check if same topic which has NO partition id
+            //is already added in consumer's topics, if yes, we need to remove that first
+            if(topic.hasPartition())
+                this.topics.remove(
+                        new TopicConsumer(
+                                new Topic(topicStr, PartitionEnable.PARTITION_ID_NO_SPECIFY)
+                        )
+                );
+
+            this.topics.remove(
+                    new TopicConsumer(
+                            new Topic(topicStr, 0)
+                    )
+            );
+            this.topics.add(topic);
+            //need a normal topic to enable simple client to tell difference between same topics of different
+            //partitions
+            simpleClient.putTopic(topic.unwrap());
         }
     }
 
@@ -132,11 +166,36 @@ public class ConsumerImplV2 implements Consumer {
                 this.simpleClient.start();
                 // -----------------------------------------------------------------
                 //                       First, async keep
-                keepConnecting();
-                connect();
+                keepConnecting(SubCmdType.SUB);
+                connect(SubCmdType.SUB);
                 // -----------------------------------------------------------------
             }
             this.started = true;
+            this.setSubscribeStatus(SubCmdType.SUB);
+        }
+        logger.info("The consumer has been started.");
+    }
+
+    @Override
+    public void startOrdered() throws NSQException {
+        if (this.config.getConsumerName() == null || this.config.getConsumerName().isEmpty()) {
+            throw new IllegalArgumentException("Consumer Name is blank! Please check it!");
+        }
+        if (this.topics.isEmpty()) {
+            logger.warn("Are you kidding me? You do not subscribe any topic.");
+        }
+        synchronized (lock) {
+            if (!this.started) {
+                // create the pools
+                this.simpleClient.start();
+                // -----------------------------------------------------------------
+                //                       First, async keep
+                keepConnecting(SubCmdType.SUB_ORDERED);
+                connect(SubCmdType.SUB_ORDERED);
+                // -----------------------------------------------------------------
+            }
+            this.started = true;
+            this.setSubscribeStatus(SubCmdType.SUB_ORDERED);
         }
         logger.info("The consumer has been started.");
     }
@@ -144,7 +203,7 @@ public class ConsumerImplV2 implements Consumer {
     /**
      * schedule action
      */
-    private void keepConnecting() {
+    private void keepConnecting(final SubCmdType subType) {
         final int delay = _r.nextInt(60); // seconds
         scheduler.scheduleWithFixedDelay(new Runnable() {
             @Override
@@ -153,7 +212,7 @@ public class ConsumerImplV2 implements Consumer {
                     return;
                 }
                 try {
-                    connect();
+                    connect(subType);
                 } catch (Exception e) {
                     logger.error("Exception", e);
                 }
@@ -166,7 +225,7 @@ public class ConsumerImplV2 implements Consumer {
      * Connect to all the brokers with the config, making sure the new is OK
      * and the old is clear.
      */
-    private void connect() throws NSQException {
+    private void connect(final SubCmdType subType) throws NSQException {
         //which equals to: System.currentTimeMillis() - lastConnecting < TimeUnit.SECONDS.toMillis(_INTERVAL_IN_SECOND))
         //rest logic performs only when time elapse larger than _INTERNAL_IN_SECOND
         if (System.currentTimeMillis() < lastConnecting + TimeUnit.SECONDS.toMillis(_INTERVAL_IN_SECOND)) {
@@ -186,7 +245,7 @@ public class ConsumerImplV2 implements Consumer {
 
         //broken set to collect Address of connection which is not connected
         final Set<Address> broken = new HashSet<>();
-        final ConcurrentHashMap<Address, Set<String>> address_2_topics = new ConcurrentHashMap<>();
+        final ConcurrentHashMap<Address, Set<Topic>> address_2_topics = new ConcurrentHashMap<>();
         final Set<Address> targetAddresses = new TreeSet<>();
         /*-
          * =====================================================================
@@ -220,13 +279,13 @@ public class ConsumerImplV2 implements Consumer {
          *                            Get the relationship
          * =====================================================================
          */
-        for (String topic : topics) {
+        for (Topic topic : topics) {
             // maybe a exception occurs
             final ConcurrentSortedSet<Address> dataNodes = simpleClient.getDataNodes(topic);
             final Set<Address> addresses = new TreeSet<>();
             addresses.addAll(dataNodes.newSortedSet());
             for (Address a : addresses) {
-                final Set<String> tmpTopics;
+                final Set<Topic> tmpTopics;
                 if (address_2_topics.containsKey(a)) {
                     tmpTopics = address_2_topics.get(a);
                 } else {
@@ -276,8 +335,8 @@ public class ConsumerImplV2 implements Consumer {
             logger.debug("Get new data-nodes: {}", except1);
             for (Address address : except1) {
                 try {
-                    final Set<String> topics = address_2_topics.get(address);
-                    connect(address, topics);
+                    final Set<Topic> topics = address_2_topics.get(address);
+                    connect(address, topics, subType);
                 } catch (Exception e) {
                     logger.error("Exception", e);
                     clearDataNode(address);
@@ -307,7 +366,7 @@ public class ConsumerImplV2 implements Consumer {
      * @param address data-node(NSQd)
      * @param topics  client cares about the specified topics
      */
-    private void connect(Address address, Set<String> topics) throws Exception {
+    private void connect(Address address, Set<Topic> topics, final SubCmdType subType) throws Exception {
         if (topics == null || topics.isEmpty()) {
             return;
         }
@@ -321,7 +380,7 @@ public class ConsumerImplV2 implements Consumer {
             if (connectionSize <= 0) {
                 return;
             }
-            final String[] topicArray = new String[topicSize];
+            final Topic[] topicArray = new Topic[topicSize];
             topics.toArray(topicArray);
             if (connectionSize != manualPoolSize * topicArray.length) {
                 // concurrent problem
@@ -342,7 +401,7 @@ public class ConsumerImplV2 implements Consumer {
                 assert k < topicArray.length;
                 // init( connection, topic ) , let it be a consumer connection
                 final NSQConnection connection = connections.get(i);
-                final String topic = topicArray[k];
+                final Topic topic = topicArray[k];
                 try {
                     connection.init();
                 } catch (Exception e) {
@@ -413,15 +472,16 @@ public class ConsumerImplV2 implements Consumer {
         if (frame.getType() == FrameType.MESSAGE_FRAME) {
             received.incrementAndGet();
             final MessageFrame msg = (MessageFrame) frame;
-            final NSQMessage message = new NSQMessage(msg.getTimestamp(), msg.getAttempts(), msg.getMessageID(),
-                    msg.getMessageBody(), conn.getAddress(), Integer.valueOf(conn.getId()));
+            final NSQMessage message = createNSQMessage(msg, conn, this.getSubscribeStatus());
+            //sub ordered support, need to parse
             processMessage(message, conn);
         } else {
             simpleClient.incoming(frame, conn);
         }
     }
 
-    private void processMessage(final NSQMessage message, final NSQConnection connection) {
+    void processMessage(final NSQMessage message, final NSQConnection connection) {
+        super.processMessage(message, connection);
         if (handler == null) {
             logger.error("No MessageHandler then drop the message {}", message);
             return;

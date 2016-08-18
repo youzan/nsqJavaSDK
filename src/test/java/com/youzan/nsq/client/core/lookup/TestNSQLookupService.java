@@ -4,7 +4,9 @@ import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.OutputStreamAppender;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -12,6 +14,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -138,5 +141,16 @@ public class TestNSQLookupService {
         try (LookupServiceImpl srv = new LookupServiceImpl(ips)) {
             Assert.assertEquals(srv.getAddresses(), expected);
         }
+    }
+
+    @Test
+    public void testJsonParser() throws IOException {
+        ObjectMapper mapper = new ObjectMapper()
+                .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+        JsonNode rootNode = mapper.readTree(
+                "{\"channels\":[], \"partitions\":{\"0\":{\"id\":\"10.9.56.200:31454\",\"remote_address\":\"10.9.56.200:31454\",\"hostname\":\"qabb-qa-sqs2\",\"broadcast_address\":\"10.9.56.200\",\"tcp_port\":4150,\"http_port\":4152,\"version\":\"0.3.7-HA.1.3\",\"distributed_id\":\"10.9.56.200:4250:4150:136381\"},\"1\":{\"id\":\"10.9.80.209:39962\",\"remote_address\":\"10.9.80.209:39962\",\"hostname\":\"qabb-qa-sqs0\",\"broadcast_address\":\"10.9.80.209\",\"tcp_port\":4150,\"http_port\":4152,\"version\":\"0.3.7-HA.1.3\",\"distributed_id\":\"10.9.80.209:4250:4150:679756\"}},\"producers\":[{\"id\":\"10.9.56.200:31454\",\"remote_address\":\"10.9.56.200:31454\",\"hostname\":\"qabb-qa-sqs2\",\"broadcast_address\":\"10.9.56.200\",\"tcp_port\":4150,\"http_port\":4152,\"version\":\"0.3.7-HA.1.3\",\"distributed_id\":\"10.9.56.200:4250:4150:136381\"},{\"id\":\"10.9.80.209:39962\",\"remote_address\":\"10.9.80.209:39962\",\"hostname\":\"qabb-qa-sqs0\",\"broadcast_address\":\"10.9.80.209\",\"tcp_port\":4150,\"http_port\":4152,\"version\":\"0.3.7-HA.1.3\",\"distributed_id\":\"10.9.80.209:4250:4150:679756\"}]}"
+        );
+        JsonNode partitions = rootNode.get("partitions");
+
     }
 }

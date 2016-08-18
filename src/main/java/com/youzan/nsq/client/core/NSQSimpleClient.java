@@ -6,6 +6,7 @@ import com.youzan.nsq.client.core.lookup.LookupService;
 import com.youzan.nsq.client.core.lookup.LookupServiceImpl;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.Response;
+import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQInvalidTopicException;
 import com.youzan.nsq.client.exception.NSQLookupException;
@@ -36,8 +37,8 @@ public class NSQSimpleClient implements Client, Closeable {
     private static final Logger logger = LoggerFactory.getLogger(NSQSimpleClient.class);
 
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-    //maintain a mapping from topic text to producer broadcast address
-    private final Map<String, ConcurrentSortedSet<Address>> topic_2_dataNodes = new HashMap<>();
+    //maintain a mapping from topic to producer broadcast addresses
+    private final Map<Topic, ConcurrentSortedSet<Address>> topic_2_dataNodes = new HashMap<>();
     private final ConcurrentSortedSet<Address> dataNodes = new ConcurrentSortedSet<>();
 
     private volatile boolean started;
@@ -82,13 +83,13 @@ public class NSQSimpleClient implements Client, Closeable {
     private void newDataNodes() throws NSQLookupException {
         lock.writeLock().lock();
         try {
-            Set<String> brokenTopic = new HashSet<>();
-            for (Map.Entry<String, ConcurrentSortedSet<Address>> pair : topic_2_dataNodes.entrySet()) {
+            Set<Topic> brokenTopic = new HashSet<>();
+            for (Map.Entry<Topic, ConcurrentSortedSet<Address>> pair : topic_2_dataNodes.entrySet()) {
                 if (pair.getValue() == null) {
                     brokenTopic.add(pair.getKey());
                 }
             }
-            for (String topic : brokenTopic) {
+            for (Topic topic : brokenTopic) {
                 topic_2_dataNodes.remove(topic);
             }
         } finally {
@@ -96,10 +97,10 @@ public class NSQSimpleClient implements Client, Closeable {
         }
 
         // HTTP costs long time.
-        final Set<String> topics = new HashSet<>();
+        final Set<Topic> topics = new HashSet<>();
         lock.writeLock().lock();
         try {
-            for (String topic : topic_2_dataNodes.keySet()) {
+            for (Topic topic : topic_2_dataNodes.keySet()) {
                 topics.add(topic);
             }
         } finally {
@@ -107,7 +108,7 @@ public class NSQSimpleClient implements Client, Closeable {
         }
 
         final Set<Address> newDataNodes = new HashSet<>();
-        for (String topic : topics) {
+        for (Topic topic : topics) {
             try {
                 final SortedSet<Address> addresses = lookup.lookup(topic);
                 if (!addresses.isEmpty()) {
@@ -143,8 +144,8 @@ public class NSQSimpleClient implements Client, Closeable {
         }
     }
 
-    public void putTopic(String topic) {
-        if (topic == null || topic.isEmpty()) {
+    public void putTopic(Topic topic) {
+        if (topic == null) {
             return;
         }
         lock.writeLock().lock();
@@ -158,8 +159,8 @@ public class NSQSimpleClient implements Client, Closeable {
         }
     }
 
-    public void removeTopic(String topic) {
-        if (topic == null || topic.isEmpty()) {
+    public void removeTopic(Topic topic) {
+        if (topic == null || null == topic.getTopicText() || topic.getTopicText().isEmpty()) {
             return;
         }
         lock.writeLock().lock();
@@ -213,7 +214,7 @@ public class NSQSimpleClient implements Client, Closeable {
         conn.command(new Rdy(0));
     }
 
-    public ConcurrentSortedSet<Address> getDataNodes(String topic) throws NSQException {
+    public ConcurrentSortedSet<Address> getDataNodes(Topic topic) throws NSQException {
         SortedSet<Address> first = null;
         lock.readLock().lock();
         try {
@@ -248,7 +249,7 @@ public class NSQSimpleClient implements Client, Closeable {
                 lock.writeLock().unlock();
             }
         }
-        throw new NSQInvalidTopicException();
+        throw new NSQInvalidTopicException(topic);
     }
 
     @Override

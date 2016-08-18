@@ -4,6 +4,8 @@ import java.io.InputStream;
 import java.util.Properties;
 import java.util.Random;
 
+import com.youzan.nsq.client.entity.TraceInfo;
+import com.youzan.nsq.client.entity.Topic;
 import com.youzan.util.IOUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,9 +23,9 @@ public class ITProducer {
 
     private static final Logger logger = LoggerFactory.getLogger(ITProducer.class);
 
-    private final Random random = new Random();
-    private final NSQConfig config = new NSQConfig();
-    private Producer producer;
+    protected final Random random = new Random();
+    protected final NSQConfig config = new NSQConfig();
+    protected Producer producer;
 
     @BeforeClass
     public void init() throws Exception {
@@ -50,8 +52,18 @@ public class ITProducer {
     public void publish() throws NSQException {
         final byte[] message = new byte[64];
         for (int i = 0; i < 10; i++) {
-            random.nextBytes(message);
+        random.nextBytes(message);
             producer.publish(message, "JavaTesting-Producer-Base");
+        }
+    }
+
+    public void tracePublish() throws NSQException {
+        final byte[] message = new byte[64];
+        for (int i = 0; i < 10; i++) {
+            random.nextBytes(message);
+            producer.setTraceID(1l);
+            producer.publish(message, new Topic("JavaTesting-Producer-Base", 0));
+//            logger.info(info.toString());
         }
     }
 

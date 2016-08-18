@@ -2,10 +2,9 @@ package com.youzan.nsq.client;
 
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
-import com.youzan.nsq.client.core.command.Pub;
+import com.youzan.nsq.client.core.command.*;
 import com.youzan.nsq.client.core.pool.producer.KeyedPooledConnectionFactory;
-import com.youzan.nsq.client.entity.Address;
-import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.nsq.client.entity.*;
 import com.youzan.nsq.client.exception.*;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
@@ -38,22 +37,26 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class ProducerImplV2 implements Producer {
 
+    private static final int MAX_PUBLISH_RETRY = 6;
+
     private static final Logger logger = LoggerFactory.getLogger(ProducerImplV2.class);
     private volatile boolean started = false;
     private volatile int offset = 0;
-
     private final GenericKeyedObjectPoolConfig poolConfig;
     private final KeyedPooledConnectionFactory factory;
     private GenericKeyedObjectPool<Address, NSQConnection> bigPool = null;
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
-    private final ConcurrentHashMap<String, Long> topic_2_lastActiveTime = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Topic, Long> topic_2_lastActiveTime = new ConcurrentHashMap<>();
 
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger total = new AtomicInteger(0);
 
     private final NSQConfig config;
     private final NSQSimpleClient simpleClient;
+    //trace works on update nsq command to insert trace ID into command,
+    //producer delegates to trace activities to trace
+    private NSQPubTrace trace = new NSQPubTrace();
 
     /**
      * @param config NSQConfig
@@ -98,13 +101,13 @@ public class ProducerImplV2 implements Producer {
                     // Normal max lifetime is 1 hour
                     // Extreme max lifetime is 1.5 hours
                     final long allow = System.currentTimeMillis() - 3600 * 1000L;
-                    final Set<String> expiredTopics = new HashSet<>();
-                    for (Map.Entry<String, Long> pair : topic_2_lastActiveTime.entrySet()) {
+                    final Set<Topic> expiredTopics = new HashSet<>();
+                    for (Map.Entry<Topic, Long> pair : topic_2_lastActiveTime.entrySet()) {
                         if (pair.getValue().longValue() < allow) {
                             expiredTopics.add(pair.getKey());
                         }
                     }
-                    for (String topic : expiredTopics) {
+                    for (Topic topic : expiredTopics) {
                         topic_2_lastActiveTime.remove(topic);
                         try {
                             simpleClient.removeTopic(topic);
@@ -128,7 +131,7 @@ public class ProducerImplV2 implements Producer {
      * @return a validated {@link NSQConnection}
      * @throws NSQException that is having done a negotiation
      */
-    private NSQConnection getNSQConnection(String topic) throws NSQException {
+    private NSQConnection getNSQConnection(Topic topic) throws NSQException {
         final Long now = Long.valueOf(System.currentTimeMillis());
         topic_2_lastActiveTime.put(topic, now);
         final ConcurrentSortedSet<Address> dataNodes = simpleClient.getDataNodes(topic);
@@ -154,26 +157,58 @@ public class ProducerImplV2 implements Producer {
         return null;
     }
 
+    public void setTraceID(long traceID){
+        this.trace.setTraceId(traceID);
+    }
+
+    public void setTrace(boolean flag){
+        this.trace.setTrace(flag);
+    }
+
     public void publish(String message, String topic) throws NSQException {
         publish(message.getBytes(IOUtil.DEFAULT_CHARSET), topic);
     }
 
     @Override
+    /**
+     * publish message to topic, in ALL partitions pass in topic has,
+     * function publishes message to topic, in specified partition.
+     *
+     * @param message message data in byte data array.
+     * @param topic topic message publishes to.
+     * @throws NSQException
+     */
     public void publish(byte[] message, String topic) throws NSQException {
+        publish(message, new Topic(topic));
+    }
+
+    @Override
+    /**
+     * publish message to topic, if topic partition id is specified,
+     * function publishes message to topic, in specified partition.
+     *
+     * @param message message data in byte data array.
+     * @param topic topic message publishes to.
+     * @throws NSQException
+     */
+    public void publish(byte[] message, Topic topic) throws NSQException {
         if (message == null || message.length <= 0) {
             throw new IllegalArgumentException("Your input message is blank! Please check it!");
         }
-        if (null == topic || topic.isEmpty()) {
+        if (null == topic || null == topic.getTopicText() || topic.getTopicText().isEmpty()) {
             throw new IllegalArgumentException("Your input topic name is blank!");
         }
         if (!started) {
             throw new IllegalStateException("Producer must be started before producing messages!");
         }
         total.incrementAndGet();
-        final Pub pub = new Pub(topic, message);
-        final int maxRetries = 6;
+        final Pub pub = createPubCmd(topic, message);
+        sendPUB(pub, topic, message);
+    }
+
+    private void sendPUB(final Pub pub, final Topic topic, final byte[] message) throws NSQException {
         int c = 0; // be continuous
-        while (c++ < maxRetries) {
+        while (c++ < MAX_PUBLISH_RETRY) {
             if (c > 1) {
                 logger.debug("Sleep. CurrentRetries: {}", c);
                 sleep((1 << (c - 1)) * 1000);
@@ -186,13 +221,17 @@ public class ProducerImplV2 implements Producer {
             try {
                 final NSQFrame frame = conn.commandAndGetResponse(pub);
                 handleResponse(frame, conn);
+                if(frame.getType() == NSQFrame.FrameType.RESPONSE_FRAME && this.trace.isTraceOn() && pub instanceof HasTraceID){
+                    //gather trace info
+                    this.trace.handleFrame(((HasTraceID) pub).getID(), frame);
+                }
                 success.incrementAndGet();
                 return;
             } catch (Exception e) {
                 IOUtil.closeQuietly(conn);
-                logger.error("MaxRetries: {} , CurrentRetries: {} , Address: {} , Topic: {}, RawMessage: {} , Exception:", maxRetries, c,
+                logger.error("MaxRetries: {} , CurrentRetries: {} , Address: {} , Topic: {}, RawMessage: {} , Exception:", MAX_PUBLISH_RETRY, c,
                         conn.getAddress(), topic, message, e);
-                if (c >= maxRetries) {
+                if (c >= MAX_PUBLISH_RETRY) {
                     throw new NSQDataNodesDownException(e);
                 }
             } finally {
@@ -201,10 +240,35 @@ public class ProducerImplV2 implements Producer {
         }
     }
 
-//        final List<List<byte[]>> batches = Lists.partition(messages, 30);
-//        for (List<byte[]> batch : batches) {
-//            publishSmallBatch(batch);
-//        }
+    /**
+     * function to create publish command based on traceability
+     * @return
+     */
+    private Pub createPubCmd(final Topic topic, final byte[] messages){
+        if(trace.isTraceOn()) {
+            Pub cmd =  new PubTrace(topic, messages);
+            this.trace.insertTraceID(cmd);
+            return cmd;
+        }else{
+            return new Pub(topic, messages);
+        }
+    }
+
+    public void publishOrdered(byte[] message, Topic topic) throws NSQException {
+        if (message == null || message.length <= 0) {
+            throw new IllegalArgumentException("Your input message is blank! Please check it!");
+        }
+        if (null == topic || null == topic.getTopicText() || topic.getTopicText().isEmpty()) {
+            throw new IllegalArgumentException("Your input topic name is blank!");
+        }
+        if (!started) {
+            throw new IllegalStateException("Producer must be started before producing messages!");
+        }
+        total.incrementAndGet();
+        final PubOrdered pub = new PubOrdered(topic, message);
+        pub.updateTraceID(this.trace.getTraceId());
+        sendPUB(pub, topic, message);
+    }
 
     private void handleResponse(NSQFrame frame, NSQConnection conn) throws NSQException {
         if (frame == null) {

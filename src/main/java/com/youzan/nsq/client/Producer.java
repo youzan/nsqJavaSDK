@@ -1,9 +1,12 @@
 package com.youzan.nsq.client;
 
 import java.io.Closeable;
+import java.nio.ByteBuffer;
 import java.util.List;
 
 import com.youzan.nsq.client.core.Client;
+import com.youzan.nsq.client.entity.TraceInfo;
+import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.util.IOUtil;
 
@@ -15,7 +18,6 @@ import com.youzan.util.IOUtil;
 public interface Producer extends Client, Closeable {
     @Override
     void start() throws NSQException;
-
 
     /**
      * Default UTF-8 Encoding
@@ -32,12 +34,25 @@ public interface Producer extends Client, Closeable {
      * 生产单条的'消息'
      * <p>
      * Use it to produce only one 'message' sending to MQ.
+     * partition info is not specified in this function,
+     * use #{Producer.publish(byte[] messages, Topic topic)}
      *
      * @param message the client sets it that is be published
      * @param topic   the specified topic name
      * @throws NSQException
      */
     void publish(byte[] message, String topic) throws NSQException;
+
+    /**
+     * 生产单条的'消息'
+     * <p>
+     * Use it to produce only one 'message' sending to MQ.
+     *
+     * @param message the client sets it that is be published
+     * @param topic   the specified topic name
+     * @throws NSQException
+     */
+    void publish(byte[] message, Topic topic) throws NSQException;
 
     /**
      * 生产一批的'消息'. <br>
@@ -59,4 +74,11 @@ public interface Producer extends Client, Closeable {
      */
     @Override
     void close();
+
+    /**
+     *specify trace id for current producer
+     */
+    void setTraceID(long traceId);
+
+    void setTrace(boolean flag);
 }

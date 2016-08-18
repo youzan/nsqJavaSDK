@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.youzan.nsq.client.entity.Address;
+import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQLookupException;
 import com.youzan.util.NamedThreadFactory;
 import org.slf4j.Logger;
@@ -27,6 +28,8 @@ public class LookupServiceImpl implements LookupService {
 
     private static final Logger logger = LoggerFactory.getLogger(LookupServiceImpl.class);
     private static final long serialVersionUID = 1773482379917817275L;
+    private static final String BROKER_QUERY_W_PARTITION_URL = "http://%s/lookup?topic=%s&access=%s&partition=%s";
+    private static final String BROKER_QUERY_URL = "http://%s/lookup?topic=%s&access=%s";
 
     /**
      * JSON Tool
@@ -149,7 +152,7 @@ public class LookupServiceImpl implements LookupService {
                 this.addresses.size(), index, url);
         final JsonNode rootNode;
         JsonNode tmpRootNode = null;
-        URL lookupUrl = null;
+        URL lookupUrl;
         try {
             lookupUrl = new URL(url);
             tmpRootNode = readFromUrl(lookupUrl);
@@ -213,9 +216,9 @@ public class LookupServiceImpl implements LookupService {
         String ip = "EMPTY", address = "EMPTY";
         try {
             InetAddress addr = InetAddress.getLocalHost();
-            ip = addr.getHostAddress().toString();//ip where sdk resides
-            address = addr.getHostName().toString();//address where sdk resides
-        } catch (Exception e) {
+            ip = addr.getHostAddress();//ip where sdk resides
+            address = addr.getHostName();//address where sdk resides
+        }catch(Exception e){
             logger.error("Could not fetch ip or address form local client, should not occur.", e);
         }
         logger.warn("Fail to connect to NSQ lookup. SDK Client, ip:{} address:{}. Remote lookup:{}. Will kick off another try in some seconds.", ip, address, lookup);
@@ -223,15 +226,17 @@ public class LookupServiceImpl implements LookupService {
     }
 
     @Override
-    public SortedSet<Address> lookup(String topic) throws NSQLookupException {
+    public SortedSet<Address> lookup(Topic topic) throws NSQLookupException {
         return lookup(topic, true);
     }
 
     @Override
-    public SortedSet<Address> lookup(String topic, boolean writable) throws NSQLookupException {
-        if (null == topic || topic.isEmpty()) {
+    public SortedSet<Address> lookup(Topic topic, boolean writable) throws NSQLookupException {
+        if (null == topic || null == topic.getTopicText() || topic.getTopicText().isEmpty()) {
             throw new NSQLookupException("Your input topic is blank!");
         }
+        boolean partitionIdSpecified = topic.hasPartition() ? true : false;
+
         final SortedSet<Address> dataNodes = new TreeSet<>();
         assert null != this.addresses;
         /*
@@ -239,23 +244,81 @@ public class LookupServiceImpl implements LookupService {
          */
         final int index = ((offset++) & Integer.MAX_VALUE) % this.addresses.size();
         final String lookup = this.addresses.get(index);
-        final String url = String.format("http://%s/lookup?topic=%s&access=%s", lookup, topic, writable ? "w" : "r"); // readable
+        final String url = partitionIdSpecified ?
+                String.format(BROKER_QUERY_W_PARTITION_URL, lookup, topic.getTopicText(), writable ? "w" : "r", topic.getPartitionId()):
+                String.format(BROKER_QUERY_URL, lookup, topic.getTopicText(), writable ? "w" : "r");
         logger.debug("Begin to lookup some DataNodes from URL {}", url);
         try {
             final JsonNode rootNode = readFromUrl(new URL(url));
-            final JsonNode producers = rootNode.get("producers");
-            for (JsonNode node : producers) {
-                final String host = node.get("broadcast_address").asText();
-                final int port = node.get("tcp_port").asInt();
-                final Address address = new Address(host, port);
-                dataNodes.add(address);
+
+            /*
+                Partition part, for new version
+                what need here is creating a mapping, from broker address to partition id
+             */
+            if(partitionIdSpecified) {
+                long start = 0l;
+                //performance debug purpose
+                if(logger.isDebugEnabled()) start = System.currentTimeMillis();
+                final JsonNode partitions = rootNode.get("partitions");
+                if (null != partitions) {
+                    Map<String, Address> addrStr_2_addr_set = new HashMap();
+                    Iterator<String> irt = partitions.fieldNames();
+                    while (irt.hasNext()) {
+                        String parId = irt.next();
+                        int parIdInt = Integer.valueOf(parId);
+                        JsonNode partition = partitions.get(parId);
+                        final Address address = createAddress(partition);
+
+                        //mapping address string to address, for merge partition id
+                        if(addrStr_2_addr_set.containsKey(address.toString())){
+                            addrStr_2_addr_set.get(address.toString()).addPartitionIds(parIdInt);
+                        }else{
+                            address.addPartitionIds(parIdInt);
+                            addrStr_2_addr_set.put(address.toString(), address);
+                        }
+                    }
+                    if(logger.isDebugEnabled()){
+                        logger.debug("SDK took {} mill sec to create mapping for partition.", (System.currentTimeMillis() - start));
+                        start = System.currentTimeMillis();
+                    }
+                    for(Map.Entry<String, Address> entity:addrStr_2_addr_set.entrySet()){
+                        dataNodes.add(entity.getValue());
+                    }
+                    if(logger.isDebugEnabled()){
+                        logger.debug("SDK took {} mill sec to merge mapping into dataNodes.", (System.currentTimeMillis() - start));
+                    }
+                } else {
+                    if (logger.isDebugEnabled())
+                        logger.debug("Partitions json data not found in current lookup service.");
+                }
+            }else{
+                //producers part in json
+                final JsonNode producers = rootNode.get("producers");
+                for (JsonNode node : producers) {
+                    final Address address = createAddress(node);
+                    dataNodes.add(address);
+                }
             }
+
             logger.debug("The server response info after looking up some DataNodes: {}", rootNode.toString());
             return dataNodes; // maybe it is empty
         } catch (Exception e) {
             final String tip = "SDK can't get the right lookup info. " + url;
             throw new NSQLookupException(tip, e);
         }
+    }
+
+    /**
+     * create nsq broker Address, using pass in JsonNode,
+     * specidied key in function will be used to extract
+     * field to construct Address
+     * @return Address nsq broker Address
+     */
+    private Address createAddress(JsonNode node){
+        final String host = node.get("broadcast_address").asText();
+        final int port = node.get("tcp_port").asInt();
+        final String version = node.get("version").asText();
+        return new Address(host, port, version);
     }
 
     @Override
