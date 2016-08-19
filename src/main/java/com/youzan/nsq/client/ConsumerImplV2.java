@@ -551,6 +551,13 @@ public class ConsumerImplV2 implements Consumer {
 
     @Override
     public void close() {
+        // ===================================================================
+        //                        Gracefully Close
+        // ===================================================================
+        // Application will close the Netty IO EventLoop
+        // Application will close the worker executor of the consumer
+        // Application will all of the TCP-Connections
+        // ===================================================================
         synchronized (lock) {
             started = false;
             closing = true;
