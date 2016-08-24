@@ -9,6 +9,7 @@ import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQNoConnectionException;
+import com.youzan.nsq.client.exception.RetryBusinessException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.MessageFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
@@ -477,17 +478,30 @@ public class ConsumerImplV2 implements Consumer {
      */
     private void consume(final NSQMessage message, final NSQConnection connection) {
         boolean ok = false;
-        int c = 0;
-        while ((c = c + 1) < 2) {
+        boolean retry = false;
+        try {
+            handler.process(message);
+            ok = true;
+        } catch (RetryBusinessException e) {
+            ok = false;
+            retry = true;
+        } catch (Exception e) {
+            ok = false;
+            retry = true;
+            logger.error("Client business has one error. Exception:", e);
+        }
+        if (!ok && retry) {
+            logger.warn("Client has told SDK to do again. {}", message);
             try {
                 handler.process(message);
                 ok = true;
-                break;
             } catch (Exception e) {
                 ok = false;
-                logger.error("Client business has one error. CurrentRetries: {} , Exception:", c, e);
+                retry = false;
+                logger.error("Client business has required SDK to do again, but still has one error. Exception:", e);
             }
         }
+
         // The client commands ReQueue into NSQd.
         final Integer nextConsumingWaiting = message.getNextConsumingInSecond();
         // It is too complex.
