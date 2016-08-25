@@ -606,7 +606,9 @@ public class ConsumerImplV2 implements Consumer {
                     handleResponse(frame, connection);
                 }
             } catch (Exception e) {
-                logger.error("Sending CLS to the connection {} occurs an error. Exception:", connection, e);
+                if (connection.isConnected()) {
+                    logger.error("Sending CLS to the connection {} occurs an error. Exception:", connection, e);
+                }
             } finally {
                 if (connection.isConnected()) {
                     IOUtil.closeQuietly(connection);
