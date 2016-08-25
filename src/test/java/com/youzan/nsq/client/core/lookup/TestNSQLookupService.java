@@ -111,8 +111,7 @@ public class TestNSQLookupService {
         Class lookupClazz = LookupServiceImpl.class;
         Constructor constructor = lookupClazz.getConstructor(String.class);
         LookupServiceImpl lsi = null;
-        //lsi = (LookupServiceImpl) constructor.newInstance("127.0.0.1:2333");
-        lsi = (LookupServiceImpl) constructor.newInstance("nsq-dev.s.qima-inc.com:4161");
+        lsi = (LookupServiceImpl) constructor.newInstance("127.0.0.1:2333");
 
         //fetch the logger, which is a static private
         Field logFld = lookupClazz.getDeclaredField("logger");

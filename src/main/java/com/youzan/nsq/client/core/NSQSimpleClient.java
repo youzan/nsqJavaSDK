@@ -257,8 +257,9 @@ public class NSQSimpleClient implements Client, Closeable {
     }
 
     @Override
-    public void clearDataNode(Address address) {
+    public Set<NSQConnection> clearDataNode(Address address) {
         dataNodes.remove(address);
+        return null;
     }
 
     @Override

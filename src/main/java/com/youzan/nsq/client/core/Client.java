@@ -5,6 +5,7 @@ package com.youzan.nsq.client.core;
 
 import java.io.Closeable;
 import java.util.Random;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,7 +13,6 @@ import org.slf4j.LoggerFactory;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.network.frame.NSQFrame;
-import com.youzan.util.ConcurrentSortedSet;
 
 import io.netty.util.AttributeKey;
 
@@ -54,7 +54,7 @@ public interface Client extends Closeable {
 
     boolean validateHeartbeat(final NSQConnection conn);
 
-    void clearDataNode(Address address);
+    Set<NSQConnection> clearDataNode(Address address);
 
     void close(final NSQConnection conn);
 }

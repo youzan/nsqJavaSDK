@@ -21,7 +21,6 @@ class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         super.channelInactive(ctx);
-        destroy(ctx);
     }
 
     /**
@@ -71,7 +70,7 @@ class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
             if (((IdleStateEvent) evt).state() == IdleState.READER_IDLE) {
                 final NSQConnection conn = ctx.channel().attr(NSQConnection.STATE).get();
                 final Client worker = ctx.channel().attr(Client.STATE).get();
-                if (!worker.validateHeartbeat(conn)) {
+                if (worker != null && conn != null && !worker.validateHeartbeat(conn)) {
                     destroy(ctx);
                 }
             }

@@ -323,6 +323,10 @@ public class ConsumerImplV2 implements Consumer {
         address_2_pool.put(address, pool);
         pool.prepare();
         List<NSQConnection> connections = pool.getConnections();
+        if (connections == null || connections.isEmpty()) {
+            logger.info("TopicSize: {} , ThreadPoolSize4IO: {} , Connection-Size: {} . The pool is empty.", topicSize, manualPoolSize, connectionSize);
+            return;
+        }
         for (int i = 0; i < connectionSize; i++) {
             int k = i % topicArray.length;
             assert k < topicArray.length;
@@ -351,31 +355,35 @@ public class ConsumerImplV2 implements Consumer {
 
     /**
      * No any exception
+     * The method does not close the TCP-Connection
      *
      * @param address the data-node(NSQd)'s address
      */
-    public void clearDataNode(Address address) {
+    public Set<NSQConnection> clearDataNode(Address address) {
         if (address == null) {
-            return;
+            return null;
         }
         if (!address_2_pool.containsKey(address)) {
-            return;
+            return null;
         }
+        final Set<NSQConnection> clearConnections = new HashSet<>();
         final FixedPool pool = address_2_pool.get(address);
         address_2_pool.remove(address);
         if (pool != null) {
             final List<NSQConnection> connections = pool.getConnections();
-            for (NSQConnection connection : connections) {
-                try {
-                    cleanClose(connection);
-                } catch (Exception e) {
-                    logger.error("It can not backoff the connection! Exception:", e);
-                } finally {
-                    connection.close();
+            if (connections != null) {
+                for (NSQConnection connection : connections) {
+                    clearConnections.add(connection);
+                    try {
+                        cleanClose(connection);
+                    } catch (Exception e) {
+                        logger.error("It can not backoff the connection! Exception:", e);
+                    }
                 }
             }
             pool.close();
         }
+        return clearConnections;
     }
 
     @Override
@@ -482,12 +490,13 @@ public class ConsumerImplV2 implements Consumer {
         try {
             handler.process(message);
             ok = true;
+            retry = false;
         } catch (RetryBusinessException e) {
             ok = false;
             retry = true;
         } catch (Exception e) {
             ok = false;
-            retry = true;
+            retry = false;
             logger.error("Client business has one error. Exception:", e);
         }
         if (!ok && retry) {
@@ -575,11 +584,43 @@ public class ConsumerImplV2 implements Consumer {
         synchronized (lock) {
             started = false;
             closing = true;
-            cleanClose();
+            final Set<NSQConnection> connections = cleanClose();
             IOUtil.closeQuietly(simpleClient);
             scheduler.shutdownNow();
+            executor.shutdown();
+            close(connections);
         }
         logger.info("The consumer has been closed.");
+    }
+
+
+    private void disconnectServer(NSQConnection connection) {
+        synchronized (connection) {
+            if (!connection.isConnected()) {
+                // It has been closed
+                return;
+            }
+            try {
+                final NSQFrame frame = connection.commandAndGetResponse(Close.getInstance());
+                if (frame != null) {
+                    handleResponse(frame, connection);
+                }
+            } catch (Exception e) {
+                logger.error("Sending CLS to the connection {} occurs an error. Exception:", connection, e);
+            } finally {
+                if (connection.isConnected()) {
+                    IOUtil.closeQuietly(connection);
+                }
+            }
+        }
+    }
+
+    private void close(Set<NSQConnection> connections) {
+        if (connections != null) {
+            for (NSQConnection connection : connections) {
+                disconnectServer(connection);
+            }
+        }
     }
 
     @ThreadSafe
@@ -587,23 +628,28 @@ public class ConsumerImplV2 implements Consumer {
         synchronized (connection) {
             try {
                 cleanClose(connection);
+                disconnectServer(connection);
             } catch (TimeoutException e) {
-                logger.error("Exception", e);
-            } finally {
-                connection.close();
+                logger.error("Backoff connection {} to the server, TimeoutException", connection);
+                if (connection.isConnected()) {
+                    IOUtil.closeQuietly(connection);
+                }
             }
         }
     }
 
-    private void cleanClose() {
+    private Set<NSQConnection> cleanClose() {
+        final Set<NSQConnection> connections = new HashSet<>();
         final Set<Address> addresses = address_2_pool.keySet();
         if (!addresses.isEmpty()) {
             for (Address address : addresses) {
-                clearDataNode(address);
+                Set<NSQConnection> tmp = clearDataNode(address);
+                connections.addAll(tmp);
             }
         }
         address_2_pool.clear();
         topics.clear();
+        return connections;
     }
 
     @ThreadSafe
@@ -611,11 +657,6 @@ public class ConsumerImplV2 implements Consumer {
         synchronized (connection) {
             if (connection.isConnected()) {
                 backoff(connection);
-                sleep(2);
-                final NSQFrame frame = connection.commandAndGetResponse(Close.getInstance());
-                if (frame != null) {
-                    handleResponse(frame, connection);
-                }
             }
         }
     }

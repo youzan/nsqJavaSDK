@@ -150,7 +150,10 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
 
     @Override
     public void destroyObject(Address address, PooledObject<NSQConnection> p) throws Exception {
-        p.getObject().close();
+        NSQConnection connection = p.getObject();
+        if (connection.isConnected()) {
+            connection.close();
+        }
     }
 
 //    private void clearDataNode(Address address) {

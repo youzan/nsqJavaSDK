@@ -52,6 +52,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     /**
      * initialize NSQConnection to NSQd by sending Identify Command
+     *
      * @throws TimeoutException
      */
     @Override
@@ -86,6 +87,9 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     @Override
     public NSQFrame commandAndGetResponse(final NSQCommand command) throws TimeoutException {
+        if (!channel.isActive()) {
+            throw new TimeoutException("The channel " + channel + " is closed.");
+        }
         final long start = System.currentTimeMillis();
         try {
             long timeout = queryTimeoutInMillisecond - (System.currentTimeMillis() - start);
@@ -165,9 +169,13 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
                 havingNegotiation = false;
                 channel.attr(NSQConnection.STATE).remove();
                 channel.attr(Client.STATE).remove();
-                channel.close();
-                channel.deregister();
-                logger.info("Having closed {} OK!", this);
+                if (channel.isActive()) {
+                    channel.close();
+                    channel.deregister();
+                }
+                if (!channel.isActive()) {
+                    logger.info("Having closed {} OK!", this);
+                }
             } else {
                 logger.error("No channel has be set...");
             }
@@ -241,7 +249,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     @Override
     public String toString() {
         // JDK8
-        return "NSQConnectionImpl [id=" + id + ", havingNegotiation=" + havingNegotiation + ", address=" + address
+        return "NSQConnectionImpl [id=" + id + ", havingNegotiation=" + havingNegotiation + ", closing=" + closing + ", address=" + address
                 + ", channel=" + channel + ", config=" + config + ", queryTimeoutInMillisecond=" + queryTimeoutInMillisecond
                 + "]";
     }
