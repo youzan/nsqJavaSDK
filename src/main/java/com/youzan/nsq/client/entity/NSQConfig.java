@@ -217,13 +217,16 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
+     * the server's heartbeat max-interval is 60 sec
+     *
      * @return the heartbeatIntervalInMillisecond
      */
     public Integer getHeartbeatIntervalInMillisecond() {
+        final int max = 50 * 1000;
         if (heartbeatIntervalInMillisecond == null) {
-            return Integer.valueOf(getMsgTimeoutInMillisecond() / 3);
+            return Math.min(Integer.valueOf(getMsgTimeoutInMillisecond() / 3), max);
         }
-        return heartbeatIntervalInMillisecond;
+        return Math.min(heartbeatIntervalInMillisecond, max);
     }
 
     /**

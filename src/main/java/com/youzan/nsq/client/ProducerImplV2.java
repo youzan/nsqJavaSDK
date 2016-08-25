@@ -264,18 +264,19 @@ public class ProducerImplV2 implements Producer {
     }
 
     @Override
-    public void clearDataNode(Address address) {
+    public Set<NSQConnection> clearDataNode(Address address) {
+        return null;
     }
 
     @Override
     public void close() {
+        IOUtil.closeQuietly(simpleClient);
         if (factory != null) {
             factory.close();
         }
         if (bigPool != null) {
             bigPool.close();
         }
-        IOUtil.closeQuietly(simpleClient);
         scheduler.shutdownNow();
         logger.info("The producer has been closed.");
     }

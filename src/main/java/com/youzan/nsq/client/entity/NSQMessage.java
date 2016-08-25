@@ -83,10 +83,10 @@ public class NSQMessage {
     private final int readableAttempts;
     private final String readableMsgID;
     private String readableContent = null;
-    private Integer nextConsumingInSecond = null;
+    private Integer nextConsumingInSecond = Integer.valueOf(60); // recommend the value is 60 sec
     // 1 seconds
     static int _MIN_NEXT_CONSUMING_IN_SECOND = 1;
-    // 180 days
+    // 180 days ?why 180
     static int _MAX_NEXT_CONSUMING_IN_SECOND = 180 * 24 * 3600;
     // 3 minutes
     static int _DEFAULT_NEXT_CONSUMING_IN_SECOND = 3 * 60;
@@ -179,8 +179,8 @@ public class NSQMessage {
                 throw new IllegalArgumentException(
                         "Message.nextConsumingInSecond is illegal. It is too big." + _MAX_NEXT_CONSUMING_IN_SECOND);
             }
-            this.nextConsumingInSecond = nextConsumingInSecond;
         }
+        this.nextConsumingInSecond = nextConsumingInSecond;
     }
 
     public String newHexString(byte[] bs) {
