@@ -3,6 +3,8 @@ package com.youzan.nsq.client.network.netty;
 import com.youzan.nsq.client.core.Client;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.network.frame.NSQFrame;
+import com.youzan.util.IOUtil;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.timeout.IdleState;
@@ -61,6 +63,7 @@ class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
                 logger.warn("No worker set for {}", ctx.channel());
             }
             logger.warn("The original NSQFrame: {}", msg);
+            destroy(ctx);
         }
     }
 
@@ -88,6 +91,12 @@ class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
         final Client worker = ctx.channel().attr(Client.STATE).get();
         if (worker != null && conn != null) {
             worker.close(conn);
+        } else {
+            final Channel c = ctx.channel();
+            if (c != null) {
+                c.close();
+                c.deregister();
+            }
         }
     }
 }
