@@ -112,7 +112,7 @@ public class ITStableCase {
         consumer.subscribe("JavaTesting-Finish");
         consumer.start();
 
-        for (long now = 0; now < allowedRunDeadline; now = System.currentTimeMillis()) {
+        for (long now = 0; now < (allowedRunDeadline + 10 * 1000); now = System.currentTimeMillis()) {
             try {
                 final NSQMessage message = store.poll(2, TimeUnit.SECONDS);
                 if (message == null) {
