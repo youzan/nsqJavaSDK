@@ -89,6 +89,7 @@ public class ITStableCase {
                 logger.error("Exception", e);
             }
         }
+        logger.info("Exit producing...");
     }
 
     @Test(priority = 12)
@@ -124,6 +125,7 @@ public class ITStableCase {
                 logger.error("Exception", e);
             }
         }
+        logger.info("Exit consuming...");
     }
 
 
