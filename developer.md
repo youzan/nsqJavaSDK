@@ -8,3 +8,8 @@
   * JavaTesting-Producer-Base
   * JavaTesting-ReQueue
   * JavaTesting-Finish
+
+
+## TestNG
+
+ * mvn clean test-compile failsafe:integration-test -PQA -Dfailsafe.suiteXmlFiles=src/test/resources/testng-stable-suite.xml -Dstable=true -Dhours=4
