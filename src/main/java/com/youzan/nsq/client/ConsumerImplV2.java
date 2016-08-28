@@ -326,7 +326,7 @@ public class ConsumerImplV2 implements Consumer {
         pool.prepare();
         List<NSQConnection> connections = pool.getConnections();
         if (connections == null || connections.isEmpty()) {
-            logger.info("TopicSize: {} , ThreadPoolSize4IO: {} , Connection-Size: {} . The pool is empty.", topicSize, manualPoolSize, connectionSize);
+            logger.info("TopicSize: {} , Address: {} , ThreadPoolSize4IO: {} , Connection-Size: {} . The pool is empty.", topicSize, address, manualPoolSize, connectionSize);
             return;
         }
         for (int i = 0; i < connectionSize; i++) {
@@ -352,7 +352,7 @@ public class ConsumerImplV2 implements Consumer {
                 connection.command(currentRdy);
             }
         }
-        logger.info("TopicSize: {} , ThreadPoolSize4IO: {} , Connection-Size: {}", topicSize, manualPoolSize, connectionSize);
+        logger.info("TopicSize: {} , Address: {} , ThreadPoolSize4IO: {} , Connection-Size: {}", topicSize, address, manualPoolSize, connectionSize);
     }
 
     /**
