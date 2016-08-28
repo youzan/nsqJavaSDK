@@ -256,6 +256,7 @@ public class ConsumerImplV2 implements Consumer {
         final Set<Address> except2 = new HashSet<>(oldAddresses);
         except2.removeAll(targetAddresses);
         if (!except2.isEmpty()) {
+            logger.debug("Delete unused data-nodes: {}", except2);
             for (Address address : except2) {
                 clearDataNode(address);
             }
@@ -269,6 +270,7 @@ public class ConsumerImplV2 implements Consumer {
         final Set<Address> except1 = new HashSet<>(targetAddresses);
         except1.removeAll(oldAddresses);
         if (!except1.isEmpty()) {
+            logger.debug("Get new data-nodes: {}", except1);
             for (Address address : except1) {
                 try {
                     final Set<String> topics = address_2_topics.get(address);
@@ -324,7 +326,7 @@ public class ConsumerImplV2 implements Consumer {
         pool.prepare();
         List<NSQConnection> connections = pool.getConnections();
         if (connections == null || connections.isEmpty()) {
-            logger.info("TopicSize: {} , ThreadPoolSize4IO: {} , Connection-Size: {} . The pool is empty.", topicSize, manualPoolSize, connectionSize);
+            logger.info("TopicSize: {} , Address: {} , ThreadPoolSize4IO: {} , Connection-Size: {} . The pool is empty.", topicSize, address, manualPoolSize, connectionSize);
             return;
         }
         for (int i = 0; i < connectionSize; i++) {
@@ -350,7 +352,7 @@ public class ConsumerImplV2 implements Consumer {
                 connection.command(currentRdy);
             }
         }
-        logger.info("TopicSize: {} , ThreadPoolSize4IO: {} , Connection-Size: {}", topicSize, manualPoolSize, connectionSize);
+        logger.info("TopicSize: {} , Address: {} , ThreadPoolSize4IO: {} , Connection-Size: {}", topicSize, address, manualPoolSize, connectionSize);
     }
 
     /**
