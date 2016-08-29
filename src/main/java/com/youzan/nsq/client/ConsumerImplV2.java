@@ -590,6 +590,14 @@ public class ConsumerImplV2 implements Consumer {
             IOUtil.closeQuietly(simpleClient);
             scheduler.shutdownNow();
             executor.shutdown();
+            try {
+                if (!executor.awaitTermination(10, TimeUnit.SECONDS)) {
+                    logger.warn("Client handles a message over 10 sec.");
+                    executor.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
             close(connections);
         }
         logger.info("The consumer has been closed.");
