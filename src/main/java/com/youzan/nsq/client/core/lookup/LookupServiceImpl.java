@@ -200,7 +200,7 @@ public class LookupServiceImpl implements LookupService {
         if(logger.isDebugEnabled()){
             logger.debug("Request to {} responses {}:{}.", url.toString(), con.getResponseCode(), con.getResponseMessage());
         }
-        //jackson handles inputstream close operation
+        //jackson handles InputStream close operation
         JsonNode treeNode = mapper.readTree(con.getInputStream());
         return treeNode;
     }
