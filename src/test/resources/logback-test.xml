@@ -69,7 +69,7 @@
         <appender-ref ref="ERROR" />
     </logger>
     <logger name="io.netty" additivity="false">
-        <appender-ref ref="WARN" />
+        <appender-ref ref="ERROR" />
     </logger>
 
     <root level="DEBUG">

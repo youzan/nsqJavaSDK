@@ -345,11 +345,15 @@ public class ConsumerImplV2 implements Consumer {
                 connection.init();
             } catch (Exception e) {
                 connection.close();
-                throw new NSQNoConnectionException("Creating a connection and having a negotiation fails!", e);
+                if (!closing) {
+                    throw new NSQNoConnectionException("Creating a connection and having a negotiation fails!", e);
+                }
             }
             if (!connection.isConnected()) {
                 connection.close();
-                throw new NSQNoConnectionException("Pool failed in connecting to NSQd!");
+                if (!closing) {
+                    throw new NSQNoConnectionException("Pool failed in connecting to NSQd! Closing: !" + closing);
+                }
             } else {
                 final Sub command = new Sub(topic, config.getConsumerName());
                 final NSQFrame frame = connection.commandAndGetResponse(command);
