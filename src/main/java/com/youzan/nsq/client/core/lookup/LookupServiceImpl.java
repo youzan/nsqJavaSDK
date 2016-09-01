@@ -193,6 +193,7 @@ public class LookupServiceImpl implements LookupService {
      * @return
      */
     private JsonNode readFromUrl(final URL url) throws IOException {
+        logger.debug("Prepare to open HTTP Connection...");
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
         con.setConnectTimeout(5 * 1000);
         con.setReadTimeout(10 * 1000);
