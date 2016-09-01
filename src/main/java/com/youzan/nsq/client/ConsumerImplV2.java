@@ -308,61 +308,63 @@ public class ConsumerImplV2 implements Consumer {
      * @param topics  client cares about the specified topics
      */
     private void connect(Address address, Set<String> topics) throws Exception {
-        if (closing) {
-            return;
-        }
-        if (topics == null || topics.isEmpty()) {
-            return;
-        }
-        final int topicSize = topics.size();
-        final int manualPoolSize = config.getThreadPoolSize4IO();
-        final int connectionSize = manualPoolSize * topicSize;
-        if (connectionSize <= 0) {
-            return;
-        }
-        final String[] topicArray = new String[topicSize];
-        topics.toArray(topicArray);
-        if (connectionSize != manualPoolSize * topicArray.length) {
-            // concurrent problem
-            return;
-        }
+        synchronized (lock) {
+            if (closing) {
+                return;
+            }
+            if (topics == null || topics.isEmpty()) {
+                return;
+            }
+            final int topicSize = topics.size();
+            final int manualPoolSize = config.getThreadPoolSize4IO();
+            final int connectionSize = manualPoolSize * topicSize;
+            if (connectionSize <= 0) {
+                return;
+            }
+            final String[] topicArray = new String[topicSize];
+            topics.toArray(topicArray);
+            if (connectionSize != manualPoolSize * topicArray.length) {
+                // concurrent problem
+                return;
+            }
 
-        final FixedPool pool = new FixedPool(address, connectionSize, this, config);
-        address_2_pool.put(address, pool);
-        pool.prepare();
-        List<NSQConnection> connections = pool.getConnections();
-        if (connections == null || connections.isEmpty()) {
-            logger.info("TopicSize: {} , Address: {} , ThreadPoolSize4IO: {} , Connection-Size: {} . The pool is empty.", topicSize, address, manualPoolSize, connectionSize);
-            return;
-        }
-        for (int i = 0; i < connectionSize; i++) {
-            int k = i % topicArray.length;
-            assert k < topicArray.length;
-            // init( connection, topic ) , let it be a consumer connection
-            final NSQConnection connection = connections.get(i);
-            final String topic = topicArray[k];
-            try {
-                connection.init();
-            } catch (Exception e) {
-                connection.close();
-                if (!closing) {
-                    throw new NSQNoConnectionException("Creating a connection and having a negotiation fails!", e);
+            final FixedPool pool = new FixedPool(address, connectionSize, this, config);
+            address_2_pool.put(address, pool);
+            pool.prepare();
+            List<NSQConnection> connections = pool.getConnections();
+            if (connections == null || connections.isEmpty()) {
+                logger.info("TopicSize: {} , Address: {} , ThreadPoolSize4IO: {} , Connection-Size: {} . The pool is empty.", topicSize, address, manualPoolSize, connectionSize);
+                return;
+            }
+            for (int i = 0; i < connectionSize; i++) {
+                int k = i % topicArray.length;
+                assert k < topicArray.length;
+                // init( connection, topic ) , let it be a consumer connection
+                final NSQConnection connection = connections.get(i);
+                final String topic = topicArray[k];
+                try {
+                    connection.init();
+                } catch (Exception e) {
+                    connection.close();
+                    if (!closing) {
+                        throw new NSQNoConnectionException("Creating a connection and having a negotiation fails!", e);
+                    }
+                }
+                if (!connection.isConnected()) {
+                    connection.close();
+                    if (!closing) {
+                        throw new NSQNoConnectionException("Pool failed in connecting to NSQd! Closing: !" + closing);
+                    }
+                } else {
+                    final Sub command = new Sub(topic, config.getConsumerName());
+                    final NSQFrame frame = connection.commandAndGetResponse(command);
+                    handleResponse(frame, connection);
+                    //as there is no success response from nsq, command is enough here
+                    connection.command(currentRdy);
                 }
             }
-            if (!connection.isConnected()) {
-                connection.close();
-                if (!closing) {
-                    throw new NSQNoConnectionException("Pool failed in connecting to NSQd! Closing: !" + closing);
-                }
-            } else {
-                final Sub command = new Sub(topic, config.getConsumerName());
-                final NSQFrame frame = connection.commandAndGetResponse(command);
-                handleResponse(frame, connection);
-                //as there is no success response from nsq, command is enough here
-                connection.command(currentRdy);
-            }
+            logger.info("TopicSize: {} , Address: {} , ThreadPoolSize4IO: {} , Connection-Size: {}", topicSize, address, manualPoolSize, connectionSize);
         }
-        logger.info("TopicSize: {} , Address: {} , ThreadPoolSize4IO: {} , Connection-Size: {}", topicSize, address, manualPoolSize, connectionSize);
     }
 
     /**
