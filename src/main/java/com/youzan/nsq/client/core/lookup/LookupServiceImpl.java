@@ -217,7 +217,7 @@ public class LookupServiceImpl implements LookupService {
         } catch (Exception e) {
             logger.error("Could not fetch ip or address form local client, should not occur.", e);
         }
-        logger.warn("Fail to connect to NSQ lookup. SDK Client, ip:{} address:{}. Remote lookup:{}. Will kick off another try in 60 seconds.", ip, address, lookup);
+        logger.warn("Fail to connect to NSQ lookup. SDK Client, ip:{} address:{}. Remote lookup:{}. Will kick off another try in some seconds.", ip, address, lookup);
         logger.warn("Nested connection exception stacktrace:", ce);
     }
 
