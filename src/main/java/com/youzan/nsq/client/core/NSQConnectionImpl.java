@@ -86,7 +86,11 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     @Override
     public NSQFrame commandAndGetResponse(final NSQCommand command) throws TimeoutException {
         if (!channel.isActive()) {
-            throw new TimeoutException("The channel " + channel + " is closed.");
+            if (!closing) {
+                throw new TimeoutException("The channel " + channel + " is closed. This is not closing.");
+            } else {
+                throw new TimeoutException("The channel " + channel + " is closed. This is closing.");
+            }
         }
         final long start = System.currentTimeMillis();
         try {
