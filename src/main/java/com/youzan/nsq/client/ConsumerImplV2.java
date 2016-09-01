@@ -149,6 +149,9 @@ public class ConsumerImplV2 implements Consumer {
         scheduler.scheduleWithFixedDelay(new Runnable() {
             @Override
             public void run() {
+                if (closing) {
+                    return;
+                }
                 try {
                     connect();
                 } catch (Exception e) {
@@ -305,6 +308,9 @@ public class ConsumerImplV2 implements Consumer {
      * @param topics  client cares about the specified topics
      */
     private void connect(Address address, Set<String> topics) throws Exception {
+        if (closing) {
+            return;
+        }
         if (topics == null || topics.isEmpty()) {
             return;
         }
