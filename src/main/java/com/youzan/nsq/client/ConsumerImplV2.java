@@ -64,7 +64,7 @@ public class ConsumerImplV2 implements Consumer {
      */
     private final ConcurrentHashMap<Address, FixedPool> address_2_pool = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler = Executors
-            .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
+            .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getSimpleName(), Thread.NORM_PRIORITY));
 
     /*-
       * =========================================================================
@@ -73,7 +73,7 @@ public class ConsumerImplV2 implements Consumer {
     private final MessageHandler handler;
     private final int WORKER_SIZE = Runtime.getRuntime().availableProcessors() * 4;
     private final ExecutorService executor = Executors.newFixedThreadPool(WORKER_SIZE,
-            new NamedThreadFactory(this.getClass().getName() + "-ClientBusiness", Thread.MAX_PRIORITY));
+            new NamedThreadFactory(this.getClass().getSimpleName() + "-ClientBusiness", Thread.MAX_PRIORITY));
     /*-
      *                           Client delegates to me
      * =========================================================================
@@ -528,11 +528,13 @@ public class ConsumerImplV2 implements Consumer {
                 if (nextConsumingWaiting != null) {
                     // ReQueue
                     cmd = new ReQueue(message.getMessageID(), nextConsumingWaiting.intValue());
-                    logger.info("Do a re-queue by SDK that is a default behavior. MessageID: {}", message.getMessageID());
+                    final byte[] id = message.getMessageID();
+                    logger.info("Do a re-queue by SDK that is a default behavior. MessageID: {} , Hex: {}", id, message.newHexString(id));
                 } else {
                     // Finish: client explicitly sets NextConsumingInSecond is null
                     cmd = new Finish(message.getMessageID());
-                    logger.info("Do a finish. MessageID: {}", message.getMessageID());
+                    final byte[] id = message.getMessageID();
+                    logger.info("Do a finish. MessageID: {} , Hex: {}", id, message.newHexString(id));
                 }
             }
         } else {
@@ -542,7 +544,8 @@ public class ConsumerImplV2 implements Consumer {
                 if (nextConsumingWaiting != null) {
                     // ReQueue
                     cmd = new ReQueue(message.getMessageID(), nextConsumingWaiting.intValue());
-                    logger.info("Do a re-queue. MessageID: {}", message.getMessageID());
+                    final byte[] id = message.getMessageID();
+                    logger.info("Do a re-queue. MessageID: {} , Hex: {}", id, message.newHexString(id));
                 }
             } else {
                 // ignore actions
