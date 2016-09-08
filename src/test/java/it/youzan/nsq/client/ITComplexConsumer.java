@@ -106,19 +106,24 @@ public class ITComplexConsumer {
             }
         };
         final NSQConfig config = (NSQConfig) this.config.clone();
-        config.setRdy(2);
+        config.setRdy(20);
         config.setConsumerName(consumerName);
         config.setThreadPoolSize4IO(Math.max(2, Runtime.getRuntime().availableProcessors()));
         consumer4Finish = new ConsumerImplV2(config, handler);
         consumer4Finish.setAutoFinish(false);
         consumer4Finish.subscribe("JavaTesting-Finish");
         consumer4Finish.start();
-        latch.await(1, TimeUnit.MINUTES);
-        List<NSQMessage> received = new ArrayList<>(actualNSQMessages);
+        boolean full = latch.await(1, TimeUnit.MINUTES);
+        final List<NSQMessage> received = new ArrayList<>(actualNSQMessages);
         for (NSQMessage m : received) {
             consumer4Finish.finish(m);
         }
-        Assert.assertEquals(messages4Finish, actualMessages);
+        if (full) {
+            Assert.assertEquals(messages4Finish, actualMessages);
+
+        } else {
+            Assert.assertTrue(false, "Not have got enough messages.");
+        }
     }
 
     @Test(priority = 9, groups = {"ReQueue"})
