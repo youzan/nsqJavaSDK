@@ -94,7 +94,8 @@ public class ITComplexConsumer {
 
     @Test(priority = 9, dependsOnGroups = {"Finish"})
     public void testFinish() throws InterruptedException, NSQException {
-        final CountDownLatch latch = new CountDownLatch(10);
+        final int count = 10;
+        final CountDownLatch latch = new CountDownLatch(count);
         final HashSet<String> actualMessages = new HashSet<>();
         final List<NSQMessage> actualNSQMessages = new ArrayList<>();
         final MessageHandler handler = new MessageHandler() {
@@ -119,6 +120,7 @@ public class ITComplexConsumer {
             consumer4Finish.finish(m);
         }
         if (full) {
+            Assert.assertEquals(count, actualNSQMessages.size());
             Assert.assertEquals(messages4Finish, actualMessages);
         } else {
             Assert.assertTrue(false, "Not have got enough messages.");
