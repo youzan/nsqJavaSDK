@@ -113,14 +113,13 @@ public class ITComplexConsumer {
         consumer4Finish.setAutoFinish(false);
         consumer4Finish.subscribe("JavaTesting-Finish");
         consumer4Finish.start();
-        boolean full = latch.await(1, TimeUnit.MINUTES);
+        boolean full = latch.await(2, TimeUnit.MINUTES);
         final List<NSQMessage> received = new ArrayList<>(actualNSQMessages);
         for (NSQMessage m : received) {
             consumer4Finish.finish(m);
         }
         if (full) {
             Assert.assertEquals(messages4Finish, actualMessages);
-
         } else {
             Assert.assertTrue(false, "Not have got enough messages.");
         }
