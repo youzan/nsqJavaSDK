@@ -64,7 +64,7 @@ public class ConsumerImplV2 implements Consumer {
      */
     private final ConcurrentHashMap<Address, FixedPool> address_2_pool = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler = Executors
-            .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
+            .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getSimpleName(), Thread.NORM_PRIORITY));
 
     /*-
       * =========================================================================
@@ -73,7 +73,7 @@ public class ConsumerImplV2 implements Consumer {
     private final MessageHandler handler;
     private final int WORKER_SIZE = Runtime.getRuntime().availableProcessors() * 4;
     private final ExecutorService executor = Executors.newFixedThreadPool(WORKER_SIZE,
-            new NamedThreadFactory(this.getClass().getName() + "-ClientBusiness", Thread.MAX_PRIORITY));
+            new NamedThreadFactory(this.getClass().getSimpleName() + "-ClientBusiness", Thread.MAX_PRIORITY));
     /*-
      *                           Client delegates to me
      * =========================================================================
@@ -149,6 +149,9 @@ public class ConsumerImplV2 implements Consumer {
         scheduler.scheduleWithFixedDelay(new Runnable() {
             @Override
             public void run() {
+                if (closing) {
+                    return;
+                }
                 try {
                     connect();
                 } catch (Exception e) {
@@ -308,51 +311,60 @@ public class ConsumerImplV2 implements Consumer {
         if (topics == null || topics.isEmpty()) {
             return;
         }
-        final int topicSize = topics.size();
-        final int manualPoolSize = config.getThreadPoolSize4IO();
-        final int connectionSize = manualPoolSize * topicSize;
-        if (connectionSize <= 0) {
-            return;
-        }
-        final String[] topicArray = new String[topicSize];
-        topics.toArray(topicArray);
-        if (connectionSize != manualPoolSize * topicArray.length) {
-            // concurrent problem
-            return;
-        }
+        synchronized (lock) {
+            if (closing) {
+                return;
+            }
+            final int topicSize = topics.size();
+            final int manualPoolSize = config.getThreadPoolSize4IO();
+            final int connectionSize = manualPoolSize * topicSize;
+            if (connectionSize <= 0) {
+                return;
+            }
+            final String[] topicArray = new String[topicSize];
+            topics.toArray(topicArray);
+            if (connectionSize != manualPoolSize * topicArray.length) {
+                // concurrent problem
+                return;
+            }
 
-        final FixedPool pool = new FixedPool(address, connectionSize, this, config);
-        address_2_pool.put(address, pool);
-        pool.prepare();
-        List<NSQConnection> connections = pool.getConnections();
-        if (connections == null || connections.isEmpty()) {
-            logger.info("TopicSize: {} , Address: {} , ThreadPoolSize4IO: {} , Connection-Size: {} . The pool is empty.", topicSize, address, manualPoolSize, connectionSize);
-            return;
-        }
-        for (int i = 0; i < connectionSize; i++) {
-            int k = i % topicArray.length;
-            assert k < topicArray.length;
-            // init( connection, topic ) , let it be a consumer connection
-            final NSQConnection connection = connections.get(i);
-            final String topic = topicArray[k];
-            try {
-                connection.init();
-            } catch (Exception e) {
-                connection.close();
-                throw new NSQNoConnectionException("Creating a connection and having a negotiation fails!", e);
+            final FixedPool pool = new FixedPool(address, connectionSize, this, config);
+            address_2_pool.put(address, pool);
+            pool.prepare();
+            List<NSQConnection> connections = pool.getConnections();
+            if (connections == null || connections.isEmpty()) {
+                logger.info("TopicSize: {} , Address: {} , ThreadPoolSize4IO: {} , Connection-Size: {} . The pool is empty.", topicSize, address, manualPoolSize, connectionSize);
+                return;
             }
-            if (!connection.isConnected()) {
-                connection.close();
-                throw new NSQNoConnectionException("Pool failed in connecting to NSQd!");
-            } else {
-                final Sub command = new Sub(topic, config.getConsumerName());
-                final NSQFrame frame = connection.commandAndGetResponse(command);
-                handleResponse(frame, connection);
-                //as there is no success response from nsq, command is enough here
-                connection.command(currentRdy);
+            for (int i = 0; i < connectionSize; i++) {
+                int k = i % topicArray.length;
+                assert k < topicArray.length;
+                // init( connection, topic ) , let it be a consumer connection
+                final NSQConnection connection = connections.get(i);
+                final String topic = topicArray[k];
+                try {
+                    connection.init();
+                } catch (Exception e) {
+                    connection.close();
+                    if (!closing) {
+                        throw new NSQNoConnectionException("Creating a connection and having a negotiation fails!", e);
+                    }
+                }
+                if (!connection.isConnected()) {
+                    connection.close();
+                    if (!closing) {
+                        throw new NSQNoConnectionException("Pool failed in connecting to NSQd! Closing: !" + closing);
+                    }
+                } else {
+                    final Sub command = new Sub(topic, config.getConsumerName());
+                    final NSQFrame frame = connection.commandAndGetResponse(command);
+                    handleResponse(frame, connection);
+                    //as there is no success response from nsq, command is enough here
+                    connection.command(currentRdy);
+                }
             }
+            logger.info("TopicSize: {} , Address: {} , ThreadPoolSize4IO: {} , Connection-Size: {}", topicSize, address, manualPoolSize, connectionSize);
         }
-        logger.info("TopicSize: {} , Address: {} , ThreadPoolSize4IO: {} , Connection-Size: {}", topicSize, address, manualPoolSize, connectionSize);
     }
 
     /**
@@ -528,11 +540,13 @@ public class ConsumerImplV2 implements Consumer {
                 if (nextConsumingWaiting != null) {
                     // ReQueue
                     cmd = new ReQueue(message.getMessageID(), nextConsumingWaiting.intValue());
-                    logger.info("Do a re-queue by SDK that is a default behavior. MessageID: {}", message.getMessageID());
+                    final byte[] id = message.getMessageID();
+                    logger.info("Do a re-queue by SDK that is a default behavior. MessageID: {} , Hex: {}", id, message.newHexString(id));
                 } else {
                     // Finish: client explicitly sets NextConsumingInSecond is null
                     cmd = new Finish(message.getMessageID());
-                    logger.info("Do a finish. MessageID: {}", message.getMessageID());
+                    final byte[] id = message.getMessageID();
+                    logger.info("Do a finish. MessageID: {} , Hex: {}", id, message.newHexString(id));
                 }
             }
         } else {
@@ -542,7 +556,8 @@ public class ConsumerImplV2 implements Consumer {
                 if (nextConsumingWaiting != null) {
                     // ReQueue
                     cmd = new ReQueue(message.getMessageID(), nextConsumingWaiting.intValue());
-                    logger.info("Do a re-queue. MessageID: {}", message.getMessageID());
+                    final byte[] id = message.getMessageID();
+                    logger.info("Do a re-queue. MessageID: {} , Hex: {}", id, message.newHexString(id));
                 }
             } else {
                 // ignore actions
@@ -590,6 +605,14 @@ public class ConsumerImplV2 implements Consumer {
             IOUtil.closeQuietly(simpleClient);
             scheduler.shutdownNow();
             executor.shutdown();
+            try {
+                if (!executor.awaitTermination(10, TimeUnit.SECONDS)) {
+                    logger.warn("Client handles a message over 10 sec.");
+                    executor.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
             close(connections);
         }
         logger.info("The consumer has been closed.");

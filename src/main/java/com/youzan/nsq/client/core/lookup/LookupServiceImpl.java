@@ -153,7 +153,7 @@ public class LookupServiceImpl implements LookupService {
         try {
             lookupUrl = new URL(url);
             tmpRootNode = readFromUrl(lookupUrl);
-        }catch(ConnectException ce){
+        } catch (ConnectException ce) {
             //got a connection timeout exception(maybe), what we do here is:
             //1. record the ip&addr of both client and server side for trace debug.
             //2. TODO: improve timeout value of jackson parser to give it a retry, record
@@ -161,7 +161,7 @@ public class LookupServiceImpl implements LookupService {
             //   lookup checker run().
             _handleConnectionTimeout(lookup, ce);
             return;
-        }finally {
+        } finally {
             //assign temp root node to rootNode, in both successful case and filed case
             rootNode = tmpRootNode;
         }
@@ -188,33 +188,37 @@ public class LookupServiceImpl implements LookupService {
      * request http GET for pass in URL, then parse response to json, some predefined
      * header properties are added here, like Accept: application/vnd.nsq;
      * stream as json
+     *
      * @param url
      * @return
      */
     private JsonNode readFromUrl(final URL url) throws IOException {
+        logger.debug("Prepare to open HTTP Connection...");
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
+        con.setConnectTimeout(5 * 1000);
+        con.setReadTimeout(10 * 1000);
         //skip that, as GET is default operation
         //con.setRequestMethod("GET");
         //add request header, to support nsq of new version
         con.setRequestProperty("Accept", "application/vnd.nsq; version=1.0");
-        if(logger.isDebugEnabled()){
+        if (logger.isDebugEnabled()) {
             logger.debug("Request to {} responses {}:{}.", url.toString(), con.getResponseCode(), con.getResponseMessage());
         }
-        //jackson handles inputstream close operation
+        //jackson handles InputStream close operation
         JsonNode treeNode = mapper.readTree(con.getInputStream());
         return treeNode;
     }
 
     private void _handleConnectionTimeout(String lookup, ConnectException ce) throws IOException {
-        String ip="EMPTY", address="EMPTY";
+        String ip = "EMPTY", address = "EMPTY";
         try {
             InetAddress addr = InetAddress.getLocalHost();
             ip = addr.getHostAddress().toString();//ip where sdk resides
             address = addr.getHostName().toString();//address where sdk resides
-        }catch(Exception e){
+        } catch (Exception e) {
             logger.error("Could not fetch ip or address form local client, should not occur.", e);
         }
-        logger.warn("Fail to connect to NSQ lookup. SDK Client, ip:{} address:{}. Remote lookup:{}. Will kick off another try in 60 seconds.", ip, address, lookup);
+        logger.warn("Fail to connect to NSQ lookup. SDK Client, ip:{} address:{}. Remote lookup:{}. Will kick off another try in some seconds.", ip, address, lookup);
         logger.warn("Nested connection exception stacktrace:", ce);
     }
 

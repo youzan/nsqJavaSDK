@@ -34,6 +34,7 @@ class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         super.exceptionCaught(ctx, cause);
         destroy(ctx);
+        ctx.close();
     }
 
     /**
@@ -64,6 +65,7 @@ class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
             }
             logger.warn("The original NSQFrame: {}", msg);
             destroy(ctx);
+            ctx.close();
         }
     }
 
