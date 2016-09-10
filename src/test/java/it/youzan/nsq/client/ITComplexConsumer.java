@@ -92,8 +92,8 @@ public class ITComplexConsumer {
         }
     }
 
-    @Test(priority = 9, dependsOnGroups = {"Finish"})
-    public void testFinish() throws InterruptedException, NSQException {
+    @Test(priority = 10, dependsOnGroups = {"Finish"})
+    public void consumeFinish() throws InterruptedException, NSQException {
         final int count = 10;
         final CountDownLatch latch = new CountDownLatch(count);
         final HashSet<String> actualMessages = new HashSet<>();
@@ -107,6 +107,7 @@ public class ITComplexConsumer {
             }
         };
         final NSQConfig config = (NSQConfig) this.config.clone();
+        config.setMsgTimeoutInMillisecond(5 * 60 * 1000);
         config.setRdy(20);
         config.setConsumerName(consumerName);
         config.setThreadPoolSize4IO(Math.max(2, Runtime.getRuntime().availableProcessors()));
@@ -136,8 +137,8 @@ public class ITComplexConsumer {
         }
     }
 
-    @Test(priority = 9, dependsOnGroups = {"ReQueue"})
-    public void testReQueue() throws InterruptedException, NSQException {
+    @Test(priority = 10, dependsOnGroups = {"ReQueue"})
+    public void consumeReQueue() throws InterruptedException, NSQException {
         final CountDownLatch latch = new CountDownLatch(10);
         final MessageHandler handler = new MessageHandler() {
             @Override
