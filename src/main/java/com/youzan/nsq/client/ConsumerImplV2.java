@@ -362,8 +362,8 @@ public class ConsumerImplV2 implements Consumer {
                     //as there is no success response from nsq, command is enough here
                     connection.command(currentRdy);
                 }
+                logger.info("TopicSize: {} , Address: {} , ThreadPoolSize4IO: {} , Connection-Size: {} , Topics: {}", topicSize, address, manualPoolSize, connectionSize, topics);
             }
-            logger.info("TopicSize: {} , Address: {} , ThreadPoolSize4IO: {} , Connection-Size: {}", topicSize, address, manualPoolSize, connectionSize);
         }
     }
 
