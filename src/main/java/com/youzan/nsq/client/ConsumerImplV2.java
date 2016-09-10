@@ -336,6 +336,7 @@ public class ConsumerImplV2 implements Consumer {
                 logger.info("TopicSize: {} , Address: {} , ThreadPoolSize4IO: {} , Connection-Size: {} . The pool is empty.", topicSize, address, manualPoolSize, connectionSize);
                 return;
             }
+            logger.info("TopicSize: {} , Address: {} , ThreadPoolSize4IO: {} , Connection-Size: {} , Topics: {}", topicSize, address, manualPoolSize, connectionSize, topics);
             for (int i = 0; i < connectionSize; i++) {
                 int k = i % topicArray.length;
                 assert k < topicArray.length;
@@ -362,8 +363,8 @@ public class ConsumerImplV2 implements Consumer {
                     //as there is no success response from nsq, command is enough here
                     connection.command(currentRdy);
                 }
-                logger.info("TopicSize: {} , Address: {} , ThreadPoolSize4IO: {} , Connection-Size: {} , Topics: {}", topicSize, address, manualPoolSize, connectionSize, topics);
-            }
+                logger.info("Done. Current connection index: {}", i);
+            } // end loop creating a connection
         }
     }
 
