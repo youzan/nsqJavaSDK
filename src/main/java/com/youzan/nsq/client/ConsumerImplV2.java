@@ -547,7 +547,7 @@ public class ConsumerImplV2 implements Consumer {
                     // Finish: client explicitly sets NextConsumingInSecond is null
                     cmd = new Finish(message.getMessageID());
                     final byte[] id = message.getMessageID();
-                    logger.info("Do a finish. MessageID: {} , Hex: {}", id, message.newHexString(id));
+                    logger.info("Do a Finish by SDK, given that client process handler has failed and next consuming time elapse not specified. MessageID: {} , Hex: {}", id, message.newHexString(id));
                 }
             }
         } else {
