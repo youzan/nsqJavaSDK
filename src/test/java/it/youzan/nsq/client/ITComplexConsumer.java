@@ -123,7 +123,7 @@ public class ITComplexConsumer {
             logger.debug("=========================Finish one: {}", m.newHexString(m.getMessageID()));
         }
         if (full) {
-            Assert.assertEquals(count, actualNSQMessages.size());
+            Assert.assertEquals(actualNSQMessages.size(), count);
             Assert.assertEquals(messages4Finish, actualMessages);
         } else {
             Assert.assertTrue(false, "Not have got enough messages.");
@@ -170,6 +170,7 @@ public class ITComplexConsumer {
 
     @AfterClass
     public void close() {
+        logger.debug("================Begin to close");
         IOUtil.closeQuietly(producer, consumer4ReQueue, consumer4Finish);
     }
 }
