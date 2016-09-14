@@ -123,9 +123,9 @@ public class TestNSQLookupService {
         OutputStreamAppender appender = addByteArrayOutputStreamAppender(log);
         try {
             lsi.start();
-            //main thread sleeps for 20secs in order to give lookup service
+            //main thread sleeps for 60secs in order to give lookup service
             //enough time to run.
-            Thread.sleep(20 * 1000L);
+            Thread.sleep(60 * 1000L);
         } catch (InterruptedException e) {
         }
         ByteArrayOutputStream baos = (ByteArrayOutputStream) appender.getOutputStream();
