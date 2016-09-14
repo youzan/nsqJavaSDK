@@ -117,8 +117,10 @@ public class ITComplexConsumer {
         consumer4Finish.start();
         boolean full = latch.await(2, TimeUnit.MINUTES);
         final List<NSQMessage> received = new ArrayList<>(actualNSQMessages);
+        logger.debug("=======================received: {}", received.size());
         for (NSQMessage m : received) {
             consumer4Finish.finish(m);
+            logger.debug("=========================Finish one: {}", m.newHexString(m.getMessageID()));
         }
         if (full) {
             Assert.assertEquals(count, actualNSQMessages.size());
