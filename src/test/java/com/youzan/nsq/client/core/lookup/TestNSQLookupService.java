@@ -54,12 +54,12 @@ public class TestNSQLookupService {
         }
     }
 
-    private OutputStreamAppender addByteArrayOutputStreamAppender(Logger log){
+    private OutputStreamAppender addByteArrayOutputStreamAppender(Logger log) {
         // Destination stream
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
 
         // Get LoggerContext from SLF4J
-        LoggerContext context = (LoggerContext)LoggerFactory.getILoggerFactory();
+        LoggerContext context = (LoggerContext) LoggerFactory.getILoggerFactory();
 
         // Encoder
         PatternLayoutEncoder encoder = new PatternLayoutEncoder();
@@ -68,15 +68,15 @@ public class TestNSQLookupService {
         encoder.start();
 
         // OutputStreamAppender
-        OutputStreamAppender<ILoggingEvent> appender= new OutputStreamAppender<>();
-        appender.setName( "OutputStream Appender" );
+        OutputStreamAppender<ILoggingEvent> appender = new OutputStreamAppender<>();
+        appender.setName("OutputStream Appender");
         appender.setContext(context);
         appender.setEncoder(encoder);
         appender.setOutputStream(stream);
 
         appender.start();
 
-        ((ch.qos.logback.classic.Logger)log).addAppender(appender);
+        ((ch.qos.logback.classic.Logger) log).addAppender(appender);
         return appender;
     }
 
@@ -97,7 +97,7 @@ public class TestNSQLookupService {
 
         Method readFromURL = lookupClazz.getDeclaredMethod("readFromUrl", URL.class);
         readFromURL.setAccessible(true);
-        JsonNode rootNode = (JsonNode)readFromURL.invoke(lsi, url);
+        JsonNode rootNode = (JsonNode) readFromURL.invoke(lsi, url);
 
         //verify, not ststus_code nor status_txt
         Assert.assertNull(rootNode.get("status_code"), "Response in listlookup service should NOT contain status_code");
@@ -107,6 +107,7 @@ public class TestNSQLookupService {
 
     @Test
     public void makeBadOfLookup4ConnectionTimeoutTrace() throws NoSuchMethodException, NoSuchFieldException, IllegalAccessException, InvocationTargetException, InstantiationException, UnsupportedEncodingException {
+        logger.info("Begin to test a invalid lookup address 127.0.0.1 !");
         //create LookupServiceImpl via reflect, and inject appender into logger
         Class lookupClazz = LookupServiceImpl.class;
         Constructor constructor = lookupClazz.getConstructor(String.class);
@@ -120,13 +121,12 @@ public class TestNSQLookupService {
 
         //add appender to redirect log output
         OutputStreamAppender appender = addByteArrayOutputStreamAppender(log);
-        try{
+        try {
             lsi.start();
-            //main thread sleeps for 90secs in order to give lookup service
+            //main thread sleeps for 20secs in order to give lookup service
             //enough time to run.
-            Thread.sleep(90000l);
-        }catch (InterruptedException e) {
-            e.printStackTrace();
+            Thread.sleep(20 * 1000L);
+        } catch (InterruptedException e) {
         }
         ByteArrayOutputStream baos = (ByteArrayOutputStream) appender.getOutputStream();
         String logOutput = baos.toString("utf-8");
