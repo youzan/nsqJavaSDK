@@ -89,11 +89,12 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
         if (bootstraps.containsKey(address)) {
             bootstrap = bootstraps.get(address);
         } else {
-//            final Long now = Long.valueOf(System.currentTimeMillis());
-//            address_2_bootedTime.putIfAbsent(address, now);
             bootstrap = new Bootstrap();
             bootstraps.putIfAbsent(address, bootstrap);
             bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
+            bootstrap.option(ChannelOption.TCP_NODELAY, true);
+            bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, config.getConnectTimeoutInMillisecond());
+            bootstrap.option(ChannelOption.SO_TIMEOUT, config.getQueryTimeoutInMillisecond());
             bootstrap.group(eventLoopGroup);
             bootstrap.channel(NioSocketChannel.class);
             bootstrap.handler(new NSQClientInitializer());
