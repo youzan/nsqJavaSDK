@@ -4,7 +4,7 @@
 
     <groupId>com.youzan</groupId>
     <artifactId>NSQ-Client</artifactId>
-    <version>2.2.0914-RELEASE</version>
+    <version>2-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>NSQ-Client</name>

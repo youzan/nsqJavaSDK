@@ -161,6 +161,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     @Override
     public void close() {
+        logger.info("Begin to close {}", this);
         synchronized (lock) {
             if (closing) {
                 return;
