@@ -101,6 +101,7 @@ public class ITComplexConsumer {
         final MessageHandler handler = new MessageHandler() {
             @Override
             public void process(NSQMessage message) {
+                logger.debug("======================Be pushed.");
                 latch.countDown();
                 actualMessages.add(message.getReadableContent());
                 actualNSQMessages.add(message);
