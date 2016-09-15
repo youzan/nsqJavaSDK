@@ -111,7 +111,7 @@ public class ITComplexConsumer {
         config.setMsgTimeoutInMillisecond(5 * 60 * 1000);
         config.setRdy(20);
         config.setConsumerName(consumerName);
-        config.setThreadPoolSize4IO(Math.max(2, Runtime.getRuntime().availableProcessors()));
+        config.setThreadPoolSize4IO(1);
         consumer4Finish = new ConsumerImplV2(config, handler);
         consumer4Finish.setAutoFinish(false);
         consumer4Finish.subscribe("JavaTesting-Finish");
