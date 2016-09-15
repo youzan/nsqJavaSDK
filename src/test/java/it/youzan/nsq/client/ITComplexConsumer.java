@@ -116,7 +116,7 @@ public class ITComplexConsumer {
         consumer4Finish.subscribe("JavaTesting-Finish");
         consumer4Finish.start();
         logger.debug("=======================start consumer.... topic : JavaTesting-Finish");
-        boolean full = latch.await(2, TimeUnit.MINUTES);
+        boolean full = latch.await(2 * 60L, TimeUnit.SECONDS);
         final List<NSQMessage> received = new ArrayList<>(actualNSQMessages);
         logger.debug("=======================received: {}", received.size());
         for (NSQMessage m : received) {
