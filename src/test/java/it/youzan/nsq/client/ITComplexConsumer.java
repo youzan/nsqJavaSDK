@@ -102,9 +102,10 @@ public class ITComplexConsumer {
             @Override
             public void process(NSQMessage message) {
                 logger.debug("======================Be pushed.");
-                latch.countDown();
                 actualMessages.add(message.getReadableContent());
                 actualNSQMessages.add(message);
+                // finally
+                latch.countDown();
             }
         };
         final NSQConfig config = (NSQConfig) this.config.clone();
