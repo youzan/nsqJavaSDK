@@ -101,22 +101,24 @@ public class ITComplexConsumer {
         final MessageHandler handler = new MessageHandler() {
             @Override
             public void process(NSQMessage message) {
-                latch.countDown();
+                logger.debug("======================Be pushed.");
                 actualMessages.add(message.getReadableContent());
                 actualNSQMessages.add(message);
+                // finally
+                latch.countDown();
             }
         };
         final NSQConfig config = (NSQConfig) this.config.clone();
         config.setMsgTimeoutInMillisecond(5 * 60 * 1000);
         config.setRdy(20);
         config.setConsumerName(consumerName);
-        config.setThreadPoolSize4IO(Math.max(2, Runtime.getRuntime().availableProcessors()));
+        config.setThreadPoolSize4IO(1);
         consumer4Finish = new ConsumerImplV2(config, handler);
         consumer4Finish.setAutoFinish(false);
         consumer4Finish.subscribe("JavaTesting-Finish");
         consumer4Finish.start();
         logger.debug("=======================start consumer.... topic : JavaTesting-Finish");
-        boolean full = latch.await(2, TimeUnit.MINUTES);
+        boolean full = latch.await(2 * 60L, TimeUnit.SECONDS);
         final List<NSQMessage> received = new ArrayList<>(actualNSQMessages);
         logger.debug("=======================received: {}", received.size());
         for (NSQMessage m : received) {
