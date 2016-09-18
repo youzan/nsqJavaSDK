@@ -194,6 +194,7 @@ public class NSQSimpleClient implements Client, Closeable {
                 } catch (Exception e) {
                     logger.error("Address: {}, Exception:", conn.getAddress(), e);
                 }
+                logger.warn("Error-Frame from {} , frame: {}", conn.getAddress(), frame);
                 break;
             }
             case MESSAGE_FRAME: {
