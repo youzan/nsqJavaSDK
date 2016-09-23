@@ -17,23 +17,4 @@ public interface HasSubscribeStatus {
     }
 
     SubCmdType getSubscribeStatus();
-
-
-    /**
-     * interface to create message for consumer according to pass in subscribe type(SUB, SUB_ORDERED...)
-     * @param msgFrame
-     * @param conn
-     * @param subType
-     * @return
-     */
-    NSQMessage createNSQMessage(final MessageFrame msgFrame, final NSQConnection conn, SubCmdType subType);
-
-    /**
-     * create subscribe command according to pass in subscribe type(SUB, SUB_ORDERED...)
-     * @param subType
-     * @param topic
-     * @param channel
-     * @return
-     */
-    Sub createSubCmd(final SubCmdType subType, Topic topic, String channel);
 }

@@ -1,5 +1,6 @@
 package com.youzan.nsq.client;
 
+import com.youzan.nsq.client.core.LookupAddressUpdate;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
 import com.youzan.nsq.client.core.command.*;
@@ -57,7 +58,7 @@ public class ConsumerImplV2 extends AbstractConsumer {
      * 
      * =========================================================================
      */
-    private final Set<Topic> topics = new HashSet<>(); // client subscribes
+    private final Set<TopicConsumer> topics = new HashSet<>(); // client subscribes
     /*-
       address_2_pool maps NSQd address to connections to topics specified by consumer.
       Basically, consumer subscribe multi-topics to one NSQd, hence there is a mapping
@@ -96,7 +97,7 @@ public class ConsumerImplV2 extends AbstractConsumer {
     public ConsumerImplV2(NSQConfig config, MessageHandler handler) {
         this.config = config;
         this.handler = handler;
-        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses());
+        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(new Long(0l)), new LookupAddressUpdate(config));
 
 
         final int messagesPerBatch = config.getRdy();
@@ -108,7 +109,7 @@ public class ConsumerImplV2 extends AbstractConsumer {
 
     @Override
     public void subscribe(String... topics) {
-        subscribeTopics(topics, PartitionEnable.PARTITION_ID_NO_SPECIFY);
+        subscribeTopics(PartitionEnable.PARTITION_ID_NO_SPECIFY, topics);
     }
 
     @Override
@@ -121,11 +122,11 @@ public class ConsumerImplV2 extends AbstractConsumer {
      * @param topics topics array which consumer interests in
      * @param partitionId partition id which pass in topics array have
      */
-    public void subscribe(String[] topics, int partitionId ) {
-        subscribeTopics(topics, partitionId);
+    public void subscribe(int partitionId, String... topics) {
+        subscribeTopics(partitionId, topics);
     }
 
-    private void subscribeTopics(String[] topics, int partitionId ){
+    private void subscribeTopics(int partitionId, String... topics){
         if (topics == null) {
             return;
         }
@@ -163,39 +164,15 @@ public class ConsumerImplV2 extends AbstractConsumer {
         synchronized (lock) {
             if (!this.started) {
                 // create the pools
+                this.subStatus = this.config.isOrdered() ? SubCmdType.SUB_ORDERED : SubCmdType.SUB;
                 this.simpleClient.start();
                 // -----------------------------------------------------------------
                 //                       First, async keep
-                keepConnecting(SubCmdType.SUB);
-                connect(SubCmdType.SUB);
+                keepConnecting();
+                connect();
                 // -----------------------------------------------------------------
             }
             this.started = true;
-            this.setSubscribeStatus(SubCmdType.SUB);
-        }
-        logger.info("The consumer has been started.");
-    }
-
-    @Override
-    public void startOrdered() throws NSQException {
-        if (this.config.getConsumerName() == null || this.config.getConsumerName().isEmpty()) {
-            throw new IllegalArgumentException("Consumer Name is blank! Please check it!");
-        }
-        if (this.topics.isEmpty()) {
-            logger.warn("Are you kidding me? You do not subscribe any topic.");
-        }
-        synchronized (lock) {
-            if (!this.started) {
-                // create the pools
-                this.simpleClient.start();
-                // -----------------------------------------------------------------
-                //                       First, async keep
-                keepConnecting(SubCmdType.SUB_ORDERED);
-                connect(SubCmdType.SUB_ORDERED);
-                // -----------------------------------------------------------------
-            }
-            this.started = true;
-            this.setSubscribeStatus(SubCmdType.SUB_ORDERED);
         }
         logger.info("The consumer has been started.");
     }
@@ -203,7 +180,7 @@ public class ConsumerImplV2 extends AbstractConsumer {
     /**
      * schedule action
      */
-    private void keepConnecting(final SubCmdType subType) {
+    private void keepConnecting() {
         final int delay = _r.nextInt(60); // seconds
         scheduler.scheduleWithFixedDelay(new Runnable() {
             @Override
@@ -212,7 +189,7 @@ public class ConsumerImplV2 extends AbstractConsumer {
                     return;
                 }
                 try {
-                    connect(subType);
+                    connect();
                 } catch (Exception e) {
                     logger.error("Exception", e);
                 }
@@ -225,7 +202,7 @@ public class ConsumerImplV2 extends AbstractConsumer {
      * Connect to all the brokers with the config, making sure the new is OK
      * and the old is clear.
      */
-    private void connect(final SubCmdType subType) throws NSQException {
+    private void connect() throws NSQException {
         //which equals to: System.currentTimeMillis() - lastConnecting < TimeUnit.SECONDS.toMillis(_INTERVAL_IN_SECOND))
         //rest logic performs only when time elapse larger than _INTERNAL_IN_SECOND
         if (System.currentTimeMillis() < lastConnecting + TimeUnit.SECONDS.toMillis(_INTERVAL_IN_SECOND)) {
@@ -279,7 +256,7 @@ public class ConsumerImplV2 extends AbstractConsumer {
          *                            Get the relationship
          * =====================================================================
          */
-        for (Topic topic : topics) {
+        for (TopicConsumer topic : topics) {
             // maybe a exception occurs
             final ConcurrentSortedSet<Address> dataNodes = simpleClient.getDataNodes(topic);
             final Set<Address> addresses = new TreeSet<>();
@@ -292,7 +269,7 @@ public class ConsumerImplV2 extends AbstractConsumer {
                     tmpTopics = new TreeSet<>();
                     address_2_topics.put(a, tmpTopics);
                 }
-                tmpTopics.add(topic);
+                tmpTopics.add(topic.unwrap());
             }
             targetAddresses.addAll(addresses);
         }
@@ -336,7 +313,7 @@ public class ConsumerImplV2 extends AbstractConsumer {
             for (Address address : except1) {
                 try {
                     final Set<Topic> topics = address_2_topics.get(address);
-                    connect(address, topics, subType);
+                    connect(address, topics);
                 } catch (Exception e) {
                     logger.error("Exception", e);
                     clearDataNode(address);
@@ -366,7 +343,7 @@ public class ConsumerImplV2 extends AbstractConsumer {
      * @param address data-node(NSQd)
      * @param topics  client cares about the specified topics
      */
-    private void connect(Address address, Set<Topic> topics, final SubCmdType subType) throws Exception {
+    private void connect(Address address, Set<Topic> topics) throws Exception {
         if (topics == null || topics.isEmpty()) {
             return;
         }
@@ -416,7 +393,7 @@ public class ConsumerImplV2 extends AbstractConsumer {
                         throw new NSQNoConnectionException("Pool failed in connecting to NSQd! Closing: !" + closing);
                     }
                 } else {
-                    final Sub command = new Sub(topic, config.getConsumerName());
+                    final Sub command = createSubCmd(topic, this.config.getConsumerName());
                     final NSQFrame frame = connection.commandAndGetResponse(command);
                     handleResponse(frame, connection);
                     //as there is no success response from nsq, command is enough here
@@ -425,6 +402,13 @@ public class ConsumerImplV2 extends AbstractConsumer {
                 logger.info("Done. Current connection index: {}", i);
             } // end loop creating a connection
         }
+    }
+
+    private Sub createSubCmd(final Topic topic, String channel){
+        if(this.subStatus == SubCmdType.SUB_ORDERED)
+            return new SubOrdered(topic, channel);
+        else
+            return new Sub(topic, channel);
     }
 
     /**

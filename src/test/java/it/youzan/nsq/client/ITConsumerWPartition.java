@@ -33,7 +33,7 @@ public class ITConsumerWPartition extends AbstractITConsumer{
             }
         });
         consumer.setAutoFinish(true);
-        consumer.subscribe(new String[]{"JavaTesting-Producer-Base"}, 0);
+        consumer.subscribe(0, "JavaTesting-Producer-Base");
         consumer.start();
         Assert.assertTrue(latch.await(1, TimeUnit.MINUTES));
         logger.info("Consumer received {} messages.", received.get());
@@ -61,11 +61,11 @@ public class ITConsumerWPartition extends AbstractITConsumer{
 
 
         recievedNotConsumer.setAutoFinish(true);
-        recievedNotConsumer.subscribe(new String[]{"JavaTesting-Finish"}, 1);
+        recievedNotConsumer.subscribe(1, "JavaTesting-Finish");
         recievedNotConsumer.start();
 
         recievedConsumer.setAutoFinish(true);
-        recievedConsumer.subscribe(new String[]{"JavaTesting-Finish"}, 0);
+        recievedConsumer.subscribe(0, "JavaTesting-Finish");
         recievedConsumer.start();
         Assert.assertTrue(latch.await(1, TimeUnit.MINUTES));
         Assert.assertEquals(received.get(), 10);

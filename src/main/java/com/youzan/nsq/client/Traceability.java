@@ -1,20 +1,16 @@
 package com.youzan.nsq.client;
 
+import com.youzan.nsq.client.entity.Topic;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Created by lin on 16/9/18.
  */
 public interface Traceability {
-    /**
-     * turn on/off traceability
-     * @param flag
-     */
-    void setTrace(boolean flag);
+    static Logger traceLog = LoggerFactory.getLogger("com.youzan.nsq.client.trace");
 
-    /**
-     * indicate if traceability is on
-     * @return
-     */
-    boolean isTraceOn();
+    String getID();
 
     /**
      * set trace ID for traceability, trace id will be converted to 8 byte size
@@ -27,4 +23,6 @@ public interface Traceability {
      * @return
      */
     byte[] getTraceId();
+
+    public boolean isTraceOn(final Topic topic);
 }

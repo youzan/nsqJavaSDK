@@ -21,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.lang.invoke.MethodHandles;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -49,6 +50,10 @@ public class NSQSimpleClient implements Client, Closeable {
 
     public NSQSimpleClient(final String lookupAddresses) {
         this.lookup = new LookupServiceImpl(lookupAddresses);
+    }
+
+    public NSQSimpleClient(final String[] lookupAddresses, final LookupAddressUpdate lookupUpdate) {
+        this.lookup = new LookupServiceImpl(lookupAddresses, lookupUpdate);
     }
 
     @Override

@@ -28,12 +28,10 @@ public interface Consumer extends Client, Closeable {
      *               into a topics collector
      * @param partitionId partition Id that pass in topics have
      */
-    void subscribe(String[] topics, int partitionId);
+    void subscribe(int partitionId, String... topics);
 
     @Override
     void start() throws NSQException;
-
-    void startOrdered() throws NSQException;
 
     void finish(NSQMessage message) throws NSQException;
 

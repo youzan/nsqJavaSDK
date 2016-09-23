@@ -1,5 +1,6 @@
 package com.youzan.nsq.client;
 
+import com.youzan.nsq.client.core.LookupAddressUpdate;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
 import com.youzan.nsq.client.core.command.*;
@@ -57,13 +58,12 @@ public class ProducerImplV2 implements Producer {
     //trace works on update nsq command to insert trace ID into command,
     //producer delegates to trace activities to trace
     private NSQPubTrace trace = new NSQPubTrace();
-
     /**
      * @param config NSQConfig
      */
     public ProducerImplV2(NSQConfig config) {
         this.config = config;
-        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses());
+        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(new Long(0l)), new LookupAddressUpdate(config));
 
         this.poolConfig = new GenericKeyedObjectPoolConfig();
         this.factory = new KeyedPooledConnectionFactory(this.config, this);
@@ -161,10 +161,6 @@ public class ProducerImplV2 implements Producer {
         this.trace.setTraceId(traceID);
     }
 
-    public void setTrace(boolean flag){
-        this.trace.setTrace(flag);
-    }
-
     public void publish(String message, String topic) throws NSQException {
         publish(message.getBytes(IOUtil.DEFAULT_CHARSET), topic);
     }
@@ -221,7 +217,7 @@ public class ProducerImplV2 implements Producer {
             try {
                 final NSQFrame frame = conn.commandAndGetResponse(pub);
                 handleResponse(frame, conn);
-                if(frame.getType() == NSQFrame.FrameType.RESPONSE_FRAME && this.trace.isTraceOn() && pub instanceof HasTraceID){
+                if(frame.getType() == NSQFrame.FrameType.RESPONSE_FRAME && pub instanceof HasTraceID){
                     //gather trace info
                     this.trace.handleFrame(((HasTraceID) pub).getID(), frame);
                 }
@@ -245,29 +241,16 @@ public class ProducerImplV2 implements Producer {
      * @return
      */
     private Pub createPubCmd(final Topic topic, final byte[] messages){
-        if(trace.isTraceOn()) {
+        if(this.config.isOrdered()){
+            return new PubOrdered(topic, messages);
+        }
+        else if(this.trace.isTraceOn(topic)) {
             Pub cmd =  new PubTrace(topic, messages);
             this.trace.insertTraceID(cmd);
             return cmd;
         }else{
             return new Pub(topic, messages);
         }
-    }
-
-    public void publishOrdered(byte[] message, Topic topic) throws NSQException {
-        if (message == null || message.length <= 0) {
-            throw new IllegalArgumentException("Your input message is blank! Please check it!");
-        }
-        if (null == topic || null == topic.getTopicText() || topic.getTopicText().isEmpty()) {
-            throw new IllegalArgumentException("Your input topic name is blank!");
-        }
-        if (!started) {
-            throw new IllegalStateException("Producer must be started before producing messages!");
-        }
-        total.incrementAndGet();
-        final PubOrdered pub = new PubOrdered(topic, message);
-        pub.updateTraceID(this.trace.getTraceId());
-        sendPUB(pub, topic, message);
     }
 
     private void handleResponse(NSQFrame frame, NSQConnection conn) throws NSQException {

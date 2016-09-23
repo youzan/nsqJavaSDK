@@ -3,6 +3,7 @@ package com.youzan.nsq.client.core.lookup;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.youzan.nsq.client.core.LookupAddressUpdate;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQLookupException;
@@ -28,8 +29,9 @@ public class LookupServiceImpl implements LookupService {
 
     private static final Logger logger = LoggerFactory.getLogger(LookupServiceImpl.class);
     private static final long serialVersionUID = 1773482379917817275L;
-    private static final String BROKER_QUERY_W_PARTITION_URL = "http://%s/lookup?topic=%s&access=%s&partition=%s";
-    private static final String BROKER_QUERY_URL = "http://%s/lookup?topic=%s&access=%s";
+    private static final String HTTP_PRO_HEAD = "http://";
+    private static final String BROKER_QUERY_W_PARTITION_URL = "%s/lookup?topic=%s&access=%s&partition=%s";
+    private static final String BROKER_QUERY_URL = "%s/lookup?topic=%s&access=%s";
 
     /**
      * JSON Tool
@@ -41,6 +43,7 @@ public class LookupServiceImpl implements LookupService {
      * the sorted lookup's addresses
      */
     private volatile List<String> addresses;
+    private LookupAddressUpdate lookupUpdate;
     /**
      * Load-Balancing Strategy: round-robin
      */
@@ -74,6 +77,20 @@ public class LookupServiceImpl implements LookupService {
             tmpList.add(address);
         }
         initAddresses(tmpList);
+    }
+
+    public LookupServiceImpl(final String[] addresses, final LookupAddressUpdate lookupUpdate) {
+        if (addresses == null || addresses.length == 0) {
+            throw new IllegalArgumentException("Your input 'addresses' is blank!");
+        }
+        final List<String> tmpList = new ArrayList<>(addresses.length);
+        for (String address : addresses) {
+            address = address.trim();
+            address = address.replace(" ", "");
+            tmpList.add(address);
+        }
+        initAddresses(tmpList);
+        this.lookupUpdate = lookupUpdate;
     }
 
     private void initAddresses(List<String> addresses) {
@@ -132,6 +149,12 @@ public class LookupServiceImpl implements LookupService {
     }
 
     private void newLookupServers() throws IOException {
+        //fetch lookup addresses udpate
+        if(null != this.lookupUpdate) {
+            String[] lookups = this.lookupUpdate.getLookupAddress();
+            initAddresses(Arrays.asList(lookups));
+        }
+
         if (this.addresses == null || this.addresses.isEmpty()) {
             return;
         }
@@ -146,8 +169,10 @@ public class LookupServiceImpl implements LookupService {
             return;
         }
         final int index = ((offset++) & Integer.MAX_VALUE) % this.addresses.size();
-        final String lookup = this.addresses.get(index);
-        final String url = String.format("http://%s/listlookup", lookup);
+        String lookup = this.addresses.get(index);
+        if(!lookup.startsWith(HTTP_PRO_HEAD))
+            lookup = HTTP_PRO_HEAD + lookup;
+        final String url = String.format("%s/listlookup", lookup);
         logger.debug("Begin to get the new lookup servers. LB: Size: {}, Index: {}, From URL: {}",
                 this.addresses.size(), index, url);
         final JsonNode rootNode;
@@ -201,7 +226,6 @@ public class LookupServiceImpl implements LookupService {
         con.setConnectTimeout(5 * 1000);
         con.setReadTimeout(10 * 1000);
         //skip that, as GET is default operation
-        //con.setRequestMethod("GET");
         //add request header, to support nsq of new version
         con.setRequestProperty("Accept", "application/vnd.nsq; version=1.0");
         if (logger.isDebugEnabled()) {
@@ -243,7 +267,9 @@ public class LookupServiceImpl implements LookupService {
          * It is unnecessary to use Atomic/Lock for the variable
          */
         final int index = ((offset++) & Integer.MAX_VALUE) % this.addresses.size();
-        final String lookup = this.addresses.get(index);
+        String lookup = this.addresses.get(index);
+        if(!lookup.startsWith(HTTP_PRO_HEAD))
+            lookup = HTTP_PRO_HEAD + lookup;
         final String url = partitionIdSpecified ?
                 String.format(BROKER_QUERY_W_PARTITION_URL, lookup, topic.getTopicText(), writable ? "w" : "r", topic.getPartitionId()):
                 String.format(BROKER_QUERY_URL, lookup, topic.getTopicText(), writable ? "w" : "r");

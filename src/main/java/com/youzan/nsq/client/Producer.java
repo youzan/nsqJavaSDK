@@ -79,6 +79,4 @@ public interface Producer extends Client, Closeable {
      *specify trace id for current producer
      */
     void setTraceID(long traceId);
-
-    void setTrace(boolean flag);
 }

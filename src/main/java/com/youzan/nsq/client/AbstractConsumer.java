@@ -22,8 +22,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public abstract class AbstractConsumer implements Consumer, HasSubscribeStatus {
 
     private static Logger logger = LoggerFactory.getLogger(AbstractConsumer.class);
-    private Object statusLock = new Object();
-    private SubCmdType subStatus = null;
+    protected SubCmdType subStatus = SubCmdType.SUB;
     private Object traceLock = new Object();
     private AtomicLong latestInternalID = null;
     private AtomicLong latestDiskQueueOffset = null;
@@ -32,13 +31,10 @@ public abstract class AbstractConsumer implements Consumer, HasSubscribeStatus {
     public abstract void subscribe(String... topics);
 
     @Override
-    public abstract void subscribe(String[] topics, int partitionId);
+    public abstract void subscribe(int partitionId, String... topics);
 
     @Override
     public abstract void start() throws NSQException;
-
-    @Override
-    public abstract void startOrdered() throws NSQException;
 
     @Override
     public abstract void finish(NSQMessage message) throws NSQException;
@@ -98,28 +94,10 @@ public abstract class AbstractConsumer implements Consumer, HasSubscribeStatus {
         }
     }
 
-    /**
-     * process subscribe status
-     * @param type
-     */
-    void setSubscribeStatus(SubCmdType type) {
-        if(null == this.subStatus){
-            synchronized(statusLock) {
-                if(null == this.subStatus) {
-                    this.subStatus = type;
-                    this.latestDiskQueueOffset = new AtomicLong(0);
-                    this.latestInternalID = new AtomicLong(0);
-                }
-            }
-        }
-    }
-
-    @Override
     public synchronized SubCmdType getSubscribeStatus() {
         return this.subStatus;
     }
 
-    @Override
     public NSQMessage createNSQMessage(final MessageFrame msgFrame, final NSQConnection conn, SubCmdType subType){
         switch(subType){
             case SUB_ORDERED: {
@@ -129,25 +107,6 @@ public abstract class AbstractConsumer implements Consumer, HasSubscribeStatus {
             default: {
                 return new NSQMessage(msgFrame.getTimestamp(), msgFrame.getAttempts(), msgFrame.getMessageID(),
                         msgFrame.getInternalID(), msgFrame.getTractID(), msgFrame.getMessageBody(), conn.getAddress(), conn.getId());
-            }
-        }
-    }
-
-    @Override
-    /**
-     * function to create subscribe command
-     * @param subType subscribe command type for creation
-     * @param topic   topic for subscribe
-     * @param channel
-     * @return
-     */
-    public Sub createSubCmd(final SubCmdType subType, Topic topic, String channel){
-        switch(subType){
-            case SUB_ORDERED:{
-                return new SubOrdered(topic, channel);
-            }
-            default:{
-                return new Sub(topic, channel);
             }
         }
     }

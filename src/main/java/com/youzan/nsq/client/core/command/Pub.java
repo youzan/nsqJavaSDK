@@ -83,4 +83,8 @@ public class Pub implements NSQCommand, PartitionEnable {
     public byte[] getPartitionIdByte(Topic topic) {
         return null;
     }
+
+    public String toString(){
+        return this.getHeader();
+    }
 }

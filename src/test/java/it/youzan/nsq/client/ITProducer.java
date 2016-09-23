@@ -51,20 +51,10 @@ public class ITProducer {
 
     public void publish() throws NSQException {
         final byte[] message = new byte[64];
-        for (int i = 0; i < 10; i++) {
-        random.nextBytes(message);
-            producer.publish(message, "JavaTesting-Producer-Base");
-        }
-    }
-
-    public void tracePublish() throws NSQException {
-        final byte[] message = new byte[64];
-        for (int i = 0; i < 10; i++) {
-            random.nextBytes(message);
-            producer.setTraceID(1l);
-            producer.publish(message, new Topic("JavaTesting-Producer-Base", 0));
-//            logger.info(info.toString());
-        }
+//        for (int i = 0; i < 10; i++) {
+//            random.nextBytes(message);
+//            producer.publish(message, "JavaTesting-Producer-Base");
+//        }
     }
 
     @AfterClass

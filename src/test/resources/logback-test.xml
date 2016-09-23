@@ -29,6 +29,23 @@
         </encoder>
     </appender>
 
+    <appender name="TraceDEBUG" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>DEBUG</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <file>${LOG_HOME}/trace.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_HOME}/trace.%d{yyyyMMdd}.log</fileNamePattern>
+            <maxHistory>3</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${CONSOLE_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
     <appender name="INFO" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <filter class="ch.qos.logback.classic.filter.LevelFilter">
             <level>INFO</level>
@@ -70,6 +87,9 @@
     </logger>
     <logger name="io.netty" additivity="false">
         <appender-ref ref="ERROR"/>
+    </logger>
+    <logger name="com.youzan.nsq.client.trace">
+        <appender-ref ref="TraceDEBUG"/>
     </logger>
 
     <root level="DEBUG">
