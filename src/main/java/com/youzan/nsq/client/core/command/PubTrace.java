@@ -1,14 +1,11 @@
 package com.youzan.nsq.client.core.command;
 
 import com.youzan.nsq.client.entity.Topic;
-import com.youzan.nsq.client.entity.TraceId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
-import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Created by lin on 16/8/31.
@@ -16,7 +13,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class PubTrace extends Pub implements HasTraceID{
 
     private static final Logger logger = LoggerFactory.getLogger(PubTrace.class);
-    protected byte[] traceId = new byte[0];
+    private byte[] traceId = {0, 0, 0, 0, 0, 0, 0, 0};
     protected UUID id = UUID.randomUUID();
 
     public PubTrace(Topic topic, byte[] data){
@@ -25,7 +22,8 @@ public class PubTrace extends Pub implements HasTraceID{
 
     @Override
     public String getHeader() {
-        return String.format("PUB_TRACE %s%s\n", topic.getTopicText(), topic.hasPartition() ? SPACE_STR + topic.getPartitionId() : "");
+        return String.format("PUB_TRACE %s%s\n", topic.getTopicText(), topic.hasPartition() ?
+                SPACE_STR + topic.getPartitionId() : "");
     }
 
     @Override
@@ -35,17 +33,14 @@ public class PubTrace extends Pub implements HasTraceID{
             //extra 4 byte for traceID and message size value
             int msgSize = header.length + MSG_SIZE;
             //set it as array[0], as we need length 0 for size calculation
-            byte[] traceIDBytes = null;
-            if(this.isTraceIDSet()) {
-                traceIDBytes = this.getTraceId();
-                msgSize += TRACE_ID_SIZE;
-            }
+            byte[] traceIDBytes = this.getTraceId();
+            msgSize += TRACE_ID_SIZE;
             byte[] body = this.getBody().get(0);
             msgSize += body.length;
             ByteBuffer buf = ByteBuffer.allocate(msgSize);
 
             buf.put(header)
-                    .putInt((this.isTraceIDSet() ? TRACE_ID_SIZE : 0) + body.length)
+                    .putInt(( TRACE_ID_SIZE ) + body.length)
                     .put(traceIDBytes)
                     .put(body);
             bytes = buf.array();
@@ -64,7 +59,8 @@ public class PubTrace extends Pub implements HasTraceID{
 
     @Override
     public boolean isTraceIDSet() {
-        return null != this.traceId;
+        ByteBuffer buf = ByteBuffer.wrap(this.traceId);
+        return buf.getLong() != 0l;
     }
 
     @Override
@@ -81,6 +77,6 @@ public class PubTrace extends Pub implements HasTraceID{
     }
 
     public String toString(){
-        return this.getID() + super.toString();
+        return this.getID() + "; " + super.toString();
     }
 }

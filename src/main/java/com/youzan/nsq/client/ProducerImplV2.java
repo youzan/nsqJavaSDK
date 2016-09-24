@@ -57,7 +57,7 @@ public class ProducerImplV2 implements Producer {
     private final NSQSimpleClient simpleClient;
     //trace works on update nsq command to insert trace ID into command,
     //producer delegates to trace activities to trace
-    private NSQPubTrace trace = new NSQPubTrace();
+    private NSQTrace trace = new NSQTrace();
     /**
      * @param config NSQConfig
      */
@@ -83,7 +83,8 @@ public class ProducerImplV2 implements Producer {
             this.poolConfig.setJmxEnabled(true);
             this.poolConfig.setMinEvictableIdleTimeMillis(5 * 60 * 1000);
             this.poolConfig.setSoftMinEvictableIdleTimeMillis(5 * 60 * 1000);
-            this.poolConfig.setTimeBetweenEvictionRunsMillis(1 * 60 * 1000);
+            //1 * 60 * 1000
+            this.poolConfig.setTimeBetweenEvictionRunsMillis(60 * 1000);
             this.poolConfig.setMinIdlePerKey(1);
             this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO() + 1);
             this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO() + 1);
@@ -103,7 +104,7 @@ public class ProducerImplV2 implements Producer {
                     final long allow = System.currentTimeMillis() - 3600 * 1000L;
                     final Set<Topic> expiredTopics = new HashSet<>();
                     for (Map.Entry<Topic, Long> pair : topic_2_lastActiveTime.entrySet()) {
-                        if (pair.getValue().longValue() < allow) {
+                        if (pair.getValue() < allow) {
                             expiredTopics.add(pair.getKey());
                         }
                     }
@@ -132,7 +133,7 @@ public class ProducerImplV2 implements Producer {
      * @throws NSQException that is having done a negotiation
      */
     private NSQConnection getNSQConnection(Topic topic) throws NSQException {
-        final Long now = Long.valueOf(System.currentTimeMillis());
+        final Long now = System.currentTimeMillis();
         topic_2_lastActiveTime.put(topic, now);
         final ConcurrentSortedSet<Address> dataNodes = simpleClient.getDataNodes(topic);
         if (dataNodes.isEmpty()) {
@@ -219,7 +220,7 @@ public class ProducerImplV2 implements Producer {
                 handleResponse(frame, conn);
                 if(frame.getType() == NSQFrame.FrameType.RESPONSE_FRAME && pub instanceof HasTraceID){
                     //gather trace info
-                    this.trace.handleFrame(((HasTraceID) pub).getID(), frame);
+                    this.trace.handleFrame(pub, frame);
                 }
                 success.incrementAndGet();
                 return;
@@ -238,7 +239,7 @@ public class ProducerImplV2 implements Producer {
 
     /**
      * function to create publish command based on traceability
-     * @return
+     * @return Pub command
      */
     private Pub createPubCmd(final Topic topic, final byte[] messages){
         if(this.config.isOrdered()){
@@ -246,6 +247,7 @@ public class ProducerImplV2 implements Producer {
         }
         else if(this.trace.isTraceOn(topic)) {
             Pub cmd =  new PubTrace(topic, messages);
+            this.trace.traceDebug("{} created.", cmd.toString());
             this.trace.insertTraceID(cmd);
             return cmd;
         }else{

@@ -27,7 +27,6 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
-import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -35,11 +34,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Created by lin on 16/9/21.
  */
-public class TraceConfigAgentTest {
+public class TraceConfigAgentTest extends AbstractNSQClientTestcase{
 
     private static Logger logger = LoggerFactory.getLogger(TraceConfigAgentTest.class);
     private Properties props;
-    private static Random ran = new Random();
     private final String topic = "JavaTesting-Producer-Base";
     private final String channel = "BaseConsumer";
     private String nsqdUrl;
@@ -71,58 +69,59 @@ public class TraceConfigAgentTest {
         NSQConfig.setUrls(props.getProperty("urls"));
         NSQConfig.setConfigAgentEnv(props.getProperty("configAgentEnv"));
         NSQConfig.setConfigAgentBackupPath(props.getProperty("backupFilePath"));
-        TraceConfigAgent cAgentMgr = TraceConfigAgent.getInstance();
+        //initialize trace config agent
+        TraceConfigAgent.getInstance();
         Assert.assertEquals(NSQConfig.getConfigAgentEnv(), props.getProperty("configAgentEnv"));
         Assert.assertEquals(NSQConfig.getUrls(), props.getProperty("urls").split(","));
         logger.info(NSQConfig.getTraceAgentConfig().toString());
     }
-
-    @Test
-    /**
-     * test
-     */
-    public void testIsTraceOn() throws IOException, IllegalAccessException, ConfigParserException, InterruptedException {
-        CountDownLatch latch = publishTraceConfig("[{\"key\":\"TestTrace1\",\"value\":\"true\"},{\"key\":\"TestTrace2\",\"value\":\"false\"}]");
-        Assert.assertTrue(latch.await(3, TimeUnit.SECONDS));
-        NSQConfig.setUrls(props.getProperty("urls"));
-        NSQConfig.setConfigAgentEnv(props.getProperty("configAgentEnv"));
-        NSQConfig.setConfigAgentBackupPath(props.getProperty("backupFilePath"));
-        TraceConfigAgent cAgentMgr = TraceConfigAgent.getInstance();
-        logger.info("Trace agent sleeps for 3 sec to wait for subscribe onChanged update...");
-        Thread.sleep(10000l);
-        logger.info("Trace agent awakes.");
-        Assert.assertTrue(
-                cAgentMgr.checkTraced(new Topic("TestTrace1", 1))
-        );
-        Assert.assertTrue(
-                cAgentMgr.checkTraced(new Topic("TestTrace1", 2))
-        );
-        Assert.assertFalse(
-                cAgentMgr.checkTraced(new Topic("TestTrace2", 1))
-        );
-        Assert.assertFalse(
-                cAgentMgr.checkTraced(new Topic("TestTrace2", 2))
-        );
-
-        latch = publishTraceConfig("[{\"key\":\"TestTrace1\",\"value\":\"false\"},{\"key\":\"TestTrace2\",\"value\":\"true\"}]");
-        Assert.assertTrue(latch.await(3, TimeUnit.SECONDS));
-        logger.info("Trace agent sleeps for 3 sec to wait for subscribe onChanged update...");
-        Thread.sleep(10000l);
-        logger.info("Trace agent awakes.");
-        Assert.assertTrue(
-                cAgentMgr.checkTraced(new Topic("TestTrace2", 1))
-        );
-        Assert.assertTrue(
-                cAgentMgr.checkTraced(new Topic("TestTrace2", 2))
-        );
-        Assert.assertFalse(
-                cAgentMgr.checkTraced(new Topic("TestTrace1", 1))
-        );
-        Assert.assertFalse(
-                cAgentMgr.checkTraced(new Topic("TestTrace1", 2))
-        );
-        cAgentMgr.close();
-    }
+//comment out following testcase
+//    @Test
+//    /**
+//     * test
+//     */
+//    public void testIsTraceOn() throws IOException, IllegalAccessException, ConfigParserException, InterruptedException {
+//        CountDownLatch latch = publishTraceConfig("[{\"key\":\"TestTrace1\",\"value\":\"true\"},{\"key\":\"TestTrace2\",\"value\":\"false\"}]");
+//        Assert.assertTrue(latch.await(3, TimeUnit.SECONDS));
+//        NSQConfig.setUrls(props.getProperty("urls"));
+//        NSQConfig.setConfigAgentEnv(props.getProperty("configAgentEnv"));
+//        NSQConfig.setConfigAgentBackupPath(props.getProperty("backupFilePath"));
+//        TraceConfigAgent cAgentMgr = TraceConfigAgent.getInstance();
+//        logger.info("Trace agent sleeps for 3 sec to wait for subscribe onChanged update...");
+//        Thread.sleep(10000L);
+//        logger.info("Trace agent awakes.");
+//        Assert.assertTrue(
+//                cAgentMgr.checkTraced(new Topic("TestTrace1", 1))
+//        );
+//        Assert.assertTrue(
+//                cAgentMgr.checkTraced(new Topic("TestTrace1", 2))
+//        );
+//        Assert.assertFalse(
+//                cAgentMgr.checkTraced(new Topic("TestTrace2", 1))
+//        );
+//        Assert.assertFalse(
+//                cAgentMgr.checkTraced(new Topic("TestTrace2", 2))
+//        );
+//
+//        latch = publishTraceConfig("[{\"key\":\"TestTrace1\",\"value\":\"false\"},{\"key\":\"TestTrace2\",\"value\":\"true\"}]");
+//        Assert.assertTrue(latch.await(3, TimeUnit.SECONDS));
+//        logger.info("Trace agent sleeps for 3 sec to wait for subscribe onChanged update...");
+//        Thread.sleep(10000L);
+//        logger.info("Trace agent awakes.");
+//        Assert.assertTrue(
+//                cAgentMgr.checkTraced(new Topic("TestTrace2", 1))
+//        );
+//        Assert.assertTrue(
+//                cAgentMgr.checkTraced(new Topic("TestTrace2", 2))
+//        );
+//        Assert.assertFalse(
+//                cAgentMgr.checkTraced(new Topic("TestTrace1", 1))
+//        );
+//        Assert.assertFalse(
+//                cAgentMgr.checkTraced(new Topic("TestTrace1", 2))
+//        );
+//        cAgentMgr.close();
+//    }
 
     private boolean emptyChannelTopic(String channel, String topic) throws IOException {
         URL url = new URL(this.nsqdUrl + "/channel/empty?channel=" + channel + "&topic=" + topic);
@@ -197,13 +196,11 @@ public class TraceConfigAgentTest {
 
         Producer producer = new ProducerImplV2(config);
         producer.start();
-        producer.setTraceID(23333l);
-        final byte[] message = new byte[64];
+        //set ID
+        producer.setTraceID(2L);
         int messageNum = 10;
         for(int i=0; i< messageNum; i++) {
-            ran.nextBytes(message);
-            logger.info("message body: {}. ", message);
-            producer.publish(message, "JavaTesting-Producer-Base");
+            producer.publish(("message #" + i).getBytes(), "JavaTesting-Producer-Base");
         }
         producer.close();
 
@@ -242,7 +239,7 @@ public class TraceConfigAgentTest {
             public void process(NSQMessage message) {
                 received.incrementAndGet();
                 logger.info("receive message : {}", message.toString());
-                logger.info("message body: {}. ", message.getMessageBody());
+                logger.info("message body: {}. ", message.getReadableContent());
                 latch.countDown();
             }
         });
@@ -253,5 +250,26 @@ public class TraceConfigAgentTest {
         latch.await(expectedNum * 6, TimeUnit.SECONDS);
         logger.info("Consumer received {} messages in total.", received.get());
         return received.get();
+    }
+
+    @Test
+    /**
+     * publish trace with bad urls, then nsq sdk will switch to backup lookup address
+     */
+    public void testTraceWithBadURL() throws NSQException {
+        String badURL = "http://thisisbadurl:4161";
+        String backupPath = "/tmp/nsqtest/makebadofdccurl.bak";
+        NSQConfig.setUrls(badURL);
+        NSQConfig.setConfigAgentBackupPath(backupPath);
+        NSQConfig config = getNSQConfig();
+        config.setLookupAddresses("http://sqs-qa.s.qima-inc.com:4161");
+
+        Producer producer = TraceConfigAgentTest.createProducer(config);
+        producer.setTraceID(2049L);
+        producer.start();
+        String msg = "testbaddccurl";
+        for(int i=0; i<10; i++)
+            producer.publish(msg.getBytes(), "JavaTesting-Trace");
+        producer.close();
     }
 }

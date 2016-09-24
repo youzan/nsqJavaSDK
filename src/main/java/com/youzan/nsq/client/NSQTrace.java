@@ -3,6 +3,8 @@ package com.youzan.nsq.client;
 import com.youzan.nsq.client.configs.TraceConfigAgent;
 import com.youzan.nsq.client.core.command.HasTraceID;
 import com.youzan.nsq.client.core.command.NSQCommand;
+import com.youzan.nsq.client.core.command.Pub;
+import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.entity.TraceInfo;
 import com.youzan.nsq.client.network.frame.NSQFrame;
@@ -15,17 +17,20 @@ import java.util.UUID;
 /**
  * Created by lin on 16/9/19.
  */
-public class NSQPubTrace implements Traceability, Comparable<Traceability> {
-    private Object agentLock = new Object();
+class NSQTrace implements Traceability, Comparable<Traceability> {
+    private static Logger logger = LoggerFactory.getLogger(NSQTrace.class);
+
+    private final Object agentLock = new Object();
     private TraceConfigAgent agent = TraceConfigAgent.getInstance();
     private UUID id = UUID.randomUUID();
-    private static Logger logger = LoggerFactory.getLogger(NSQPubTrace.class);
+
     //default trace id, which is 0l
-    private Object traceIDLock = new Object();
+    private final Object traceIDLock = new Object();
     private final byte[] traceID = new byte[8];
+    //default value 0l for trace ID
     {
         ByteBuffer buf = ByteBuffer.wrap(traceID);
-        buf.putLong(0l);
+        buf.putLong(0L);
     }
 
     @Override
@@ -63,9 +68,11 @@ public class NSQPubTrace implements Traceability, Comparable<Traceability> {
      */
     public boolean isTraceOn(final Topic topic) {
         TraceConfigAgent agent = this.getAgent();
-        if(null == agent)
+        if(null == agent) {
+            logger.warn("Trace config agent is not initialized.");
             return false;
-        return getAgent().checkTraced(topic);
+        }
+        return agent.checkTraced(topic);
     }
 
     private TraceConfigAgent getAgent(){
@@ -88,12 +95,22 @@ public class NSQPubTrace implements Traceability, Comparable<Traceability> {
     /**
      * print&collect trace info from pub response, as there is no context(mainly topic) to indicate if topic trace is on
      * or not, invoker of this function need to handle that in advance.
-     * @param pubId
-     * @param frame
+     * @param pub Pub command which implements {@Link HasTraceID}
+     * @param frame nsq message frame tp parse trace info from.
      */
-    public void handleFrame(String pubId, NSQFrame frame) {
+    void handleFrame(Pub pub, NSQFrame frame) {
         TraceInfo traceInfo = new TraceInfo(frame);
-        traceLog.debug("Response for PubTrace {} returns: {}", pubId, traceInfo.toString());
+        if(traceLog.isDebugEnabled())
+            traceLog.debug("Response for {} {} returns: {}", pub.getClass().toString(), ((HasTraceID) pub).getID(), traceInfo.toString());
+    }
+
+    /**
+     * handle message from consumer's message incoming.
+     * @param message nsq message
+     */
+    void handleMessage(final NSQMessage message) {
+        if(traceLog.isDebugEnabled())
+            traceLog.debug("Message received: {}", message.toString());
     }
 
     /**
@@ -114,8 +131,9 @@ public class NSQPubTrace implements Traceability, Comparable<Traceability> {
      * log message to trace logger
      * @param msg
      */
-    public void log(String msg){
-        traceLog.debug(msg);
+    void traceDebug(String msg, Object... objs){
+        if(traceLog.isDebugEnabled())
+            traceLog.debug(msg, objs);
     }
 
     @Override

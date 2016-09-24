@@ -1,7 +1,6 @@
 package com.youzan.nsq.client.core.command;
 
 import com.youzan.nsq.client.entity.Topic;
-import com.youzan.nsq.client.entity.TraceId;
 
 /**
  * Created by lin on 16/9/9.

@@ -23,8 +23,8 @@ public class Pub implements NSQCommand, PartitionEnable {
 
     protected final Topic topic;
 
-    protected final List<byte[]> body = new ArrayList<>(1);
-    protected byte[] bytes = null;
+    private final List<byte[]> body = new ArrayList<>(1);
+    byte[] bytes = null;
     /**
      * @param topic
      *            the producer sets a topic name

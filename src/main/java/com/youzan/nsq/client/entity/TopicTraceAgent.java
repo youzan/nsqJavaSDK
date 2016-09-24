@@ -1,21 +1,36 @@
 package com.youzan.nsq.client.entity;
 
 /**
+ * customized topic object for trace switch check
  * Created by lin on 16/9/21.
  */
 public class TopicTraceAgent extends Topic{
-    private Topic nestedTopic;
 
-    public TopicTraceAgent(Topic topic) {
-        super();
-        nestedTopic = topic;
+    public TopicTraceAgent(String topic) {
+        super(topic);
     }
 
     public int hashCode(){
-        return this.nestedTopic.getTopicText().hashCode();
+        return super.getTopicText().hashCode();
     }
 
-    public Topic unwrap(){
-        return this.nestedTopic;
+    @Override
+    public boolean equals(Object obj){
+       if (this == obj) {
+           return true;
+       }
+       if (obj == null) {
+           return false;
+       }
+       if (getClass() != obj.getClass()) {
+           return false;
+       }
+       TopicTraceAgent other = (TopicTraceAgent) obj;
+       if(null == this.getTopicText()){
+           if(null != other.getTopicText()){
+               return false;
+           }
+       }
+       return this.getTopicText().equals(other.getTopicText());
     }
 }

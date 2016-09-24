@@ -58,8 +58,7 @@ public class Sub implements NSQCommand, PartitionEnable {
 
     @Override
     public byte[] getPartitionIdByte(Topic topic) {
-        byte[] partitionBytes = topic.hasPartition() ?
+        return topic.hasPartition() ?
                 (SPACE_STR + String.valueOf(topic.getPartitionId())).getBytes(DEFAULT_CHARSET) : new byte[0];
-        return partitionBytes;
     }
 }

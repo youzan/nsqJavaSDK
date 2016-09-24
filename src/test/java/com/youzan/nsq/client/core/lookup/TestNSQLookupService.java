@@ -28,7 +28,7 @@ import java.util.List;
 public class TestNSQLookupService {
     private static final Logger logger = LoggerFactory.getLogger(TestNSQLookupService.class);
 
-    @DataProvider
+    @DataProvider(name="genIPs")
     public Object[][] generateIPs() {
         Object[][] objs = new Object[2][2];
 

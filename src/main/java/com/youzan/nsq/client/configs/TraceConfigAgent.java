@@ -1,7 +1,6 @@
 package com.youzan.nsq.client.configs;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.youzan.dcc.client.ConfigClient;
 import com.youzan.dcc.client.ConfigClientBuilder;
 import com.youzan.dcc.client.entity.config.Config;
@@ -14,6 +13,8 @@ import com.youzan.dcc.client.util.inetrfaces.ClientConfig;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.entity.TopicTraceAgent;
+import com.youzan.util.LogUtil;
+import com.youzan.util.SystemUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,14 +31,15 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class TraceConfigAgent implements Closeable{
    private static final Logger logger = LoggerFactory.getLogger(TraceConfigAgent.class);
-
+   //Config client to delegate subscribe configs on dcc for trace switches
    private ConfigClient configClient;
-   private static Object LOCK = new Object();
+   //cached trace switches, config client subscribe job write updates into it and {@Link Traceability} implementation read
+   //from it
    private Set<TopicTraceAgent> tracedTopicSet = Collections.newSetFromMap(new ConcurrentHashMap<TopicTraceAgent, Boolean>());
-   private ObjectMapper mapper = new ObjectMapper();
-
-   //instance
+   //singleton instance&lock
+   private static final Object LOCK = new Object();
    private static TraceConfigAgent INSTANCE = null;
+   private static boolean punchLog = false;
 
    /**
     * ConfigAgent works on copying dcc config about topics trace to
@@ -56,22 +58,42 @@ public class TraceConfigAgent implements Closeable{
                 //read config client from static client config in NSQConfig, if either config or urls is specified, throws an exception
                 //create config request
                 try {
+                    //As NSQConfig is invoked here, which means static variables like properties will be initialized before trace agent is invoked
                     INSTANCE = new TraceConfigAgent(NSQConfig.getUrls(), NSQConfig.getTraceAgentConfig());
                     INSTANCE.kickoff();
                 } catch (IOException e) {
-                    logger.error("Fail to read trace config content.", e);
+                    if(punchLog)
+                        LogUtil.warn(logger, "Fail to read trace config content.");
+                    else
+                        logger.warn("Fail to read trace config content.", e);
                     INSTANCE = null;
                 } catch (InvalidConfigException e) {
-                    logger.warn("Trace config " + e.getConfigInProblem() + " is invalid.", e);
+                    if(punchLog)
+                        LogUtil.warn(logger, "Trace config " + e.getConfigInProblem() + " is invalid.");
+                    else
+                        logger.error("Trace config " + e.getConfigInProblem() + " is invalid.");
                     INSTANCE = null;
                 } catch (ConfigParserException e) {
-                    logger.warn("Fail to parse config.", e);
+                    if(punchLog)
+                        LogUtil.warn(logger, "Fail to parse config.");
+                    else
+                        logger.warn("Fail to parse config.", e);
                     INSTANCE = null;
                 } catch (ClientRuntimeException e) {
-                    logger.warn("Could not configure trace config agent.", e);
+                    if(punchLog)
+                        LogUtil.warn(logger, "Could not configure trace config agent.");
+                    else
+                        logger.warn("Could not configure trace config agent.", e);
                     INSTANCE = null;
+                } catch (Exception e) {
+                    if(punchLog)
+                        LogUtil.warn(logger, "Error in the initialization of trace config agent. Pls check dcc config.");
+                    else
+                        logger.warn("Error in the initialization of trace config agent. Pls check dcc config.", e);
+                    INSTANCE = null;
+                }finally {
+                    punchLog = true;
                 }
-
             }
          }
       }
@@ -80,11 +102,14 @@ public class TraceConfigAgent implements Closeable{
 
    /**
     * function to check if pass in topic has traced on
-    * @param topic
-    * @return
+    * @param topic topic for trace lookup
+    * @return true if trace switch is on, other wise false;
     */
    public boolean checkTraced(final Topic topic){
-      return this.tracedTopicSet.contains(new TopicTraceAgent(topic));
+      TopicTraceAgent topicTrace = new TopicTraceAgent(topic.getTopicText());
+      return this.tracedTopicSet.contains(
+              topicTrace
+      );
    }
 
    /**
@@ -93,18 +118,21 @@ public class TraceConfigAgent implements Closeable{
    private void kickoff() throws ConfigParserException, IOException, InvalidConfigException {
        //build config request
        ConfigRequest configRequest = (ConfigRequest) ConfigRequest.create(this.configClient)
-               //TODO: what is the value we finally need
-               .setApp("nsq")
-               .setKey("trace")
+               .setApp(NSQConfig.NSQ_APP_VAL)
+               .setKey(NSQConfig.NSQ_TOPIC_TRACE)
                .build();
       List<ConfigRequest> configs  = new ArrayList<>();
       configs.add(configRequest);
       TracedTopicsCallback callback = new TracedTopicsCallback();
       List<Config> firstConfigs = this.configClient.subscribe(callback, configs);
-      callback.updateTracedTopics(firstConfigs);
+      if(null != firstConfigs && !firstConfigs.isEmpty())
+        callback.updateTracedTopics(firstConfigs);
+       else{
+           logger.warn("dcc remote returns nothing. Pls make sure config exist for config request: {}", configRequest.getContent());
+      }
    }
 
-    @Override
+   @Override
     /**
      * release resource allocated to config client
      */
@@ -113,29 +141,33 @@ public class TraceConfigAgent implements Closeable{
         this.tracedTopicSet.clear();
     }
 
-    class TracedTopicsCallback implements IResponseCallback{
+    private class TracedTopicsCallback implements IResponseCallback{
 
-      public void updateTracedTopics(final List<Config> updatedConfigs) throws InvalidConfigException, IOException {
+      void updateTracedTopics(final List<Config> updatedConfigs) throws InvalidConfigException, IOException {
          Config config = updatedConfigs.get(0);
-         JsonNode root = mapper.readTree(config.getContent());
+         JsonNode root = SystemUtil.getObjectMapper().readTree(config.getContent());
          JsonNode val = root.get("value");
          assert val.isArray();
          for(JsonNode subVal : val){
             String topicName = subVal.get("key").asText();
-            TopicTraceAgent topicTrace = new TopicTraceAgent(new Topic(topicName));
+            TopicTraceAgent topicTrace = new TopicTraceAgent(topicName);
             if(subVal.get("value").asText().equalsIgnoreCase("true")){
                //put subkey(topic name) into set
                tracedTopicSet.add(topicTrace);
+                if(logger.isDebugEnabled())
+                    logger.debug("TopicTrace {} Added.", topicTrace.toString());
             }else{
                //remove it from set
                tracedTopicSet.remove(topicTrace);
+                if(logger.isDebugEnabled())
+                    logger.debug("TopicTrace {} Removed.", topicTrace.toString());
             }
          }
       }
 
       @Override
       public void onChanged(List<Config> updatedConfigs) throws Exception {
-        updateTracedTopics(updatedConfigs);
+          updateTracedTopics(updatedConfigs);
       }
 
       @Override

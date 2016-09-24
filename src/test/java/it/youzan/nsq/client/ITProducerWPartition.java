@@ -26,12 +26,11 @@ public class ITProducerWPartition extends ITProducer{
     public void publishWTopicAndPartition(String topic, int partition) throws NSQException {
         final byte[] message = new byte[64];
         for (int i = 0; i < 10; i++) {
-            random.nextBytes(message);
-            producer.publish(message, new Topic(topic, 0));
+            producer.publish(("Message #" + i).getBytes(), new Topic(topic, partition));
         }
     }
 
     public void testPublishPartition0() throws NSQException {
-        publishWTopicAndPartition("JavaTesting-Finish", 0);
+        publishWTopicAndPartition("JavaTesting-Partition", 0);
     }
 }

@@ -13,7 +13,7 @@ public class LookupAddressUpdate {
         this.config = config;
     }
 
-    public String[] getLookupAddress(){
+    public String[] getNewLookupAddress(){
         Long tmp = new Long(this.lastUpdateTimestamp);
         String[] newLookups = this.config.getLookupAddresses(tmp);
         if(tmp > this.lastUpdateTimestamp){

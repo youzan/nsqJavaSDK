@@ -7,6 +7,9 @@ import com.youzan.nsq.client.entity.Topic;
  * Created by lin on 16/8/17.
  */
 public interface PartitionEnable {
+    //partition id 0, which is the smallest partition in order, according to current partition impl in NSQ
+    public static int PARTITION_ID_SMALLEST = 0;
+    //partition id no specify, which is the largest in order
     public static int PARTITION_ID_NO_SPECIFY = -1;
 
     /**

@@ -21,7 +21,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
-import java.lang.invoke.MethodHandles;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -171,6 +170,21 @@ public class NSQSimpleClient implements Client, Closeable {
         lock.writeLock().lock();
         try {
             topic_2_dataNodes.remove(topic);
+        } finally {
+            lock.writeLock().unlock();
+        }
+    }
+
+    /**
+     * remove multiple topics from simple client, invoker of this function needs to make sure pass in topics are valid
+     * @param topics
+     */
+    public void removeTopics(final Collection<Topic> topics) {
+        assert null != topics;
+        lock.writeLock().lock();
+        try {
+            for(Topic topic:topics)
+                topic_2_dataNodes.remove(topic);
         } finally {
             lock.writeLock().unlock();
         }

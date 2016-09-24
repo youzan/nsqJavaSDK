@@ -1,36 +1,32 @@
-package it.youzan.nsq.client;
+package com.youzan.nsq.client;
 
-import com.youzan.nsq.client.Producer;
-import com.youzan.nsq.client.ProducerImplV2;
 import com.youzan.nsq.client.entity.NSQConfig;
-import com.youzan.nsq.client.exception.NSQException;
-import com.youzan.util.IOUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
-import java.util.Random;
 
-@Test(groups = {"ITProducer-Base"}, priority = 3)
-public class ITProducer {
+/**
+ * basic functions and utilities defined here
+ * Created by lin on 16/9/24.
+ */
+public class AbstractNSQClientTestcase {
 
-    private static final Logger logger = LoggerFactory.getLogger(ITProducer.class);
-
-    protected final Random random = new Random();
+    private static final Logger logger = LoggerFactory.getLogger(AbstractNSQClientTestcase.class);
+    protected Properties props = new Properties();
     protected final NSQConfig config = new NSQConfig();
-    protected Producer producer;
 
     @BeforeClass
-    public void init() throws Exception {
+    public void init() throws IOException {
         logger.info("At {} , initialize: {}", System.currentTimeMillis(), this.getClass().getName());
-        final Properties props = new Properties();
         try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {
             props.load(is);
         }
+        final String env = props.getProperty("env");
+        logger.debug("The environment is {} .", env);
         final String lookups = props.getProperty("lookup-addresses");
         final String connTimeout = props.getProperty("connectTimeoutInMillisecond");
         final String msgTimeoutInMillisecond = props.getProperty("msgTimeoutInMillisecond");
@@ -42,20 +38,22 @@ public class ITProducer {
         config.setMsgTimeoutInMillisecond(Integer.valueOf(msgTimeoutInMillisecond));
         config.setThreadPoolSize4IO(Integer.valueOf(threadPoolSize4IO));
 
-        producer = new ProducerImplV2(config);
-        producer.start();
+        //for trace switch and lookupd update
+        NSQConfig.setUrls(props.getProperty("urls"));
+        NSQConfig.setConfigAgentEnv(props.getProperty("configAgentEnv"));
+        NSQConfig.setConfigAgentBackupPath(props.getProperty("backupFilePath"));
     }
 
-    public void publish() throws NSQException {
-        final byte[] message = new byte[64];
-        for (int i = 0; i < 10; i++) {
-            random.nextBytes("Message #0".getBytes());
-            producer.publish(message, "JavaTesting-Producer-Base");
-        }
+    public NSQConfig getNSQConfig(){
+        return this.config;
     }
 
-    @AfterClass
-    public void close() {
-        IOUtil.closeQuietly(producer);
+    //simple function to give you a producer
+    public static Producer createProducer(final NSQConfig config){
+        return new ProducerImplV2(config);
+    }
+
+    public static Consumer createConsumer(final NSQConfig config, final MessageHandler handler){
+        return new ConsumerImplV2(config, handler);
     }
 }

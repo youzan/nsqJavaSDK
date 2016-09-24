@@ -149,10 +149,12 @@ public class LookupServiceImpl implements LookupService {
     }
 
     private void newLookupServers() throws IOException {
-        //fetch lookup addresses udpate
+        //fetch lookup addresses update
         if(null != this.lookupUpdate) {
-            String[] lookups = this.lookupUpdate.getLookupAddress();
-            initAddresses(Arrays.asList(lookups));
+            String[] lookups = this.lookupUpdate.getNewLookupAddress();
+            //update lookups when it is not null
+            if(null != lookups)
+                initAddresses(Arrays.asList(lookups));
         }
 
         if (this.addresses == null || this.addresses.isEmpty()) {

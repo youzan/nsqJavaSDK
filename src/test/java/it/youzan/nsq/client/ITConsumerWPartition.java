@@ -49,6 +49,7 @@ public class ITConsumerWPartition extends AbstractITConsumer{
             public void process(NSQMessage message) {
                 latch.countDown();
                 received.incrementAndGet();
+                logger.info("Received {}", message.getReadableContent());
             }
         });
 
@@ -61,11 +62,11 @@ public class ITConsumerWPartition extends AbstractITConsumer{
 
 
         recievedNotConsumer.setAutoFinish(true);
-        recievedNotConsumer.subscribe(1, "JavaTesting-Finish");
+        recievedNotConsumer.subscribe(1, "JavaTesting-Partition");
         recievedNotConsumer.start();
 
         recievedConsumer.setAutoFinish(true);
-        recievedConsumer.subscribe(0, "JavaTesting-Finish");
+        recievedConsumer.subscribe(0, "JavaTesting-Partition");
         recievedConsumer.start();
         Assert.assertTrue(latch.await(1, TimeUnit.MINUTES));
         Assert.assertEquals(received.get(), 10);
