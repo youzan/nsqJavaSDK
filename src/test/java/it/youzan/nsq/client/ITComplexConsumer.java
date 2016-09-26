@@ -90,6 +90,7 @@ public class ITComplexConsumer {
             producer.publish(message, "JavaTesting-Finish");
             messages4Finish.add(message);
         }
+        logger.debug("======messages4Finish:{} ", messages4Finish);
     }
 
     @Test(priority = 10, dependsOnGroups = {"Finish"})
@@ -125,6 +126,7 @@ public class ITComplexConsumer {
             consumer4Finish.finish(m);
             logger.debug("=========================Finish one: {}", m.newHexString(m.getMessageID()));
         }
+        logger.debug("======messages4Finish:{} ", messages4Finish);
         if (full) {
             Assert.assertEquals(actualNSQMessages.size(), count);
             Assert.assertEquals(messages4Finish, actualMessages);
