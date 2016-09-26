@@ -103,6 +103,7 @@ public class ITComplexConsumer {
             @Override
             public void process(NSQMessage message) {
                 logger.debug("======================Be pushed.");
+                logger.debug("======================From server {} , {}", message.getReadableContent(), message.getMessageBody());
                 actualMessages.add(message.getReadableContent());
                 actualNSQMessages.add(message);
                 // finally
@@ -129,7 +130,7 @@ public class ITComplexConsumer {
         logger.debug("======messages4Finish:{} ", messages4Finish);
         if (full) {
             Assert.assertEquals(actualNSQMessages.size(), count);
-            Assert.assertEquals(messages4Finish, actualMessages);
+            Assert.assertEquals(actualMessages, messages4Finish);
         } else {
             Assert.assertTrue(false, "Not have got enough messages.");
         }
