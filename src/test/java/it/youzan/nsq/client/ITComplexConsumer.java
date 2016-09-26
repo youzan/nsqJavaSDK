@@ -103,7 +103,7 @@ public class ITComplexConsumer {
             @Override
             public void process(NSQMessage message) {
                 logger.debug("======================Be pushed.");
-                logger.debug("======================From server {} , {}", message.getReadableContent(), message.getMessageBody());
+                logger.debug("======================From server {} , {}, Binary: {}", message.getReadableContent(), message.getMessageBody(), message);
                 actualMessages.add(message.getReadableContent());
                 actualNSQMessages.add(message);
                 // finally
