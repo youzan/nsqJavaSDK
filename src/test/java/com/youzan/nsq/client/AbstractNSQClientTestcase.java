@@ -16,7 +16,7 @@ import java.util.Properties;
 public class AbstractNSQClientTestcase {
 
     private static final Logger logger = LoggerFactory.getLogger(AbstractNSQClientTestcase.class);
-    protected Properties props = new Properties();
+    Properties props = new Properties();
     protected final NSQConfig config = new NSQConfig();
 
     @BeforeClass

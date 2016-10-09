@@ -2,11 +2,15 @@ package com.youzan.nsq.client.dcc;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.youzan.dcc.client.ConfigClient;
 import com.youzan.dcc.client.ConfigClientBuilder;
 import com.youzan.dcc.client.entity.config.Config;
+import com.youzan.dcc.client.entity.config.ConfigRequest;
 import com.youzan.dcc.client.entity.config.interfaces.IResponseCallback;
 import com.youzan.dcc.client.exceptions.ConfigParserException;
+import com.youzan.dcc.client.exceptions.InvalidConfigException;
 import com.youzan.dcc.client.util.inetrfaces.ClientConfig;
 import com.youzan.nsq.client.*;
 import com.youzan.nsq.client.configs.TraceConfigAgent;
@@ -15,6 +19,7 @@ import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQException;
+import com.youzan.util.SystemUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -48,8 +53,13 @@ public class TraceConfigAgentTest extends AbstractNSQClientTestcase{
 
     @BeforeClass
     public void init() throws IOException {
+        super.init();
         props = new Properties();
         try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {
+            props.load(is);
+        }
+
+        try (final InputStream is = getClass().getClassLoader().getResourceAsStream("configClient.properties")) {
             props.load(is);
         }
 
@@ -133,6 +143,89 @@ public class TraceConfigAgentTest extends AbstractNSQClientTestcase{
         con.setRequestMethod("POST");
         int respCode =  con.getResponseCode();
         return respCode == 200;
+    }
+
+    private CountDownLatch deleteLookupAddress(final String app, final String key, final String env, final String[] subkeys) throws IOException, IllegalAccessException, ConfigParserException, InvalidConfigException {
+        //create publisher to dcc remote to upload combination config
+        ConfigClient client = ConfigClientBuilder.create()
+                .setRemoteUrls(props.getProperty("urls").split(","))
+                .setClientConfig(new ClientConfig())
+                .setBackupFilePath(props.getProperty("backupFilePath"))
+                .setConfigEnvironment(props.getProperty("configAgentEnv"))
+                .build();
+
+        //build lookupaddress
+        List<ConfigRequest> requests = new ArrayList<>();
+        for(int i=0; i < subkeys.length; i++){
+            ConfigRequest request = (ConfigRequest) ConfigRequest.create(client)
+                    .setApp(app)
+                    .setKey(key)
+                    .setSubkey(subkeys[i])
+                    .build();
+            requests.add(request);
+        }
+        final CountDownLatch latch = new CountDownLatch(1);
+        client.delete(new IResponseCallback() {
+            @Override
+            public void onChanged(List<Config> list) throws Exception {
+                logger.info("Publish successfully.");
+                latch.countDown();
+            }
+
+            @Override
+            public void onFailed(List<Config> list, Exception e) throws Exception {
+                logger.error("Publish to dcc failed. ", e);
+                Assert.fail("Publish to dcc failed");
+            }
+        }, requests);
+
+        return latch;
+    }
+
+    private CountDownLatch publishLookupAddress(final String app, final String key, final String env, final String[] lookupAddresses) throws IOException, IllegalAccessException, ConfigParserException {
+        //create publisher to dcc remote to upload combination config
+        ConfigClient client = ConfigClientBuilder.create()
+                .setRemoteUrls(props.getProperty("urls").split(","))
+                .setClientConfig(new ClientConfig())
+                .setBackupFilePath(props.getProperty("backupFilePath"))
+                .setConfigEnvironment(props.getProperty("configAgentEnv"))
+                .build();
+
+        //build lookupaddress
+        StringBuilder sb = new StringBuilder();
+        ObjectMapper mapper = SystemUtil.getObjectMapper();
+        ArrayNode array = mapper.createArrayNode();
+        for(int i=0; i<lookupAddresses.length; i++){
+            ObjectNode node = mapper.createObjectNode();
+            node.put("key", "addr"+i);
+            node.put("value", lookupAddresses[i]);
+            array.add(node);
+        }
+        //config for trace
+        Config traceConfig = (Config) Config.create()
+                .setApp(app)
+                .setKey(key)
+                .setEnv(env)
+                .setValue(Config.ConfigType.COMBINATION, array.toString())
+                .build();
+        List<Config> configs = new ArrayList<>();
+        configs.add(traceConfig);
+        final CountDownLatch latch = new CountDownLatch(1);
+        client.publish(new IResponseCallback() {
+            @Override
+            public void onChanged(List<Config> list) throws Exception {
+                logger.info("Publish successfully.");
+                latch.countDown();
+            }
+
+            @Override
+            public void onFailed(List<Config> list, Exception e) throws Exception {
+                logger.error("Publish to dcc failed. ", e);
+                Assert.fail("Publish to dcc failed");
+            }
+        }, configs);
+
+        return latch;
     }
 
     private CountDownLatch publishTraceConfig(String traceContent) throws IOException, IllegalAccessException, ConfigParserException {
@@ -280,7 +373,7 @@ public class TraceConfigAgentTest extends AbstractNSQClientTestcase{
     /**
      * update lookup address update
      */
-    public void testLookupAddressUdpateWBadUrls(){
+    public void testLookupAddressUpdateWBadUrls(){
         //update dcc properties
         NSQConfig.setUrls("http://thisisbadlookup:4161");
         NSQConfig.setConfigAgentEnv(props.getProperty("configAgentEnv"));
@@ -297,7 +390,7 @@ public class TraceConfigAgentTest extends AbstractNSQClientTestcase{
     /**
      * update lookup address update
      */
-    public void testLookupAddressUdpate() throws NoSuchFieldException, IllegalAccessException {
+    public void testLookupAddressUpdate() throws NoSuchFieldException, IllegalAccessException {
         //update dcc properties
         NSQConfig.setUrls(props.getProperty("urls"));
         NSQConfig.setConfigAgentEnv(props.getProperty("configAgentEnv"));
@@ -316,5 +409,44 @@ public class TraceConfigAgentTest extends AbstractNSQClientTestcase{
         privateLongField.setAccessible(true);
         Timestamp timestamp = (Timestamp) privateLongField.get(lookupUpdate);
         Assert.assertNotEquals(timestamp.getTime(), 0L);
+    }
+
+    @Test
+    /**
+     * update lookup address in dcc, sdk need to catch the new lookup addresses
+     */
+    public void testLookupAddressChange() throws IllegalAccessException, ConfigParserException, IOException, InterruptedException, InvalidConfigException {
+        //update dcc properties
+        NSQConfig.setUrls(props.getProperty("urls"));
+        NSQConfig.setConfigAgentEnv(props.getProperty("configAgentEnv"));
+        NSQConfig.setConfigAgentBackupPath(props.getProperty("backupFilePath"));
+
+        config.setLookupAddresses("http://shouldNotBeUsed:4161");
+
+        LookupAddressUpdate lookupUpdate = new LookupAddressUpdate(config);
+        String[] lookupAddr = lookupUpdate.getNewLookupAddress();
+        Assert.assertEquals(lookupAddr[0], "http://sqs-qa.s.qima-inc.com:4161");
+
+        //update kookup address in dcc
+        CountDownLatch latch = publishLookupAddress(props.getProperty("nsq.app.val"), props.getProperty("nsq.lookupd.addr.key"), props.getProperty("nsq.dcc.env"),
+                new String[]{"http://sqs-qa.s.qima-inc.com:4161", "http://sqs-qa.s.qima-inc.com:4161", "http://sqs-qa.s.qima-inc.com:4161"});
+
+        Assert.assertTrue(latch.await(5, TimeUnit.SECONDS));
+
+        logger.info("Sleep for 5 seconds to wait for lookup update...");
+        Thread.sleep(1000L);
+        logger.info("Main thread awake.");
+        lookupAddr = lookupUpdate.getNewLookupAddress();
+        Assert.assertEquals(lookupAddr.length, 3);
+
+        //delete addr1 and addr2 again
+        latch =  deleteLookupAddress(props.getProperty("nsq.app.val"), props.getProperty("nsq.lookupd.addr.key"), props.getProperty("nsq.dcc.env"), new String[]{"addr1", "addr2"});
+        Assert.assertTrue(latch.await(5, TimeUnit.SECONDS));
+
+        logger.info("Sleep for 5 seconds to wait for lookup update...");
+        Thread.sleep(1000L);
+        logger.info("Main thread awake.");
+        lookupAddr = lookupUpdate.getNewLookupAddress();
+        Assert.assertEquals(lookupAddr.length, 1);
     }
 }
