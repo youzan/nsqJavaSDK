@@ -22,6 +22,7 @@ import io.netty.channel.ChannelFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -116,7 +117,6 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
 
     private final NSQSimpleClient simpleClient;
     private final NSQConfig config;
-    private final NSQTrace trace = new NSQTrace();
 
     private SubCmdType subStatus = SubCmdType.SUB;
     private final Object traceLock = new Object();
@@ -130,7 +130,7 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
     public ConsumerImplV2(NSQConfig config, MessageHandler handler) {
         this.config = config;
         this.handler = handler;
-        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(new Long(0l)), new LookupAddressUpdate(config));
+        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(new Timestamp(0L)), new LookupAddressUpdate(config));
 
 
         final int messagesPerBatch = config.getRdy();

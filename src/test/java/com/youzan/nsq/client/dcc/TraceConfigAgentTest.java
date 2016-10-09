@@ -10,6 +10,7 @@ import com.youzan.dcc.client.exceptions.ConfigParserException;
 import com.youzan.dcc.client.util.inetrfaces.ClientConfig;
 import com.youzan.nsq.client.*;
 import com.youzan.nsq.client.configs.TraceConfigAgent;
+import com.youzan.nsq.client.core.LookupAddressUpdate;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.entity.Topic;
@@ -22,8 +23,10 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Field;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -75,53 +78,53 @@ public class TraceConfigAgentTest extends AbstractNSQClientTestcase{
         Assert.assertEquals(NSQConfig.getUrls(), props.getProperty("urls").split(","));
         logger.info(NSQConfig.getTraceAgentConfig().toString());
     }
-//comment out following testcase
-//    @Test
-//    /**
-//     * test
-//     */
-//    public void testIsTraceOn() throws IOException, IllegalAccessException, ConfigParserException, InterruptedException {
-//        CountDownLatch latch = publishTraceConfig("[{\"key\":\"TestTrace1\",\"value\":\"true\"},{\"key\":\"TestTrace2\",\"value\":\"false\"}]");
-//        Assert.assertTrue(latch.await(3, TimeUnit.SECONDS));
-//        NSQConfig.setUrls(props.getProperty("urls"));
-//        NSQConfig.setConfigAgentEnv(props.getProperty("configAgentEnv"));
-//        NSQConfig.setConfigAgentBackupPath(props.getProperty("backupFilePath"));
-//        TraceConfigAgent cAgentMgr = TraceConfigAgent.getInstance();
-//        logger.info("Trace agent sleeps for 3 sec to wait for subscribe onChanged update...");
-//        Thread.sleep(10000L);
-//        logger.info("Trace agent awakes.");
-//        Assert.assertTrue(
-//                cAgentMgr.checkTraced(new Topic("TestTrace1", 1))
-//        );
-//        Assert.assertTrue(
-//                cAgentMgr.checkTraced(new Topic("TestTrace1", 2))
-//        );
-//        Assert.assertFalse(
-//                cAgentMgr.checkTraced(new Topic("TestTrace2", 1))
-//        );
-//        Assert.assertFalse(
-//                cAgentMgr.checkTraced(new Topic("TestTrace2", 2))
-//        );
-//
-//        latch = publishTraceConfig("[{\"key\":\"TestTrace1\",\"value\":\"false\"},{\"key\":\"TestTrace2\",\"value\":\"true\"}]");
-//        Assert.assertTrue(latch.await(3, TimeUnit.SECONDS));
-//        logger.info("Trace agent sleeps for 3 sec to wait for subscribe onChanged update...");
-//        Thread.sleep(10000L);
-//        logger.info("Trace agent awakes.");
-//        Assert.assertTrue(
-//                cAgentMgr.checkTraced(new Topic("TestTrace2", 1))
-//        );
-//        Assert.assertTrue(
-//                cAgentMgr.checkTraced(new Topic("TestTrace2", 2))
-//        );
-//        Assert.assertFalse(
-//                cAgentMgr.checkTraced(new Topic("TestTrace1", 1))
-//        );
-//        Assert.assertFalse(
-//                cAgentMgr.checkTraced(new Topic("TestTrace1", 2))
-//        );
-//        cAgentMgr.close();
-//    }
+
+    @Test
+    /**
+     * test
+     */
+    public void testIsTraceOn() throws IOException, IllegalAccessException, ConfigParserException, InterruptedException {
+        CountDownLatch latch = publishTraceConfig("[{\"key\":\"TestTrace1\",\"value\":\"true\"},{\"key\":\"TestTrace2\",\"value\":\"false\"}]");
+        Assert.assertTrue(latch.await(3, TimeUnit.SECONDS));
+        NSQConfig.setUrls(props.getProperty("urls"));
+        NSQConfig.setConfigAgentEnv(props.getProperty("configAgentEnv"));
+        NSQConfig.setConfigAgentBackupPath(props.getProperty("backupFilePath"));
+        TraceConfigAgent cAgentMgr = TraceConfigAgent.getInstance();
+        logger.info("Trace agent sleeps for 3 sec to wait for subscribe onChanged update...");
+        Thread.sleep(3000L);
+        logger.info("Trace agent awakes.");
+        Assert.assertTrue(
+                cAgentMgr.checkTraced(new Topic("TestTrace1", 1))
+        );
+        Assert.assertTrue(
+                cAgentMgr.checkTraced(new Topic("TestTrace1", 2))
+        );
+        Assert.assertFalse(
+                cAgentMgr.checkTraced(new Topic("TestTrace2", 1))
+        );
+        Assert.assertFalse(
+                cAgentMgr.checkTraced(new Topic("TestTrace2", 2))
+        );
+
+        latch = publishTraceConfig("[{\"key\":\"TestTrace1\",\"value\":\"false\"},{\"key\":\"TestTrace2\",\"value\":\"true\"}]");
+        Assert.assertTrue(latch.await(3, TimeUnit.SECONDS));
+        logger.info("Trace agent sleeps for 3 sec to wait for subscribe onChanged update...");
+        Thread.sleep(3000L);
+        logger.info("Trace agent awakes.");
+        Assert.assertTrue(
+                cAgentMgr.checkTraced(new Topic("TestTrace2", 1))
+        );
+        Assert.assertTrue(
+                cAgentMgr.checkTraced(new Topic("TestTrace2", 2))
+        );
+        Assert.assertFalse(
+                cAgentMgr.checkTraced(new Topic("TestTrace1", 1))
+        );
+        Assert.assertFalse(
+                cAgentMgr.checkTraced(new Topic("TestTrace1", 2))
+        );
+        cAgentMgr.close();
+    }
 
     private boolean emptyChannelTopic(String channel, String topic) throws IOException {
         URL url = new URL(this.nsqdUrl + "/channel/empty?channel=" + channel + "&topic=" + topic);
@@ -271,5 +274,47 @@ public class TraceConfigAgentTest extends AbstractNSQClientTestcase{
         for(int i=0; i<10; i++)
             producer.publish(msg.getBytes(), "JavaTesting-Trace");
         producer.close();
+    }
+
+    @Test
+    /**
+     * update lookup address update
+     */
+    public void testLookupAddressUdpateWBadUrls(){
+        //update dcc properties
+        NSQConfig.setUrls("http://thisisbadlookup:4161");
+        NSQConfig.setConfigAgentEnv(props.getProperty("configAgentEnv"));
+        NSQConfig.setConfigAgentBackupPath(props.getProperty("backupFilePath"));
+
+        config.setLookupAddresses("http://sqs-qa.s.qima-inc.com:4161");
+
+        LookupAddressUpdate lookupUpdate = new LookupAddressUpdate(config);
+        String[] lookupAddr = lookupUpdate.getNewLookupAddress();
+        Assert.assertEquals(lookupAddr[0], "http://sqs-qa.s.qima-inc.com:4161");
+    }
+
+    @Test
+    /**
+     * update lookup address update
+     */
+    public void testLookupAddressUdpate() throws NoSuchFieldException, IllegalAccessException {
+        //update dcc properties
+        NSQConfig.setUrls(props.getProperty("urls"));
+        NSQConfig.setConfigAgentEnv(props.getProperty("configAgentEnv"));
+        NSQConfig.setConfigAgentBackupPath(props.getProperty("backupFilePath"));
+
+        config.setLookupAddresses("http://shouldNotBeUsed:4161");
+
+        LookupAddressUpdate lookupUpdate = new LookupAddressUpdate(config);
+        String[] lookupAddr = lookupUpdate.getNewLookupAddress();
+        Assert.assertEquals(lookupAddr[0], "http://sqs-qa.s.qima-inc.com:4161");
+
+        //hack with reflection to check if lastUpdateTimestamp changes
+        Field privateLongField = LookupAddressUpdate.class.
+                getDeclaredField("lastUpdateTimestamp");
+
+        privateLongField.setAccessible(true);
+        Timestamp timestamp = (Timestamp) privateLongField.get(lookupUpdate);
+        Assert.assertNotEquals(timestamp.getTime(), 0L);
     }
 }

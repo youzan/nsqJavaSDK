@@ -1,16 +1,6 @@
 package com.youzan.nsq.client.entity;
 
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Properties;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.youzan.dcc.client.ConfigClient;
 import com.youzan.dcc.client.ConfigClientBuilder;
 import com.youzan.dcc.client.entity.config.Config;
@@ -19,16 +9,24 @@ import com.youzan.dcc.client.entity.config.interfaces.IResponseCallback;
 import com.youzan.dcc.client.exceptions.ConfigParserException;
 import com.youzan.dcc.client.exceptions.InvalidConfigException;
 import com.youzan.dcc.client.util.inetrfaces.ClientConfig;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.youzan.nsq.client.Version;
 import com.youzan.util.HostUtil;
 import com.youzan.util.IPUtil;
 import com.youzan.util.NotThreadSafe;
 import com.youzan.util.SystemUtil;
-
 import io.netty.handler.ssl.SslContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * It is used for Producer or Consumer, and not both two.
@@ -53,7 +51,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * One lookup cluster
      */
     private String[] backupLookupAddresses;
-    private volatile static long lookupAddrUpdated = 0l;
+    private volatile static Timestamp lookupAddrUpdated  = new Timestamp(0L);
     private static String[] lookupAddresses;
     /**
      * In NSQ, it is a channel.
@@ -366,7 +364,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     private static void updateLookupAddresses(final String[] newLookupList){
         NSQConfig.lookupAddresses = newLookupList;
-        NSQConfig.lookupAddrUpdated = System.currentTimeMillis();
+        NSQConfig.lookupAddrUpdated.setTime(System.currentTimeMillis());
     }
 
     /**
@@ -379,14 +377,14 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      *                        updateTimestamp.
      * @return the lookupAddresses
      */
-    public String[] getLookupAddresses(Long updateTimeStamp) {
+    public String[] getLookupAddresses(Timestamp updateTimeStamp) {
         kickOff();
         if(!NSQConfig.kickOff){
             logger.warn("lookup addresses from config server not available. Use backup look up address passed in by user.");
             //try with backup lookup address
             return this.backupLookupAddresses;
-        } else if(NSQConfig.lookupAddrUpdated > updateTimeStamp){
-            updateTimeStamp = NSQConfig.lookupAddrUpdated;
+        } else if(NSQConfig.lookupAddrUpdated.after(updateTimeStamp)){
+            updateTimeStamp.setTime(NSQConfig.lookupAddrUpdated.getTime());
             return NSQConfig.lookupAddresses;
         }
         //lookup info is not updated

@@ -17,6 +17,7 @@ import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.sql.Timestamp;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -63,7 +64,7 @@ public class ProducerImplV2 implements Producer {
      */
     public ProducerImplV2(NSQConfig config) {
         this.config = config;
-        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(new Long(0l)), new LookupAddressUpdate(config));
+        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(new Timestamp(0L)), new LookupAddressUpdate(config));
 
         this.poolConfig = new GenericKeyedObjectPoolConfig();
         this.factory = new KeyedPooledConnectionFactory(this.config, this);

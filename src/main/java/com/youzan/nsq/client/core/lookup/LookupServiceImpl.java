@@ -219,8 +219,8 @@ public class LookupServiceImpl implements LookupService {
      * header properties are added here, like Accept: application/vnd.nsq;
      * stream as json
      *
-     * @param url
-     * @return
+     * @param url url of json resource
+     * @return jsonNode
      */
     private JsonNode readFromUrl(final URL url) throws IOException {
         logger.debug("Prepare to open HTTP Connection...");
@@ -234,8 +234,7 @@ public class LookupServiceImpl implements LookupService {
             logger.debug("Request to {} responses {}:{}.", url.toString(), con.getResponseCode(), con.getResponseMessage());
         }
         //jackson handles InputStream close operation
-        JsonNode treeNode = mapper.readTree(con.getInputStream());
-        return treeNode;
+        return mapper.readTree(con.getInputStream());
     }
 
     private void _handleConnectionTimeout(String lookup, ConnectException ce) throws IOException {
@@ -261,7 +260,7 @@ public class LookupServiceImpl implements LookupService {
         if (null == topic || null == topic.getTopicText() || topic.getTopicText().isEmpty()) {
             throw new NSQLookupException("Your input topic is blank!");
         }
-        boolean partitionIdSpecified = topic.hasPartition() ? true : false;
+        boolean partitionIdSpecified = topic.hasPartition();
 
         final SortedSet<Address> dataNodes = new TreeSet<>();
         assert null != this.addresses;
@@ -284,12 +283,12 @@ public class LookupServiceImpl implements LookupService {
                 what need here is creating a mapping, from broker address to partition id
              */
             if(partitionIdSpecified) {
-                long start = 0l;
+                long start = 0L;
                 //performance debug purpose
                 if(logger.isDebugEnabled()) start = System.currentTimeMillis();
                 final JsonNode partitions = rootNode.get("partitions");
                 if (null != partitions) {
-                    Map<String, Address> addrStr_2_addr_set = new HashMap();
+                    Map<String, Address> addrStr_2_addr_set = new HashMap<>();
                     Iterator<String> irt = partitions.fieldNames();
                     while (irt.hasNext()) {
                         String parId = irt.next();
