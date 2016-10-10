@@ -20,7 +20,7 @@ public class ITProducer {
 
     private static final Logger logger = LoggerFactory.getLogger(ITProducer.class);
 
-    protected final Random random = new Random();
+    final Random random = new Random();
     protected final NSQConfig config = new NSQConfig();
     protected Producer producer;
 

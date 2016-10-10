@@ -626,8 +626,8 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
      * @param connection a NSQConnection
      */
     private void consume(final NSQMessage message, final NSQConnection connection) {
-        boolean ok = false;
-        boolean retry = false;
+        boolean ok;
+        boolean retry;
         try {
             handler.process(message);
             ok = true;

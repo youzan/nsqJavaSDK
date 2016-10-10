@@ -150,7 +150,6 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     /*-
      * ==========================dcc agent for lookup discovery=================
-     * DORAEMON: if there is unified configs for dcc connection, why don't we has one static lookupSubscriber??
      */
     private static final Object lookupSubscriberLock = new Object();
     private static ConfigClient lookupSubscriber;

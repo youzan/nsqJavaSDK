@@ -91,6 +91,9 @@
     <logger name="com.youzan.dcc" level="WARN" additivity="false">
         <appender-ref ref="ERROR"/>
     </logger>
+    <logger name="com.youzan.nsq.client.core.lookup.LookupServiceImpl" level="WARN" additivity="false">
+        <appender-ref ref="ERROR"/>
+    </logger>
     <logger name="com.youzan.nsq.client.trace" additivity="false">
         <appender-ref ref="TraceDEBUG"/>
     </logger>
