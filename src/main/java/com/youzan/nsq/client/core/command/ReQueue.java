@@ -51,7 +51,7 @@ public class ReQueue implements NSQCommand, PartitionEnable {
     /**
      * NOT implemented
      * @param topic
-     * @return
+     * @return null
      */
     @Override
     public byte[] getPartitionIdByte(Topic topic) {

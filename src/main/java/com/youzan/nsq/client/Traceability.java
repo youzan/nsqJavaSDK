@@ -20,7 +20,7 @@ public interface Traceability {
 
     /**
      * return tracce id in 8 byte size
-     * @return
+     * @return trace ID
      */
     byte[] getTraceId();
 

@@ -914,7 +914,7 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
 
     /**
      * fetch topics set, for test purpose.
-     * @return
+     * @return topics set
      */
     private SortedSet<Topic> getTopics(){
         return this.topics;

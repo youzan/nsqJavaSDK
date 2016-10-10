@@ -58,7 +58,7 @@ public class Address implements java.io.Serializable, Comparable<Address> {
 
     /**
      * check if version # ends with HA.*
-     * @return
+     * @return {@link Boolean#TRUE} if NSQd has HA capability within.
      */
     public boolean isHA(){
         if(null != isHA)

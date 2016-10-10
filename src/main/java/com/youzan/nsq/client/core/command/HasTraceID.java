@@ -12,19 +12,19 @@ public interface HasTraceID {
 
     /**
      * return current traceID in byte array
-     * @return
+     * @return trace ID
      */
     byte[] getTraceId();
 
     /**
      * function to tell if trace id is specified
-     * @return
+     * @return {@link Boolean#TRUE} if trace ID is specified, otherwise {@link Boolean#FALSE}
      */
     boolean isTraceIDSet();
 
     /**
      * return identification for message command
-     * @return
+     * @return ID of NSW command which has trace ID
      */
     String getID();
 }
