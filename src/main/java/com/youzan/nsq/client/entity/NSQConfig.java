@@ -103,7 +103,8 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * ==========================dcc properties=================================
      */
     //default config file name, user is allow to use another by setting $nsq.dcc.configFilePath
-    private static final String dccConfigProFile = "configClient.properties";
+    private static final String dccConfigProdFile = "configClient_prod.properties";
+    private static final String dccConfigFile = "configClient.properties";
     //dcc config file path for nsq sdk
     private static final String NSQDCCCONFIGPRO = "nsq.dcc.configFilePath";
     //property urls to dcc remote
@@ -193,8 +194,14 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * 2. If #1 fails, try get config file path from system properties, the try loading properties from that path
      */
     private static void initDCCProperties(){
+        String dccConfigPropsFile;
+        if(Boolean.TRUE == Boolean.valueOf(System.getProperty("nsq.sdk.isNotProd")))
+             dccConfigPropsFile = dccConfigFile;
+        else
+            dccConfigPropsFile = dccConfigProdFile;
+
         InputStream is = NSQConfig.class.getClassLoader()
-                .getResourceAsStream(dccConfigProFile);
+                .getResourceAsStream(dccConfigPropsFile);
         try {
             if (is == null) {
                 //read from system config
@@ -217,7 +224,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
                 } catch (FileNotFoundException e) {
                     logger.info("Config properties for nsq sdk to dcc not found. Make sure properties file located in classpath of NSQConfig");
                 } catch (IOException e) {
-                    logger.info("Fail to load properties to configure connection to dcc. from {} in classpath.", dccConfigProFile);
+                    logger.info("Fail to load properties to configure connection to dcc. from {} in classpath.", dccConfigPropsFile);
                 }
                 return;
             }
@@ -226,7 +233,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         }finally {
             try {
                 is.close();
-            } catch (IOException e) {
+            } catch (Exception e) {
                 //swallow it.
             }
         }
