@@ -449,4 +449,33 @@ public class TraceConfigAgentTest extends AbstractNSQClientTestcase{
         lookupAddr = lookupUpdate.getNewLookupAddress();
         Assert.assertEquals(lookupAddr.length, 1);
     }
+
+    @Test
+    public void testDisableConfigServer() throws NoSuchFieldException, IllegalAccessException {
+        //update dcc properties
+        NSQConfig.setUrls(props.getProperty("urls"));
+        NSQConfig.setConfigAgentEnv(props.getProperty("configAgentEnv"));
+        NSQConfig.setConfigAgentBackupPath(props.getProperty("backupFilePath"));
+
+        //disable dcc server config
+        NSQConfig.tunrnOffLookupConfigServer();
+
+        config.setLookupAddresses("http://shouldNotBeUsed:4161");
+
+        LookupAddressUpdate lookupUpdate = new LookupAddressUpdate(config);
+        String[] lookupAddr = lookupUpdate.getNewLookupAddress();
+        Assert.assertEquals(lookupAddr[0], "http://shouldNotBeUsed:4161");
+
+        //turn on again.
+        //hack with reflection to check if lastUpdateTimestamp changes
+        Field privateBooleanField = NSQConfig.class.
+                getDeclaredField("dccOn");
+
+        privateBooleanField.setAccessible(true);
+        privateBooleanField.set(config, true);
+
+        lookupUpdate = new LookupAddressUpdate(config);
+        lookupAddr = lookupUpdate.getNewLookupAddress();
+        Assert.assertEquals(lookupAddr[0], "http://sqs-qa.s.qima-inc.com:4161");
+    }
 }

@@ -156,6 +156,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private static ConfigClient lookupSubscriber;
     private static boolean kickOff = false;
     private static boolean compressTrace = false;
+    private static volatile boolean dccOn = true;
 
 
     private Integer heartbeatIntervalInMillisecond = null;
@@ -185,6 +186,14 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         } catch (Exception e) {
             throw new RuntimeException("System can't get the IPv4!", e);
         }
+    }
+
+    /**
+     * Turn off lookup config server lookup switch, once lookup config server option is off, sdk uses lookup addresses
+     * specified by user via {@link NSQConfig#setLookupAddresses(String)}.
+     */
+    public static void tunrnOffLookupConfigServer(){
+        dccOn = false;
     }
 
     /**
@@ -296,9 +305,9 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * kick off subscribing on lookupd, this is a synchronized process
      */
     private void kickOff() {
-        if(!kickOff) {
+        if(!kickOff && dccOn) {
             synchronized (lookupSubscriberLock) {
-                if(!kickOff) {
+                if(!kickOff && dccOn) {
                     try {
                         //initialize dcc client
                         initLookupSubscriber();
@@ -385,8 +394,9 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      */
     public String[] getLookupAddresses(Timestamp updateTimeStamp) {
         kickOff();
-        if(!NSQConfig.kickOff){
-            logger.warn("lookup addresses from config server not available. Use backup look up address passed in by user.");
+        if(!NSQConfig.kickOff || !dccOn){
+            if(logger.isDebugEnabled())
+                logger.debug("lookup addresses from config server not available. Use backup look up address passed in by user.");
             //try with backup lookup address
             return this.backupLookupAddresses;
         } else if(NSQConfig.lookupAddrUpdated.after(updateTimeStamp)){
