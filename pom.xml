@@ -148,7 +148,7 @@
                                 <resource>
                                     <directory>src/main/resources</directory>
                                     <includes>
-                                        <include>clientConfig.properties</include>
+                                        <include>configClient.properties</include>
                                     </includes>
                                     <filtering>true</filtering>
                                 </resource>

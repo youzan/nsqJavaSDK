@@ -103,16 +103,17 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * ==========================dcc properties=================================
      */
     //default config file name, user is allow to use another by setting $nsq.dcc.configFilePath
-    private static final String dccConfigProdFile = "configClient_prod.properties";
+    private static String envOverride;
+    private static String dccUrlsOverride;
     private static final String dccConfigFile = "configClient.properties";
     //dcc config file path for nsq sdk
     private static final String NSQDCCCONFIGPRO = "nsq.dcc.configFilePath";
     //property urls to dcc remote
-    private static final String NSQ_DCCCONFIG_URLS = "nsq.dcc.urls";
+    private static final String NSQ_DCCCONFIG_URLS = "nsq.dcc.%s.urls";
     //property of backup file path
     private static final String NSQ_DCCCONFIG_BACKUP_PATH = "nsq.dcc.backupPath";
     //property of environemnt
-    private static final String NSQ_DCCCONFIG_ENV = "nsq.dcc.env";
+    private static final String NSQ_DCCCONFIG_ENV = "nsq.sdk.env";
 
     //app value dcc client need to specify to fetch lookupd config from dcc
     private static final String NSQ_APP_VAL_PRO = "nsq.app.val";
@@ -156,7 +157,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private static ConfigClient lookupSubscriber;
     private static boolean kickOff = false;
     private static boolean compressTrace = false;
-    private static volatile boolean dccOn = true;
+    private static volatile boolean dccOn = false;
 
 
     private Integer heartbeatIntervalInMillisecond = null;
@@ -189,11 +190,65 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * Turn off lookup config server lookup switch, once lookup config server option is off, sdk uses lookup addresses
+     * Turn on lookup config server lookup switch. nsq sdk will check lookup addresses from config server.
+     * Default lookup config server option is off, and sdk uses lookup addresses
      * specified by user via {@link NSQConfig#setLookupAddresses(String)}.
      */
-    public static void tunrnOffLookupConfigServer(){
-        dccOn = false;
+    public static void tunrnOnLookupConfigServer(){
+        dccOn = true;
+    }
+
+    /**
+     * Specify environment of current nsq sdk. If sdk env is not specified, default environment "prod" is choosed.
+     * @param evnStr environment variable of nsq
+     */
+    public static void setSDKEnvironment(final String evnStr){
+        envOverride = evnStr;
+        setConfigAgentEnv(envOverride);
+        //update dcc urls accordlly
+        InputStream is = null;
+        try {
+            is = loadClientConfigInputStream();
+            Properties props = new Properties();
+            props.load(is);
+            String env = props.getProperty(NSQConfig.NSQ_DCCCONFIG_ENV);
+            assert null != envOverride;
+            setConfigAgentEnv(envOverride);
+
+            String urlsKey = String.format(NSQ_DCCCONFIG_URLS, envOverride);
+
+            String urls = props.getProperty(urlsKey);
+            assert null != urls;
+            setUrls(urls);
+        } catch(FileNotFoundException configNotFoundE) {
+            logger.warn("Config properties for nsq sdk to dcc not found. Make sure properties file located under {} system property", NSQDCCCONFIGPRO);
+        } catch (IOException IOE) {
+            logger.info("Could not load properties from nsq config properties.", IOE);
+        }
+    }
+
+    /**
+     *Override config server urls of sdk's default for current environment. By default, nsq sdk picks config server's
+     * urls according to environment variable.
+     * @param urls
+     */
+    public static void overrideConfigServerUrls(final String urls){
+        dccUrlsOverride = urls;
+        setUrls(dccUrlsOverride);
+    }
+
+    private static InputStream loadClientConfigInputStream() throws FileNotFoundException {
+        InputStream is = NSQConfig.class.getClassLoader()
+                .getResourceAsStream(dccConfigFile);
+        if(null == is){
+            //read from system config
+            String dccConfigProPath = System.getProperty(NSQDCCCONFIGPRO);
+            if (null != dccConfigProPath) {
+                is = new FileInputStream(dccConfigProPath);
+            }else
+                logger.warn("Could not find {} from system.", NSQDCCCONFIGPRO);
+        }
+        return is;
     }
 
     /**
@@ -203,47 +258,22 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * 2. If #1 fails, try get config file path from system properties, the try loading properties from that path
      */
     private static void initDCCProperties(){
-        String dccConfigPropsFile;
-        if(Boolean.TRUE == Boolean.valueOf(System.getProperty("nsq.sdk.isNotProd")))
-             dccConfigPropsFile = dccConfigFile;
-        else
-            dccConfigPropsFile = dccConfigProdFile;
-
-        InputStream is = NSQConfig.class.getClassLoader()
-                .getResourceAsStream(dccConfigPropsFile);
+        InputStream is = null;
         try {
-            if (is == null) {
-                //read from system config
-                String dccConfigProPath = System.getProperty(NSQDCCCONFIGPRO);
-                if (null != dccConfigProPath) {
-                    try {
-                        is = new FileInputStream(dccConfigProPath);
-                        initClientConfig(is);
-                    } catch (FileNotFoundException e) {
-                        logger.info("Config properties for nsq sdk to dcc not found. Make sure properties file located under {}: {}", NSQDCCCONFIGPRO, dccConfigProPath);
-                    } catch (IOException e) {
-                        logger.info("Could not load properties for nsq sdk to dcc. from {}", dccConfigProPath, e);
-                    }
-                    return;
-                }
-                logger.warn("Could not read {} property from system.", NSQDCCCONFIGPRO);
-            } else {
-                try {
-                    initClientConfig(is);
-                } catch (FileNotFoundException e) {
-                    logger.info("Config properties for nsq sdk to dcc not found. Make sure properties file located in classpath of NSQConfig");
-                } catch (IOException e) {
-                    logger.info("Fail to load properties to configure connection to dcc. from {} in classpath.", dccConfigPropsFile);
-                }
-                return;
-            }
-        }catch(Exception e){
-            logger.info("Could not initialize nsq dcc configs from properties, user needs to specify explicitly in NSQConfig.");
+            is = loadClientConfigInputStream();
+            if (null != is) {
+                initClientConfig(is);
+            }else
+                logger.warn("Could load properties for config server access configuration. User needs to specify them in NSQConfig.");
+        }catch (FileNotFoundException configNotFoundE) {
+            logger.warn("Config properties for nsq sdk to dcc not found. Make sure properties file located under {} system property", NSQDCCCONFIGPRO);
+        } catch (IOException IOE) {
+            logger.info("Could not load properties from nsq config properties.", IOE);
         }finally {
             try {
                 is.close();
-            } catch (Exception e) {
-                //swallow it.
+            } catch (IOException e) {
+                //swallow it
             }
         }
     }
@@ -266,11 +296,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
             NSQConfig.NSQ_LOOKUP_KEY = NSQConfig.DEFAULT_NSQ_LOOKUP_KEY;
         logger.info("{}:{}", NSQConfig.NSQ_LOOKUP_KEY_PRO, NSQConfig.NSQ_LOOKUP_KEY);
 
-        //initialize dcc config will properties in nsq dcc config file
-        String urls = props.getProperty(NSQConfig.NSQ_DCCCONFIG_URLS);
-        assert null != urls;
-        NSQConfig.setUrls(urls);
-
+        //initialize dcc config properties in nsq dcc config file
         String backupPath = props.getProperty(NSQConfig.NSQ_DCCCONFIG_BACKUP_PATH);
         assert null != backupPath;
         setConfigAgentBackupPath(backupPath);
@@ -279,6 +305,11 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         assert null != env;
         setConfigAgentEnv(env);
 
+        String urlsKey = String.format(NSQ_DCCCONFIG_URLS, env);
+
+        String urls = props.getProperty(urlsKey);
+        assert null != urls;
+        setUrls(urls);
 
         //trace config properties
         String topicTrace = props.getProperty(NSQConfig.NSQ_TOPIC_TRACE_PRO);
@@ -287,6 +318,10 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         else
             NSQConfig.NSQ_TOPIC_TRACE = NSQConfig.DEFAULT_NSQ_TOPIC_TRACE;
         logger.info("{}:{}", NSQConfig.NSQ_TOPIC_TRACE_PRO, NSQConfig.NSQ_TOPIC_TRACE);
+    }
+
+    private static void specifyEnv(String env){
+
     }
 
     //synchronization is performed outside
@@ -703,7 +738,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * set the environment value of config client
      * @param env
      */
-    public static void setConfigAgentEnv(String env){
+    static void setConfigAgentEnv(String env){
         dccConfig.setProperty(ConfigClient.KEY_ENV, env);
     }
 
@@ -715,7 +750,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         dccConfig.setProperty(ConfigClient.KEY_BACKUP_PATH, backupPath);
     }
 
-    public String getConfigAgentBackupPath(){
+    private String getConfigAgentBackupPath(){
         return (String) dccConfig.readConfig(ConfigClient.KEY_BACKUP_PATH, null);
     }
 
@@ -728,8 +763,8 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * specify config remote server urls, passin String is a list of urls separated by comma
      * @param urlsStr
      */
-    public static void setUrls(String urlsStr){
-        String[] passinUrls = urlsStr.split(",");
+    static void setUrls(String urlsStr){
+        String[] passinUrls = urlsStr.replaceAll(" ", "").split(",");
         urls = passinUrls;
     }
 

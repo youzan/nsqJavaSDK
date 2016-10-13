@@ -79,8 +79,7 @@ public class TraceConfigAgentTest extends AbstractNSQClientTestcase{
      * verify that config agent manager is fetched
      */
     public void testGetConfigAgent(){
-        NSQConfig.setUrls(props.getProperty("urls"));
-        NSQConfig.setConfigAgentEnv(props.getProperty("configAgentEnv"));
+        NSQConfig.setSDKEnvironment("qa");
         NSQConfig.setConfigAgentBackupPath(props.getProperty("backupFilePath"));
         //initialize trace config agent
         TraceConfigAgent.getInstance();
@@ -96,8 +95,8 @@ public class TraceConfigAgentTest extends AbstractNSQClientTestcase{
     public void testIsTraceOn() throws IOException, IllegalAccessException, ConfigParserException, InterruptedException {
         CountDownLatch latch = publishTraceConfig("[{\"key\":\"TestTrace1\",\"value\":\"true\"},{\"key\":\"TestTrace2\",\"value\":\"false\"}]");
         Assert.assertTrue(latch.await(3, TimeUnit.SECONDS));
-        NSQConfig.setUrls(props.getProperty("urls"));
-        NSQConfig.setConfigAgentEnv(props.getProperty("configAgentEnv"));
+        NSQConfig.overrideConfigServerUrls(props.getProperty("urls"));
+        NSQConfig.setSDKEnvironment(props.getProperty("configAgentEnv"));
         NSQConfig.setConfigAgentBackupPath(props.getProperty("backupFilePath"));
         TraceConfigAgent cAgentMgr = TraceConfigAgent.getInstance();
         logger.info("Trace agent sleeps for 3 sec to wait for subscribe onChanged update...");
@@ -355,7 +354,8 @@ public class TraceConfigAgentTest extends AbstractNSQClientTestcase{
     public void testTraceWithBadURL() throws NSQException {
         String badURL = "http://thisisbadurl:4161";
         String backupPath = "/tmp/nsqtest/makebadofdccurl.bak";
-        NSQConfig.setUrls(badURL);
+        NSQConfig.overrideConfigServerUrls(badURL);
+        NSQConfig.setSDKEnvironment("qa");
         NSQConfig.setConfigAgentBackupPath(backupPath);
         NSQConfig config = getNSQConfig();
         config.setLookupAddresses("http://sqs-qa.s.qima-inc.com:4161");
@@ -375,8 +375,8 @@ public class TraceConfigAgentTest extends AbstractNSQClientTestcase{
      */
     public void testLookupAddressUpdateWBadUrls(){
         //update dcc properties
-        NSQConfig.setUrls("http://thisisbadlookup:4161");
-        NSQConfig.setConfigAgentEnv(props.getProperty("configAgentEnv"));
+        NSQConfig.overrideConfigServerUrls("http://thisisbadlookup:4161");
+        NSQConfig.setSDKEnvironment(props.getProperty("configAgentEnv"));
         NSQConfig.setConfigAgentBackupPath(props.getProperty("backupFilePath"));
 
         config.setLookupAddresses("http://sqs-qa.s.qima-inc.com:4161");
@@ -392,8 +392,8 @@ public class TraceConfigAgentTest extends AbstractNSQClientTestcase{
      */
     public void testLookupAddressUpdate() throws NoSuchFieldException, IllegalAccessException {
         //update dcc properties
-        NSQConfig.setUrls(props.getProperty("urls"));
-        NSQConfig.setConfigAgentEnv(props.getProperty("configAgentEnv"));
+        NSQConfig.overrideConfigServerUrls(props.getProperty("urls"));
+        NSQConfig.setSDKEnvironment(props.getProperty("configAgentEnv"));
         NSQConfig.setConfigAgentBackupPath(props.getProperty("backupFilePath"));
 
         config.setLookupAddresses("http://shouldNotBeUsed:4161");
@@ -416,14 +416,27 @@ public class TraceConfigAgentTest extends AbstractNSQClientTestcase{
      * update lookup address in dcc, sdk need to catch the new lookup addresses
      */
     public void testLookupAddressChange() throws IllegalAccessException, ConfigParserException, IOException, InterruptedException, InvalidConfigException {
+        NSQConfig testConfig = new NSQConfig();
+        final String lookups = props.getProperty("lookup-addresses");
+        final String connTimeout = props.getProperty("connectTimeoutInMillisecond");
+        final String msgTimeoutInMillisecond = props.getProperty("msgTimeoutInMillisecond");
+        final String threadPoolSize4IO = props.getProperty("threadPoolSize4IO");
+
+
+        testConfig.setLookupAddresses(lookups);
+        testConfig.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
+        testConfig.setMsgTimeoutInMillisecond(Integer.valueOf(msgTimeoutInMillisecond));
+        testConfig.setThreadPoolSize4IO(Integer.valueOf(threadPoolSize4IO));
+
         //update dcc properties
-        NSQConfig.setUrls(props.getProperty("urls"));
-        NSQConfig.setConfigAgentEnv(props.getProperty("configAgentEnv"));
+        NSQConfig.overrideConfigServerUrls(props.getProperty("urls"));
+        NSQConfig.setSDKEnvironment(props.getProperty("configAgentEnv"));
         NSQConfig.setConfigAgentBackupPath(props.getProperty("backupFilePath"));
+        NSQConfig.tunrnOnLookupConfigServer();
 
-        config.setLookupAddresses("http://shouldNotBeUsed:4161");
+        testConfig.setLookupAddresses("http://shouldNotBeUsed:4161");
 
-        LookupAddressUpdate lookupUpdate = new LookupAddressUpdate(config);
+        LookupAddressUpdate lookupUpdate = new LookupAddressUpdate(testConfig);
         String[] lookupAddr = lookupUpdate.getNewLookupAddress();
         Assert.assertEquals(lookupAddr[0], "http://sqs-qa.s.qima-inc.com:4161");
 
@@ -434,7 +447,7 @@ public class TraceConfigAgentTest extends AbstractNSQClientTestcase{
         Assert.assertTrue(latch.await(5, TimeUnit.SECONDS));
 
         logger.info("Sleep for 5 seconds to wait for lookup update...");
-        Thread.sleep(1000L);
+        Thread.sleep(5000L);
         logger.info("Main thread awake.");
         lookupAddr = lookupUpdate.getNewLookupAddress();
         Assert.assertEquals(lookupAddr.length, 3);
@@ -444,7 +457,7 @@ public class TraceConfigAgentTest extends AbstractNSQClientTestcase{
         Assert.assertTrue(latch.await(5, TimeUnit.SECONDS));
 
         logger.info("Sleep for 5 seconds to wait for lookup update...");
-        Thread.sleep(1000L);
+        Thread.sleep(5000L);
         logger.info("Main thread awake.");
         lookupAddr = lookupUpdate.getNewLookupAddress();
         Assert.assertEquals(lookupAddr.length, 1);
@@ -452,30 +465,42 @@ public class TraceConfigAgentTest extends AbstractNSQClientTestcase{
 
     @Test
     public void testDisableConfigServer() throws NoSuchFieldException, IllegalAccessException {
+        NSQConfig testConfig = new NSQConfig();
+        final String lookups = props.getProperty("lookup-addresses");
+        final String connTimeout = props.getProperty("connectTimeoutInMillisecond");
+        final String msgTimeoutInMillisecond = props.getProperty("msgTimeoutInMillisecond");
+        final String threadPoolSize4IO = props.getProperty("threadPoolSize4IO");
+
+
+        testConfig.setLookupAddresses(lookups);
+        testConfig.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
+        testConfig.setMsgTimeoutInMillisecond(Integer.valueOf(msgTimeoutInMillisecond));
+        testConfig.setThreadPoolSize4IO(Integer.valueOf(threadPoolSize4IO));
+
         //update dcc properties
-        NSQConfig.setUrls(props.getProperty("urls"));
-        NSQConfig.setConfigAgentEnv(props.getProperty("configAgentEnv"));
+        NSQConfig.overrideConfigServerUrls(props.getProperty("urls"));
+        NSQConfig.setSDKEnvironment(props.getProperty("configAgentEnv"));
         NSQConfig.setConfigAgentBackupPath(props.getProperty("backupFilePath"));
+        NSQConfig.tunrnOnLookupConfigServer();
 
         //disable dcc server config
-        NSQConfig.tunrnOffLookupConfigServer();
+        testConfig.setLookupAddresses("http://shouldNotBeUsed:4161");
 
-        config.setLookupAddresses("http://shouldNotBeUsed:4161");
-
-        LookupAddressUpdate lookupUpdate = new LookupAddressUpdate(config);
+        LookupAddressUpdate lookupUpdate = new LookupAddressUpdate(testConfig);
         String[] lookupAddr = lookupUpdate.getNewLookupAddress();
-        Assert.assertEquals(lookupAddr[0], "http://shouldNotBeUsed:4161");
+        Assert.assertEquals(lookupAddr[0], "http://sqs-qa.s.qima-inc.com:4161");
+
 
         //turn on again.
-        //hack with reflection to check if lastUpdateTimestamp changes
         Field privateBooleanField = NSQConfig.class.
                 getDeclaredField("dccOn");
 
         privateBooleanField.setAccessible(true);
-        privateBooleanField.set(config, true);
+        privateBooleanField.set(testConfig, false);
 
-        lookupUpdate = new LookupAddressUpdate(config);
+        lookupUpdate = new LookupAddressUpdate(testConfig);
         lookupAddr = lookupUpdate.getNewLookupAddress();
-        Assert.assertEquals(lookupAddr[0], "http://sqs-qa.s.qima-inc.com:4161");
+        Assert.assertEquals(lookupAddr[0], "http://shouldNotBeUsed:4161");
+
     }
 }

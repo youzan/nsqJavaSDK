@@ -39,9 +39,10 @@ public class AbstractNSQClientTestcase {
         config.setThreadPoolSize4IO(Integer.valueOf(threadPoolSize4IO));
 
         //for trace switch and lookupd update
-        NSQConfig.setUrls(props.getProperty("urls"));
-        NSQConfig.setConfigAgentEnv(props.getProperty("configAgentEnv"));
+        NSQConfig.setSDKEnvironment(props.getProperty("configAgentEnv"));
+        NSQConfig.overrideConfigServerUrls(props.getProperty("urls"));
         NSQConfig.setConfigAgentBackupPath(props.getProperty("backupFilePath"));
+        NSQConfig.tunrnOnLookupConfigServer();
     }
 
     public NSQConfig getNSQConfig(){
