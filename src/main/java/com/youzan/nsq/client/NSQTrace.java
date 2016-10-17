@@ -83,7 +83,7 @@ class NSQTrace implements Traceability, Comparable<Traceability> {
                     //try fetch agent again
                     this.agent = TraceConfigAgent.getInstance();
                     if(null == this.agent)
-                        logger.warn("Trace agent could not be initialized, pls check config to dcc. Trace functionality is disable untill agent is back.");
+                        logger.warn("Trace agent could not be initialized, pls check config to dcc. Trace functionality is disable until agent is back.");
                     else
                         logger.info("Trace agent is back online.");
                 }

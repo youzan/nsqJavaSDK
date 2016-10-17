@@ -190,12 +190,16 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * Turn on lookup config server lookup switch. nsq sdk will check lookup addresses from config server.
+     * Turn on lookup config server switch. nsq sdk will check lookup addresses and topic trace from config server.
      * Default lookup config server option is off, and sdk uses lookup addresses
      * specified by user via {@link NSQConfig#setLookupAddresses(String)}.
      */
-    public static void tunrnOnLookupConfigServer(){
+    public static void tunrnOnConfigServerLookup(){
         dccOn = true;
+    }
+
+    public static boolean isConfigServerLookupOn(){
+        return dccOn;
     }
 
     /**

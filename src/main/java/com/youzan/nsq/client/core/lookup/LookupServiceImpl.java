@@ -119,6 +119,8 @@ public class LookupServiceImpl implements LookupService {
         this.addresses = addresses;
         if (null != tmp) {
             tmp.clear();
+            if(logger.isDebugEnabled())
+                logger.debug("tmp lookup address clear.");
         }
     }
 
@@ -153,8 +155,13 @@ public class LookupServiceImpl implements LookupService {
         if(null != this.lookupUpdate) {
             String[] lookups = this.lookupUpdate.getNewLookupAddress();
             //update lookups when it is not null
-            if(null != lookups)
-                initAddresses(Arrays.asList(lookups));
+            if(null != lookups) {
+                ArrayList<String> lookupList = new ArrayList<>();
+                for(String lookup:lookups){
+                    lookupList.add(lookup);
+                }
+                initAddresses(lookupList);
+            }
         }
 
         if (this.addresses == null || this.addresses.isEmpty()) {

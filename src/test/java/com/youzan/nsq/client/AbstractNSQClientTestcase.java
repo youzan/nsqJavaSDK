@@ -42,7 +42,7 @@ public class AbstractNSQClientTestcase {
         NSQConfig.setSDKEnvironment(props.getProperty("configAgentEnv"));
         NSQConfig.overrideConfigServerUrls(props.getProperty("urls"));
         NSQConfig.setConfigAgentBackupPath(props.getProperty("backupFilePath"));
-        NSQConfig.tunrnOnLookupConfigServer();
+        NSQConfig.tunrnOnConfigServerLookup();
     }
 
     public NSQConfig getNSQConfig(){
