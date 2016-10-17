@@ -19,8 +19,11 @@ public class NSQMessage {
     private final byte[] attempts;
     private final byte[] messageID;
     private final byte[] messageBody;
-    private final Address address;
-    private final Integer connectionID; // be sure that is not null
+    final Address address;
+    final Integer connectionID; // be sure that is not null
+
+    private long diskQueueOffset;
+    private int diskQueueDataSize;
 
     /**
      * all the parameters is the NSQ message format!
@@ -32,11 +35,17 @@ public class NSQMessage {
      * @param address      the address of the message
      * @param connectionID the primary key of the connection
      */
-    public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] messageBody, Address address,
-                      Integer connectionID) {
+    public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
+                     byte[] messageBody, Address address, Integer connectionID) {
         this.timestamp = timestamp;
         this.attempts = attempts;
         this.messageID = messageID;
+
+        ByteBuffer buf = ByteBuffer.wrap(internalID);
+        this.internalID = buf.getLong();
+        buf = ByteBuffer.wrap(traceID);
+        this.traceID = buf.getLong();
+
         this.messageBody = messageBody;
         this.address = address;
         this.connectionID = connectionID;
@@ -44,6 +53,18 @@ public class NSQMessage {
         this.datetime = new Date(TimeUnit.NANOSECONDS.toMillis(toLong(timestamp)));
         this.readableAttempts = toUnsignedShort(attempts);
         this.readableMsgID = newHexString(this.messageID);
+
+    }
+
+    public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
+                      final byte[] diskQueueOffset, final byte[] diskQueueDataSize, byte[] messageBody, Address address,
+                      Integer connectionID) {
+        this(timestamp, attempts, messageID, internalID, traceID, messageBody, address, connectionID);
+
+        ByteBuffer buf = ByteBuffer.wrap(diskQueueOffset);
+        this.diskQueueOffset = buf.getLong();
+        buf = ByteBuffer.wrap(diskQueueDataSize);
+        this.diskQueueDataSize = buf.getInt();
     }
 
     /**
@@ -67,6 +88,14 @@ public class NSQMessage {
         return messageID;
     }
 
+    public long getInternalID() {
+        return this.internalID;
+    }
+
+    public long getTraceID() {
+        return this.traceID;
+    }
+
     /**
      * @return the messageBody
      */
@@ -79,11 +108,13 @@ public class NSQMessage {
      *                       For client, human message
      * =========================================================================
      */
-    private final Date datetime;
-    private final int readableAttempts;
-    private final String readableMsgID;
-    private String readableContent = null;
+    final Date datetime;
+    final int readableAttempts;
+    final String readableMsgID;
+    protected String readableContent = null;
     private Integer nextConsumingInSecond = Integer.valueOf(60); // recommend the value is 60 sec
+    final long internalID;
+    final long traceID;
     // 1 seconds
     static int _MIN_NEXT_CONSUMING_IN_SECOND = 1;
     // 180 days ?why 180
@@ -242,10 +273,17 @@ public class NSQMessage {
         return Arrays.equals(timestamp, other.timestamp);
     }
 
-    @Override
-    public String toString() {
-        return "NSQMessage [messageID=" + readableMsgID + ", datetime=" + datetime + ", readableAttempts="
-                + readableAttempts + ", address=" + address + ", connectionID=" + connectionID + "]";
+    public long getDiskQueueOffset() {
+        return this.diskQueueOffset;
     }
 
+    public int getDiskQueueDataSize() {
+        return this.diskQueueDataSize;
+    }
+
+    public String toString() {
+        String msgStr = "NSQMessage [messageID=" + readableMsgID + ", internalID=" + internalID + ", traceID=" + traceID + ", diskQueueOffset=" + diskQueueOffset + ", diskQueueDataSize=" + diskQueueDataSize + ", datetime=" + datetime + ", readableAttempts="
+                + readableAttempts + ", address=" + address + ", connectionID=" + connectionID + "]";
+        return msgStr;
+    }
 }

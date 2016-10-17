@@ -5,6 +5,7 @@ package com.youzan.nsq.client.core.command;
 
 import java.util.List;
 
+import com.youzan.nsq.client.entity.Topic;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -12,7 +12,7 @@ import java.util.List;
  *
  * 
  */
-public interface NSQCommand {
+public interface NSQCommand{
 
     Charset ASCII = StandardCharsets.US_ASCII;
     Charset UTF8 = StandardCharsets.UTF_8;
@@ -24,12 +24,12 @@ public interface NSQCommand {
      */
     byte LINE_SEPARATOR = '\n';
     byte SPACE = ' ';
+    String SPACE_STR = " ";
     List<byte[]> EMPTY_BODY = new ArrayList<>(0);
 
     // *************************************************************************
     // Normal command
     // *************************************************************************
-
     /**
      * @return The binary data of sending to the NSQd (broker)
      */
