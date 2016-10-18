@@ -2,12 +2,15 @@ package com.youzan.nsq.client.network.netty;
 
 import java.util.List;
 
+import com.youzan.nsq.client.HasSubscribeStatus;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToMessageDecoder;
+import io.netty.util.Attribute;
+import io.netty.util.AttributeMap;
 
 public class NSQDecoder extends MessageToMessageDecoder<ByteBuf> {
 
@@ -15,7 +18,11 @@ public class NSQDecoder extends MessageToMessageDecoder<ByteBuf> {
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
         final int size = in.readInt();
         final int frameType = in.readInt();
-        final NSQFrame frame = NSQFrame.newInstance(frameType);
+        Attribute<HasSubscribeStatus.SubCmdType> att =  ctx.channel().attr(HasSubscribeStatus.SUBTYPE);
+        HasSubscribeStatus.SubCmdType type = null;
+        if(null != att)
+            type = att.get();
+        final NSQFrame frame = NSQFrame.newInstance(frameType, type);
         if (frame == null) {
             // uhh, bad response from server.. what should we do?
             final String tip = String.format("Bad frame id from server (%d). It will be disconnected!", frameType);
