@@ -12,7 +12,7 @@ import com.youzan.dcc.client.exceptions.InvalidConfigException;
 import com.youzan.dcc.client.util.inetrfaces.ClientConfig;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.Topic;
-import com.youzan.nsq.client.entity.TopicTraceAgent;
+import com.youzan.nsq.client.entity.TopicTrace;
 import com.youzan.util.LogUtil;
 import com.youzan.util.SystemUtil;
 import org.slf4j.Logger;
@@ -35,7 +35,7 @@ public class TraceConfigAgent implements Closeable{
    private ConfigClient configClient;
    //cached trace switches, config client subscribe job write updates into it and {@Link Traceability} implementation read
    //from it
-   private Set<TopicTraceAgent> tracedTopicSet = Collections.newSetFromMap(new ConcurrentHashMap<TopicTraceAgent, Boolean>());
+   private Set<TopicTrace> tracedTopicSet = Collections.newSetFromMap(new ConcurrentHashMap<TopicTrace, Boolean>());
    //singleton instance&lock
    private static final Object LOCK = new Object();
    private static TraceConfigAgent INSTANCE = null;
@@ -52,9 +52,9 @@ public class TraceConfigAgent implements Closeable{
    }
 
    public static TraceConfigAgent getInstance() {
-      if(null == INSTANCE){
+      if(null == INSTANCE && NSQConfig.isConfigServerLookupOn()){
          synchronized(LOCK){
-            if(null == INSTANCE){
+            if(null == INSTANCE && NSQConfig.isConfigServerLookupOn()){
                 //read config client from static client config in NSQConfig, if either config or urls is specified, throws an exception
                 //create config request
                 try {
@@ -106,7 +106,7 @@ public class TraceConfigAgent implements Closeable{
     * @return true if trace switch is on, other wise false;
     */
    public boolean checkTraced(final Topic topic){
-      TopicTraceAgent topicTrace = new TopicTraceAgent(topic.getTopicText());
+      TopicTrace topicTrace = new TopicTrace(topic.getTopicText());
       return this.tracedTopicSet.contains(
               topicTrace
       );
@@ -125,9 +125,9 @@ public class TraceConfigAgent implements Closeable{
       configs.add(configRequest);
       TracedTopicsCallback callback = new TracedTopicsCallback();
       List<Config> firstConfigs = this.configClient.subscribe(callback, configs);
-      if(null != firstConfigs && !firstConfigs.isEmpty())
-        callback.updateTracedTopics(firstConfigs);
-       else{
+      if(null != firstConfigs && !firstConfigs.isEmpty()) {
+          callback.updateTracedTopics(firstConfigs);
+      }else{
            logger.warn("dcc remote returns nothing. Pls make sure config exist for config request: {}", configRequest.getContent());
       }
    }
@@ -150,7 +150,7 @@ public class TraceConfigAgent implements Closeable{
          assert val.isArray();
          for(JsonNode subVal : val){
             String topicName = subVal.get("key").asText();
-            TopicTraceAgent topicTrace = new TopicTraceAgent(topicName);
+            TopicTrace topicTrace = new TopicTrace(topicName);
             if(subVal.get("value").asText().equalsIgnoreCase("true")){
                //put subkey(topic name) into set
                tracedTopicSet.add(topicTrace);

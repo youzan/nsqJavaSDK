@@ -4,9 +4,9 @@ package com.youzan.nsq.client.entity;
  * customized topic object for trace switch check
  * Created by lin on 16/9/21.
  */
-public class TopicTraceAgent extends Topic{
+public class TopicTrace extends Topic{
 
-    public TopicTraceAgent(String topic) {
+    public TopicTrace(String topic) {
         super(topic);
     }
 
@@ -25,7 +25,7 @@ public class TopicTraceAgent extends Topic{
        if (getClass() != obj.getClass()) {
            return false;
        }
-       TopicTraceAgent other = (TopicTraceAgent) obj;
+       TopicTrace other = (TopicTrace) obj;
        if(null == this.getTopicText()){
            if(null != other.getTopicText()){
                return false;

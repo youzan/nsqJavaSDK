@@ -432,7 +432,7 @@ public class TraceConfigAgentTest extends AbstractNSQClientTestcase{
         NSQConfig.overrideConfigServerUrls(props.getProperty("urls"));
         NSQConfig.setSDKEnvironment(props.getProperty("configAgentEnv"));
         NSQConfig.setConfigAgentBackupPath(props.getProperty("backupFilePath"));
-        NSQConfig.tunrnOnLookupConfigServer();
+        NSQConfig.tunrnOnConfigServerLookup();
 
         testConfig.setLookupAddresses("http://shouldNotBeUsed:4161");
 
@@ -481,7 +481,7 @@ public class TraceConfigAgentTest extends AbstractNSQClientTestcase{
         NSQConfig.overrideConfigServerUrls(props.getProperty("urls"));
         NSQConfig.setSDKEnvironment(props.getProperty("configAgentEnv"));
         NSQConfig.setConfigAgentBackupPath(props.getProperty("backupFilePath"));
-        NSQConfig.tunrnOnLookupConfigServer();
+        NSQConfig.tunrnOnConfigServerLookup();
 
         //disable dcc server config
         testConfig.setLookupAddresses("http://shouldNotBeUsed:4161");
@@ -501,6 +501,10 @@ public class TraceConfigAgentTest extends AbstractNSQClientTestcase{
         lookupUpdate = new LookupAddressUpdate(testConfig);
         lookupAddr = lookupUpdate.getNewLookupAddress();
         Assert.assertEquals(lookupAddr[0], "http://shouldNotBeUsed:4161");
+
+        //turn config server switch on in the end.
+        NSQConfig.tunrnOnConfigServerLookup();
+        Assert.assertTrue(NSQConfig.isConfigServerLookupOn());
 
     }
 }
