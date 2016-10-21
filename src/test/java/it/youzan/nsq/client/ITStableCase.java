@@ -82,8 +82,7 @@ public class ITStableCase {
         producer.start();
         for (long now = 0; now < allowedRunDeadline; now = System.currentTimeMillis()) {
             logger.info("Producer send at: {}, DeadLine: {}", now, allowedRunDeadline);
-            final byte[] message = new byte[512];
-            _r.nextBytes(message);
+            byte[] message = ("Message At: " + now).getBytes();
             try {
                 totalPub.getAndIncrement();
                 producer.publish(message, "JavaTesting-Stable");
