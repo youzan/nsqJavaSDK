@@ -3,11 +3,10 @@ package it.youzan.nsq.client;
 import com.youzan.nsq.client.Producer;
 import com.youzan.nsq.client.ProducerImplV2;
 import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQException;
-import com.youzan.util.IOUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -15,14 +14,16 @@ import java.io.InputStream;
 import java.util.Properties;
 import java.util.Random;
 
-@Test(groups = {"ITProducer-Base"}, priority = 3)
-public class ITProducer {
+/**
+ * Created by lin on 16/10/19.
+ */
+@Test(groups = {"ITProducerOrdered"}, priority = 5)
+public class ITProducerOrdered {
 
-    private static final Logger logger = LoggerFactory.getLogger(ITProducer.class);
-
+    private static final Logger logger = LoggerFactory.getLogger(ITProducerOrdered.class);
+    private NSQConfig config = new NSQConfig();
+    private Producer producer;
     final Random random = new Random();
-    protected final NSQConfig config = new NSQConfig();
-    protected Producer producer;
 
     @BeforeClass
     public void init() throws Exception {
@@ -41,22 +42,17 @@ public class ITProducer {
         config.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
         config.setMsgTimeoutInMillisecond(Integer.valueOf(msgTimeoutInMillisecond));
         config.setThreadPoolSize4IO(Integer.valueOf(threadPoolSize4IO));
-        NSQConfig.setSDKEnvironment("qa");
-        NSQConfig.tunrnOnConfigServerLookup();
-
+        //turn on pub ordered
+        config.setOrdered(true);
         producer = new ProducerImplV2(config);
         producer.start();
     }
 
-    public void publish() throws NSQException {
-        for (int i = 0; i < 10; i++) {
-            final byte[] message = ("Message #"+ i).getBytes();
-            producer.publish(message, "JavaTesting-Producer-Base");
+    public void publishOrdered() throws NSQException {
+        producer.setTraceID(1024L);
+        for (int i = 0; i < 100; i++) {
+            byte[] message = ("Message #" + i).getBytes();
+            producer.publish(message, new Topic("JavaTesting-Order",1));
         }
-    }
-
-    @AfterClass
-    public void close() {
-        IOUtil.closeQuietly(producer);
     }
 }

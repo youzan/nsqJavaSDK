@@ -106,6 +106,7 @@ public class ITStableCase {
         final MessageHandler handler = new MessageHandler() {
             @Override
             public void process(NSQMessage message) {
+                logger.info("Message received: " + message.getReadableContent());
                 received.getAndIncrement();
                 store.offer(message);
             }

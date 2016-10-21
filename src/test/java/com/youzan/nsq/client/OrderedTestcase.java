@@ -50,12 +50,11 @@ public class OrderedTestcase extends AbstractNSQClientTestcase{
 
             @Override
             public void process(NSQMessage message) {
-                byte[] msg = message.getMessageBody();
-                logger.info("Message #{} received: {}", cnt.incrementAndGet(), new String(msg));
+                logger.info("Message #{} received: {}", cnt.incrementAndGet(), message.getReadableContent());
                 latch.countDown();
             }
         });
-        consumer.subscribe(topic.getTopicText());
+        consumer.subscribe(1, topic.getTopicText());
         consumer.start();
         long start = System.currentTimeMillis();
         latch.await();
