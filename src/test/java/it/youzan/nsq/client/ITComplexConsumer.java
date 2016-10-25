@@ -101,32 +101,27 @@ public class ITComplexConsumer {
         final MessageHandler handler = new MessageHandler() {
             @Override
             public void process(NSQMessage message) {
-                logger.debug("======================Be pushed.");
+                latch.countDown();
                 actualMessages.add(message.getReadableContent());
                 actualNSQMessages.add(message);
-                // finally
-                latch.countDown();
             }
         };
         final NSQConfig config = (NSQConfig) this.config.clone();
         config.setMsgTimeoutInMillisecond(5 * 60 * 1000);
         config.setRdy(20);
         config.setConsumerName(consumerName);
-        config.setThreadPoolSize4IO(1);
+        config.setThreadPoolSize4IO(Math.max(2, Runtime.getRuntime().availableProcessors()));
         consumer4Finish = new ConsumerImplV2(config, handler);
         consumer4Finish.setAutoFinish(false);
         consumer4Finish.subscribe("JavaTesting-Finish");
         consumer4Finish.start();
-        logger.debug("=======================start consumer.... topic : JavaTesting-Finish");
-        boolean full = latch.await(2 * 60L, TimeUnit.SECONDS);
+        boolean full = latch.await(2, TimeUnit.MINUTES);
         final List<NSQMessage> received = new ArrayList<>(actualNSQMessages);
-        logger.debug("=======================received: {}", received.size());
         for (NSQMessage m : received) {
             consumer4Finish.finish(m);
-            logger.debug("=========================Finish one: {}", m.newHexString(m.getMessageID()));
         }
         if (full) {
-            Assert.assertEquals(actualNSQMessages.size(), count);
+            Assert.assertEquals(count, actualNSQMessages.size());
             Assert.assertEquals(messages4Finish, actualMessages);
         } else {
             Assert.assertTrue(false, "Not have got enough messages.");
@@ -173,7 +168,6 @@ public class ITComplexConsumer {
 
     @AfterClass
     public void close() {
-        logger.debug("================Begin to close");
         IOUtil.closeQuietly(producer, consumer4ReQueue, consumer4Finish);
     }
 }

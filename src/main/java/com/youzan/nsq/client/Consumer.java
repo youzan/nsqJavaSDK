@@ -21,15 +21,6 @@ public interface Consumer extends Client, Closeable {
      */
     void subscribe(String... topics);
 
-    /**
-     * Initialize some parameters for the consumer
-     *
-     * @param topics the client wanna subscribe some topics and this API appends
-     *               into a topics collector
-     * @param partitionId partition Id that pass in topics have
-     */
-    void subscribe(int partitionId, String... topics);
-
     @Override
     void start() throws NSQException;
 

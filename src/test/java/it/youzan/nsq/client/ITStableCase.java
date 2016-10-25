@@ -70,29 +70,24 @@ public class ITStableCase {
     }
 
     @Test(priority = 12)
-    public void produce() throws NSQException, InterruptedException {
+    public void produce() throws NSQException {
         if (!stable) {
             return;
         }
-        logger.info("Stable test producer starts.");
-        logger.info(""+allowedRunDeadline);
         final NSQConfig config = (NSQConfig) this.config.clone();
         config.setThreadPoolSize4IO(1);
         producer = new ProducerImplV2(config);
         producer.start();
         for (long now = 0; now < allowedRunDeadline; now = System.currentTimeMillis()) {
-            logger.info("Producer send at: {}, DeadLine: {}", now, allowedRunDeadline);
             final byte[] message = new byte[512];
             _r.nextBytes(message);
             try {
                 totalPub.getAndIncrement();
-                producer.publish(message, "JavaTesting-Stable");
+                producer.publish(message, "JavaTesting-Finish");
                 successPub.getAndIncrement();
             } catch (Exception e) {
                 logger.error("Exception", e);
             }
-            int sec = _r.nextInt(3) * 1000;
-            Thread.sleep(sec);
         }
         logger.info("Exit producing...");
     }
@@ -102,7 +97,6 @@ public class ITStableCase {
         if (!stable) {
             return;
         }
-        logger.info("Stable test consumer starts.");
         final MessageHandler handler = new MessageHandler() {
             @Override
             public void process(NSQMessage message) {
@@ -116,7 +110,7 @@ public class ITStableCase {
         config.setThreadPoolSize4IO(Math.max(2, Runtime.getRuntime().availableProcessors()));
         consumer = new ConsumerImplV2(config, handler);
         consumer.setAutoFinish(false);
-        consumer.subscribe("JavaTesting-Stable");
+        consumer.subscribe("JavaTesting-Finish");
         consumer.start();
 
         for (long now = 0; now < (allowedRunDeadline + 10 * 1000); now = System.currentTimeMillis()) {
@@ -125,7 +119,6 @@ public class ITStableCase {
                 if (message == null) {
                     continue;
                 }
-                logger.info("Message got at: {}, Deadline: {}", now, allowedRunDeadline);
                 consumer.finish(message);
                 successFinish.getAndIncrement();
             } catch (Exception e) {

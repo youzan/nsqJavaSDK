@@ -94,6 +94,7 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
             bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
             bootstrap.option(ChannelOption.TCP_NODELAY, true);
             bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, config.getConnectTimeoutInMillisecond());
+            bootstrap.option(ChannelOption.SO_TIMEOUT, config.getQueryTimeoutInMillisecond());
             bootstrap.group(eventLoopGroup);
             bootstrap.channel(NioSocketChannel.class);
             bootstrap.handler(new NSQClientInitializer());
