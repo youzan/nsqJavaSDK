@@ -6,7 +6,6 @@ import com.youzan.nsq.client.core.lookup.LookupService;
 import com.youzan.nsq.client.core.lookup.LookupServiceImpl;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.Response;
-import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQInvalidTopicException;
 import com.youzan.nsq.client.exception.NSQLookupException;
@@ -37,8 +36,8 @@ public class NSQSimpleClient implements Client, Closeable {
     private static final Logger logger = LoggerFactory.getLogger(NSQSimpleClient.class);
 
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-    //maintain a mapping from topic to producer broadcast addresses
-    private final Map<Topic, ConcurrentSortedSet<Address>> topic_2_dataNodes = new HashMap<>();
+    //maintain a mapping from topic text to producer broadcast address
+    private final Map<String, ConcurrentSortedSet<Address>> topic_2_dataNodes = new HashMap<>();
     private final ConcurrentSortedSet<Address> dataNodes = new ConcurrentSortedSet<>();
 
     private volatile boolean started;
@@ -49,10 +48,6 @@ public class NSQSimpleClient implements Client, Closeable {
 
     public NSQSimpleClient(final String lookupAddresses) {
         this.lookup = new LookupServiceImpl(lookupAddresses);
-    }
-
-    public NSQSimpleClient(final String[] lookupAddresses, final LookupAddressUpdate lookupUpdate) {
-        this.lookup = new LookupServiceImpl(lookupAddresses, lookupUpdate);
     }
 
     @Override
@@ -87,13 +82,13 @@ public class NSQSimpleClient implements Client, Closeable {
     private void newDataNodes() throws NSQLookupException {
         lock.writeLock().lock();
         try {
-            Set<Topic> brokenTopic = new HashSet<>();
-            for (Map.Entry<Topic, ConcurrentSortedSet<Address>> pair : topic_2_dataNodes.entrySet()) {
+            Set<String> brokenTopic = new HashSet<>();
+            for (Map.Entry<String, ConcurrentSortedSet<Address>> pair : topic_2_dataNodes.entrySet()) {
                 if (pair.getValue() == null) {
                     brokenTopic.add(pair.getKey());
                 }
             }
-            for (Topic topic : brokenTopic) {
+            for (String topic : brokenTopic) {
                 topic_2_dataNodes.remove(topic);
             }
         } finally {
@@ -101,10 +96,10 @@ public class NSQSimpleClient implements Client, Closeable {
         }
 
         // HTTP costs long time.
-        final Set<Topic> topics = new HashSet<>();
+        final Set<String> topics = new HashSet<>();
         lock.writeLock().lock();
         try {
-            for (Topic topic : topic_2_dataNodes.keySet()) {
+            for (String topic : topic_2_dataNodes.keySet()) {
                 topics.add(topic);
             }
         } finally {
@@ -112,7 +107,7 @@ public class NSQSimpleClient implements Client, Closeable {
         }
 
         final Set<Address> newDataNodes = new HashSet<>();
-        for (Topic topic : topics) {
+        for (String topic : topics) {
             try {
                 final SortedSet<Address> addresses = lookup.lookup(topic);
                 if (!addresses.isEmpty()) {
@@ -148,8 +143,8 @@ public class NSQSimpleClient implements Client, Closeable {
         }
     }
 
-    public void putTopic(Topic topic) {
-        if (topic == null) {
+    public void putTopic(String topic) {
+        if (topic == null || topic.isEmpty()) {
             return;
         }
         lock.writeLock().lock();
@@ -163,28 +158,13 @@ public class NSQSimpleClient implements Client, Closeable {
         }
     }
 
-    public void removeTopic(Topic topic) {
-        if (topic == null || null == topic.getTopicText() || topic.getTopicText().isEmpty()) {
+    public void removeTopic(String topic) {
+        if (topic == null || topic.isEmpty()) {
             return;
         }
         lock.writeLock().lock();
         try {
             topic_2_dataNodes.remove(topic);
-        } finally {
-            lock.writeLock().unlock();
-        }
-    }
-
-    /**
-     * remove multiple topics from simple client, invoker of this function needs to make sure pass in topics are valid
-     * @param topics
-     */
-    public void removeTopics(final Collection<Topic> topics) {
-        assert null != topics;
-        lock.writeLock().lock();
-        try {
-            for(Topic topic:topics)
-                topic_2_dataNodes.remove(topic);
         } finally {
             lock.writeLock().unlock();
         }
@@ -214,7 +194,6 @@ public class NSQSimpleClient implements Client, Closeable {
                 } catch (Exception e) {
                     logger.error("Address: {}, Exception:", conn.getAddress(), e);
                 }
-                logger.warn("Error-Frame from {} , frame: {}", conn.getAddress(), frame);
                 break;
             }
             case MESSAGE_FRAME: {
@@ -233,7 +212,7 @@ public class NSQSimpleClient implements Client, Closeable {
         conn.command(new Rdy(0));
     }
 
-    public ConcurrentSortedSet<Address> getDataNodes(Topic topic) throws NSQException {
+    public ConcurrentSortedSet<Address> getDataNodes(String topic) throws NSQException {
         SortedSet<Address> first = null;
         lock.readLock().lock();
         try {
@@ -268,7 +247,7 @@ public class NSQSimpleClient implements Client, Closeable {
                 lock.writeLock().unlock();
             }
         }
-        throw new NSQInvalidTopicException(topic);
+        throw new NSQInvalidTopicException();
     }
 
     @Override

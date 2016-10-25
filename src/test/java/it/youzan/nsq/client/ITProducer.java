@@ -1,9 +1,9 @@
 package it.youzan.nsq.client;
 
-import com.youzan.nsq.client.Producer;
-import com.youzan.nsq.client.ProducerImplV2;
-import com.youzan.nsq.client.entity.NSQConfig;
-import com.youzan.nsq.client.exception.NSQException;
+import java.io.InputStream;
+import java.util.Properties;
+import java.util.Random;
+
 import com.youzan.util.IOUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,18 +11,19 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.io.InputStream;
-import java.util.Properties;
-import java.util.Random;
+import com.youzan.nsq.client.Producer;
+import com.youzan.nsq.client.ProducerImplV2;
+import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.nsq.client.exception.NSQException;
 
 @Test(groups = {"ITProducer-Base"}, priority = 3)
 public class ITProducer {
 
     private static final Logger logger = LoggerFactory.getLogger(ITProducer.class);
 
-    final Random random = new Random();
-    protected final NSQConfig config = new NSQConfig();
-    protected Producer producer;
+    private final Random random = new Random();
+    private final NSQConfig config = new NSQConfig();
+    private Producer producer;
 
     @BeforeClass
     public void init() throws Exception {
@@ -49,7 +50,7 @@ public class ITProducer {
     public void publish() throws NSQException {
         final byte[] message = new byte[64];
         for (int i = 0; i < 10; i++) {
-            random.nextBytes("Message #0".getBytes());
+            random.nextBytes(message);
             producer.publish(message, "JavaTesting-Producer-Base");
         }
     }

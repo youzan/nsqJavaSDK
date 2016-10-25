@@ -1,11 +1,12 @@
 package com.youzan.nsq.client;
 
-import com.youzan.nsq.client.core.LookupAddressUpdate;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
 import com.youzan.nsq.client.core.command.*;
 import com.youzan.nsq.client.core.pool.consumer.FixedPool;
-import com.youzan.nsq.client.entity.*;
+import com.youzan.nsq.client.entity.Address;
+import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQNoConnectionException;
 import com.youzan.nsq.client.exception.RetryBusinessException;
@@ -13,7 +14,6 @@ import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.MessageFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame.FrameType;
-import com.youzan.nsq.client.network.frame.OrderedMessageFrame;
 import com.youzan.util.ConcurrentSortedSet;
 import com.youzan.util.IOUtil;
 import com.youzan.util.NamedThreadFactory;
@@ -22,11 +22,9 @@ import io.netty.channel.ChannelFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * <pre>
@@ -38,7 +36,7 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
-public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
+public class ConsumerImplV2 implements Consumer {
 
     private static final Logger logger = LoggerFactory.getLogger(ConsumerImplV2.class);
     private final Object lock = new Object();
@@ -55,38 +53,10 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
 
     /*-
      * =========================================================================
-     * Topic set for containing topics user subscribes.
-     *
+     * 
      * =========================================================================
      */
-    private final SortedSet<Topic> topics = new TreeSet<>(new Comparator<Topic>() {
-        @Override
-        /*-
-         * Override equals here for consumer only, two TopicConsumer equals to each other when they have same topic text
-         * for two TopicConsumer a & b, and:
-         *
-         * 1. a and b have same partition ID;
-         * 2. one of a and b's partition ID is NO_SPECIFY
-         */
-        public int compare(Topic topic1, Topic topic2) {
-            String topicStr1 = topic1.getTopicText();
-            String topicStr2 = topic2.getTopicText();
-            if (!topicStr1.equals(topicStr2))
-                return topicStr1.compareTo(topicStr2);
-            else {
-                //compare partition num given same topic text
-                int partitionID1 = topic1.getPartitionId();
-                int partitionID2 = topic2.getPartitionId();
-                if (partitionID1 == partitionID2)
-                    return 0;
-                else if (partitionID1 == PartitionEnable.PARTITION_ID_NO_SPECIFY) return 1;
-                else if (partitionID2 == PartitionEnable.PARTITION_ID_NO_SPECIFY) return -1;
-                else return partitionID1 - partitionID2;
-            }
-        }
-    });
-
-    // client subscribes
+    private final Set<String> topics = new HashSet<>(); // client subscribes
     /*-
       address_2_pool maps NSQd address to connections to topics specified by consumer.
       Basically, consumer subscribe multi-topics to one NSQd, hence there is a mapping
@@ -108,6 +78,8 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
      *                           Client delegates to me
      * =========================================================================
      */
+
+
     private final Rdy DEFAULT_RDY;
     private final Rdy MEDIUM_RDY;
     private final Rdy LOW_RDY = new Rdy(1);
@@ -118,11 +90,6 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
     private final NSQSimpleClient simpleClient;
     private final NSQConfig config;
 
-    private SubCmdType subStatus = SubCmdType.SUB;
-    private final Object traceLock = new Object();
-    private AtomicLong latestInternalID = new AtomicLong(0);
-    private AtomicLong latestDiskQueueOffset = new AtomicLong(0);
-
     /**
      * @param config  NSQConfig
      * @param handler the client code sets it
@@ -130,7 +97,7 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
     public ConsumerImplV2(NSQConfig config, MessageHandler handler) {
         this.config = config;
         this.handler = handler;
-        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(new Timestamp(0L)), new LookupAddressUpdate(config));
+        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses());
 
 
         final int messagesPerBatch = config.getRdy();
@@ -142,69 +109,11 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
 
     @Override
     public void subscribe(String... topics) {
-        subscribeTopics(PartitionEnable.PARTITION_ID_NO_SPECIFY, topics);
-    }
-
-    /**
-     * subscribe topics which have specified pass in partition id.
-     * As topic could be subscribe without any partition id. If the same
-     * topic is subscribe later, with a partition id, previous subscribe
-     * will be override, and vice versa.
-     *
-     * @param topics topics array which consumer interests in
-     * @param partitionId partition id which pass in topics array have
-     */
-    public void subscribe(int partitionId, String... topics) {
-        subscribeTopics(partitionId, topics);
-    }
-
-    private void subscribeTopics(int partitionId, String... topics){
         if (topics == null) {
             return;
         }
-        for(String topicStr:topics){
-            Topic topic = new Topic(topicStr, partitionId);
-            //if topic has partition id, we need to check if same topic which has NO partition id
-            //is already added in consumer's topics, if yes, we need to remove that first
-            if(topic.hasPartition()) {
-                this.topics.remove(new Topic(topicStr, PartitionEnable.PARTITION_ID_NO_SPECIFY));
-                this.simpleClient.removeTopic(topic);
-            }else{
-                //A partition no specify is added, remove all existing partitions
-                SortedSet<Topic> partitionsIDs = this.topics.subSet(new Topic(topicStr, PartitionEnable.PARTITION_ID_SMALLEST), topic);
-                SortedSet<Topic> tmpSet = new TreeSet<>(new Comparator<Topic>() {
-                    @Override
-                    /*-
-                    * Override equals here for consumer only, two TopicConsumer equals to each other when they have same topic text
-                    * for two TopicConsumer a & b, and:
-                    *
-                    * 1. a and b have same partition ID;
-                    * 2. one of a and b's partition ID is NO_SPECIFY
-                    */
-                    public int compare(Topic topic1, Topic topic2) {
-                        String topicStr1 = topic1.getTopicText();
-                        String topicStr2 = topic2.getTopicText();
-                        if (!topicStr1.equals(topicStr2))
-                            return topicStr1.compareTo(topicStr2);
-                        else {
-                            //compare partition num given same topic text
-                            int partitionID1 = topic1.getPartitionId();
-                            int partitionID2 = topic2.getPartitionId();
-                            if (partitionID1 == partitionID2)
-                                return 0;
-                            else if (partitionID1 == PartitionEnable.PARTITION_ID_NO_SPECIFY) return 1;
-                            else if (partitionID2 == PartitionEnable.PARTITION_ID_NO_SPECIFY) return -1;
-                            else return partitionID1 - partitionID2;
-                        }
-                    }
-                });
-                tmpSet.addAll(partitionsIDs);
-                this.topics.removeAll(tmpSet);
-                //remove overrided topics from simple client
-                this.simpleClient.removeTopics(tmpSet);
-                tmpSet.clear();
-            }
-            this.topics.add(topic);
+        Collections.addAll(this.topics, topics);
+        for (String topic : topics) {
             simpleClient.putTopic(topic);
         }
     }
@@ -219,8 +128,6 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
         }
         synchronized (lock) {
             if (!this.started) {
-                //set subscribe status
-                this.subStatus = this.config.isOrdered() ? SubCmdType.SUB_ORDERED : SubCmdType.SUB;
                 // create the pools
                 this.simpleClient.start();
                 // -----------------------------------------------------------------
@@ -279,7 +186,7 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
 
         //broken set to collect Address of connection which is not connected
         final Set<Address> broken = new HashSet<>();
-        final ConcurrentHashMap<Address, Set<Topic>> address_2_topics = new ConcurrentHashMap<>();
+        final ConcurrentHashMap<Address, Set<String>> address_2_topics = new ConcurrentHashMap<>();
         final Set<Address> targetAddresses = new TreeSet<>();
         /*-
          * =====================================================================
@@ -313,13 +220,13 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
          *                            Get the relationship
          * =====================================================================
          */
-        for (Topic topic : topics) {
+        for (String topic : topics) {
             // maybe a exception occurs
             final ConcurrentSortedSet<Address> dataNodes = simpleClient.getDataNodes(topic);
             final Set<Address> addresses = new TreeSet<>();
             addresses.addAll(dataNodes.newSortedSet());
             for (Address a : addresses) {
-                final Set<Topic> tmpTopics;
+                final Set<String> tmpTopics;
                 if (address_2_topics.containsKey(a)) {
                     tmpTopics = address_2_topics.get(a);
                 } else {
@@ -369,7 +276,7 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
             logger.debug("Get new data-nodes: {}", except1);
             for (Address address : except1) {
                 try {
-                    final Set<Topic> topics = address_2_topics.get(address);
+                    final Set<String> topics = address_2_topics.get(address);
                     connect(address, topics);
                 } catch (Exception e) {
                     logger.error("Exception", e);
@@ -400,7 +307,7 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
      * @param address data-node(NSQd)
      * @param topics  client cares about the specified topics
      */
-    private void connect(Address address, Set<Topic> topics) throws Exception {
+    private void connect(Address address, Set<String> topics) throws Exception {
         if (topics == null || topics.isEmpty()) {
             return;
         }
@@ -414,7 +321,7 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
             if (connectionSize <= 0) {
                 return;
             }
-            final Topic[] topicArray = new Topic[topicSize];
+            final String[] topicArray = new String[topicSize];
             topics.toArray(topicArray);
             if (connectionSize != manualPoolSize * topicArray.length) {
                 // concurrent problem
@@ -423,7 +330,7 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
 
             final FixedPool pool = new FixedPool(address, connectionSize, this, config);
             address_2_pool.put(address, pool);
-            pool.prepare(this.getSubscribeStatus());
+            pool.prepare();
             List<NSQConnection> connections = pool.getConnections();
             if (connections == null || connections.isEmpty()) {
                 logger.info("TopicSize: {} , Address: {} , ThreadPoolSize4IO: {} , Connection-Size: {} . The pool is empty.", topicSize, address, manualPoolSize, connectionSize);
@@ -435,7 +342,7 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
                 assert k < topicArray.length;
                 // init( connection, topic ) , let it be a consumer connection
                 final NSQConnection connection = connections.get(i);
-                final Topic topic = topicArray[k];
+                final String topic = topicArray[k];
                 try {
                     connection.init();
                 } catch (Exception e) {
@@ -450,7 +357,7 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
                         throw new NSQNoConnectionException("Pool failed in connecting to NSQd! Closing: !" + closing);
                     }
                 } else {
-                    final Sub command = createSubCmd(topic, this.config.getConsumerName());
+                    final Sub command = new Sub(topic, config.getConsumerName());
                     final NSQFrame frame = connection.commandAndGetResponse(command);
                     handleResponse(frame, connection);
                     //as there is no success response from nsq, command is enough here
@@ -459,13 +366,6 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
                 logger.info("Done. Current connection index: {}", i);
             } // end loop creating a connection
         }
-    }
-
-    private Sub createSubCmd(final Topic topic, String channel){
-        if(this.subStatus == SubCmdType.SUB_ORDERED)
-            return new SubOrdered(topic, channel);
-        else
-            return new Sub(topic, channel);
     }
 
     /**
@@ -513,9 +413,8 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
         if (frame.getType() == FrameType.MESSAGE_FRAME) {
             received.incrementAndGet();
             final MessageFrame msg = (MessageFrame) frame;
-            final NSQMessage message = createNSQMessage(msg, conn, this.getSubscribeStatus());
-            //gather trace info
-            //this.trace.handleMessage(message);
+            final NSQMessage message = new NSQMessage(msg.getTimestamp(), msg.getAttempts(), msg.getMessageID(),
+                    msg.getMessageBody(), conn.getAddress(), Integer.valueOf(conn.getId()));
             processMessage(message, conn);
         } else {
             simpleClient.incoming(frame, conn);
@@ -523,31 +422,6 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
     }
 
     private void processMessage(final NSQMessage message, final NSQConnection connection) {
-        if(logger.isDebugEnabled()){
-            logger.debug(message.toString());
-        }
-
-        if(this.getSubscribeStatus() == SubCmdType.SUB_ORDERED){
-            long diskQueueOffset = message.getDiskQueueOffset();
-            long internalID = message.getInternalID();
-            synchronized(traceLock) {
-                long current = this.latestInternalID.get();
-                if(internalID <= current){
-                    //there is a problem
-                    logger.error("Internal ID in current message is smaller than what has received. Latest internal ID: {}, Current internal ID: {}.", current, internalID);
-                }
-
-                current = this.latestDiskQueueOffset.get();
-                if(diskQueueOffset <= current){
-                    //there is another problem
-                    logger.error("Disk queue offset in current message is smaller than what has received. Latest disk queue offset ID: {}, Current disk queue offset: {}.", current, diskQueueOffset);
-                }
-                //update both values
-                this.latestInternalID.set(internalID);
-                this.latestDiskQueueOffset.set(diskQueueOffset);
-            }
-        }
-
         if (handler == null) {
             logger.error("No MessageHandler then drop the message {}", message);
             return;
@@ -626,8 +500,8 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
      * @param connection a NSQConnection
      */
     private void consume(final NSQMessage message, final NSQConnection connection) {
-        boolean ok;
-        boolean retry;
+        boolean ok = false;
+        boolean retry = false;
         try {
             handler.process(message);
             ok = true;
@@ -673,7 +547,7 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
                     // Finish: client explicitly sets NextConsumingInSecond is null
                     cmd = new Finish(message.getMessageID());
                     final byte[] id = message.getMessageID();
-                    logger.info("Do a Finish by SDK, given that client process handler has failed and next consuming time elapse not specified. MessageID: {} , Hex: {}", id, message.newHexString(id));
+                    logger.info("Do a finish. MessageID: {} , Hex: {}", id, message.newHexString(id));
                 }
             }
         } else {
@@ -897,26 +771,5 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
         }
     }
 
-    public SubCmdType getSubscribeStatus() {
-        return this.subStatus;
-    }
 
-    private NSQMessage createNSQMessage(final MessageFrame msgFrame, final NSQConnection conn, SubCmdType subType){
-        if(subType == SubCmdType.SUB_ORDERED) {
-            OrderedMessageFrame orderedFrame = (OrderedMessageFrame) msgFrame;
-            return new NSQMessage(orderedFrame.getTimestamp(), orderedFrame.getAttempts(), orderedFrame.getMessageID(),
-                    orderedFrame.getInternalID(), orderedFrame.getTractID(), orderedFrame.getDiskQueueOffset(),
-                    orderedFrame.getDiskQueueDataSize(), orderedFrame.getMessageBody(), conn.getAddress(), conn.getId());
-        }else
-            return new NSQMessage(msgFrame.getTimestamp(), msgFrame.getAttempts(), msgFrame.getMessageID(),
-                    msgFrame.getInternalID(), msgFrame.getTractID(), msgFrame.getMessageBody(), conn.getAddress(), conn.getId());
-    }
-
-    /**
-     * fetch topics set, for test purpose.
-     * @return topics set
-     */
-    private SortedSet<Topic> getTopics(){
-        return this.topics;
-    }
 }

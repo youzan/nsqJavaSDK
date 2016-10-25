@@ -65,7 +65,6 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
                 if (null == response) {
                     throw new IllegalStateException("Bad Identify Response! Close connection!");
                 }
-                // TODO judge OK?
                 havingNegotiation = true;
             }
             started = true;
@@ -162,7 +161,6 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     @Override
     public void close() {
-        logger.info("Begin to close {}", this);
         synchronized (lock) {
             if (closing) {
                 return;

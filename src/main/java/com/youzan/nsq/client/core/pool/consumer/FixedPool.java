@@ -1,6 +1,5 @@
 package com.youzan.nsq.client.core.pool.consumer;
 
-import com.youzan.nsq.client.HasSubscribeStatus;
 import com.youzan.nsq.client.core.Client;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQConnectionImpl;
@@ -51,7 +50,7 @@ public class FixedPool {
     }
 
 
-    public void prepare(final HasSubscribeStatus.SubCmdType subType) throws NSQNoConnectionException {
+    public void prepare() throws NSQNoConnectionException {
         bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
         bootstrap.option(ChannelOption.TCP_NODELAY, true);
         bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, config.getConnectTimeoutInMillisecond());
@@ -78,7 +77,6 @@ public class FixedPool {
             // Netty async+sync programming
             channel.attr(NSQConnection.STATE).set(conn);
             channel.attr(Client.STATE).set(client);
-            channel.attr(HasSubscribeStatus.SUBTYPE).set(subType);
             connections.add(conn);
         }
         logger.debug("Having created {} connections for {}", size, address);

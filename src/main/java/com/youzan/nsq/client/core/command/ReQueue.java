@@ -6,11 +6,10 @@ package com.youzan.nsq.client.core.command;
 import java.nio.ByteBuffer;
 import java.util.List;
 
-import com.youzan.nsq.client.entity.Topic;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ReQueue implements NSQCommand, PartitionEnable {
+public class ReQueue implements NSQCommand {
     private static final Logger logger = LoggerFactory.getLogger(ReQueue.class);
 
     private final byte[] data;
@@ -46,15 +45,5 @@ public class ReQueue implements NSQCommand, PartitionEnable {
     @Override
     public List<byte[]> getBody() {
         return EMPTY_BODY;
-    }
-
-    /**
-     * NOT implemented
-     * @param topic
-     * @return null
-     */
-    @Override
-    public byte[] getPartitionIdByte(Topic topic) {
-        return null;
     }
 }
