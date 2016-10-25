@@ -17,7 +17,7 @@ public class ErrorFrame extends NSQFrame {
     @Override
     public void setData(byte[] data) {
         super.setData(data);
-        logger.debug("Message is {}", getMessage());
+        logger.warn("Message is {}", getMessage());
     }
 
     @Override

@@ -21,12 +21,14 @@ public class OrderedMessageFrame extends MessageFrame{
         System.arraycopy(bytes, 0, timestamp, 0, 8);
         System.arraycopy(bytes, 8, attempts, 0, 2);
         //Sub Ordered incoming extra info, disk queue offset & disk queue data size
-        System.arraycopy(bytes, 10, diskQueueOffset, 0, 8);
-        System.arraycopy(bytes, 18, diskQueueOffset, 0, 4);
+        System.arraycopy(bytes, 10, messageID, 0, 16);
+        System.arraycopy(bytes, 10, internalID, 0, 8);
+        System.arraycopy(bytes, 18, traceID, 0, 8);
 
-        System.arraycopy(bytes, 22, messageID, 0, 16);
-        System.arraycopy(bytes, 22, internalID, 0, 8);
-        System.arraycopy(bytes, 30, traceID, 0, 8);
+        System.arraycopy(bytes, 26, diskQueueOffset, 0, 8);
+        System.arraycopy(bytes, 34, diskQueueDataSize, 0, 4);
+
+
         System.arraycopy(bytes, 38, messageBody, 0, messageBodySize);
     }
 
