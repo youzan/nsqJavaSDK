@@ -487,6 +487,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         this.consumerName = consumerName;
     }
 
+
     /**
      * @return the ordered
      */
