@@ -151,25 +151,25 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
      * topic is subscribe later, with a partition id, previous subscribe
      * will be override, and vice versa.
      *
-     * @param topics topics array which consumer interests in
+     * @param topics      topics array which consumer interests in
      * @param partitionId partition id which pass in topics array have
      */
     public void subscribe(int partitionId, String... topics) {
         subscribeTopics(partitionId, topics);
     }
 
-    private void subscribeTopics(int partitionId, String... topics){
+    private void subscribeTopics(int partitionId, String... topics) {
         if (topics == null) {
             return;
         }
-        for(String topicStr:topics){
+        for (String topicStr : topics) {
             Topic topic = new Topic(topicStr, partitionId);
             //if topic has partition id, we need to check if same topic which has NO partition id
             //is already added in consumer's topics, if yes, we need to remove that first
-            if(topic.hasPartition()) {
+            if (topic.hasPartition()) {
                 this.topics.remove(new Topic(topicStr, PartitionEnable.PARTITION_ID_NO_SPECIFY));
                 this.simpleClient.removeTopic(topic);
-            }else{
+            } else {
                 //A partition no specify is added, remove all existing partitions
                 SortedSet<Topic> partitionsIDs = this.topics.subSet(new Topic(topicStr, PartitionEnable.PARTITION_ID_SMALLEST), topic);
                 SortedSet<Topic> tmpSet = new TreeSet<>(new Comparator<Topic>() {
@@ -461,8 +461,8 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
         }
     }
 
-    private Sub createSubCmd(final Topic topic, String channel){
-        if(this.subStatus == SubCmdType.SUB_ORDERED)
+    private Sub createSubCmd(final Topic topic, String channel) {
+        if (this.subStatus == SubCmdType.SUB_ORDERED)
             return new SubOrdered(topic, channel);
         else
             return new Sub(topic, channel);
@@ -523,22 +523,22 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
     }
 
     private void processMessage(final NSQMessage message, final NSQConnection connection) {
-        if(logger.isDebugEnabled()){
+        if (logger.isDebugEnabled()) {
             logger.debug(message.toString());
         }
 
-        if(this.getSubscribeStatus() == SubCmdType.SUB_ORDERED){
+        if (this.getSubscribeStatus() == SubCmdType.SUB_ORDERED) {
             long diskQueueOffset = message.getDiskQueueOffset();
             long internalID = message.getInternalID();
-            synchronized(traceLock) {
+            synchronized (traceLock) {
                 long current = this.latestInternalID.get();
-                if(internalID <= current){
+                if (internalID <= current) {
                     //there is a problem
                     logger.error("Internal ID in current message is smaller than what has received. Latest internal ID: {}, Current internal ID: {}.", current, internalID);
                 }
 
                 current = this.latestDiskQueueOffset.get();
-                if(diskQueueOffset <= current){
+                if (diskQueueOffset <= current) {
                     //there is another problem
                     logger.error("Disk queue offset in current message is smaller than what has received. Latest disk queue offset ID: {}, Current disk queue offset: {}.", current, diskQueueOffset);
                 }
@@ -638,7 +638,7 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
         } catch (Exception e) {
             ok = false;
             retry = false;
-            logger.error("Client business has one error. Exception:", e);
+            logger.error("Client business has one error. Original Message: {} . Exception:", message.getReadableContent(), e);
         }
         if (!ok && retry) {
             logger.warn("Client has told SDK to do again. {}", message);
@@ -648,7 +648,7 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
             } catch (Exception e) {
                 ok = false;
                 retry = false;
-                logger.error("Client business has required SDK to do again, but still has one error. Exception:", e);
+                logger.error("Client business has required SDK to do the processing again, but still has one error. Original Message: {} . Exception:", message.getReadableContent(), e);
             }
         }
 
@@ -668,12 +668,12 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
                     // ReQueue
                     cmd = new ReQueue(message.getMessageID(), nextConsumingWaiting.intValue());
                     final byte[] id = message.getMessageID();
-                    logger.info("Do a re-queue by SDK that is a default behavior. MessageID: {} , Hex: {}", id, message.newHexString(id));
+                    logger.info("Do a re-queue by SDK that is a default behavior. MessageID: {} , Hex: {} ,  Original Message: {}", id, message.newHexString(id), message.getReadableContent());
                 } else {
                     // Finish: client explicitly sets NextConsumingInSecond is null
                     cmd = new Finish(message.getMessageID());
                     final byte[] id = message.getMessageID();
-                    logger.info("Do a Finish by SDK, given that client process handler has failed and next consuming time elapse not specified. MessageID: {} , Hex: {}", id, message.newHexString(id));
+                    logger.info("Do a Finish by SDK, given that client process handler has failed and next consuming time elapse not specified. MessageID: {} , Hex: {} , Original Message: {}", id, message.newHexString(id), message.getReadableContent());
                 }
             }
         } else {
@@ -684,7 +684,7 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
                     // ReQueue
                     cmd = new ReQueue(message.getMessageID(), nextConsumingWaiting.intValue());
                     final byte[] id = message.getMessageID();
-                    logger.info("Do a re-queue. MessageID: {} , Hex: {}", id, message.newHexString(id));
+                    logger.info("Do a re-queue. MessageID: {} , Hex: {} , Original Message: {}", id, message.newHexString(id), message.getReadableContent());
                 }
             } else {
                 // ignore actions
@@ -704,7 +704,7 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
             logger.error("{} , Processing 10 times is still a failure!", message);
         }
         if (!ok) {
-            logger.error("{} , exception occurs but you don't catch it! Please check it right now!!!", message);
+            logger.error("{} , Original Message: {} . exception occurs but you don't catch it! Please check it right now!!!", message.getReadableContent(), message);
         }
     }
 
@@ -901,22 +901,23 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
         return this.subStatus;
     }
 
-    private NSQMessage createNSQMessage(final MessageFrame msgFrame, final NSQConnection conn, SubCmdType subType){
-        if(subType == SubCmdType.SUB_ORDERED) {
+    private NSQMessage createNSQMessage(final MessageFrame msgFrame, final NSQConnection conn, SubCmdType subType) {
+        if (subType == SubCmdType.SUB_ORDERED) {
             OrderedMessageFrame orderedFrame = (OrderedMessageFrame) msgFrame;
             return new NSQMessage(orderedFrame.getTimestamp(), orderedFrame.getAttempts(), orderedFrame.getMessageID(),
                     orderedFrame.getInternalID(), orderedFrame.getTractID(), orderedFrame.getDiskQueueOffset(),
                     orderedFrame.getDiskQueueDataSize(), orderedFrame.getMessageBody(), conn.getAddress(), conn.getId());
-        }else
+        } else
             return new NSQMessage(msgFrame.getTimestamp(), msgFrame.getAttempts(), msgFrame.getMessageID(),
                     msgFrame.getInternalID(), msgFrame.getTractID(), msgFrame.getMessageBody(), conn.getAddress(), conn.getId());
     }
 
     /**
      * fetch topics set, for test purpose.
+     *
      * @return topics set
      */
-    private SortedSet<Topic> getTopics(){
+    private SortedSet<Topic> getTopics() {
         return this.topics;
     }
 }
