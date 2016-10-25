@@ -638,7 +638,7 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
         } catch (Exception e) {
             ok = false;
             retry = false;
-            logger.error("Client business has one error. Exception:", e);
+            logger.error("Client business has one error. Original message: {}. Exception:", message.getReadableContent(), e);
         }
         if (!ok && retry) {
             logger.warn("Client has told SDK to do again. {}", message);
@@ -648,7 +648,7 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
             } catch (Exception e) {
                 ok = false;
                 retry = false;
-                logger.error("Client business has required SDK to do again, but still has one error. Exception:", e);
+                logger.error("Client business has required SDK to do again, but still has one error. Original message: {}. Exception:", message.getReadableContent(), e);
             }
         }
 
@@ -704,7 +704,7 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
             logger.error("{} , Processing 10 times is still a failure!", message);
         }
         if (!ok) {
-            logger.error("{} , exception occurs but you don't catch it! Please check it right now!!!", message);
+            logger.warn("{} , Original message: {}. Exception occurs but you don't catch it! Please check it right now!!!", message, message.getReadableContent());
         }
     }
 
