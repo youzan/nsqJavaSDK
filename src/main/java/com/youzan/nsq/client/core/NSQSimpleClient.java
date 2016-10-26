@@ -1,7 +1,5 @@
 package com.youzan.nsq.client.core;
 
-import com.youzan.nsq.client.Consumer;
-import com.youzan.nsq.client.ConsumerImplV2;
 import com.youzan.nsq.client.core.command.Nop;
 import com.youzan.nsq.client.core.command.Rdy;
 import com.youzan.nsq.client.core.lookup.LookupService;
@@ -252,7 +250,7 @@ public class NSQSimpleClient implements Client, Closeable {
                 lock.writeLock().unlock();
             }
         }
-        throw new NSQInvalidTopicException();
+        throw new NSQInvalidTopicException(topic);
     }
 
     @Override
