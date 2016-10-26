@@ -1,6 +1,8 @@
 package it.youzan.nsq.client;
 
-import com.youzan.nsq.client.*;
+import com.youzan.nsq.client.Consumer;
+import com.youzan.nsq.client.ConsumerImplV2;
+import com.youzan.nsq.client.MessageHandler;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.exception.NSQException;
@@ -13,7 +15,6 @@ import org.testng.annotations.Test;
 
 import java.io.InputStream;
 import java.util.Properties;
-import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;

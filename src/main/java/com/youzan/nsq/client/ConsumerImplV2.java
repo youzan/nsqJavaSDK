@@ -7,6 +7,7 @@ import com.youzan.nsq.client.core.pool.consumer.FixedPool;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
+import com.youzan.nsq.client.entity.Role;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQNoConnectionException;
 import com.youzan.nsq.client.exception.RetryBusinessException;
@@ -97,7 +98,7 @@ public class ConsumerImplV2 implements Consumer {
     public ConsumerImplV2(NSQConfig config, MessageHandler handler) {
         this.config = config;
         this.handler = handler;
-        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses());
+        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(), Role.Consumer);
 
 
         final int messagesPerBatch = config.getRdy();

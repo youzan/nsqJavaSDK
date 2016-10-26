@@ -1,11 +1,14 @@
 package com.youzan.nsq.client.core;
 
+import com.youzan.nsq.client.Consumer;
+import com.youzan.nsq.client.ConsumerImplV2;
 import com.youzan.nsq.client.core.command.Nop;
 import com.youzan.nsq.client.core.command.Rdy;
 import com.youzan.nsq.client.core.lookup.LookupService;
 import com.youzan.nsq.client.core.lookup.LookupServiceImpl;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.Response;
+import com.youzan.nsq.client.entity.Role;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQInvalidTopicException;
 import com.youzan.nsq.client.exception.NSQLookupException;
@@ -44,10 +47,12 @@ public class NSQSimpleClient implements Client, Closeable {
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.MAX_PRIORITY));
 
+    private final Role role;
     private final LookupService lookup;
 
-    public NSQSimpleClient(final String lookupAddresses) {
-        this.lookup = new LookupServiceImpl(lookupAddresses);
+    public NSQSimpleClient(final String lookupAddresses, Role role) {
+        this.role = role;
+        this.lookup = new LookupServiceImpl(lookupAddresses, this.role);
     }
 
     @Override

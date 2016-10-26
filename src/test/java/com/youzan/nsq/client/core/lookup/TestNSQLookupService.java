@@ -5,6 +5,8 @@ import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.OutputStreamAppender;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.youzan.nsq.client.Consumer;
+import com.youzan.nsq.client.entity.Role;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -46,7 +48,7 @@ public class TestNSQLookupService {
 
     @Test
     public void simpleInit() {
-        try (LookupServiceImpl srv = new LookupServiceImpl("10.232.120.12:6411")) {
+        try (LookupServiceImpl srv = new LookupServiceImpl("10.232.120.12:6411", Role.Producer)) {
             for (String addr : srv.getAddresses()) {
                 Assert.assertTrue(addr.split(":").length == 2);
                 Assert.assertEquals(addr, "10.232.120.12:6411");
@@ -135,7 +137,7 @@ public class TestNSQLookupService {
 
     @Test(dataProvider = "genIPs")
     public void testInit(String ips, List<String> expected) {
-        try (LookupServiceImpl srv = new LookupServiceImpl(ips)) {
+        try (LookupServiceImpl srv = new LookupServiceImpl(ips, null)) {
             Assert.assertEquals(srv.getAddresses(), expected);
         }
     }

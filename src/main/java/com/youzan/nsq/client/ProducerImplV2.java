@@ -6,6 +6,7 @@ import com.youzan.nsq.client.core.command.Pub;
 import com.youzan.nsq.client.core.pool.producer.KeyedPooledConnectionFactory;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.nsq.client.entity.Role;
 import com.youzan.nsq.client.exception.*;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
@@ -60,7 +61,7 @@ public class ProducerImplV2 implements Producer {
      */
     public ProducerImplV2(NSQConfig config) {
         this.config = config;
-        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses());
+        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(), Role.Producer);
 
         this.poolConfig = new GenericKeyedObjectPoolConfig();
         this.factory = new KeyedPooledConnectionFactory(this.config, this);
