@@ -7,13 +7,8 @@ public class NSQInvalidTopicException extends NSQException {
 
     private static final long serialVersionUID = 6410416443212221161L;
 
-    public NSQInvalidTopicException() {
-        super(Response.E_BAD_TOPIC + ": SDK may subscribe/publish to a topic and partition which does not exist.\n Please contact your administrator!");
-    }
-
-    public NSQInvalidTopicException(final Topic topic) {
-        super(Response.E_BAD_TOPIC + ": SDK may subscribe/publish to a topic {" + topic.toString() + "} which does not exist.\n" +
-                " Please contact your administrator!");
+    public NSQInvalidTopicException(final String topic) {
+        super(Response.E_BAD_TOPIC + " ! Please contact your administrator! The topic is " + topic);
     }
 
 }

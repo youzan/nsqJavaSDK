@@ -272,7 +272,7 @@ public class NSQSimpleClient implements Client, Closeable {
                 lock.writeLock().unlock();
             }
         }
-        throw new NSQInvalidTopicException(topic);
+        throw new NSQInvalidTopicException(topic.getTopicText());
     }
 
     @Override

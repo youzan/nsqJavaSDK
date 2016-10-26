@@ -221,7 +221,7 @@ public class ProducerImplV2 implements Producer {
 //            logger.debug("Having acquired a {} NSQConnection! CurrentRetries: {}", conn.getAddress(), c);
             try {
                 final NSQFrame frame = conn.commandAndGetResponse(pub);
-                handleResponse(frame, conn);
+                handleResponse(topic.getTopicText(), frame, conn);
                 if(frame.getType() == NSQFrame.FrameType.RESPONSE_FRAME && pub instanceof HasTraceID){
                     //gather trace info
                     this.trace.handleFrame(pub, frame);
@@ -259,7 +259,7 @@ public class ProducerImplV2 implements Producer {
         }
     }
 
-    private void handleResponse(NSQFrame frame, NSQConnection conn) throws NSQException {
+    private void handleResponse(String topic, NSQFrame frame, NSQConnection conn) throws NSQException {
         if (frame == null) {
             logger.warn("SDK bug: the frame is null.");
             return;
@@ -272,7 +272,7 @@ public class ProducerImplV2 implements Producer {
                 final ErrorFrame err = (ErrorFrame) frame;
                 switch (err.getError()) {
                     case E_BAD_TOPIC: {
-                        throw new NSQInvalidTopicException();
+                        throw new NSQInvalidTopicException(topic);
                     }
                     case E_BAD_MESSAGE: {
                         throw new NSQInvalidMessageException();
@@ -283,10 +283,10 @@ public class ProducerImplV2 implements Producer {
                     }
                     case E_TOPIC_NOT_EXIST: {
                         logger.error("Address: {} , Frame: {}", conn.getAddress(), frame);
-                        throw new NSQInvalidDataNodeException();
+                        throw new NSQInvalidDataNodeException(topic);
                     }
                     default: {
-                        throw new NSQException("Unknown response error! The error frame is " + err);
+                        throw new NSQException("Unknown response error! The topic is " + topic + " . The error frame is " + err);
                     }
                 }
             }
