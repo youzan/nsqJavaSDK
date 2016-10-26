@@ -278,7 +278,7 @@ public class NSQSimpleClient implements Client, Closeable {
     @Override
     public boolean validateHeartbeat(NSQConnection conn) {
         final ChannelFuture future = conn.command(Nop.getInstance());
-        return future.awaitUninterruptibly(2000, TimeUnit.MILLISECONDS) && future.isSuccess();
+        return future.awaitUninterruptibly(2500, TimeUnit.MILLISECONDS) && future.isSuccess();
     }
 
     @Override
