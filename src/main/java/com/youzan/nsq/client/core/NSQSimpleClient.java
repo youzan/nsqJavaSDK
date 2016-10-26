@@ -6,6 +6,7 @@ import com.youzan.nsq.client.core.lookup.LookupService;
 import com.youzan.nsq.client.core.lookup.LookupServiceImpl;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.Response;
+import com.youzan.nsq.client.entity.Role;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQInvalidTopicException;
@@ -45,14 +46,17 @@ public class NSQSimpleClient implements Client, Closeable {
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.MAX_PRIORITY));
 
+    private final Role role;
     private final LookupService lookup;
 
-    public NSQSimpleClient(final String lookupAddresses) {
-        this.lookup = new LookupServiceImpl(lookupAddresses);
+    public NSQSimpleClient(final String lookupAddresses, Role role) {
+        this.role = role;
+        this.lookup = new LookupServiceImpl(lookupAddresses, this.role);
     }
 
-    public NSQSimpleClient(final String[] lookupAddresses, final LookupAddressUpdate lookupUpdate) {
-        this.lookup = new LookupServiceImpl(lookupAddresses, lookupUpdate);
+    public NSQSimpleClient(final String[] lookupAddresses, final LookupAddressUpdate lookupUpdate, Role role) {
+        this.role = role;
+        this.lookup = new LookupServiceImpl(lookupAddresses, lookupUpdate, role);
     }
 
     @Override

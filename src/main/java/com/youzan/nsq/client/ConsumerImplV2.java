@@ -130,7 +130,7 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
     public ConsumerImplV2(NSQConfig config, MessageHandler handler) {
         this.config = config;
         this.handler = handler;
-        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(new Timestamp(0L)), new LookupAddressUpdate(config));
+        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(new Timestamp(0L)), new LookupAddressUpdate(config), Role.Consumer);
 
 
         final int messagesPerBatch = config.getRdy();

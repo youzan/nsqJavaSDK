@@ -7,6 +7,7 @@ import ch.qos.logback.core.OutputStreamAppender;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.youzan.nsq.client.entity.Role;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -49,7 +50,7 @@ public class TestNSQLookupService {
 
     @Test
     public void simpleInit() {
-        try (LookupServiceImpl srv = new LookupServiceImpl("10.232.120.12:6411")) {
+        try (LookupServiceImpl srv = new LookupServiceImpl("10.232.120.12:6411", Role.Producer)) {
             for (String addr : srv.getAddresses()) {
                 Assert.assertTrue(addr.split(":").length == 2);
                 Assert.assertEquals(addr, "10.232.120.12:6411");
@@ -93,10 +94,10 @@ public class TestNSQLookupService {
     public void testFetchJsonFromLookUp() throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException, MalformedURLException {
         //create LookupServiceImpl via reflect, and inject appender into logger
         Class lookupClazz = LookupServiceImpl.class;
-        Constructor constructor = lookupClazz.getConstructor(String.class);
+        Constructor constructor = lookupClazz.getConstructor(String.class, Role.class);
         LookupServiceImpl lsi = null;
         URL url = new URL("http://sqs-qa.s.qima-inc.com:4161/listlookup");
-        lsi = (LookupServiceImpl) constructor.newInstance(url.toString());
+        lsi = (LookupServiceImpl) constructor.newInstance(url.toString(), Role.Consumer);
 
         Method readFromURL = lookupClazz.getDeclaredMethod("readFromUrl", URL.class);
         readFromURL.setAccessible(true);
@@ -113,9 +114,9 @@ public class TestNSQLookupService {
         logger.info("Begin to test a invalid lookup address 127.0.0.1 !");
         //create LookupServiceImpl via reflect, and inject appender into logger
         Class lookupClazz = LookupServiceImpl.class;
-        Constructor constructor = lookupClazz.getConstructor(String.class);
+        Constructor constructor = lookupClazz.getConstructor(String.class, Role.class);
         LookupServiceImpl lsi = null;
-        lsi = (LookupServiceImpl) constructor.newInstance("127.0.0.1:2333");
+        lsi = (LookupServiceImpl) constructor.newInstance("127.0.0.1:2333", Role.Producer);
 
         //fetch the logger, which is a static private
         Field logFld = lookupClazz.getDeclaredField("logger");
@@ -138,7 +139,7 @@ public class TestNSQLookupService {
 
     @Test(dataProvider = "genIPs")
     public void testInit(String ips, List<String> expected) {
-        try (LookupServiceImpl srv = new LookupServiceImpl(ips)) {
+        try (LookupServiceImpl srv = new LookupServiceImpl(ips, null)) {
             Assert.assertEquals(srv.getAddresses(), expected);
         }
     }
