@@ -103,7 +103,7 @@ public class TestNSQLookupService {
         readFromURL.setAccessible(true);
         JsonNode rootNode = (JsonNode) readFromURL.invoke(lsi, url);
 
-        //verify, not ststus_code nor status_txt
+        //verify, not status_code nor status_txt
         Assert.assertNull(rootNode.get("status_code"), "Response in listlookup service should NOT contain status_code");
         Assert.assertNull(rootNode.get("status_txt"), "Response in listlookup service should NOT contain status_txt");
         Assert.assertNotNull(rootNode.get("lookupdleader"), "Response in listlookUp service should contain lookupleader");
