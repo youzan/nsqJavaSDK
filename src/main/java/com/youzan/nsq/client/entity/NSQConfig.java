@@ -129,6 +129,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     private static final String NSQ_TOPIC_TRACE_PRO = "nsq.topic.trace.key";
     private static final String DEFAULT_NSQ_TOPIC_TRACE = "nsq.topic.trace";
+    private static final String CONFIF_ACCESS_ON = "nsq.dcc.access";
     public static String NSQ_TOPIC_TRACE = null;
 
 
@@ -189,16 +190,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         }
     }
 
-    /**
-     * Turn on lookup config server switch. nsq sdk will check lookup addresses and topic trace from config server.
-     * Default lookup config server option is off, and sdk uses lookup addresses
-     * specified by user via {@link NSQConfig#setLookupAddresses(String)}.
-     */
-    public static void tunrnOnConfigServerLookup(){
-        dccOn = true;
-    }
-
-    public static boolean isConfigServerLookupOn(){
+    public static boolean isConfigAccessOn(){
         return dccOn;
     }
 
@@ -305,9 +297,12 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         assert null != backupPath;
         setConfigAgentBackupPath(backupPath);
 
-        String env = props.getProperty(NSQConfig.NSQ_DCCCONFIG_ENV);
+        String env = System.getProperty(NSQConfig.NSQ_DCCCONFIG_ENV);
+        if(null == env)
+            env = props.getProperty(NSQConfig.NSQ_DCCCONFIG_ENV);
         assert null != env;
         setConfigAgentEnv(env);
+        logger.info("{}:{}", NSQConfig.NSQ_DCCCONFIG_ENV, getConfigAgentEnv()git );
 
         String urlsKey = String.format(NSQ_DCCCONFIG_URLS, env);
 
@@ -322,10 +317,12 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         else
             NSQConfig.NSQ_TOPIC_TRACE = NSQConfig.DEFAULT_NSQ_TOPIC_TRACE;
         logger.info("{}:{}", NSQConfig.NSQ_TOPIC_TRACE_PRO, NSQConfig.NSQ_TOPIC_TRACE);
-    }
 
-    private static void specifyEnv(String env){
-
+        String dccOnStr= System.getProperty(CONFIF_ACCESS_ON);
+        if(null == dccOnStr)
+           dccOnStr =  props.getProperty(CONFIF_ACCESS_ON, "false");
+        dccOn = Boolean.valueOf(dccOnStr);
+        logger.info("{}:{}", CONFIF_ACCESS_ON, dccOn);
     }
 
     //synchronization is performed outside
