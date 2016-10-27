@@ -684,7 +684,7 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
                     // ReQueue
                     cmd = new ReQueue(message.getMessageID(), nextConsumingWaiting.intValue());
                     final byte[] id = message.getMessageID();
-                    logger.info("Do a re-queue. MessageID: {} , Hex: {}", id, message.newHexString(id));
+                    logger.info("Client does a re-queue explicitly. MessageID: {} , Hex: {}", id, message.newHexString(id));
                 }
             } else {
                 // ignore actions
@@ -701,10 +701,10 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
         }
         // Post
         if (message.getReadableAttempts() > 10) {
-            logger.error("{} , Processing 10 times is still a failure!", message);
+            logger.warn("Fire,Fire,Fire! Processing 10 times is still a failure!!! {}", message);
         }
         if (!ok) {
-            logger.warn("{} , Original message: {}. Exception occurs but you don't catch it! Please check it right now!!!", message, message.getReadableContent());
+            logger.warn("Exception occurs but you don't catch it! Please check it right now!!! {} , Original message: {}.", message, message.getReadableContent());
         }
     }
 
