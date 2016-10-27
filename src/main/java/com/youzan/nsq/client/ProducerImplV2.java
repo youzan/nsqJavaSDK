@@ -229,16 +229,19 @@ public class ProducerImplV2 implements Producer {
                 return; // OK
             } catch (Exception e) {
                 IOUtil.closeQuietly(conn);
-                logger.error("MaxRetries: {} , CurrentRetries: {} , Address: {} , Topic: {}, RawMessage: {} , Exception:", MAX_PUBLISH_RETRY, c,
-                        conn.getAddress(), topic, message, e);
-                if (c >= MAX_PUBLISH_RETRY) {
+                if (c < MAX_PUBLISH_RETRY) {
+                    logger.warn("MaxRetries: {}, CurrentRetries: {}, Address: {},  Topic: {}", MAX_PUBLISH_RETRY, c,
+                            conn.getAddress(), topic.getTopicText());
+                } else if (c >= MAX_PUBLISH_RETRY) {
+                    logger.error("MaxRetries: {}, CurrentRetries: {}, Address: {},  Topic: {}, RawMessage: {}, Exception:", MAX_PUBLISH_RETRY, c,
+                            conn.getAddress(), topic, message, e);
                     throw new NSQDataNodesDownException(e);
                 }
             } finally {
                 bigPool.returnObject(conn.getAddress(), conn);
             }
         } // end loop
-        if (c >= maxRetries) {
+        if (c >= MAX_PUBLISH_RETRY) {
             throw new NSQDataNodesDownException(new NSQNoConnectionException("The topic is " + topic));
         }
     }
