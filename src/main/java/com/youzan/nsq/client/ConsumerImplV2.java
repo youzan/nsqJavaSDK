@@ -7,6 +7,7 @@ import com.youzan.nsq.client.core.pool.consumer.FixedPool;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
+import com.youzan.nsq.client.entity.Role;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQNoConnectionException;
 import com.youzan.nsq.client.exception.RetryBusinessException;
@@ -97,7 +98,7 @@ public class ConsumerImplV2 implements Consumer {
     public ConsumerImplV2(NSQConfig config, MessageHandler handler) {
         this.config = config;
         this.handler = handler;
-        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses());
+        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(), Role.Consumer);
 
 
         final int messagesPerBatch = config.getRdy();
@@ -512,7 +513,7 @@ public class ConsumerImplV2 implements Consumer {
         } catch (Exception e) {
             ok = false;
             retry = false;
-            logger.error("Client business has one error. Exception:", e);
+            logger.error("Client business has one error. Original message: {}. Exception:", message.getReadableContent(), e);
         }
         if (!ok && retry) {
             logger.warn("Client has told SDK to do again. {}", message);
@@ -522,7 +523,7 @@ public class ConsumerImplV2 implements Consumer {
             } catch (Exception e) {
                 ok = false;
                 retry = false;
-                logger.error("Client business has required SDK to do again, but still has one error. Exception:", e);
+                logger.error("Client business has required SDK to do again, but still has one error. Original message: {}. Exception:", message.getReadableContent(), e);
             }
         }
 
@@ -558,7 +559,7 @@ public class ConsumerImplV2 implements Consumer {
                     // ReQueue
                     cmd = new ReQueue(message.getMessageID(), nextConsumingWaiting.intValue());
                     final byte[] id = message.getMessageID();
-                    logger.info("Do a re-queue. MessageID: {} , Hex: {}", id, message.newHexString(id));
+                    logger.info("Client does a re-queue explicitly. MessageID: {} , Hex: {}", id, message.newHexString(id));
                 }
             } else {
                 // ignore actions
@@ -575,10 +576,10 @@ public class ConsumerImplV2 implements Consumer {
         }
         // Post
         if (message.getReadableAttempts() > 10) {
-            logger.error("{} , Processing 10 times is still a failure!", message);
+            logger.warn("Fire,Fire,Fire! Processing 10 times is still a failure!!! {}", message);
         }
         if (!ok) {
-            logger.error("{} , exception occurs but you don't catch it! Please check it right now!!!", message);
+            logger.warn("Exception occurs but you don't catch it! Please check it right now!!! {} , Original message: {}.", message, message.getReadableContent());
         }
     }
 

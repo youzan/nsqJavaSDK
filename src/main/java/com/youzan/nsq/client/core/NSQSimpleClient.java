@@ -6,6 +6,7 @@ import com.youzan.nsq.client.core.lookup.LookupService;
 import com.youzan.nsq.client.core.lookup.LookupServiceImpl;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.Response;
+import com.youzan.nsq.client.entity.Role;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQInvalidTopicException;
 import com.youzan.nsq.client.exception.NSQLookupException;
@@ -44,10 +45,12 @@ public class NSQSimpleClient implements Client, Closeable {
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.MAX_PRIORITY));
 
+    private final Role role;
     private final LookupService lookup;
 
-    public NSQSimpleClient(final String lookupAddresses) {
-        this.lookup = new LookupServiceImpl(lookupAddresses);
+    public NSQSimpleClient(final String lookupAddresses, Role role) {
+        this.role = role;
+        this.lookup = new LookupServiceImpl(lookupAddresses, this.role);
     }
 
     @Override
@@ -247,13 +250,13 @@ public class NSQSimpleClient implements Client, Closeable {
                 lock.writeLock().unlock();
             }
         }
-        throw new NSQInvalidTopicException();
+        throw new NSQInvalidTopicException(topic);
     }
 
     @Override
     public boolean validateHeartbeat(NSQConnection conn) {
         final ChannelFuture future = conn.command(Nop.getInstance());
-        return future.awaitUninterruptibly(2000, TimeUnit.MILLISECONDS) && future.isSuccess();
+        return future.awaitUninterruptibly(2500, TimeUnit.MILLISECONDS) && future.isSuccess();
     }
 
     @Override

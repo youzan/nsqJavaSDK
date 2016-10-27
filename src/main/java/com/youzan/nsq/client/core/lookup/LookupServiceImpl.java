@@ -3,7 +3,11 @@ package com.youzan.nsq.client.core.lookup;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.youzan.nsq.client.Consumer;
+import com.youzan.nsq.client.Producer;
+import com.youzan.nsq.client.core.Client;
 import com.youzan.nsq.client.entity.Address;
+import com.youzan.nsq.client.entity.Role;
 import com.youzan.nsq.client.exception.NSQLookupException;
 import com.youzan.util.NamedThreadFactory;
 import org.slf4j.Logger;
@@ -20,6 +24,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static com.youzan.nsq.client.entity.Role.Consumer;
+import static com.youzan.nsq.client.entity.Role.Producer;
+
 /**
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
@@ -34,6 +41,8 @@ public class LookupServiceImpl implements LookupService {
     private static final ObjectMapper mapper = new ObjectMapper()
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
 
+
+    private final Role role;
     /**
      * the sorted lookup's addresses
      */
@@ -51,15 +60,19 @@ public class LookupServiceImpl implements LookupService {
 
     /**
      * @param addresses the lookup addresses
+     * @param role
      */
-    public LookupServiceImpl(List<String> addresses) {
+    public LookupServiceImpl(List<String> addresses, Role role) {
+        this.role = role;
         initAddresses(addresses);
     }
 
     /**
      * @param addresses the lookup addresses
+     * @param role
      */
-    public LookupServiceImpl(String addresses) {
+    public LookupServiceImpl(String addresses, Role role) {
+        this.role = role;
         if (addresses == null || addresses.isEmpty()) {
             throw new IllegalArgumentException("Your input 'addresses' is blank!");
         }
@@ -224,7 +237,17 @@ public class LookupServiceImpl implements LookupService {
 
     @Override
     public SortedSet<Address> lookup(String topic) throws NSQLookupException {
-        return lookup(topic, true);
+        switch (this.role) {
+            case Consumer: {
+                return lookup(topic, false);
+            }
+            case Producer: {
+                return lookup(topic, true);
+            }
+            default: {
+                throw new UnsupportedOperationException("Unknown options. Writable or Readable?");
+            }
+        }
     }
 
     @Override

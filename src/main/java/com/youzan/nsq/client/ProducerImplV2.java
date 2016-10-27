@@ -6,6 +6,7 @@ import com.youzan.nsq.client.core.command.Pub;
 import com.youzan.nsq.client.core.pool.producer.KeyedPooledConnectionFactory;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.nsq.client.entity.Role;
 import com.youzan.nsq.client.exception.*;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
@@ -60,7 +61,7 @@ public class ProducerImplV2 implements Producer {
      */
     public ProducerImplV2(NSQConfig config) {
         this.config = config;
-        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses());
+        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(), Role.Producer);
 
         this.poolConfig = new GenericKeyedObjectPoolConfig();
         this.factory = new KeyedPooledConnectionFactory(this.config, this);
@@ -182,22 +183,27 @@ public class ProducerImplV2 implements Producer {
             if (conn == null) {
                 continue;
             }
-//            logger.debug("Having acquired a {} NSQConnection! CurrentRetries: {}", conn.getAddress(), c);
             try {
                 final NSQFrame frame = conn.commandAndGetResponse(pub);
-                handleResponse(frame, conn);
+                handleResponse(topic, frame, conn);
                 success.incrementAndGet();
-                return;
+                return; // OK
             } catch (Exception e) {
                 IOUtil.closeQuietly(conn);
-                logger.error("MaxRetries: {} , CurrentRetries: {} , Address: {} , Topic: {}, RawMessage: {} , Exception:", maxRetries, c,
-                        conn.getAddress(), topic, message, e);
-                if (c >= maxRetries) {
+                if (c < maxRetries) {
+                    logger.warn("MaxRetries: {}, CurrentRetries: {}, Address: {},  Topic: {}", maxRetries, c,
+                            conn.getAddress(), topic);
+                } else if (c >= maxRetries) {
+                    logger.error("MaxRetries: {}, CurrentRetries: {}, Address: {},  Topic: {}, RawMessage: {}, Exception:", maxRetries, c,
+                            conn.getAddress(), topic, message, e);
                     throw new NSQDataNodesDownException(e);
                 }
             } finally {
                 bigPool.returnObject(conn.getAddress(), conn);
             }
+        } // end loop
+        if (c >= maxRetries) {
+            throw new NSQDataNodesDownException(new NSQNoConnectionException("The topic is " + topic));
         }
     }
 
@@ -206,7 +212,7 @@ public class ProducerImplV2 implements Producer {
 //            publishSmallBatch(batch);
 //        }
 
-    private void handleResponse(NSQFrame frame, NSQConnection conn) throws NSQException {
+    private void handleResponse(String topic, NSQFrame frame, NSQConnection conn) throws NSQException {
         if (frame == null) {
             logger.warn("SDK bug: the frame is null.");
             return;
@@ -219,7 +225,7 @@ public class ProducerImplV2 implements Producer {
                 final ErrorFrame err = (ErrorFrame) frame;
                 switch (err.getError()) {
                     case E_BAD_TOPIC: {
-                        throw new NSQInvalidTopicException();
+                        throw new NSQInvalidTopicException(topic);
                     }
                     case E_BAD_MESSAGE: {
                         throw new NSQInvalidMessageException();
@@ -230,10 +236,10 @@ public class ProducerImplV2 implements Producer {
                     }
                     case E_TOPIC_NOT_EXIST: {
                         logger.error("Address: {} , Frame: {}", conn.getAddress(), frame);
-                        throw new NSQInvalidDataNodeException();
+                        throw new NSQInvalidDataNodeException(topic);
                     }
                     default: {
-                        throw new NSQException("Unknown response error! The error frame is " + err);
+                        throw new NSQException("Unknown response error! The topic is " + topic + " . The error frame is " + err);
                     }
                 }
             }
