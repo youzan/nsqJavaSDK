@@ -52,9 +52,9 @@ public class TraceConfigAgent implements Closeable{
    }
 
    public static TraceConfigAgent getInstance() {
-      if(null == INSTANCE && NSQConfig.isConfigServerLookupOn()){
+      if(null == INSTANCE && NSQConfig.isConfigAccessOn()){
          synchronized(LOCK){
-            if(null == INSTANCE && NSQConfig.isConfigServerLookupOn()){
+            if(null == INSTANCE && NSQConfig.isConfigAccessOn()){
                 //read config client from static client config in NSQConfig, if either config or urls is specified, throws an exception
                 //create config request
                 try {

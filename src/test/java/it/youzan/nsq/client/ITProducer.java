@@ -42,7 +42,7 @@ public class ITProducer {
         config.setMsgTimeoutInMillisecond(Integer.valueOf(msgTimeoutInMillisecond));
         config.setThreadPoolSize4IO(Integer.valueOf(threadPoolSize4IO));
         NSQConfig.setSDKEnvironment("qa");
-        NSQConfig.tunrnOnConfigServerLookup();
+        NSQConfig.turnOnConfigAccess();
 
         producer = new ProducerImplV2(config);
         producer.start();
