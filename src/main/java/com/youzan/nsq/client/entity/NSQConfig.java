@@ -197,6 +197,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     public static boolean turnOnConfigAccess(){
         boolean oldState = dccOn;
         dccOn = true;
+        logger.info("{}:{}", CONFIF_ACCESS_ON, dccOn);
         return oldState;
     }
 
