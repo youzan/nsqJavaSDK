@@ -116,11 +116,11 @@ public class NSQMessage {
     final long internalID;
     final long traceID;
     // 1 seconds
-    static int _MIN_NEXT_CONSUMING_IN_SECOND = 1;
+    private static int _MIN_NEXT_CONSUMING_IN_SECOND = 1;
     // 180 days ?why 180
-    static int _MAX_NEXT_CONSUMING_IN_SECOND = 180 * 24 * 3600;
+    private static int _MAX_NEXT_CONSUMING_IN_SECOND = 180 * 24 * 3600;
     // 3 minutes
-    static int _DEFAULT_NEXT_CONSUMING_IN_SECOND = 3 * 60;
+    private static int _DEFAULT_NEXT_CONSUMING_IN_SECOND = 3 * 60;
 
     /**
      * Default UTF-8 Decoding
