@@ -183,12 +183,11 @@ public class ProducerImplV2 implements Producer {
             if (conn == null) {
                 continue;
             }
-//            logger.debug("Having acquired a {} NSQConnection! CurrentRetries: {}", conn.getAddress(), c);
             try {
                 final NSQFrame frame = conn.commandAndGetResponse(pub);
                 handleResponse(topic, frame, conn);
                 success.incrementAndGet();
-                return;
+                return; // OK
             } catch (Exception e) {
                 IOUtil.closeQuietly(conn);
                 logger.error("MaxRetries: {}, CurrentRetries: {}, Address: {},  Topic: {}, RawMessage: {}, Exception:", maxRetries, c,
@@ -199,6 +198,9 @@ public class ProducerImplV2 implements Producer {
             } finally {
                 bigPool.returnObject(conn.getAddress(), conn);
             }
+        } // end loop
+        if (c >= maxRetries) {
+            throw new NSQDataNodesDownException(new NSQNoConnectionException("The topic is " + topic));
         }
     }
 
