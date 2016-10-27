@@ -85,11 +85,11 @@ public class NSQMessage {
     private String readableContent = null;
     private Integer nextConsumingInSecond = Integer.valueOf(60); // recommend the value is 60 sec
     // 1 seconds
-    private static int _MIN_NEXT_CONSUMING_IN_SECOND = 1;
+    private static final int _MIN_NEXT_CONSUMING_IN_SECOND = 1;
     // 180 days ?why 180
-    private static int _MAX_NEXT_CONSUMING_IN_SECOND = 180 * 24 * 3600;
+    private static final int _MAX_NEXT_CONSUMING_IN_SECOND = 180 * 24 * 3600;
     // 3 minutes
-    private static int _DEFAULT_NEXT_CONSUMING_IN_SECOND = 3 * 60;
+    private static final int _DEFAULT_NEXT_CONSUMING_IN_SECOND = 3 * 60;
 
     /**
      * Default UTF-8 Decoding
