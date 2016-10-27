@@ -4,6 +4,7 @@ import com.youzan.nsq.client.configs.TraceConfigAgent;
 import com.youzan.nsq.client.core.command.HasTraceID;
 import com.youzan.nsq.client.core.command.NSQCommand;
 import com.youzan.nsq.client.core.command.Pub;
+import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.entity.TraceInfo;
@@ -69,17 +70,16 @@ class NSQTrace implements Traceability, Comparable<Traceability> {
     public boolean isTraceOn(final Topic topic) {
         TraceConfigAgent agent = this.getAgent();
         if(null == agent) {
-            logger.warn("Trace config agent is not initialized.");
             return false;
         }
         return agent.checkTraced(topic);
     }
 
     private TraceConfigAgent getAgent(){
-        if(null == this.agent){
+        if(null == this.agent && NSQConfig.isConfigAccessOn()){
             synchronized (agentLock) {
                 if(null == this.agent) {
-                    logger.warn("Topic trace agent is not initialized, try fetching...");
+                        logger.info("Topic trace agent is not initialized, try fetching...");
                     //try fetch agent again
                     this.agent = TraceConfigAgent.getInstance();
                     if(null == this.agent)

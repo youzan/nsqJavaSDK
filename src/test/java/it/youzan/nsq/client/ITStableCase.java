@@ -90,7 +90,7 @@ public class ITStableCase {
             } catch (Exception e) {
                 logger.error("Exception", e);
             }
-            int sec = _r.nextInt(3) * 1000;
+            int sec = _r.nextInt(2) * 1000;
             Thread.sleep(sec);
         }
         logger.info("Exit producing...");
