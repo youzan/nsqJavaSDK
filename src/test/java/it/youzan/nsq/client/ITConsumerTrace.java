@@ -24,8 +24,6 @@ public class ITConsumerTrace extends AbstractITConsumer{
     public void test() throws InterruptedException, NSQException {
         final CountDownLatch latch = new CountDownLatch(10);
         final AtomicInteger received = new AtomicInteger(0);
-        final AtomicInteger current = new AtomicInteger(-1);
-        final AtomicBoolean fail = new AtomicBoolean(false);
         consumer = new ConsumerImplV2(config, new MessageHandler() {
             @Override
             public void process(NSQMessage message) {

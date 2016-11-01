@@ -29,7 +29,7 @@ public class ITLookup {
             props.load(is);
         }
         final String lookups = props.getProperty("lookup-addresses");
-        lookup = new LookupServiceImpl(lookups, Role.Producer);
+        lookup = new LookupServiceImpl(lookups.replaceAll(" ", "").split(","), Role.Producer);
     }
 
     public void lookup() throws NSQLookupException {

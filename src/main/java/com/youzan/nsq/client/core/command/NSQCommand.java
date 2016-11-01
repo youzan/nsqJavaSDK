@@ -42,5 +42,4 @@ public interface NSQCommand{
     String getHeader();
 
     List<byte[]> getBody();
-
 }

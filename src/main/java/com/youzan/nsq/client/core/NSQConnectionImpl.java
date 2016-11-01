@@ -173,6 +173,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
                 havingNegotiation = false;
                 channel.attr(NSQConnection.STATE).remove();
                 channel.attr(Client.STATE).remove();
+                channel.attr(Client.ORDERED).remove();
                 if (channel.isActive()) {
                     channel.close();
                     channel.deregister();

@@ -1,9 +1,8 @@
 package com.youzan.nsq.client;
 
-import com.youzan.nsq.client.core.LookupAddressUpdate;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
-import com.youzan.nsq.client.core.command.*;
+import com.youzan.nsq.client.core.command.Pub;
 import com.youzan.nsq.client.core.pool.producer.KeyedPooledConnectionFactory;
 import com.youzan.nsq.client.entity.*;
 import com.youzan.nsq.client.entity.Address;
@@ -13,6 +12,7 @@ import com.youzan.nsq.client.exception.*;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.util.ConcurrentSortedSet;
+import com.youzan.util.HostUtil;
 import com.youzan.util.IOUtil;
 import com.youzan.util.NamedThreadFactory;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
@@ -20,7 +20,7 @@ import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.Timestamp;
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -59,15 +59,12 @@ public class ProducerImplV2 implements Producer {
 
     private final NSQConfig config;
     private final NSQSimpleClient simpleClient;
-    //trace works on update nsq command to insert trace ID into command,
-    //producer delegates to trace activities to trace
-    private NSQTrace trace = new NSQTrace();
     /**
      * @param config NSQConfig
      */
     public ProducerImplV2(NSQConfig config) {
         this.config = config;
-        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(new Timestamp(0L)), new LookupAddressUpdate(config), Role.Producer);
+        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(), Role.Producer);
 
         this.poolConfig = new GenericKeyedObjectPoolConfig();
         this.factory = new KeyedPooledConnectionFactory(this.config, this);
@@ -162,12 +159,25 @@ public class ProducerImplV2 implements Producer {
         return null;
     }
 
-    public void setTraceID(long traceID){
-        this.trace.setTraceId(traceID);
-    }
-
     public void publish(String message, String topic) throws NSQException {
         publish(message.getBytes(IOUtil.DEFAULT_CHARSET), topic);
+    }
+
+    @Override
+    public void publish(Message message) throws NSQException {
+        if (message == null || message.getMessageBody().isEmpty()) {
+            throw new IllegalArgumentException("Your input message is blank! Please check it!");
+        }
+        Topic topic = message.getTopic();
+        if (null == topic || null == topic.getTopicText() || topic.getTopicText().isEmpty()) {
+            throw new IllegalArgumentException("Your input topic name is blank!");
+        }
+        if (!started) {
+            throw new IllegalStateException("Producer must be started before producing messages!");
+        }
+        total.incrementAndGet();
+        final Pub pub = createPubCmd(message);
+        sendPUB(pub, message);
     }
 
     @Override
@@ -193,48 +203,33 @@ public class ProducerImplV2 implements Producer {
      * @throws NSQException
      */
     public void publish(byte[] message, Topic topic) throws NSQException {
-        if (message == null || message.length <= 0) {
-            throw new IllegalArgumentException("Your input message is blank! Please check it!");
-        }
-        if (null == topic || null == topic.getTopicText() || topic.getTopicText().isEmpty()) {
-            throw new IllegalArgumentException("Your input topic name is blank!");
-        }
-        if (!started) {
-            throw new IllegalStateException("Producer must be started before producing messages!");
-        }
-        total.incrementAndGet();
-        final Pub pub = createPubCmd(topic, message);
-        sendPUB(pub, topic, message);
+        Message msg = Message.create(topic, new String(message));
+        publish(msg);
     }
 
-    private void sendPUB(final Pub pub, final Topic topic, final byte[] message) throws NSQException {
+    private void sendPUB(final Pub pub, final Message msg) throws NSQException {
         int c = 0; // be continuous
         while (c++ < MAX_PUBLISH_RETRY) {
             if (c > 1) {
                 logger.debug("Sleep. CurrentRetries: {}", c);
                 sleep((1 << (c - 1)) * 1000);
             }
-            final NSQConnection conn = getNSQConnection(topic);
+            final NSQConnection conn = getNSQConnection(msg.getTopic());
             if (conn == null) {
                 continue;
             }
             try {
                 final NSQFrame frame = conn.commandAndGetResponse(pub);
-                handleResponse(topic.getTopicText(), frame, conn);
-                if(frame.getType() == NSQFrame.FrameType.RESPONSE_FRAME && pub instanceof HasTraceID){
-                    //gather trace info
-                    this.trace.handleFrame(pub, frame);
-                }
+                handleResponse(msg.getTopic().getTopicText(), frame, conn);
                 success.incrementAndGet();
-                return; // OK
+                if(msg.isTraced())
+                    TraceLogger.trace(this, conn, msg);
+                return;
             } catch (Exception e) {
                 IOUtil.closeQuietly(conn);
-                if (c < MAX_PUBLISH_RETRY) {
-                    logger.warn("MaxRetries: {}, CurrentRetries: {}, Address: {},  Topic: {}", MAX_PUBLISH_RETRY, c,
-                            conn.getAddress(), topic.getTopicText());
-                } else if (c >= MAX_PUBLISH_RETRY) {
-                    logger.error("MaxRetries: {}, CurrentRetries: {}, Address: {},  Topic: {}, RawMessage: {}, Exception:", MAX_PUBLISH_RETRY, c,
-                            conn.getAddress(), topic, message, e);
+                logger.error("MaxRetries: {} , CurrentRetries: {} , Address: {} , Topic: {}, RawMessage: {} , Exception:", MAX_PUBLISH_RETRY, c,
+                        conn.getAddress(), msg.getTopic(), msg.getMessageBodyInByte(), e);
+                if (c >= MAX_PUBLISH_RETRY) {
                     throw new NSQDataNodesDownException(e);
                 }
             } finally {
@@ -242,7 +237,7 @@ public class ProducerImplV2 implements Producer {
             }
         } // end loop
         if (c >= MAX_PUBLISH_RETRY) {
-            throw new NSQDataNodesDownException(new NSQNoConnectionException("The topic is " + topic));
+            throw new NSQDataNodesDownException(new NSQNoConnectionException("The topic is " + msg.getTopic().getTopicText()));
         }
     }
 
@@ -250,18 +245,8 @@ public class ProducerImplV2 implements Producer {
      * function to create publish command based on traceability
      * @return Pub command
      */
-    private Pub createPubCmd(final Topic topic, final byte[] messages){
-        if(this.config.isOrdered()){
-            return new PubOrdered(topic, messages);
-        }
-        else if(this.trace.isTraceOn(topic)) {
-            Pub cmd =  new PubTrace(topic, messages);
-            this.trace.traceDebug("{} created.", cmd.toString());
-            this.trace.insertTraceID(cmd);
-            return cmd;
-        }else{
-            return new Pub(topic, messages);
-        }
+    private Pub createPubCmd(final Message msg){
+       return PubCmdFactory.getInstance().create(msg, this.config);
     }
 
     private void handleResponse(String topic, NSQFrame frame, NSQConnection conn) throws NSQException {
@@ -351,5 +336,15 @@ public class ProducerImplV2 implements Producer {
             Thread.currentThread().interrupt();
             logger.error("Your machine is too busy! Please check it!");
         }
+    }
+
+    public String toString(){
+        String ipStr = "";
+        try {
+            ipStr = HostUtil.getLocalIP();
+        } catch (IOException e) {
+            logger.warn(e.getLocalizedMessage());
+        }
+        return "[Producer] at " + ipStr;
     }
 }

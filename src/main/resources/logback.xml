@@ -1,0 +1,23 @@
+<configuration>
+    <!-- configClient.properties -->
+    <property file="./configClient.properties"/>
+
+    <property name="NORMAL_PATTERN" value="%d{ISO8601} -- %-60.60class [%3line] -- %msg%n"/>
+    <appender name="MSG_TRACE_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>TRACE</level>
+        </filter>
+        <file>${LOG_HOME}/msg_trace.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_HOME}/msg_trace.%d{yyyyMMdd}.log</fileNamePattern>
+            <maxHistory>3</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${NORMAL_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+    <logger name="${nsq.sdk.message.trace.log}" additivity="false">
+        <appender-ref ref="MSG_TRACE_FILE"/>
+    </logger>
+</configuration>

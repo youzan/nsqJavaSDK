@@ -46,7 +46,7 @@ public class LookupServiceImpl implements LookupService {
      * the sorted lookup's addresses
      */
     private volatile List<String> addresses;
-    private LookupAddressUpdate lookupUpdate;
+
     /**
      * Load-Balancing Strategy: round-robin
      */
@@ -62,51 +62,23 @@ public class LookupServiceImpl implements LookupService {
      * @param addresses the lookup addresses
      * @param role
      */
-    public LookupServiceImpl(List<String> addresses, Role role) {
+    public LookupServiceImpl(final String[] addresses, Role role) {
+        if (addresses == null || addresses.length == 0) {
+            throw new IllegalArgumentException("Your input 'addresses' is blank!");
+        }
         this.role = role;
         initAddresses(addresses);
     }
 
-    /**
-     * @param addresses the lookup addresses
-     * @param role
-     */
-    public LookupServiceImpl(String addresses, Role role) {
-        this.role = role;
-        if (addresses == null || addresses.isEmpty()) {
-            throw new IllegalArgumentException("Your input 'addresses' is blank!");
-        }
-        final String[] tmp = addresses.split(",");
-        final List<String> tmpList = new ArrayList<>(tmp.length);
-        for (String address : tmp) {
-            address = address.trim();
-            address = address.replace(" ", "");
-            tmpList.add(address);
-        }
-        initAddresses(tmpList);
-    }
-
-    public LookupServiceImpl(final String[] addresses, final LookupAddressUpdate lookupUpdate, Role role) {
-        this.role = role;
+    private void initAddresses(final String[] addresses) {
         if (addresses == null || addresses.length == 0) {
-            throw new IllegalArgumentException("Your input 'addresses' is blank!");
-        }
-        final List<String> tmpList = new ArrayList<>(addresses.length);
-        for (String address : addresses) {
-            address = address.trim();
-            address = address.replace(" ", "");
-            tmpList.add(address);
-        }
-        initAddresses(tmpList);
-        this.lookupUpdate = lookupUpdate;
-    }
-
-    private void initAddresses(List<String> addresses) {
-        if (addresses == null || addresses.isEmpty()) {
             throw new IllegalArgumentException("Your input addresses is blank!");
         }
-        Collections.sort(addresses);
-        setAddresses(addresses);
+        //sort is comment out, given follwoing reasons:
+        //1. sort performed when lookup address specified by user, in NSQConfig.setLookupAddresses()
+        //2. sort performed when LookupAddressUpdate returns new lookup addresses
+        //Collections.sort(addresses);
+        this.addresses = Arrays.asList(addresses);
     }
 
     @Override
@@ -120,23 +92,20 @@ public class LookupServiceImpl implements LookupService {
     }
 
     /**
-     * @param addresses the addresses to set
+     * @param addresses the new lookup addresses to update
      */
-    private void setAddresses(List<String> addresses) {
-        final List<String> tmp = this.addresses;
+    private void updateAddresses(final List<String> addresses) {
+        if(null == addresses || addresses.isEmpty() || this.addresses == addresses)
+            return;
         this.addresses = addresses;
-        if (null != tmp) {
-            tmp.clear();
-            if(logger.isDebugEnabled())
-                logger.debug("tmp lookup address clear.");
-        }
+        //do not clear old addresses, as it may point to user specified lookup addresses.
     }
 
     /**
      * @return the sorted lookup's addresses
      */
     List<String> getAddresses() {
-        return addresses;
+        return this.addresses;
     }
 
     /**
@@ -160,21 +129,13 @@ public class LookupServiceImpl implements LookupService {
 
     private void newLookupServers() throws IOException {
         //fetch lookup addresses update
-        if(null != this.lookupUpdate) {
-            String[] lookups = this.lookupUpdate.getNewLookupAddress();
-            //update lookups when it is not null
-            if(null != lookups) {
-                ArrayList<String> lookupList = new ArrayList<>();
-                for(String lookup:lookups){
-                    lookupList.add(lookup);
-                }
-                initAddresses(lookupList);
-            }
-        }
+        List<String> newLookupAddrs =  LookupAddressUpdate.getInstance()
+                .getLookupAddresses();
+        updateAddresses(newLookupAddrs);
 
-        if (this.addresses == null || this.addresses.isEmpty()) {
+        List<String> currentAddresses = this.addresses;
+        if(currentAddresses == null || currentAddresses.isEmpty())
             return;
-        }
         if (System.currentTimeMillis() < lastConnecting + TimeUnit.SECONDS.toMillis(_INTERVAL_IN_SECOND)) {
             return;
         }
@@ -185,13 +146,13 @@ public class LookupServiceImpl implements LookupService {
             }
             return;
         }
-        final int index = ((offset++) & Integer.MAX_VALUE) % this.addresses.size();
-        String lookup = this.addresses.get(index);
+        final int index = ((offset++) & Integer.MAX_VALUE) % currentAddresses.size();
+        String lookup = currentAddresses.get(index);
         if(!lookup.startsWith(HTTP_PRO_HEAD))
             lookup = HTTP_PRO_HEAD + lookup;
         final String url = String.format("%s/listlookup", lookup);
         logger.debug("Begin to get the new lookup servers. LB: Size: {}, Index: {}, From URL: {}",
-                this.addresses.size(), index, url);
+                currentAddresses.size(), index, url);
         final JsonNode rootNode;
         JsonNode tmpRootNode = null;
         URL lookupUrl;

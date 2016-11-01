@@ -1,14 +1,5 @@
 package com.youzan.nsq.client.entity;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.youzan.dcc.client.ConfigClient;
-import com.youzan.dcc.client.ConfigClientBuilder;
-import com.youzan.dcc.client.entity.config.Config;
-import com.youzan.dcc.client.entity.config.ConfigRequest;
-import com.youzan.dcc.client.entity.config.interfaces.IResponseCallback;
-import com.youzan.dcc.client.exceptions.ConfigParserException;
-import com.youzan.dcc.client.exceptions.InvalidConfigException;
-import com.youzan.dcc.client.util.inetrfaces.ClientConfig;
 import com.youzan.nsq.client.Version;
 import com.youzan.util.HostUtil;
 import com.youzan.util.IPUtil;
@@ -22,9 +13,9 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.List;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -40,7 +31,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private static final Logger logger = LoggerFactory.getLogger(NSQConfig.class);
 
     private static final AtomicInteger id = new AtomicInteger(0);
-
+    private static String sdkEnv;
     private boolean havingMonitoring = false;
 
     private enum Compression {
@@ -50,9 +41,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * One lookup cluster
      */
-    private String[] backupLookupAddresses;
-    private volatile static Timestamp lookupAddrUpdated  = new Timestamp(0L);
-    private static String[] lookupAddresses;
+    private String[] lookupAddresses;
     /**
      * In NSQ, it is a channel.
      */
@@ -100,64 +89,24 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      */
 
     /*-
-     * ==========================dcc properties=================================
+     * ==========================configs properties=================================
      */
-    //default config file name, user is allow to use another by setting $nsq.dcc.configFilePath
-    private static String envOverride;
-    private static String dccUrlsOverride;
+    //default config file name, user is allow to use another by setting $nsq.configs.configFilePath
     private static final String dccConfigFile = "configClient.properties";
-    //dcc config file path for nsq sdk
-    private static final String NSQDCCCONFIGPRO = "nsq.dcc.configFilePath";
-    //property urls to dcc remote
-    private static final String NSQ_DCCCONFIG_URLS = "nsq.dcc.%s.urls";
-    //property of backup file path
-    private static final String NSQ_DCCCONFIG_BACKUP_PATH = "nsq.dcc.backupPath";
+    //configs config file path for nsq sdk
+    private static final String NSQDCCCONFIGPRO = "nsq.sdk.configFilePath";
     //property of environemnt
     private static final String NSQ_DCCCONFIG_ENV = "nsq.sdk.env";
 
-    //app value dcc client need to specify to fetch lookupd config from dcc
-    private static final String NSQ_APP_VAL_PRO = "nsq.app.val";
-    //default value for app value
-    private static final String DEFAULT_NSQ_APP_VAL = "nsq";
-    public static String NSQ_APP_VAL = null;
-
-    //key value dcc client need to specify to fetch lookupd config from dcc
-    private static final String NSQ_LOOKUP_KEY_PRO = "nsq.lookupd.addr.key";
-    //default value for key value
-    private static final String DEFAULT_NSQ_LOOKUP_KEY = "lookupd.addr";
-    private static String NSQ_LOOKUP_KEY = null;
-
-    private static final String NSQ_TOPIC_TRACE_PRO = "nsq.topic.trace.key";
-    private static final String DEFAULT_NSQ_TOPIC_TRACE = "nsq.topic.trace";
-    private static final String CONFIF_ACCESS_ON = "nsq.dcc.access";
-    public static String NSQ_TOPIC_TRACE = null;
-
-
     /*-
-     *  ==================dcc configure-able objects, urls to dcc and client config==========================
-     *  make them static so that one process has unified dcc config.
+     *  ==================configs configure-able objects, urls to configs and client config==========================
+     *  make them static so that one process has unified configs config.
      */
     private static String[] urls;
 
     /*-
-     * by default, clientConfig overrides what is defined in ConfigClientBuilder.
-     * in nsq's case there is two interface to configure dcc:
-     * 1. use static functions, NSQConfig.setUrls() and so on, this could be specified by user in code;
-     * 2. use properties file, this is processed in the initialized of NSQConfig class
-     *
-     * As #2 take precedence over #1, which implements user specified function overrides system's default.
-     * while #2 use interface in #1 actually.
+     * ==========================configs agent for lookup discovery=================
      */
-    private static ClientConfig dccConfig = new ClientConfig();
-
-
-    /*-
-     * ==========================dcc agent for lookup discovery=================
-     */
-    private static final Object lookupSubscriberLock = new Object();
-    private static ConfigClient lookupSubscriber;
-    private static boolean kickOff = false;
-    private static boolean compressTrace = false;
     private static volatile boolean dccOn = false;
 
 
@@ -176,7 +125,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     //Use system properties to initialize config client config
     static {
-        initDCCProperties();
+        initSDKEnv();
     }
 
     public NSQConfig() {
@@ -190,266 +139,97 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         }
     }
 
-    public static boolean isConfigAccessOn(){
-        return dccOn;
-    }
 
-    public static boolean turnOnConfigAccess(){
-        boolean oldState = dccOn;
-        dccOn = true;
-        logger.info("{}:{}", CONFIF_ACCESS_ON, dccOn);
-        return oldState;
-    }
-
-    /**
-     * Specify environment of current nsq sdk. If sdk env is not specified, default environment "prod" is choosed.
-     * @param envStr environment variable of nsq
-     */
-    public static void setSDKEnvironment(final String envStr){
-        if(null == envStr)
-            return;
-        envOverride = envStr;
-        setConfigAgentEnv(envOverride);
-        //update dcc urls accordlly
-        InputStream is = null;
-        try {
-            is = loadClientConfigInputStream();
+    private static void initSDKEnv() {
+        //read from system property first
+        String envSys = System.getProperty(NSQ_DCCCONFIG_ENV);
+        if(null == envSys) {
+            //read from system config
+            InputStream is = loadClientConfigInputStream();
             Properties props = new Properties();
-            props.load(is);
-
-            String urlsKey = String.format(NSQ_DCCCONFIG_URLS, envOverride);
-
-            String urls = props.getProperty(urlsKey);
-            assert null != urls;
-            setUrls(urls);
-        } catch(FileNotFoundException configNotFoundE) {
-            logger.warn("Config properties for nsq sdk to dcc not found. Make sure properties file located under {} system property", NSQDCCCONFIGPRO);
-        } catch (IOException IOE) {
-            logger.info("Could not load properties from nsq config properties.", IOE);
+            try {
+                props.load(is);
+                String env = props.getProperty(NSQ_DCCCONFIG_ENV);
+                if(null == env)
+                    logger.error("Could not find {} in config access file. Pls check configClient.properties file.");
+                else {
+                    sdkEnv = env;
+                    logger.info("NSQ sdk works in {}.", sdkEnv);
+                }
+            } catch (IOException e) {
+                logger.error("Could load NSQ sdk environment from config access properties file.", e);
+            }
         }
     }
 
-    /**
-     *Override config server urls of sdk's default for current environment. By default, nsq sdk picks config server's
-     * urls according to environment variable.
-     * @param urls
-     */
-    public static void overrideConfigServerUrls(final String urls){
-        if(null == urls)
-            return;
-        dccUrlsOverride = urls;
-        setUrls(dccUrlsOverride);
-    }
-
-    private static InputStream loadClientConfigInputStream() throws FileNotFoundException {
-        InputStream is = NSQConfig.class.getClassLoader()
-                .getResourceAsStream(dccConfigFile);
-        if(null == is){
-            //read from system config
-            String dccConfigProPath = System.getProperty(NSQDCCCONFIGPRO);
+    public static InputStream loadClientConfigInputStream(){
+        //read from system config
+        InputStream is = null;
+        String dccConfigProPath = System.getProperty(NSQDCCCONFIGPRO);
+        try {
             if (null != dccConfigProPath) {
-                is = new FileInputStream(dccConfigProPath);
-            }else
-                logger.warn("Could not find {} from system.", NSQDCCCONFIGPRO);
+                Path path = Paths.get(dccConfigProPath);
+                is = new FileInputStream(path.toAbsolutePath().toString());
+            } else
+                logger.info("{} property from system not specified.", NSQDCCCONFIGPRO);
+        }catch (FileNotFoundException e) {
+            logger.warn("Could not find config access properties file from {} System property.", NSQDCCCONFIGPRO);
+        }
+        //try default location
+        if(null == is){
+            is = NSQConfig.class.getClassLoader()
+                    .getResourceAsStream(dccConfigFile);
+        }
+        if(null == is) {
+            logger.error("Could not load config access properties from client config properties file.");
+            throw new RuntimeException("Could not load config access properties from client config properties file.");
         }
         return is;
     }
 
-    /**
-     * function to initialize dcc lookup properties, function tries to file something to read properties from in
-     * following order, default config file name is "clientConfig.properties":
-     * 1. try search default config file in classpath;
-     * 2. If #1 fails, try get config file path from system properties, the try loading properties from that path
-     */
-    private static void initDCCProperties(){
-        InputStream is = null;
-        try {
-            is = loadClientConfigInputStream();
-            if (null != is) {
-                initClientConfig(is);
-            }else
-                logger.warn("Could load properties for config server access configuration. User needs to specify them in NSQConfig.");
-        }catch (FileNotFoundException configNotFoundE) {
-            logger.warn("Config properties for nsq sdk to dcc not found. Make sure properties file located under {} system property", NSQDCCCONFIGPRO);
-        } catch (IOException IOE) {
-            logger.info("Could not load properties from nsq config properties.", IOE);
-        }finally {
-            try {
-                is.close();
-            } catch (IOException e) {
-                //swallow it
-            }
-        }
-    }
-
-    private static void initClientConfig(final InputStream is) throws IOException {
-        Properties props = new Properties();
-        props.load(is);
-        //initialize lookup app keys in dcc
-        String app = props.getProperty(NSQConfig.NSQ_APP_VAL_PRO);
-        if(null != app)
-            NSQConfig.NSQ_APP_VAL = app;
-        else
-            NSQConfig.NSQ_APP_VAL = NSQConfig.DEFAULT_NSQ_APP_VAL;
-        logger.info("{}:{}", NSQConfig.NSQ_APP_VAL_PRO, NSQConfig.NSQ_APP_VAL);
-
-        String key = props.getProperty(NSQConfig.NSQ_LOOKUP_KEY_PRO);
-        if(null != key)
-            NSQConfig.NSQ_LOOKUP_KEY = key;
-        else
-            NSQConfig.NSQ_LOOKUP_KEY = NSQConfig.DEFAULT_NSQ_LOOKUP_KEY;
-        logger.info("{}:{}", NSQConfig.NSQ_LOOKUP_KEY_PRO, NSQConfig.NSQ_LOOKUP_KEY);
-
-        //initialize dcc config properties in nsq dcc config file
-        String backupPath = props.getProperty(NSQConfig.NSQ_DCCCONFIG_BACKUP_PATH);
-        assert null != backupPath;
-        setConfigAgentBackupPath(backupPath);
-
-        String env = System.getProperty(NSQConfig.NSQ_DCCCONFIG_ENV);
-        if(null == env)
-            env = props.getProperty(NSQConfig.NSQ_DCCCONFIG_ENV);
-        assert null != env;
-        setConfigAgentEnv(env);
-        logger.info("{}:{}", NSQConfig.NSQ_DCCCONFIG_ENV, getConfigAgentEnv());
-
-        String urlsKey = String.format(NSQ_DCCCONFIG_URLS, env);
-
-        String urls = props.getProperty(urlsKey);
-        assert null != urls;
-        setUrls(urls);
-
-        //trace config properties
-        String topicTrace = props.getProperty(NSQConfig.NSQ_TOPIC_TRACE_PRO);
-        if(null != topicTrace)
-            NSQConfig.NSQ_TOPIC_TRACE = topicTrace;
-        else
-            NSQConfig.NSQ_TOPIC_TRACE = NSQConfig.DEFAULT_NSQ_TOPIC_TRACE;
-        logger.info("{}:{}", NSQConfig.NSQ_TOPIC_TRACE_PRO, NSQConfig.NSQ_TOPIC_TRACE);
-
-        String dccOnStr= System.getProperty(CONFIF_ACCESS_ON);
-        if(null == dccOnStr)
-           dccOnStr =  props.getProperty(CONFIF_ACCESS_ON, "false");
-        dccOn = Boolean.valueOf(dccOnStr);
-        logger.info("{}:{}", CONFIF_ACCESS_ON, dccOn);
-    }
-
-    //synchronization is performed outside
-    private void initLookupSubscriber() throws IOException {
-        lookupSubscriber = ConfigClientBuilder.create()
-                .setRemoteUrls(getUrls())
-                .setBackupFilePath(getConfigAgentBackupPath())
-                .setConfigEnvironment(getConfigAgentEnv())
-                .setClientConfig(dccConfig)
-                .build();
-        if(logger.isInfoEnabled())
-            logger.info("nsq dcc config client initialized.");
-    }
-
-    /**
-     * kick off subscribing on lookupd, this is a synchronized process
-     */
-    private void kickOff() {
-        if(!kickOff && dccOn) {
-            synchronized (lookupSubscriberLock) {
-                if(!kickOff && dccOn) {
-                    try {
-                        //initialize dcc client
-                        initLookupSubscriber();
-
-                        //build config request
-                        ConfigRequest request = null;
-                        try {
-                            request = (ConfigRequest) ConfigRequest.create(lookupSubscriber)
-                                    .setApp(null == NSQ_APP_VAL ? DEFAULT_NSQ_APP_VAL : NSQ_APP_VAL)
-                                    .setKey(null == NSQ_LOOKUP_KEY ? DEFAULT_NSQ_LOOKUP_KEY : DEFAULT_NSQ_LOOKUP_KEY)
-                                    .build();
-                            if(logger.isInfoEnabled()){
-                                logger.info("Lookupd config request: {}", request.getContent());
-                            }
-                        } catch (ConfigParserException e) {
-                            logger.error("Error on building config request. Pls contact nsq dev.", e);
-                        }
-                        List<ConfigRequest> requests = new ArrayList<>();
-                        requests.add(request);
-                        if (null != lookupSubscriber) {
-                            List<Config> newConfigs = lookupSubscriber.subscribe(new IResponseCallback() {
-                                @Override
-                                public void onChanged(List<Config> list) throws Exception {
-                                    parse2LookupdList(list);
-                                }
-
-                                @Override
-                                public void onFailed(List<Config> list, Exception e) throws Exception {
-                                    logger.warn("Error in connection to dcc remote.", e);
-                                }
-                            }, requests);
-                            if(null != newConfigs && !newConfigs.isEmpty()) {
-                                parse2LookupdList(newConfigs);
-                                kickOff = true;
-                            }
-                            if(logger.isInfoEnabled())
-                                logger.info("Lookup subscriber starts.");
-                        }
-                    } catch (IOException e) {
-                        logger.warn("NSQ dcc config agent could not be initialized. Pls check pass in nsq dcc config properties.");
-                    } catch (InvalidConfigException e) {
-                        logger.error("Error parsing configs into lookup addresses. Pls contact nsq dev.", e);
-                    } catch (Exception e) {
-                        if(!compressTrace) {
-                            logger.warn("Fail to subscribe to lookupd address.", e);
-                            compressTrace = Boolean.TRUE;
-                        }else
-                            logger.warn("Fail to subscribe to lookupd address.");
-                    }
-                }
-            }
-        }
-
-    }
-
-    private void parse2LookupdList(final List<Config> configs) throws InvalidConfigException, IOException {
-        assert null != configs;
-        //update look up addresses
-        Config lookupConfig = configs.get(0);
-        assert null != lookupConfig;
-        JsonNode root = SystemUtil.getObjectMapper().readTree(lookupConfig.getContent());
-        JsonNode array = root.get("value");
-        List<String> newLookupds = new ArrayList<>();
-        for(JsonNode node : array){
-            newLookupds.add(node.get("value").asText());
-        }
-        updateLookupAddresses(newLookupds.toArray(new String[newLookupds.size()]));
-    }
-
-    private static void updateLookupAddresses(final String[] newLookupList){
-        NSQConfig.lookupAddresses = newLookupList;
-        NSQConfig.lookupAddrUpdated.setTime(System.currentTimeMillis());
-    }
-
-    /**
-     * Get lookup addresses, based on pass in lastUpdateTimestamp.
-     * If lookup addresses is updated after specified timestamp, lookup addresses returns. If subscriber to config
-     * server is not initialized(often caused by config), user specified lookup address by
-     * {@link NSQConfig#setLookupAddresses(String)}, will be always returned, until subscriber kicks off.
-     *
-     * @param updateTimeStamp timestamp to compare with, function returns lookup address when it is updated after
-     *                        updateTimestamp.
-     * @return the lookupAddresses
-     */
-    public String[] getLookupAddresses(Timestamp updateTimeStamp) {
-        kickOff();
-        if(!NSQConfig.kickOff || !dccOn){
-            if(logger.isDebugEnabled())
-                logger.debug("lookup addresses from config server not available. Use backup look up address passed in by user.");
-            //try with backup lookup address
-            return this.backupLookupAddresses;
-        } else if(NSQConfig.lookupAddrUpdated.after(updateTimeStamp)){
-            updateTimeStamp.setTime(NSQConfig.lookupAddrUpdated.getTime());
-            return NSQConfig.lookupAddresses;
-        }
-        //lookup info is not updated
-        return null;
-    }
+//    private void parse2LookupdList(final List<Config> configs) throws InvalidConfigException, IOException {
+//        assert null != configs;
+//        //update look up addresses
+//        Config lookupConfig = configs.get(0);
+//        assert null != lookupConfig;
+//        JsonNode root = SystemUtil.getObjectMapper().readTree(lookupConfig.getContent());
+//        JsonNode array = root.get("value");
+//        List<String> newLookupds = new ArrayList<>();
+//        for(JsonNode node : array){
+//            newLookupds.add(node.get("value").asText());
+//        }
+//        updateLookupAddresses(newLookupds.toArray(new String[newLookupds.size()]));
+//    }
+//
+//    private static void updateLookupAddresses(final String[] newLookupList){
+//        NSQConfig.lookupAddresses = newLookupList;
+//        NSQConfig.lookupAddrUpdated.setTime(System.currentTimeMillis());
+//    }
+//
+//    /**
+//     * Get lookup addresses, based on pass in lastUpdateTimestamp.
+//     * If lookup addresses is updated after specified timestamp, lookup addresses returns. If subscriber to config
+//     * server is not initialized(often caused by config), user specified lookup address by
+//     * {@link NSQConfig#setLookupAddresses(String)}, will be always returned, until subscriber kicks off.
+//     *
+//     * @param updateTimeStamp timestamp to compare with, function returns lookup address when it is updated after
+//     *                        updateTimestamp.
+//     * @return the lookupAddresses
+//     */
+//    public String[] getLookupAddresses(Timestamp updateTimeStamp) {
+//        kickOff();
+//        if(!NSQConfig.kickOff || !dccOn){
+//            if(logger.isDebugEnabled())
+//                logger.debug("lookup addresses from config server not available. Use backup look up address passed in by user.");
+//            //try with backup lookup address
+//            return this.backupLookupAddresses;
+//        } else if(NSQConfig.lookupAddrUpdated.after(updateTimeStamp)){
+//            updateTimeStamp.setTime(NSQConfig.lookupAddrUpdated.getTime());
+//            return NSQConfig.lookupAddresses;
+//        }
+//        //lookup info is not updated
+//        return null;
+//    }
 
     /**
      * Specified backup lookup address for user. By default, user specified lookup address is used when access to lookup
@@ -458,7 +238,19 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * @param lookupAddresses the lookupAddresses to set
      */
     public void setLookupAddresses(final String lookupAddresses) {
-        this.backupLookupAddresses = lookupAddresses.trim().replaceAll(" ", "").split(",");
+        if(null == lookupAddresses)
+            return;
+        String[] newLookupAddresses = lookupAddresses.replaceAll(" ", "").split(",");
+        Arrays.sort(newLookupAddresses);
+        this.lookupAddresses = newLookupAddresses;
+    }
+
+    /**
+     * return user specified lookupaddresses
+     * @return
+     */
+    public String[] getLookupAddresses() {
+        return this.lookupAddresses;
     }
 
     /**
@@ -747,37 +539,15 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * set the environment value of config client
      * @param env
      */
-    static void setConfigAgentEnv(String env){
-        dccConfig.setProperty(ConfigClient.KEY_ENV, env);
+    static void setSDKEnv(String env){
+        sdkEnv = env;
     }
 
-    public static String getConfigAgentEnv(){
-        return (String) dccConfig.readConfig(ConfigClient.KEY_ENV, null);
+    public static String getSDKEnv(){
+        return sdkEnv;
     }
 
-    public static void setConfigAgentBackupPath(String backupPath){
-        dccConfig.setProperty(ConfigClient.KEY_BACKUP_PATH, backupPath);
-    }
-
-    private String getConfigAgentBackupPath(){
-        return (String) dccConfig.readConfig(ConfigClient.KEY_BACKUP_PATH, null);
-    }
-
-    public static ClientConfig getTraceAgentConfig(){
-        return dccConfig;
-    }
-
-
-    /**
-     * specify config remote server urls, passin String is a list of urls separated by comma
-     * @param urlsStr
-     */
-    static void setUrls(String urlsStr){
-        String[] passinUrls = urlsStr.replaceAll(" ", "").split(",");
-        urls = passinUrls;
-    }
-
-    public static String[] getUrls(){
+    public static String[] getConfigServerUrls(){
         return urls;
     }
 

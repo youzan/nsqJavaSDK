@@ -6,6 +6,7 @@ import com.youzan.dcc.client.entity.config.Config;
 import com.youzan.dcc.client.entity.config.interfaces.IResponseCallback;
 import com.youzan.dcc.client.exceptions.ConfigParserException;
 import com.youzan.dcc.client.util.inetrfaces.ClientConfig;
+import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQException;
@@ -67,17 +68,16 @@ public class OrderedTestcase extends AbstractNSQClientTestcase{
         publishTraceConfig("[{\"key\":\"TestTrace1\",\"value\":\"true\"},{\"key\":\"TestTrace2\",\"value\":\"false\"},{\"key\":\"JavaTesting-Order\",\"value\":\"true\"}]");
 
         Producer producer = createProducer(getNSQConfig());
-        producer.setTraceID(1l);
         producer.start();
         for(int i = 0; i < msgNum; i++) {
-            byte[] msg = ("Message #" + i).getBytes();
-            producer.publish(msg, topic);
+            Message msg = Message.create(topic, 1024L, ("Message #" + i));
+            producer.publish(msg);
         }
         producer.close();
     }
 
     private CountDownLatch publishTraceConfig(String traceContent) throws IOException, IllegalAccessException, ConfigParserException {
-        //create publisher to dcc remote to upload combination config
+        //create publisher to configs remote to upload combination config
         ConfigClient client = ConfigClientBuilder.create()
                 .setRemoteUrls(props.getProperty("urls").split(","))
                 .setClientConfig(new ClientConfig())
@@ -103,8 +103,8 @@ public class OrderedTestcase extends AbstractNSQClientTestcase{
 
             @Override
             public void onFailed(List<Config> list, Exception e) throws Exception {
-                logger.error("Publish to dcc failed. ", e);
-                Assert.fail("Publish to dcc failed");
+                logger.error("Publish to configs failed. ", e);
+                Assert.fail("Publish to configs failed");
             }
         }, configs);
 

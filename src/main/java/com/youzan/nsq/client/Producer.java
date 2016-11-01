@@ -1,14 +1,13 @@
 package com.youzan.nsq.client;
 
-import java.io.Closeable;
-import java.nio.ByteBuffer;
-import java.util.List;
-
 import com.youzan.nsq.client.core.Client;
-import com.youzan.nsq.client.entity.TraceInfo;
+import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.util.IOUtil;
+
+import java.io.Closeable;
+import java.util.List;
 
 /**
  * Because of too many topics, we create some connections with brokers when actually first time uses.
@@ -30,6 +29,8 @@ public interface Producer extends Client, Closeable {
     @Deprecated
     void publish(String message, String topic) throws NSQException;
 
+    void publish(Message message) throws NSQException;
+
     /**
      * 生产单条的'消息'
      * <p>
@@ -44,12 +45,9 @@ public interface Producer extends Client, Closeable {
     void publish(byte[] message, String topic) throws NSQException;
 
     /**
-     * 生产单条的'消息'
-     * <p>
-     * Use it to produce only one 'message' sending to MQ.
-     *
-     * @param message the client sets it that is be published
-     * @param topic   the specified topic name
+     * publish messages to specified topic
+     * @param message
+     * @param topic
      * @throws NSQException
      */
     void publish(byte[] message, Topic topic) throws NSQException;
@@ -74,9 +72,4 @@ public interface Producer extends Client, Closeable {
      */
     @Override
     void close();
-
-    /**
-     *specify trace id for current producer
-     */
-    void setTraceID(long traceId);
 }

@@ -2,6 +2,7 @@ package it.youzan.nsq.client;
 
 import com.youzan.nsq.client.Producer;
 import com.youzan.nsq.client.ProducerImplV2;
+import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQException;
@@ -49,10 +50,9 @@ public class ITProducerOrdered {
     }
 
     public void publishOrdered() throws NSQException {
-        producer.setTraceID(1024L);
         for (int i = 0; i < 100; i++) {
-            byte[] message = ("Message #" + i).getBytes();
-            producer.publish(message, new Topic("JavaTesting-Order",1));
+            String message = ("Message #" + i);
+            producer.publish(Message.create(new Topic("JavaTesting-Order",1), 1024L, message));
         }
     }
 }

@@ -49,14 +49,9 @@ public class NSQSimpleClient implements Client, Closeable {
     private final Role role;
     private final LookupService lookup;
 
-    public NSQSimpleClient(final String lookupAddresses, Role role) {
+    public NSQSimpleClient(final String[] lookupAddresses, Role role) {
         this.role = role;
-        this.lookup = new LookupServiceImpl(lookupAddresses, this.role);
-    }
-
-    public NSQSimpleClient(final String[] lookupAddresses, final LookupAddressUpdate lookupUpdate, Role role) {
-        this.role = role;
-        this.lookup = new LookupServiceImpl(lookupAddresses, lookupUpdate, role);
+        this.lookup = new LookupServiceImpl(lookupAddresses, role);
     }
 
     @Override

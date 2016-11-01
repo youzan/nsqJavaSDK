@@ -3,6 +3,7 @@
  */
 package com.youzan.nsq.client.core.command;
 
+import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.Topic;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,14 +27,12 @@ public class Pub implements NSQCommand, PartitionEnable {
     private final List<byte[]> body = new ArrayList<>(1);
     byte[] bytes = null;
     /**
-     * @param topic
-     *            the producer sets a topic name
-     * @param data
-     *            the producer publishes a raw message
+     * @param msg
+     *            message object
      */
-    public Pub(Topic topic, byte[] data) {
-        this.topic = topic;
-        this.body.add(data);
+    public Pub(Message msg) {
+        this.topic = msg.getTopic();
+        this.body.add(msg.getMessageBodyInByte());
     }
 
     @Override

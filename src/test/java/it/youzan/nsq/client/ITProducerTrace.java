@@ -1,5 +1,6 @@
 package it.youzan.nsq.client;
 
+import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQException;
 import org.slf4j.Logger;
@@ -16,10 +17,10 @@ public class ITProducerTrace extends ITProducer {
 
     public void publishTrace() throws NSQException {
         //set trace id, which is a long(8-byte-length)
-        producer.setTraceID(45678L);
+        Topic topic = new Topic("JavaTesting-Trace");
         for (int i = 0; i < 10; i++) {
-            byte[] message = ("Message #" + i).getBytes();
-            producer.publish(message, new Topic("JavaTesting-Trace"));
+            Message msg = Message.create(topic, 45678L, ("Message #" + i));
+            producer.publish(msg);
         }
     }
 }
