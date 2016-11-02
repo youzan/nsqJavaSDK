@@ -85,9 +85,6 @@
     <logger name="ch.qos.logback" additivity="false">
         <appender-ref ref="ERROR"/>
     </logger>
-    <logger name="io.netty" additivity="false">
-        <appender-ref ref="ERROR"/>
-    </logger>
     <logger name="com.youzan.dcc" level="WARN" additivity="false">
         <appender-ref ref="ERROR"/>
     </logger>
