@@ -28,6 +28,21 @@
             <charset>UTF-8</charset>
         </encoder>
     </appender>
+    
+    <appender name="DCCSDKDEBUG" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>DEBUG</level>
+        </filter>
+        <file>${LOG_HOME}/dccdebug.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_HOME}/dcc_debug.%d{yyyyMMdd}.log</fileNamePattern>
+            <maxHistory>3</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${CONSOLE_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
 
     <appender name="TraceDEBUG" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
@@ -86,7 +101,7 @@
         <appender-ref ref="ERROR"/>
     </logger>
     <logger name="com.youzan.dcc" level="WARN" additivity="false">
-        <appender-ref ref="ERROR"/>
+        <appender-ref ref="DCCSDKDEBUG"/>
     </logger>
     <logger name="com.youzan.nsq.client.trace" additivity="false">
         <appender-ref ref="TraceDEBUG"/>
