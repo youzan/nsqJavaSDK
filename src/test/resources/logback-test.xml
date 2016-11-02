@@ -95,7 +95,7 @@
 
     <!-- For debug , developers. begin -->
     <logger name="org" additivity="false">
-        <appender-ref ref="ERROR"/>
+        <appender-ref ref="DCCSDKDEBUG"/>
     </logger>
     <logger name="ch.qos.logback" additivity="false">
         <appender-ref ref="ERROR"/>
