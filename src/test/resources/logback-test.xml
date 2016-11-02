@@ -35,7 +35,7 @@
         </filter>
         <file>${LOG_HOME}/dccdebug.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_HOME}/dcc_debug.%d{yyyyMMdd}.log</fileNamePattern>
+            <fileNamePattern>${LOG_HOME}/dccDebug.%d{yyyyMMdd}.log</fileNamePattern>
             <maxHistory>3</maxHistory>
         </rollingPolicy>
         <encoder>
@@ -100,7 +100,7 @@
     <logger name="ch.qos.logback" additivity="false">
         <appender-ref ref="ERROR"/>
     </logger>
-    <logger name="com.youzan.dcc" level="WARN" additivity="false">
+    <logger name="com.youzan.dcc" additivity="false">
         <appender-ref ref="DCCSDKDEBUG"/>
     </logger>
     <logger name="com.youzan.nsq.client.trace" additivity="false">
