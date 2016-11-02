@@ -70,5 +70,7 @@ public class ITConsumerWPartition extends AbstractITConsumer{
         recievedConsumer.start();
         Assert.assertTrue(latch.await(1, TimeUnit.MINUTES));
         Assert.assertEquals(received.get(), 10);
+        recievedConsumer.close();
+        recievedNotConsumer.close();
     }
 }
