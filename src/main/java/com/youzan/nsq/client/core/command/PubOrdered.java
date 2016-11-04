@@ -1,14 +1,14 @@
 package com.youzan.nsq.client.core.command;
 
-import com.youzan.nsq.client.entity.Topic;
+import com.youzan.nsq.client.entity.Message;
 
 /**
  * Created by lin on 16/9/9.
  */
 public class PubOrdered extends PubTrace {
 
-    public PubOrdered(Topic topic, byte[] data) {
-        super(topic, data);
+    public PubOrdered(Message msg) {
+        super(msg);
     }
 
     @Override

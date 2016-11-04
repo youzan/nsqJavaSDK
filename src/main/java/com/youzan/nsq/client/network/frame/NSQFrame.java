@@ -3,8 +3,6 @@ package com.youzan.nsq.client.network.frame;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
-import com.youzan.nsq.client.HasSubscribeStatus;
-import com.youzan.nsq.client.core.command.Sub;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,14 +70,14 @@ public abstract class NSQFrame {
         }
     }
 
-    public static NSQFrame newInstance(final int type, final HasSubscribeStatus.SubCmdType subType) {
+    public static NSQFrame newInstance(final int type, boolean isOrdered) {
         switch (type) {
             case 0:
                 return new ResponseFrame();
             case 1:
                 return new ErrorFrame();
             case 2:{
-                if(subType == HasSubscribeStatus.SubCmdType.SUB_ORDERED)
+                if(isOrdered)
                     return new OrderedMessageFrame();
                 else return new MessageFrame();
             }

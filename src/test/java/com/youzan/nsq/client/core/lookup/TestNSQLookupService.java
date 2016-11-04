@@ -7,17 +7,18 @@ import ch.qos.logback.core.OutputStreamAppender;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.youzan.nsq.client.configs.ConfigAccessAgent;
 import com.youzan.nsq.client.entity.Role;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -50,7 +51,7 @@ public class TestNSQLookupService {
 
     @Test
     public void simpleInit() {
-        try (LookupServiceImpl srv = new LookupServiceImpl("10.232.120.12:6411", Role.Producer)) {
+        try (LookupServiceImpl srv = new LookupServiceImpl(new String[]{"10.232.120.12:6411"}, Role.Producer)) {
             for (String addr : srv.getAddresses()) {
                 Assert.assertTrue(addr.split(":").length == 2);
                 Assert.assertEquals(addr, "10.232.120.12:6411");
@@ -94,10 +95,9 @@ public class TestNSQLookupService {
     public void testFetchJsonFromLookUp() throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException, MalformedURLException {
         //create LookupServiceImpl via reflect, and inject appender into logger
         Class lookupClazz = LookupServiceImpl.class;
-        Constructor constructor = lookupClazz.getConstructor(String.class, Role.class);
         LookupServiceImpl lsi = null;
         URL url = new URL("http://sqs-qa.s.qima-inc.com:4161/listlookup");
-        lsi = (LookupServiceImpl) constructor.newInstance(url.toString(), Role.Consumer);
+        lsi = new LookupServiceImpl(new String[]{url.toString()}, Role.Consumer);
 
         Method readFromURL = lookupClazz.getDeclaredMethod("readFromUrl", URL.class);
         readFromURL.setAccessible(true);
@@ -113,12 +113,11 @@ public class TestNSQLookupService {
     public void makeBadOfLookup4ConnectionTimeoutTrace() throws NoSuchMethodException, NoSuchFieldException, IllegalAccessException, InvocationTargetException, InstantiationException, UnsupportedEncodingException {
         logger.info("Begin to test a invalid lookup address 127.0.0.1 !");
         //create LookupServiceImpl via reflect, and inject appender into logger
-        Class lookupClazz = LookupServiceImpl.class;
-        Constructor constructor = lookupClazz.getConstructor(String.class, Role.class);
-        LookupServiceImpl lsi = null;
-        lsi = (LookupServiceImpl) constructor.newInstance("127.0.0.1:2333", Role.Producer);
+        String[] lookupAddresses = new String[]{"127.0.0.1:2333"};
+        LookupServiceImpl lsi = new LookupServiceImpl(lookupAddresses, Role.Producer);
 
         //fetch the logger, which is a static private
+        Class<LookupServiceImpl> lookupClazz = LookupServiceImpl.class;
         Field logFld = lookupClazz.getDeclaredField("logger");
         logFld.setAccessible(true);
         Logger log = (Logger) logFld.get(lsi);
@@ -139,7 +138,7 @@ public class TestNSQLookupService {
 
     @Test(dataProvider = "genIPs")
     public void testInit(String ips, List<String> expected) {
-        try (LookupServiceImpl srv = new LookupServiceImpl(ips, null)) {
+        try (LookupServiceImpl srv = new LookupServiceImpl(new String[]{ips}, null)) {
             Assert.assertEquals(srv.getAddresses(), expected);
         }
     }
@@ -153,5 +152,13 @@ public class TestNSQLookupService {
         );
         JsonNode partitions = rootNode.get("partitions");
 
+    }
+
+    @AfterMethod
+    public void release() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        Class<ConfigAccessAgent> clazz = ConfigAccessAgent.class;
+        Method method = clazz.getDeclaredMethod("release");
+        method.setAccessible(true);
+        method.invoke(ConfigAccessAgent.getInstance());
     }
 }

@@ -1,12 +1,16 @@
 package com.youzan.nsq.client;
 
+import com.youzan.nsq.client.configs.ConfigAccessAgent;
 import com.youzan.nsq.client.entity.NSQConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Properties;
 
 /**
@@ -17,7 +21,7 @@ public class AbstractNSQClientTestcase {
 
     private static final Logger logger = LoggerFactory.getLogger(AbstractNSQClientTestcase.class);
     Properties props = new Properties();
-    protected final NSQConfig config = new NSQConfig();
+    protected NSQConfig config;
 
     @BeforeClass
     public void init() throws IOException {
@@ -32,17 +36,11 @@ public class AbstractNSQClientTestcase {
         final String msgTimeoutInMillisecond = props.getProperty("msgTimeoutInMillisecond");
         final String threadPoolSize4IO = props.getProperty("threadPoolSize4IO");
 
-
+        config = new NSQConfig();
         config.setLookupAddresses(lookups);
         config.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
         config.setMsgTimeoutInMillisecond(Integer.valueOf(msgTimeoutInMillisecond));
         config.setThreadPoolSize4IO(Integer.valueOf(threadPoolSize4IO));
-
-        //for trace switch and lookupd update
-        NSQConfig.setSDKEnvironment(props.getProperty("configAgentEnv"));
-        NSQConfig.overrideConfigServerUrls(props.getProperty("urls"));
-        NSQConfig.setConfigAgentBackupPath(props.getProperty("backupFilePath"));
-        NSQConfig.turnOnConfigAccess();
     }
 
     public NSQConfig getNSQConfig(){
@@ -56,5 +54,13 @@ public class AbstractNSQClientTestcase {
 
     public static Consumer createConsumer(final NSQConfig config, final MessageHandler handler){
         return new ConsumerImplV2(config, handler);
+    }
+
+    @AfterMethod
+    public void relase() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        Class<ConfigAccessAgent> clazz = ConfigAccessAgent.class;
+        Method method = clazz.getDeclaredMethod("release");
+        method.setAccessible(true);
+        method.invoke(ConfigAccessAgent.getInstance());
     }
 }

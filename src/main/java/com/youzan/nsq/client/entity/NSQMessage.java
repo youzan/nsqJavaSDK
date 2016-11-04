@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
+import com.youzan.nsq.client.MessageMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,7 +13,7 @@ import com.youzan.nsq.client.core.command.Close;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.util.IOUtil;
 
-public class NSQMessage {
+public class NSQMessage implements MessageMetadata{
     private static final Logger logger = LoggerFactory.getLogger(Close.class);
 
     private final byte[] timestamp;
@@ -22,8 +23,8 @@ public class NSQMessage {
     final Address address;
     final Integer connectionID; // be sure that is not null
 
-    private long diskQueueOffset;
-    private int diskQueueDataSize;
+    private long diskQueueOffset = -1L;
+    private int diskQueueDataSize = -1;
 
     /**
      * all the parameters is the NSQ message format!
@@ -46,6 +47,8 @@ public class NSQMessage {
         buf = ByteBuffer.wrap(traceID);
         this.traceID = buf.getLong();
 
+        //extra properties
+
         this.messageBody = messageBody;
         this.address = address;
         this.connectionID = connectionID;
@@ -56,6 +59,19 @@ public class NSQMessage {
 
     }
 
+    /**
+     * NSQMessage constructor, for sub ordered message frame
+     * @param timestamp
+     * @param attempts
+     * @param messageID
+     * @param internalID
+     * @param traceID
+     * @param diskQueueOffset
+     * @param diskQueueDataSize
+     * @param messageBody
+     * @param address
+     * @param connectionID
+     */
     public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
                       final byte[] diskQueueOffset, final byte[] diskQueueDataSize, byte[] messageBody, Address address,
                       Integer connectionID) {
@@ -286,4 +302,27 @@ public class NSQMessage {
                 + readableAttempts + ", address=" + address + ", connectionID=" + connectionID + "]";
         return msgStr;
     }
+
+    private String metaDataStr;
+
+    @Override
+    public String toMetadataStr() {
+        if(null == this.metaDataStr) {
+            String objStr = getClass().getName() + "@" + Integer.toHexString(hashCode());
+            StringBuilder sb = new StringBuilder();
+            sb.append(objStr + " meta-data:\n");
+            sb.append("\t[dateTime]:\t").append(this.datetime.toString());
+            sb.append("\t[attempts]:\t").append(this.readableAttempts);
+            sb.append("\t[messageID]:\t").append(this.readableMsgID);
+            sb.append("\t[internalID]:\t").append(this.internalID);
+            sb.append("\t[traceID]:\t").append(this.traceID);
+//        sb.append("\t[diskQueueOffset]:\t").append(this.diskQueueOffset);
+//        sb.append("\t[diskQueueDataSize]:\t").append(this.diskQueueDataSize);
+            sb.append("\t[NSQd address]:\t").append(this.address.toString());
+            sb.append(this.toString() + " end.");
+            this.metaDataStr = sb.toString();
+        }
+        return this.metaDataStr;
+    }
+
 }

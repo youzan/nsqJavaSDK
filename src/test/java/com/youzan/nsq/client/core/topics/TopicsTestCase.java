@@ -4,11 +4,13 @@ import com.youzan.nsq.client.AbstractNSQClientTestcase;
 import com.youzan.nsq.client.Consumer;
 import com.youzan.nsq.client.ConsumerImplV2;
 import com.youzan.nsq.client.MessageHandler;
+import com.youzan.nsq.client.configs.ConfigAccessAgent;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.entity.Topic;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -80,5 +82,13 @@ public class TopicsTestCase extends AbstractNSQClientTestcase{
 
         consumer.subscribe(topicTest);
         Assert.assertEquals(topics.size(), 6);
+    }
+
+    @AfterMethod
+    public void release() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        Class<ConfigAccessAgent> clazz = ConfigAccessAgent.class;
+        Method method = clazz.getDeclaredMethod("release");
+        method.setAccessible(true);
+        method.invoke(ConfigAccessAgent.getInstance());
     }
 }

@@ -1,6 +1,5 @@
 package com.youzan.nsq.client;
 
-import com.youzan.nsq.client.core.LookupAddressUpdate;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
 import com.youzan.nsq.client.core.command.*;
@@ -14,15 +13,12 @@ import com.youzan.nsq.client.network.frame.MessageFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame.FrameType;
 import com.youzan.nsq.client.network.frame.OrderedMessageFrame;
-import com.youzan.util.ConcurrentSortedSet;
-import com.youzan.util.IOUtil;
-import com.youzan.util.NamedThreadFactory;
-import com.youzan.util.ThreadSafe;
+import com.youzan.util.*;
 import io.netty.channel.ChannelFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.Timestamp;
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -38,7 +34,7 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
-public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
+public class ConsumerImplV2 implements Consumer {
 
     private static final Logger logger = LoggerFactory.getLogger(ConsumerImplV2.class);
     private final Object lock = new Object();
@@ -118,7 +114,6 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
     private final NSQSimpleClient simpleClient;
     private final NSQConfig config;
 
-    private SubCmdType subStatus = SubCmdType.SUB;
     private final Object traceLock = new Object();
     private AtomicLong latestInternalID = new AtomicLong(0);
     private AtomicLong latestDiskQueueOffset = new AtomicLong(0);
@@ -130,8 +125,7 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
     public ConsumerImplV2(NSQConfig config, MessageHandler handler) {
         this.config = config;
         this.handler = handler;
-        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(new Timestamp(0L)), new LookupAddressUpdate(config), Role.Consumer);
-
+        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(), Role.Consumer);
 
         final int messagesPerBatch = config.getRdy();
         DEFAULT_RDY = new Rdy(Math.max(messagesPerBatch, 1));
@@ -151,25 +145,25 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
      * topic is subscribe later, with a partition id, previous subscribe
      * will be override, and vice versa.
      *
-     * @param topics topics array which consumer interests in
+     * @param topics      topics array which consumer interests in
      * @param partitionId partition id which pass in topics array have
      */
     public void subscribe(int partitionId, String... topics) {
         subscribeTopics(partitionId, topics);
     }
 
-    private void subscribeTopics(int partitionId, String... topics){
+    private void subscribeTopics(int partitionId, String... topics) {
         if (topics == null) {
             return;
         }
-        for(String topicStr:topics){
+        for (String topicStr : topics) {
             Topic topic = new Topic(topicStr, partitionId);
             //if topic has partition id, we need to check if same topic which has NO partition id
             //is already added in consumer's topics, if yes, we need to remove that first
-            if(topic.hasPartition()) {
+            if (topic.hasPartition()) {
                 this.topics.remove(new Topic(topicStr, PartitionEnable.PARTITION_ID_NO_SPECIFY));
                 this.simpleClient.removeTopic(topic);
-            }else{
+            } else {
                 //A partition no specify is added, remove all existing partitions
                 SortedSet<Topic> partitionsIDs = this.topics.subSet(new Topic(topicStr, PartitionEnable.PARTITION_ID_SMALLEST), topic);
                 SortedSet<Topic> tmpSet = new TreeSet<>(new Comparator<Topic>() {
@@ -220,7 +214,6 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
         synchronized (lock) {
             if (!this.started) {
                 //set subscribe status
-                this.subStatus = this.config.isOrdered() ? SubCmdType.SUB_ORDERED : SubCmdType.SUB;
                 // create the pools
                 this.simpleClient.start();
                 // -----------------------------------------------------------------
@@ -423,7 +416,7 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
 
             final FixedPool pool = new FixedPool(address, connectionSize, this, config);
             address_2_pool.put(address, pool);
-            pool.prepare(this.getSubscribeStatus());
+            pool.prepare(this.config.isOrdered());
             List<NSQConnection> connections = pool.getConnections();
             if (connections == null || connections.isEmpty()) {
                 logger.info("TopicSize: {} , Address: {} , ThreadPoolSize4IO: {} , Connection-Size: {} . The pool is empty.", topicSize, address, manualPoolSize, connectionSize);
@@ -461,8 +454,8 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
         }
     }
 
-    private Sub createSubCmd(final Topic topic, String channel){
-        if(this.subStatus == SubCmdType.SUB_ORDERED)
+    private Sub createSubCmd(final Topic topic, String channel) {
+        if (this.config.isOrdered())
             return new SubOrdered(topic, channel);
         else
             return new Sub(topic, channel);
@@ -513,7 +506,7 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
         if (frame.getType() == FrameType.MESSAGE_FRAME) {
             received.incrementAndGet();
             final MessageFrame msg = (MessageFrame) frame;
-            final NSQMessage message = createNSQMessage(msg, conn, this.getSubscribeStatus());
+            final NSQMessage message = createNSQMessage(msg, conn);
             //gather trace info
             //this.trace.handleMessage(message);
             processMessage(message, conn);
@@ -523,22 +516,22 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
     }
 
     private void processMessage(final NSQMessage message, final NSQConnection connection) {
-        if(logger.isDebugEnabled()){
+        if (logger.isDebugEnabled()) {
             logger.debug(message.toString());
         }
 
-        if(this.getSubscribeStatus() == SubCmdType.SUB_ORDERED){
+        if (this.config.isOrdered()) {
             long diskQueueOffset = message.getDiskQueueOffset();
             long internalID = message.getInternalID();
-            synchronized(traceLock) {
+            synchronized (traceLock) {
                 long current = this.latestInternalID.get();
-                if(internalID <= current){
+                if (internalID <= current) {
                     //there is a problem
                     logger.error("Internal ID in current message is smaller than what has received. Latest internal ID: {}, Current internal ID: {}.", current, internalID);
                 }
 
                 current = this.latestDiskQueueOffset.get();
-                if(diskQueueOffset <= current){
+                if (diskQueueOffset <= current) {
                     //there is another problem
                     logger.error("Disk queue offset in current message is smaller than what has received. Latest disk queue offset ID: {}, Current disk queue offset: {}.", current, diskQueueOffset);
                 }
@@ -897,26 +890,34 @@ public class ConsumerImplV2 implements Consumer, HasSubscribeStatus {
         }
     }
 
-    public SubCmdType getSubscribeStatus() {
-        return this.subStatus;
-    }
-
-    private NSQMessage createNSQMessage(final MessageFrame msgFrame, final NSQConnection conn, SubCmdType subType){
-        if(subType == SubCmdType.SUB_ORDERED) {
-            OrderedMessageFrame orderedFrame = (OrderedMessageFrame) msgFrame;
-            return new NSQMessage(orderedFrame.getTimestamp(), orderedFrame.getAttempts(), orderedFrame.getMessageID(),
-                    orderedFrame.getInternalID(), orderedFrame.getTractID(), orderedFrame.getDiskQueueOffset(),
-                    orderedFrame.getDiskQueueDataSize(), orderedFrame.getMessageBody(), conn.getAddress(), conn.getId());
+    private NSQMessage createNSQMessage(final MessageFrame msgFrame, final NSQConnection conn) {
+        if(config.isOrdered() && msgFrame instanceof OrderedMessageFrame) {
+            OrderedMessageFrame orderedMsgFrame =  (OrderedMessageFrame) msgFrame;
+            return new NSQMessage(orderedMsgFrame.getTimestamp(), orderedMsgFrame.getAttempts(), orderedMsgFrame.getMessageID(),
+                    orderedMsgFrame.getInternalID(), orderedMsgFrame.getTractID(),
+                    orderedMsgFrame.getDiskQueueOffset(), orderedMsgFrame.getDiskQueueDataSize(),
+                    msgFrame.getMessageBody(), conn.getAddress(), conn.getId());
         }else
             return new NSQMessage(msgFrame.getTimestamp(), msgFrame.getAttempts(), msgFrame.getMessageID(),
-                    msgFrame.getInternalID(), msgFrame.getTractID(), msgFrame.getMessageBody(), conn.getAddress(), conn.getId());
+                msgFrame.getInternalID(), msgFrame.getTractID(), msgFrame.getMessageBody(), conn.getAddress(), conn.getId());
     }
 
     /**
      * fetch topics set, for test purpose.
+     *
      * @return topics set
      */
-    private SortedSet<Topic> getTopics(){
+    private SortedSet<Topic> getTopics() {
         return this.topics;
+    }
+
+    public String toString() {
+        String ipStr = "";
+        try {
+            ipStr = HostUtil.getLocalIP();
+        } catch (IOException e) {
+            logger.warn(e.getLocalizedMessage());
+        }
+        return "[Consumer] at " + ipStr;
     }
 }

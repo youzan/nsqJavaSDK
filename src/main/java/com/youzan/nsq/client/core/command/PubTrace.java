@@ -1,23 +1,32 @@
 package com.youzan.nsq.client.core.command;
 
+import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.Topic;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.UUID;
 
 /**
  * Created by lin on 16/8/31.
  */
-public class PubTrace extends Pub implements HasTraceID{
+public class PubTrace extends Pub{
 
     private static final Logger logger = LoggerFactory.getLogger(PubTrace.class);
     private byte[] traceId = {0, 0, 0, 0, 0, 0, 0, 0};
     protected UUID id = UUID.randomUUID();
 
-    public PubTrace(Topic topic, byte[] data){
-        super(topic, data);
+    public PubTrace(Message msg){
+        super(msg);
+        if(msg.getTraceID() != 0L) {
+            //update traceID
+            ByteBuffer buf = ByteBuffer.allocate(TRACE_ID_SIZE);
+            buf.putLong(msg.getTraceID());
+            byte[] newTraceID = buf.array();
+            System.arraycopy(newTraceID, 0, this.traceId, 0, TRACE_ID_SIZE);
+        }
     }
 
     @Override
@@ -48,35 +57,11 @@ public class PubTrace extends Pub implements HasTraceID{
         return bytes;
     }
 
-    @Override
-    public String getID(){
-        return this.id.toString();
-    }
-
     public byte[] getTraceId(){
         return this.traceId;
     }
 
-    @Override
-    public boolean isTraceIDSet() {
-        ByteBuffer buf = ByteBuffer.wrap(this.traceId);
-        return buf.getLong() != 0l;
-    }
-
-    @Override
-    /**
-     * update trace Id here, if bytes of current message is initialized, bytes need to be invalidated
-     */
-    public void updateTraceID(final byte[] traceID) {
-        if(this.traceId.length < TRACE_ID_SIZE){
-            this.traceId = new byte[TRACE_ID_SIZE];
-        }
-        System.arraycopy(traceID, 0, this.traceId, 0, TRACE_ID_SIZE);
-        //invalidate bytes
-        bytes = null;
-    }
-
     public String toString(){
-        return this.getID() + "; " + super.toString();
+        return this.getTraceId() + "; " + super.toString();
     }
 }
