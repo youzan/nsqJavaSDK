@@ -187,62 +187,22 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         return is;
     }
 
-//    private void parse2LookupdList(final List<Config> configs) throws InvalidConfigException, IOException {
-//        assert null != configs;
-//        //update look up addresses
-//        Config lookupConfig = configs.get(0);
-//        assert null != lookupConfig;
-//        JsonNode root = SystemUtil.getObjectMapper().readTree(lookupConfig.getContent());
-//        JsonNode array = root.get("value");
-//        List<String> newLookupds = new ArrayList<>();
-//        for(JsonNode node : array){
-//            newLookupds.add(node.get("value").asText());
-//        }
-//        updateLookupAddresses(newLookupds.toArray(new String[newLookupds.size()]));
-//    }
-//
-//    private static void updateLookupAddresses(final String[] newLookupList){
-//        NSQConfig.lookupAddresses = newLookupList;
-//        NSQConfig.lookupAddrUpdated.setTime(System.currentTimeMillis());
-//    }
-//
-//    /**
-//     * Get lookup addresses, based on pass in lastUpdateTimestamp.
-//     * If lookup addresses is updated after specified timestamp, lookup addresses returns. If subscriber to config
-//     * server is not initialized(often caused by config), user specified lookup address by
-//     * {@link NSQConfig#setLookupAddresses(String)}, will be always returned, until subscriber kicks off.
-//     *
-//     * @param updateTimeStamp timestamp to compare with, function returns lookup address when it is updated after
-//     *                        updateTimestamp.
-//     * @return the lookupAddresses
-//     */
-//    public String[] getLookupAddresses(Timestamp updateTimeStamp) {
-//        kickOff();
-//        if(!NSQConfig.kickOff || !dccOn){
-//            if(logger.isDebugEnabled())
-//                logger.debug("lookup addresses from config server not available. Use backup look up address passed in by user.");
-//            //try with backup lookup address
-//            return this.backupLookupAddresses;
-//        } else if(NSQConfig.lookupAddrUpdated.after(updateTimeStamp)){
-//            updateTimeStamp.setTime(NSQConfig.lookupAddrUpdated.getTime());
-//            return NSQConfig.lookupAddresses;
-//        }
-//        //lookup info is not updated
-//        return null;
-//    }
-
     /**
      * Specified backup lookup address for user. By default, user specified lookup address is used when access to lookup
      * info from remote config server is invalid at the very beginning. If access to lookup break down in the middle of
      * nsq sdk process, cached lookup address takes precedence of backup lookup address.
      * @param lookupAddresses the lookupAddresses to set
      */
-    public void setLookupAddresses(final String lookupAddresses) {
-        if(null == lookupAddresses)
-            return;
+    public NSQConfig setLookupAddresses(final String lookupAddresses) {
+        if(null == lookupAddresses || lookupAddresses.isEmpty()) {
+            if(logger.isWarnEnabled())
+                logger.warn("Empty lookup address is not accepted.");
+            return this;
+        }
         String[] newLookupAddresses = lookupAddresses.replaceAll(" ", "").split(",");
         Arrays.sort(newLookupAddresses);
         this.lookupAddresses = newLookupAddresses;
+        return this;
     }
 
     /**
@@ -263,8 +223,9 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * @param connectTimeoutInMillisecond the connectTimeoutInMillisecond to set
      */
-    public void setConnectTimeoutInMillisecond(int connectTimeoutInMillisecond) {
+    public NSQConfig setConnectTimeoutInMillisecond(int connectTimeoutInMillisecond) {
         this.connectTimeoutInMillisecond = connectTimeoutInMillisecond;
+        return this;
     }
 
     /**
@@ -284,8 +245,9 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * @param consumerName the consumerName to set
      */
-    public void setConsumerName(String consumerName) {
+    public NSQConfig setConsumerName(String consumerName) {
         this.consumerName = consumerName;
+        return this;
     }
 
     /**
@@ -298,8 +260,9 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * @param ordered the ordered to set
      */
-    public void setOrdered(boolean ordered) {
+    public NSQConfig setOrdered(boolean ordered) {
         this.ordered = ordered;
+        return this;
     }
 
     /**
@@ -312,11 +275,12 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * @param threadPoolSize4IO the threadPoolSize4IO to set
      */
-    public void setThreadPoolSize4IO(int threadPoolSize4IO) {
+    public NSQConfig setThreadPoolSize4IO(int threadPoolSize4IO) {
         this.threadPoolSize4IO = threadPoolSize4IO;
         if (threadPoolSize4IO > 1) {
             logger.warn("SDK does not recommend the size > 1 when this client is a consumer. If you are a producer, please ignore the info.");
         }
+        return this;
     }
 
     /**
@@ -343,8 +307,9 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * @param msgTimeoutInMillisecond the msgTimeoutInMillisecond to set
      */
-    public void setMsgTimeoutInMillisecond(int msgTimeoutInMillisecond) {
+    public NSQConfig setMsgTimeoutInMillisecond(int msgTimeoutInMillisecond) {
         this.msgTimeoutInMillisecond = msgTimeoutInMillisecond;
+        return this;
     }
 
     /**
@@ -363,8 +328,9 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * @param heartbeatIntervalInMillisecond the heartbeatIntervalInMillisecond to set
      */
-    public void setHeartbeatIntervalInMillisecond(Integer heartbeatIntervalInMillisecond) {
+    public NSQConfig setHeartbeatIntervalInMillisecond(Integer heartbeatIntervalInMillisecond) {
         this.heartbeatIntervalInMillisecond = heartbeatIntervalInMillisecond;
+        return this;
     }
 
     /**
@@ -377,8 +343,9 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * @param featureNegotiation the featureNegotiation to set
      */
-    public void setFeatureNegotiation(boolean featureNegotiation) {
+    public NSQConfig setFeatureNegotiation(boolean featureNegotiation) {
         this.featureNegotiation = featureNegotiation;
+        return this;
     }
 
     /**
@@ -391,8 +358,9 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * @param outputBufferSize the outputBufferSize to set
      */
-    public void setOutputBufferSize(Integer outputBufferSize) {
+    public NSQConfig setOutputBufferSize(Integer outputBufferSize) {
         this.outputBufferSize = outputBufferSize;
+        return this;
     }
 
     /**
@@ -405,8 +373,9 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * @param outputBufferTimeoutInMillisecond the outputBufferTimeoutInMillisecond to set
      */
-    public void setOutputBufferTimeoutInMillisecond(Integer outputBufferTimeoutInMillisecond) {
+    public NSQConfig setOutputBufferTimeoutInMillisecond(Integer outputBufferTimeoutInMillisecond) {
         this.outputBufferTimeoutInMillisecond = outputBufferTimeoutInMillisecond;
+        return this;
     }
 
     /**
@@ -426,20 +395,22 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * @param havingMonitoring the havingMonitoring to set
      */
-    public void setHavingMonitoring(boolean havingMonitoring) {
+    public NSQConfig setHavingMonitoring(boolean havingMonitoring) {
         this.havingMonitoring = havingMonitoring;
+        return this;
     }
 
     public SslContext getSslContext() {
         return sslContext;
     }
 
-    public void setSslContext(SslContext sslContext) {
+    public NSQConfig setSslContext(SslContext sslContext) {
         if (null == sslContext) {
             throw new NullPointerException();
         }
         tlsV1 = true;
         this.sslContext = sslContext;
+        return this;
     }
 
     /**
@@ -452,8 +423,9 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * @param tlsV1 the tlsV1 to set
      */
-    public void setTlsV1(boolean tlsV1) {
+    public NSQConfig setTlsV1(boolean tlsV1) {
         this.tlsV1 = tlsV1;
+        return this;
     }
 
     /**
@@ -466,8 +438,9 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * @param compression the compression to set
      */
-    public void setCompression(Compression compression) {
+    public NSQConfig setCompression(Compression compression) {
         this.compression = compression;
+        return this;
     }
 
     /**
@@ -480,8 +453,9 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * @param deflateLevel the deflateLevel to set
      */
-    public void setDeflateLevel(Integer deflateLevel) {
+    public NSQConfig setDeflateLevel(Integer deflateLevel) {
         this.deflateLevel = deflateLevel;
+        return this;
     }
 
     /**
@@ -494,8 +468,9 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * @param sampleRate the sampleRate to set
      */
-    public void setSampleRate(Integer sampleRate) {
+    public NSQConfig setSampleRate(Integer sampleRate) {
         this.sampleRate = sampleRate;
+        return this;
     }
 
     /**
@@ -509,12 +484,13 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * @param rdy the rdy to set , it is ready to receive the pushing message
      *            count
      */
-    public void setRdy(int rdy) {
+    public NSQConfig setRdy(int rdy) {
         if (rdy <= 0) {
             this.rdy = 1;
             throw new IllegalArgumentException("Are you kidding me? The rdy should be positive.");
         }
         this.rdy = rdy;
+        return this;
     }
 
     /**
@@ -527,8 +503,9 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * @param queryTimeoutInMillisecond the queryTimeoutInMillisecond to set
      */
-    public void setQueryTimeoutInMillisecond(int queryTimeoutInMillisecond) {
+    public NSQConfig setQueryTimeoutInMillisecond(int queryTimeoutInMillisecond) {
         this.queryTimeoutInMillisecond = queryTimeoutInMillisecond;
+        return this;
     }
 
     private static Logger getLogger() {
