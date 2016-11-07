@@ -128,6 +128,11 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         initSDKEnv();
     }
 
+    @Deprecated
+    /**
+     * Deprecated. Pls uses {@link NSQConfig#NSQConfig(String, String)} for {@link com.youzan.nsq.client.Consumer}
+     * or {@link com.youzan.nsq.client.Producer}, and
+     */
     public NSQConfig() {
         try {
             hostname = HostUtil.getLocalIP();
@@ -139,6 +144,30 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         }
     }
 
+    @SuppressWarnings("deprecation")
+    /**
+     * NSQConfig constructor for {@link com.youzan.nsq.client.Consumer} or {@link com.youzan.nsq.client.Producer}.
+     * @param lookupAddress lookup address.
+     * @param consumerName  channel name for consumer.
+     */
+    public NSQConfig(final String lookupAddress, final String consumerName) {
+        this();
+        //update lookup address
+        setLookupAddresses(lookupAddress);
+        //and channel name
+        setConsumerName(consumerName);
+    }
+
+    @SuppressWarnings("deprecation")
+    /**
+     * NSQConfig constructor for {@link com.youzan.nsq.client.Producer}.
+     * @param lookupAddress lookup address.
+     * @param consumerName  channel name for consumer.
+     */
+    public NSQConfig(final String lookupAddress){
+        this();
+        setLookupAddresses(lookupAddress);
+    }
 
     private static void initSDKEnv() {
         //read from system property first
