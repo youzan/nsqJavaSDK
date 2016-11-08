@@ -16,6 +16,8 @@ public class Message implements MessageMetadata {
     //trace id per message attached
     //meta-data need initialized in received message
     private final long traceID;
+    //topic sharding ID, when larger than 0L, it is a valid sharding
+    private long topicSharding = -1L;
     private boolean traced = false;
     private final Topic topic;
 
@@ -69,6 +71,15 @@ public class Message implements MessageMetadata {
 
     public boolean isTraced(){
         return this.traced;
+    }
+
+    public Message setTopicShardingID(long shardingID){
+        this.topicSharding = shardingID;
+        return this;
+    }
+
+    public long getTopicShardingId(){
+        return this.topicSharding;
     }
 
     @Override

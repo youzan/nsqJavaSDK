@@ -4,6 +4,7 @@ import java.io.Closeable;
 
 import com.youzan.nsq.client.core.Client;
 import com.youzan.nsq.client.entity.NSQMessage;
+import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQException;
 
 /**
@@ -26,9 +27,8 @@ public interface Consumer extends Client, Closeable {
      *
      * @param topics the client wanna subscribe some topics and this API appends
      *               into a topics collector
-     * @param partitionId partition Id that pass in topics have
      */
-    void subscribe(int partitionId, String... topics);
+    void subscribe(Topic... topics);
 
     @Override
     void start() throws NSQException;

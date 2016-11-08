@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.youzan.nsq.client.core.LookupAddressUpdate;
 import com.youzan.nsq.client.entity.Address;
+import com.youzan.nsq.client.entity.Partitions;
 import com.youzan.nsq.client.entity.Role;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQLookupException;
@@ -31,7 +32,6 @@ public class LookupServiceImpl implements LookupService {
     private static final Logger logger = LoggerFactory.getLogger(LookupServiceImpl.class);
     private static final long serialVersionUID = 1773482379917817275L;
     private static final String HTTP_PRO_HEAD = "http://";
-    private static final String BROKER_QUERY_W_PARTITION_URL = "%s/lookup?topic=%s&access=%s&partition=%s";
     private static final String BROKER_QUERY_URL = "%s/lookup?topic=%s&access=%s";
 
     /**
@@ -227,7 +227,7 @@ public class LookupServiceImpl implements LookupService {
     }
 
     @Override
-    public SortedSet<Address> lookup(Topic topic) throws NSQLookupException {
+    public Partitions lookup(Topic topic) throws NSQLookupException {
         switch (this.role) {
             case Consumer: {
                 return lookup(topic, false);
@@ -242,13 +242,10 @@ public class LookupServiceImpl implements LookupService {
     }
 
     @Override
-    public SortedSet<Address> lookup(Topic topic, boolean writable) throws NSQLookupException {
+    public Partitions lookup(final Topic topic, boolean writable) throws NSQLookupException{
         if (null == topic || null == topic.getTopicText() || topic.getTopicText().isEmpty()) {
             throw new NSQLookupException("Your input topic is blank!");
         }
-        boolean partitionIdSpecified = topic.hasPartition();
-
-        final SortedSet<Address> dataNodes = new TreeSet<>();
         assert null != this.addresses;
         /*
          * It is unnecessary to use Atomic/Lock for the variable
@@ -257,64 +254,58 @@ public class LookupServiceImpl implements LookupService {
         String lookup = this.addresses.get(index);
         if(!lookup.startsWith(HTTP_PRO_HEAD))
             lookup = HTTP_PRO_HEAD + lookup;
-        final String url = partitionIdSpecified ?
-                String.format(BROKER_QUERY_W_PARTITION_URL, lookup, topic.getTopicText(), writable ? "w" : "r", topic.getPartitionId()):
-                String.format(BROKER_QUERY_URL, lookup, topic.getTopicText(), writable ? "w" : "r");
+        final String url = String.format(BROKER_QUERY_URL, lookup, topic.getTopicText(), writable ? "w" : "r");
         logger.debug("Begin to lookup some DataNodes from URL {}", url);
+        Partitions aPartitions = new Partitions(topic);
+
         try {
             final JsonNode rootNode = readFromUrl(new URL(url));
-
-            /*
-                Partition part, for new version
-                what need here is creating a mapping, from broker address to partition id
-             */
-            if(partitionIdSpecified) {
-                long start = 0L;
-                //performance debug purpose
-                if(logger.isDebugEnabled()) start = System.currentTimeMillis();
-                final JsonNode partitions = rootNode.get("partitions");
-                if (null != partitions) {
-                    Map<String, Address> addrStr_2_addr_set = new HashMap<>();
-                    Iterator<String> irt = partitions.fieldNames();
-                    while (irt.hasNext()) {
-                        String parId = irt.next();
-                        int parIdInt = Integer.valueOf(parId);
-                        JsonNode partition = partitions.get(parId);
-                        final Address address = createAddress(partition);
-
-                        //mapping address string to address, for merge partition id
-                        if(addrStr_2_addr_set.containsKey(address.toString())){
-                            addrStr_2_addr_set.get(address.toString()).addPartitionIds(parIdInt);
-                        }else{
-                            address.addPartitionIds(parIdInt);
-                            addrStr_2_addr_set.put(address.toString(), address);
-                        }
+            long start = 0L;
+            if(logger.isDebugEnabled())
+                start = System.currentTimeMillis();
+            final JsonNode partitions = rootNode.get("partitions");
+            //new NSQd, read total partition number
+//            final int partitionNum = rootNode.get("partitionNum").asInt();
+            //when partition id found, it is a new NSQ lookupd
+            //unpartitioned data nodes
+            List<Address> unPartitionedDataNodes = new ArrayList<>();
+            List<Address> partitionedDataNodes = new ArrayList<>();
+            if (null != partitions) {
+                Iterator<String> irt = partitions.fieldNames();
+                int partitionCount = 0;
+                while (irt.hasNext()) {
+                    String parId = irt.next();
+                    int parIdInt = Integer.valueOf(parId);
+                    JsonNode partition = partitions.get(parId);
+                    final Address address = createAddress(partition);
+                    if(parIdInt >= 0) {
+                        partitionedDataNodes.add(address);
+                        partitionCount++;
+                    }else{
+                        //it is a partition data node from new nsq lookupd, however data nodes points to a old nsqd
+                        //add as unpartitioned data node and do not record partition id
+                        unPartitionedDataNodes.add(address);
                     }
-                    if(logger.isDebugEnabled()){
-                        logger.debug("SDK took {} mill sec to create mapping for partition.", (System.currentTimeMillis() - start));
-                        start = System.currentTimeMillis();
-                    }
-                    for(Map.Entry<String, Address> entity:addrStr_2_addr_set.entrySet()){
-                        dataNodes.add(entity.getValue());
-                    }
-                    if(logger.isDebugEnabled()){
-                        logger.debug("SDK took {} mill sec to merge mapping into dataNodes.", (System.currentTimeMillis() - start));
-                    }
-                } else {
-                    if (logger.isDebugEnabled())
-                        logger.debug("Partitions json data not found in current lookup service.");
                 }
-            }else{
+                aPartitions.updatePartitionDataNode(partitionedDataNodes.toArray(new Address[0]), partitionCount);
+                if(logger.isDebugEnabled()){
+                    logger.debug("SDK took {} mill sec to create mapping for partition.", (System.currentTimeMillis() - start));
+                }
+            } else {
+                //for old lookupd does not support partition
+                if (logger.isDebugEnabled())
+                    logger.debug("Partitions json data not found in current lookup service.");
                 //producers part in json
                 final JsonNode producers = rootNode.get("producers");
+                int idx = 0;
                 for (JsonNode node : producers) {
                     final Address address = createAddress(node);
-                    dataNodes.add(address);
+                    unPartitionedDataNodes.add(address);
                 }
             }
-
+            aPartitions.updateUnpartitionedDataNodea(unPartitionedDataNodes.toArray(new Address[0]));
             logger.debug("The server response info after looking up some DataNodes: {}", rootNode.toString());
-            return dataNodes; // maybe it is empty
+            return aPartitions; // maybe it is empty
         } catch (Exception e) {
             final String tip = "SDK can't get the right lookup info. " + url;
             throw new NSQLookupException(tip, e);

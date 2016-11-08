@@ -1,31 +1,32 @@
 package com.youzan.nsq.client.entity;
 
-import com.youzan.nsq.client.core.command.PartitionEnable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Topic class with partition id
  * Created by lin on 16/8/18.
  */
-public class Topic implements Comparable<Topic>{
+public class Topic implements Comparable<Topic> {
+    private static final Logger logger = LoggerFactory.getLogger(Topic.class);
+
+    //topic sharding
+    private static final TopicSharding<Long> TOPIC_SHARDING = new TopicSharding<Long>() {
+        @Override
+        public int toPartitionID(Long passInSeed, int partitionNum) {
+            if(passInSeed < 0L)
+                return -1;
+            return (int) (passInSeed%partitionNum);
+        }
+    };
+
     private final String topic;
-    private final int partitionId;
+    private int partitionID = -1;
+    //partition arrays equals to null, which means partition ID not specified, for compatibility with NSQ old version;
     private final int prime = 31;
     private String toString = null;
+    private TopicSharding sharding = TOPIC_SHARDING;
 
-    /**
-     * constructor to create a topic object
-     * @param topic topic to scribe/publish to
-     * @param partitionId partition id topic has(or may not)
-     */
-    public Topic(String topic, int partitionId){
-        this.topic = topic;
-        this.partitionId = partitionId;
-    }
-
-    Topic(){
-        topic = "INVALID_TOPIC_NAME";
-        partitionId = PartitionEnable.PARTITION_ID_NO_SPECIFY;
-    }
 
     /**
      * constructor to create a topic object
@@ -33,25 +34,23 @@ public class Topic implements Comparable<Topic>{
      */
     public Topic(String topic){
         this.topic = topic;
-        this.partitionId = PartitionEnable.PARTITION_ID_NO_SPECIFY;
-    }
-
-    public boolean hasPartition(){
-        return this.partitionId > PartitionEnable.PARTITION_ID_NO_SPECIFY;
     }
 
     public String getTopicText(){
         return this.topic;
     }
 
-    public int getPartitionId(){
-        return this.partitionId;
+    public boolean hasPartition(){
+        return this.partitionID > 0L;
     }
 
+    public int getPartitionId(){
+        return this.partitionID;
+    }
 
     @Override
     public int hashCode() {
-        return this.topic.hashCode() * prime + partitionId;
+        return this.topic.hashCode() * prime;
     }
 
     @Override
@@ -71,7 +70,7 @@ public class Topic implements Comparable<Topic>{
                 return false;
             }
         }
-        return this.topic == other.topic && this.partitionId == other.partitionId;
+        return this.topic == other.topic;
     }
 
     public int compareTo(Topic other){
@@ -80,7 +79,29 @@ public class Topic implements Comparable<Topic>{
 
     public String toString(){
         if(null == toString)
-            toString = String.format("topic: %s, partition id: %s", this.topic, this.partitionId);
+            toString = String.format("topic: %s.", this.topic);
         return toString;
+    }
+
+    public Topic setTopicSharding(TopicSharding topicSharding){
+        this.sharding = topicSharding;
+        return this;
+    }
+
+    /**
+     * this function touches current topic to set/update its current partition ID.
+     * @param seed
+     * @param partitionNum
+     * @return
+     */
+    public int updatePartionIndex(long seed, int partitionNum){
+        if(partitionNum <= 0) {
+            //for partition Num < 0, treat it as sharding is no needed here
+            return -1;
+        }
+        //update partitionID
+        this.partitionID = this.sharding.toPartitionID(seed, partitionNum);
+        return this.partitionID;
+
     }
 }

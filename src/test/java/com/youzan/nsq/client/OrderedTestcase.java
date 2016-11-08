@@ -9,6 +9,7 @@ import com.youzan.dcc.client.util.inetrfaces.ClientConfig;
 import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.entity.Topic;
+import com.youzan.nsq.client.entity.TopicSharding;
 import com.youzan.nsq.client.exception.NSQException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +38,13 @@ public class OrderedTestcase extends AbstractNSQClientTestcase{
         super.init();
         //turn on ordered
         getNSQConfig().setOrdered(true);
+        topic.setTopicSharding(new TopicSharding<Long>() {
+
+            @Override
+            public int toPartitionID(Long passInSeed, int partitionNum) {
+                return 0;
+            }
+        });
     }
 
     @Test(priority = 1)
@@ -55,7 +63,7 @@ public class OrderedTestcase extends AbstractNSQClientTestcase{
                 latch.countDown();
             }
         });
-        consumer.subscribe(1, topic.getTopicText());
+        consumer.subscribe(topic.getTopicText());
         consumer.start();
         long start = System.currentTimeMillis();
         latch.await();
@@ -70,7 +78,7 @@ public class OrderedTestcase extends AbstractNSQClientTestcase{
         Producer producer = createProducer(getNSQConfig());
         producer.start();
         for(int i = 0; i < msgNum; i++) {
-            Message msg = Message.create(topic, 1024L, ("Message #" + i));
+            Message msg = Message.create(topic, 1024L, ("Message #" + i)).setTopicShardingID(123L);
             producer.publish(msg);
         }
         producer.close();

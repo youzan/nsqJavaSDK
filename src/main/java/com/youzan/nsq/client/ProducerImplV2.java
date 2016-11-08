@@ -11,7 +11,6 @@ import com.youzan.nsq.client.entity.Role;
 import com.youzan.nsq.client.exception.*;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
-import com.youzan.util.ConcurrentSortedSet;
 import com.youzan.util.HostUtil;
 import com.youzan.util.IOUtil;
 import com.youzan.util.NamedThreadFactory;
@@ -133,20 +132,17 @@ public class ProducerImplV2 implements Producer {
      * @return a validated {@link NSQConnection}
      * @throws NSQException that is having done a negotiation
      */
-    private NSQConnection getNSQConnection(Topic topic) throws NSQException {
+    private NSQConnection getNSQConnection(Topic topic, long topicShardingID) throws NSQException {
         final Long now = System.currentTimeMillis();
         topic_2_lastActiveTime.put(topic, now);
-        final ConcurrentSortedSet<Address> dataNodes = simpleClient.getDataNodes(topic);
-        if (dataNodes.isEmpty()) {
-            throw new NSQNoConnectionException("You still do not producer.start() or the server is down(contact the administrator)!");
-        }
-        final int size = dataNodes.size();
-        final Address[] addresses = dataNodes.newArray(new Address[size]);
+        //data nodes matches topic sharding returns
+        Address[] partitonAddrs = simpleClient.getPartitionNodes(topic, topicShardingID);
+        final int size = partitonAddrs.length;
         int c = 0, index = (this.offset++);
         while (c++ < size) {
             // current broker | next broker when have a try again
             final int effectedIndex = (index++ & Integer.MAX_VALUE) % size;
-            final Address address = addresses[effectedIndex];
+            final Address address = partitonAddrs[effectedIndex];
 //            logger.debug("Load-Balancing algorithm is Round-Robin! DataNode Size: {} , Index: {} , Got {}", size, effectedIndex, address);
             try {
 //                logger.debug("Begin to borrowObject from the address: {}", address);
@@ -176,8 +172,7 @@ public class ProducerImplV2 implements Producer {
             throw new IllegalStateException("Producer must be started before producing messages!");
         }
         total.incrementAndGet();
-        final Pub pub = createPubCmd(message);
-        sendPUB(pub, message);
+        sendPUB(message);
     }
 
     @Override
@@ -207,17 +202,19 @@ public class ProducerImplV2 implements Producer {
         publish(msg);
     }
 
-    private void sendPUB(final Pub pub, final Message msg) throws NSQException {
+    private void sendPUB(final Message msg) throws NSQException {
         int c = 0; // be continuous
         while (c++ < MAX_PUBLISH_RETRY) {
             if (c > 1) {
                 logger.debug("Sleep. CurrentRetries: {}", c);
                 sleep((1 << (c - 1)) * 1000);
             }
-            final NSQConnection conn = getNSQConnection(msg.getTopic());
+            final NSQConnection conn = getNSQConnection(msg.getTopic(), msg.getTopicShardingId());
             if (conn == null) {
                 continue;
             }
+            //create PUB command
+            final Pub pub = createPubCmd(msg);
             try {
                 final NSQFrame frame = conn.commandAndGetResponse(pub);
                 handleResponse(msg.getTopic().getTopicText(), frame, conn);
