@@ -47,7 +47,7 @@ public class ITConsumerOrdered extends AbstractITConsumer {
             }
         });
         consumer.setAutoFinish(true);
-        consumer.subscribe(1, "JavaTesting-Order");
+        consumer.subscribe("JavaTesting-Order");
         consumer.start();
         Assert.assertTrue(latch.await(3, TimeUnit.MINUTES));
         Assert.assertFalse(fail.get());

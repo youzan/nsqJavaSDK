@@ -25,7 +25,7 @@ public class ITConsumerWPartition extends AbstractITConsumer{
     public void test() throws NSQException, InterruptedException {
         final CountDownLatch latch = new CountDownLatch(10);
         final AtomicInteger received = new AtomicInteger(0);
-        consumer = new ConsumerImplV2(config, new MessageHandler() {
+        Consumer consumer = new ConsumerImplV2(config, new MessageHandler() {
             @Override
             public void process(NSQMessage message) {
                 received.incrementAndGet();
@@ -33,14 +33,15 @@ public class ITConsumerWPartition extends AbstractITConsumer{
             }
         });
         consumer.setAutoFinish(true);
-        consumer.subscribe(0, "JavaTesting-Producer-Base");
+        consumer.subscribe("JavaTesting-Producer-Base");
         consumer.start();
         Assert.assertTrue(latch.await(1, TimeUnit.MINUTES));
         logger.info("Consumer received {} messages.", received.get());
+        consumer.close();
     }
 
 
-    //start up two consumer subscribe on different partition, one should recieve and another should NOT
+    //start up two consumer subscribe on different partition, one should receive and another should NOT
     public void testTwoConsumerOn2Partition() throws NSQException, InterruptedException {
         final CountDownLatch latch = new CountDownLatch(10);
         final AtomicInteger received = new AtomicInteger(0);
@@ -53,24 +54,11 @@ public class ITConsumerWPartition extends AbstractITConsumer{
             }
         });
 
-        Consumer recievedNotConsumer = new ConsumerImplV2(config, new MessageHandler() {
-            @Override
-            public void process(NSQMessage message) {
-                Assert.fail("consumer subscribe on partition 1 should not receive msg");
-            }
-        });
-
-
-        recievedNotConsumer.setAutoFinish(true);
-        recievedNotConsumer.subscribe(1, "JavaTesting-Partition");
-        recievedNotConsumer.start();
-
         recievedConsumer.setAutoFinish(true);
-        recievedConsumer.subscribe(0, "JavaTesting-Partition");
+        recievedConsumer.subscribe("JavaTesting-Partition");
         recievedConsumer.start();
         Assert.assertTrue(latch.await(1, TimeUnit.MINUTES));
         Assert.assertEquals(received.get(), 10);
         recievedConsumer.close();
-        recievedNotConsumer.close();
     }
 }
