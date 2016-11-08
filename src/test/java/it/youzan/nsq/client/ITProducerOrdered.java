@@ -50,9 +50,12 @@ public class ITProducerOrdered {
     }
 
     public void publishOrdered() throws NSQException {
+        Topic topic = new Topic("JavaTesting-Order");
         for (int i = 0; i < 100; i++) {
             String message = ("Message #" + i);
-            producer.publish(Message.create(new Topic("JavaTesting-Order",1), 1024L, message));
+            Message msg = Message.create(new Topic("JavaTesting-Order"), 1024L, message)
+                    .setTopicShardingID(123L);
+            producer.publish(msg);
         }
     }
 }

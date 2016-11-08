@@ -55,32 +55,7 @@ public class ConsumerImplV2 implements Consumer {
      *
      * =========================================================================
      */
-    private final SortedSet<Topic> topics = new TreeSet<>(new Comparator<Topic>() {
-        @Override
-        /*-
-         * Override equals here for consumer only, two TopicConsumer equals to each other when they have same topic text
-         * for two TopicConsumer a & b, and:
-         *
-         * 1. a and b have same partition ID;
-         * 2. one of a and b's partition ID is NO_SPECIFY
-         */
-        public int compare(Topic topic1, Topic topic2) {
-            String topicStr1 = topic1.getTopicText();
-            String topicStr2 = topic2.getTopicText();
-            if (!topicStr1.equals(topicStr2))
-                return topicStr1.compareTo(topicStr2);
-            else {
-                //compare partition num given same topic text
-                int partitionID1 = topic1.getPartitionId();
-                int partitionID2 = topic2.getPartitionId();
-                if (partitionID1 == partitionID2)
-                    return 0;
-                else if (partitionID1 == PartitionEnable.PARTITION_ID_NO_SPECIFY) return 1;
-                else if (partitionID2 == PartitionEnable.PARTITION_ID_NO_SPECIFY) return -1;
-                else return partitionID1 - partitionID2;
-            }
-        }
-    });
+    private final SortedSet<Topic> topics = new TreeSet<>();
 
     // client subscribes
     /*-
@@ -136,68 +111,26 @@ public class ConsumerImplV2 implements Consumer {
 
     @Override
     public void subscribe(String... topics) {
-        subscribeTopics(PartitionEnable.PARTITION_ID_NO_SPECIFY, topics);
+        subscribeTopics(topics);
     }
 
-    /**
-     * subscribe topics which have specified pass in partition id.
-     * As topic could be subscribe without any partition id. If the same
-     * topic is subscribe later, with a partition id, previous subscribe
-     * will be override, and vice versa.
-     *
-     * @param topics      topics array which consumer interests in
-     * @param partitionId partition id which pass in topics array have
-     */
-    public void subscribe(int partitionId, String... topics) {
-        subscribeTopics(partitionId, topics);
+    @Override
+    public void subscribe(Topic... topics) {
+        if (topics == null) {
+            return;
+        }
+        for(Topic topic:topics){
+            this.topics.add(topic);
+            simpleClient.putTopic(topic);
+        }
     }
 
-    private void subscribeTopics(int partitionId, String... topics) {
+    private void subscribeTopics(String... topics) {
         if (topics == null) {
             return;
         }
         for (String topicStr : topics) {
-            Topic topic = new Topic(topicStr, partitionId);
-            //if topic has partition id, we need to check if same topic which has NO partition id
-            //is already added in consumer's topics, if yes, we need to remove that first
-            if (topic.hasPartition()) {
-                this.topics.remove(new Topic(topicStr, PartitionEnable.PARTITION_ID_NO_SPECIFY));
-                this.simpleClient.removeTopic(topic);
-            } else {
-                //A partition no specify is added, remove all existing partitions
-                SortedSet<Topic> partitionsIDs = this.topics.subSet(new Topic(topicStr, PartitionEnable.PARTITION_ID_SMALLEST), topic);
-                SortedSet<Topic> tmpSet = new TreeSet<>(new Comparator<Topic>() {
-                    @Override
-                    /*-
-                    * Override equals here for consumer only, two TopicConsumer equals to each other when they have same topic text
-                    * for two TopicConsumer a & b, and:
-                    *
-                    * 1. a and b have same partition ID;
-                    * 2. one of a and b's partition ID is NO_SPECIFY
-                    */
-                    public int compare(Topic topic1, Topic topic2) {
-                        String topicStr1 = topic1.getTopicText();
-                        String topicStr2 = topic2.getTopicText();
-                        if (!topicStr1.equals(topicStr2))
-                            return topicStr1.compareTo(topicStr2);
-                        else {
-                            //compare partition num given same topic text
-                            int partitionID1 = topic1.getPartitionId();
-                            int partitionID2 = topic2.getPartitionId();
-                            if (partitionID1 == partitionID2)
-                                return 0;
-                            else if (partitionID1 == PartitionEnable.PARTITION_ID_NO_SPECIFY) return 1;
-                            else if (partitionID2 == PartitionEnable.PARTITION_ID_NO_SPECIFY) return -1;
-                            else return partitionID1 - partitionID2;
-                        }
-                    }
-                });
-                tmpSet.addAll(partitionsIDs);
-                this.topics.removeAll(tmpSet);
-                //remove overrided topics from simple client
-                this.simpleClient.removeTopics(tmpSet);
-                tmpSet.clear();
-            }
+            Topic topic = new Topic(topicStr);
             this.topics.add(topic);
             simpleClient.putTopic(topic);
         }
@@ -308,10 +241,9 @@ public class ConsumerImplV2 implements Consumer {
          */
         for (Topic topic : topics) {
             // maybe a exception occurs
-            final ConcurrentSortedSet<Address> dataNodes = simpleClient.getDataNodes(topic);
-            final Set<Address> addresses = new TreeSet<>();
-            addresses.addAll(dataNodes.newSortedSet());
-            for (Address a : addresses) {
+            final Address[] partitionDataNodes = simpleClient.getPartitionNodes(topic, -1L);
+            final List<Address> dataNodeLst = Arrays.asList(partitionDataNodes);
+            for (Address a : dataNodeLst) {
                 final Set<Topic> tmpTopics;
                 if (address_2_topics.containsKey(a)) {
                     tmpTopics = address_2_topics.get(a);
@@ -321,7 +253,7 @@ public class ConsumerImplV2 implements Consumer {
                 }
                 tmpTopics.add(topic);
             }
-            targetAddresses.addAll(addresses);
+            targetAddresses.addAll(dataNodeLst);
         }
         logger.debug("address_2_topics: {}", address_2_topics);
 

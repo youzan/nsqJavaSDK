@@ -4,10 +4,7 @@ import com.youzan.nsq.client.core.command.Nop;
 import com.youzan.nsq.client.core.command.Rdy;
 import com.youzan.nsq.client.core.lookup.LookupService;
 import com.youzan.nsq.client.core.lookup.LookupServiceImpl;
-import com.youzan.nsq.client.entity.Address;
-import com.youzan.nsq.client.entity.Response;
-import com.youzan.nsq.client.entity.Role;
-import com.youzan.nsq.client.entity.Topic;
+import com.youzan.nsq.client.entity.*;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQInvalidTopicException;
 import com.youzan.nsq.client.exception.NSQLookupException;
@@ -23,6 +20,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -40,6 +38,7 @@ public class NSQSimpleClient implements Client, Closeable {
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
     //maintain a mapping from topic to producer broadcast addresses
     private final Map<Topic, ConcurrentSortedSet<Address>> topic_2_dataNodes = new HashMap<>();
+    private final Map<Topic, Partitions> topic_2_partitions = new ConcurrentHashMap<>();
     private final ConcurrentSortedSet<Address> dataNodes = new ConcurrentSortedSet<>();
 
     private volatile boolean started;
@@ -84,49 +83,45 @@ public class NSQSimpleClient implements Client, Closeable {
     }
 
     private void newDataNodes() throws NSQLookupException {
+        //clear partitions does not valid(topic has no partition attached)
         lock.writeLock().lock();
         try {
             Set<Topic> brokenTopic = new HashSet<>();
-            for (Map.Entry<Topic, ConcurrentSortedSet<Address>> pair : topic_2_dataNodes.entrySet()) {
+            for (Map.Entry<Topic, Partitions> pair : topic_2_partitions.entrySet()) {
                 if (pair.getValue() == null) {
                     brokenTopic.add(pair.getKey());
                 }
             }
             for (Topic topic : brokenTopic) {
-                topic_2_dataNodes.remove(topic);
+                topic_2_partitions.remove(topic);
             }
         } finally {
             lock.writeLock().unlock();
         }
 
-        // HTTP costs long time.
+        //gather topics from topic_2_partitions
         final Set<Topic> topics = new HashSet<>();
-        lock.writeLock().lock();
         try {
-            for (Topic topic : topic_2_dataNodes.keySet()) {
+            lock.readLock().lock();
+            for (Topic topic : topic_2_partitions.keySet()) {
                 topics.add(topic);
             }
         } finally {
-            lock.writeLock().unlock();
+            lock.readLock().unlock();
         }
 
+        //lookup gatheres topics
         final Set<Address> newDataNodes = new HashSet<>();
         for (Topic topic : topics) {
             try {
-                final SortedSet<Address> addresses = lookup.lookup(topic);
-                if (!addresses.isEmpty()) {
-                    newDataNodes.addAll(addresses);
-                    lock.writeLock().lock();
+                final Partitions newPartitions = lookup.lookup(topic);
+                //update partition mapping topic -> address
+                if (null != newPartitions && newPartitions.hasAnyDataNodes()) {
+                    newDataNodes.addAll(newPartitions.getAllDataNodes());
                     try {
-                        final ConcurrentSortedSet<Address> oldAddresses;
-                        if (topic_2_dataNodes.containsKey(topic)) {
-                            oldAddresses = topic_2_dataNodes.get(topic);
-                            oldAddresses.swap(addresses);
-                        } else {
-                            oldAddresses = new ConcurrentSortedSet<>();
-                            oldAddresses.addAll(addresses);
-                        }
-                        topic_2_dataNodes.put(topic, oldAddresses);
+                        lock.writeLock().lock();
+                        //topic partition update
+                        topic_2_partitions.put(topic, newPartitions);
                     } finally {
                         lock.writeLock().unlock();
                     }
@@ -138,8 +133,8 @@ public class NSQSimpleClient implements Client, Closeable {
             }
         }
 
-        lock.writeLock().lock();
         try {
+            lock.writeLock().lock();
             dataNodes.clear();
             dataNodes.addAll(newDataNodes);
         } finally {
@@ -151,11 +146,11 @@ public class NSQSimpleClient implements Client, Closeable {
         if (topic == null) {
             return;
         }
-        lock.writeLock().lock();
         try {
-            if (!topic_2_dataNodes.containsKey(topic)) {
-                final ConcurrentSortedSet<Address> empty = new ConcurrentSortedSet<>();
-                topic_2_dataNodes.put(topic, empty);
+            lock.writeLock().lock();
+            if (!topic_2_partitions.containsKey(topic)) {
+                final Partitions empty = new Partitions(topic);
+                topic_2_partitions.put(topic, empty);
             }
         } finally {
             lock.writeLock().unlock();
@@ -168,7 +163,7 @@ public class NSQSimpleClient implements Client, Closeable {
         }
         lock.writeLock().lock();
         try {
-            topic_2_dataNodes.remove(topic);
+            topic_2_partitions.remove(topic);
         } finally {
             lock.writeLock().unlock();
         }
@@ -183,7 +178,7 @@ public class NSQSimpleClient implements Client, Closeable {
         lock.writeLock().lock();
         try {
             for(Topic topic:topics)
-                topic_2_dataNodes.remove(topic);
+                topic_2_partitions.remove(topic);
         } finally {
             lock.writeLock().unlock();
         }
@@ -232,37 +227,51 @@ public class NSQSimpleClient implements Client, Closeable {
         conn.command(new Rdy(0));
     }
 
-    public ConcurrentSortedSet<Address> getDataNodes(Topic topic) throws NSQException {
-        SortedSet<Address> first = null;
+    public Address[] getPartitionNodes(Topic topic, long topicShardingID) throws NSQException {
+        Partitions first = null;
+        Partitions partitions;
+        Address[] nodes = new Address[0];
         lock.readLock().lock();
         try {
-            final ConcurrentSortedSet<Address> dataNodes = topic_2_dataNodes.get(topic);
-            if (dataNodes != null && !dataNodes.isEmpty()) {
-                return dataNodes;
+            partitions = topic_2_partitions.get(topic);
+            //what is a valid Partitions
+            if(null != partitions && partitions.hasAnyDataNodes()){
+                //for partitions
+                if(partitions.hasPartitionDataNodes() && topicShardingID >= 0){
+                    int partitionNum = partitions.getPartitionNum();
+                    int partitionId = topic.updatePartionIndex(topicShardingID, partitionNum);
+                    //index out of boundry
+                    Address addr = partitions.getPartitionAddress(partitionId);
+                    nodes = new Address[]{addr};
+                //all data nodes
+                } else if(topicShardingID < 0){
+                    List<Address> address = partitions.getAllDataNodes();
+                    nodes = address.toArray(new Address[0]);
+                }
+                return nodes;
             }
             first = lookup.lookup(topic);
         } finally {
             lock.readLock().unlock();
         }
-        if (first != null && !first.isEmpty()) {
-            final ConcurrentSortedSet<Address> old;
-            lock.readLock().lock();
-            try {
-                old = topic_2_dataNodes.get(topic);
-            } finally {
-                lock.readLock().unlock();
-            }
-            final ConcurrentSortedSet<Address> dataNodes;
-            if (old == null) {
-                dataNodes = new ConcurrentSortedSet<>();
-            } else {
-                dataNodes = old;
-            }
-            dataNodes.addAll(first);
+        //uses first to update existing Partitions
+        if (null != first) {
             lock.writeLock().lock();
             try {
-                topic_2_dataNodes.put(topic, dataNodes);
-                return dataNodes;
+                topic_2_partitions.put(topic, first);
+                //for partitions
+                if(first.hasPartitionDataNodes() && topicShardingID >= 0){
+                    int partitionNum = first.getPartitionNum();
+                    int partitionId = topic.updatePartionIndex(topicShardingID, partitionNum);
+                    //index out of boundry
+                    Address addr = first.getPartitionAddress(partitionId);
+                    nodes = new Address[]{addr};
+                    //all data nodes
+                } else if(topicShardingID < 0){
+                    List<Address> address = first.getAllDataNodes();
+                    nodes = address.toArray(new Address[0]);
+                }
+                return nodes;
             } finally {
                 lock.writeLock().unlock();
             }

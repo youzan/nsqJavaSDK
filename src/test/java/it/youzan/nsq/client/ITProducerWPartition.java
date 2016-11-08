@@ -1,5 +1,6 @@
 package it.youzan.nsq.client;
 
+import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQException;
 import org.slf4j.Logger;
@@ -16,21 +17,23 @@ public class ITProducerWPartition extends ITProducer{
 
     public void publish() throws NSQException {
         final byte[] message = new byte[64];
+        Topic topic = new Topic("JavaTesting-Producer-Base");
         for (int i = 0; i < 10; i++) {
             random.nextBytes(message);
-            producer.publish(message, new Topic("JavaTesting-Producer-Base", 0));
+            Message msg = Message.create(topic, new String(message))
+                    .setTopicShardingID(321L);
+            producer.publish(msg);
         }
     }
 
 
-    public void publishWTopicAndPartition(String topic, int partition) throws NSQException {
-        final byte[] message = new byte[64];
+    public void publishWTopicAndPartition(String topic) throws NSQException {
         for (int i = 0; i < 10; i++) {
-            producer.publish(("Message #" + i).getBytes(), new Topic(topic, partition));
+            producer.publish(("Message #" + i).getBytes(), new Topic(topic));
         }
     }
 
     public void testPublishPartition0() throws NSQException {
-        publishWTopicAndPartition("JavaTesting-Partition", 0);
+        publishWTopicAndPartition("JavaTesting-Partition");
     }
 }

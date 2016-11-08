@@ -1,13 +1,11 @@
 package com.youzan.nsq.client.core.lookup;
 
-import java.io.Closeable;
-import java.util.Random;
-import java.util.Set;
-import java.util.SortedSet;
-
-import com.youzan.nsq.client.entity.Address;
+import com.youzan.nsq.client.entity.Partitions;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQLookupException;
+
+import java.io.Closeable;
+import java.util.Random;
 
 /**
  * One lookup cluster
@@ -31,7 +29,7 @@ public interface LookupService extends java.io.Serializable, Closeable {
      * @throws NSQLookupException
      *             if an error occurs
      */
-    SortedSet<Address> lookup(Topic topic) throws NSQLookupException;
+    Partitions lookup(Topic topic) throws NSQLookupException;
 
     /**
      * lookup the writable/non-writable NSQd (DataNode)
@@ -44,7 +42,7 @@ public interface LookupService extends java.io.Serializable, Closeable {
      * @throws NSQLookupException
      *             if an error occurs
      */
-    SortedSet<Address> lookup(Topic topic, boolean writable) throws NSQLookupException;
+    Partitions lookup(Topic topic, boolean writable) throws NSQLookupException;
 
     /**
      * Perform the action quietly. No exceptions.
