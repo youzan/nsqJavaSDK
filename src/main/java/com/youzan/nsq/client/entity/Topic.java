@@ -16,7 +16,7 @@ public class Topic implements Comparable<Topic> {
         public int toPartitionID(Long passInSeed, int partitionNum) {
             if(passInSeed < 0L)
                 return -1;
-            return (int) (passInSeed%partitionNum); // set num := 2^N,  index := (passInSeed >>> N - 1)
+            return (int) (passInSeed%partitionNum); // set num := 2^N,  index := index & ((2^n)-1)
         }
     };
 
