@@ -86,8 +86,8 @@ public class ProducerImplV2 implements Producer {
             //1 * 60 * 1000
             this.poolConfig.setTimeBetweenEvictionRunsMillis(60 * 1000);
             this.poolConfig.setMinIdlePerKey(1);
-            this.poolConfig.setMaxIdlePerKey(this.config.getThreadPoolSize4IO() + 1);
-            this.poolConfig.setMaxTotalPerKey(this.config.getThreadPoolSize4IO() + 1);
+            this.poolConfig.setMaxIdlePerKey(this.config.getConnectionSize());
+            this.poolConfig.setMaxTotalPerKey(this.config.getConnectionSize());
             // acquire connection waiting time
             this.poolConfig.setMaxWaitMillis(this.config.getQueryTimeoutInMillisecond());
             this.poolConfig.setBlockWhenExhausted(false);

@@ -334,14 +334,14 @@ public class ConsumerImplV2 implements Consumer {
                 return;
             }
             final int topicSize = topics.size();
-            final int manualPoolSize = config.getThreadPoolSize4IO();
-            final int connectionSize = manualPoolSize * topicSize;
+            //set connection size to 1 for consumer, 1 connection per topic/partition(dataNode)
+            final int connectionSize = topicSize;
             if (connectionSize <= 0) {
                 return;
             }
             final Topic[] topicArray = new Topic[topicSize];
             topics.toArray(topicArray);
-            if (connectionSize != manualPoolSize * topicArray.length) {
+            if (connectionSize != topicArray.length) {
                 // concurrent problem
                 return;
             }
@@ -351,10 +351,10 @@ public class ConsumerImplV2 implements Consumer {
             pool.prepare(this.config.isOrdered());
             List<NSQConnection> connections = pool.getConnections();
             if (connections == null || connections.isEmpty()) {
-                logger.info("TopicSize: {} , Address: {} , ThreadPoolSize4IO: {} , Connection-Size: {} . The pool is empty.", topicSize, address, manualPoolSize, connectionSize);
+                logger.info("TopicSize: {} , Address: {} , Connection-Size: {} . The pool is empty.", topicSize, address, connectionSize);
                 return;
             }
-            logger.info("TopicSize: {} , Address: {} , ThreadPoolSize4IO: {} , Connection-Size: {} , Topics: {}", topicSize, address, manualPoolSize, connectionSize, topics);
+            logger.info("TopicSize: {} , Address: {} , Connection-Size: {} , Topics: {}", topicSize, address, connectionSize, topics);
             for (int i = 0; i < connectionSize; i++) {
                 int k = i % topicArray.length;
                 assert k < topicArray.length;

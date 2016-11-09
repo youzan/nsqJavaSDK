@@ -7,3 +7,4 @@
     - [#29 Remove SO_TIMEOUT in netty bootstrap config](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/29)
 ### 2.3.2M2
 +  Topic partition refactor, user allow to specify partition sharding ID to specify partition in NSQd.[#51](http://gitlab.qima-inc.com/paas/nsq-client-java/merge_requests/51)
++  Connection pool size property in NSQConfig. New property for specifying connection pool size in producer.[#52](http://gitlab.qima-inc.com/paas/nsq-client-java/merge_requests/52)

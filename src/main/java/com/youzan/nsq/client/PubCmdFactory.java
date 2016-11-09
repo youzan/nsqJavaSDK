@@ -86,13 +86,8 @@ public class PubCmdFactory implements IConfigAccessSubscriber{
      * @return Pub command instance
      */
     public Pub create(final Message msg, final NSQConfig config){
-        //1. pub_order
-        if(config.isOrdered()){
-            return new PubOrdered(msg);
-        //2. pub_trace
-        }else if(isTracedMessage(msg)){
+        if(isTracedMessage(msg)){
             return new PubTrace(msg);
-        //3. pub
         }else{
             return new Pub(msg);
         }
@@ -116,7 +111,7 @@ public class PubCmdFactory implements IConfigAccessSubscriber{
             lock.readLock().unlock();
         }
 
-        if(null == flag || false == Boolean.valueOf(flag))
+        if(null == flag || !Boolean.valueOf(flag))
             return false;
         else {
             //mark message as traced

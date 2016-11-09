@@ -57,6 +57,8 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * </pre>
      */
     private int threadPoolSize4IO = 1;
+    //connection pool size for producer
+    private int connectionSize = 10;
     private final String clientId;
     private final String hostname;
     private boolean featureNegotiation;
@@ -302,6 +304,8 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
+     * For specifying connection pool size for producer.
+     * NOTE: setting threadPoolSizepls use {@link NSQConfig#setConnectionPoolSize(int)}.
      * @param threadPoolSize4IO the threadPoolSize4IO to set
      */
     public NSQConfig setThreadPoolSize4IO(int threadPoolSize4IO) {
@@ -310,6 +314,27 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
             logger.warn("SDK does not recommend the size > 1 when this client is a consumer. If you are a producer, please ignore the info.");
         }
         return this;
+    }
+
+    /**
+     * Specify connection pool size for producer,
+     * @param connectionPoolSize
+     * @return current NSQConfig
+     */
+    public NSQConfig setConnectionPoolSize(int connectionPoolSize) {
+        if(connectionPoolSize < 1) {
+            logger.warn("SDK does not accept connection pool size which smaller than 1.");
+            return this;
+        }
+        this.connectionSize = connectionPoolSize;
+        return this;
+    }
+
+    /**
+     * @return connection
+     */
+    public int getConnectionSize(){
+        return this.connectionSize;
     }
 
     /**
