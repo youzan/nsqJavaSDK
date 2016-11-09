@@ -16,14 +16,14 @@ public class Topic implements Comparable<Topic> {
         public int toPartitionID(Long passInSeed, int partitionNum) {
             if(passInSeed < 0L)
                 return -1;
-            return (int) (passInSeed%partitionNum);
+            return (int) (passInSeed%partitionNum); // set num := 2^N,  index := index & ((2^n)-1)
         }
     };
 
     private final String topic;
     private int partitionID = -1;
     //partition arrays equals to null, which means partition ID not specified, for compatibility with NSQ old version;
-    private final int prime = 31;
+    private final int prime = 31; // primer or prime ?
     private String toString = null;
     private TopicSharding sharding = TOPIC_SHARDING;
 
@@ -94,7 +94,7 @@ public class Topic implements Comparable<Topic> {
      * @param partitionNum
      * @return
      */
-    public int updatePartionIndex(long seed, int partitionNum){
+    public int updatePartitionIndex(long seed, int partitionNum){
         if(partitionNum <= 0) {
             //for partition Num < 0, treat it as sharding is no needed here
             return -1;

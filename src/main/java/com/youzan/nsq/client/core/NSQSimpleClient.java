@@ -239,7 +239,7 @@ public class NSQSimpleClient implements Client, Closeable {
                 //for partitions
                 if(partitions.hasPartitionDataNodes() && topicShardingID >= 0){
                     int partitionNum = partitions.getPartitionNum();
-                    int partitionId = topic.updatePartionIndex(topicShardingID, partitionNum);
+                    int partitionId = topic.updatePartitionIndex(topicShardingID, partitionNum);
                     //index out of boundry
                     Address addr = partitions.getPartitionAddress(partitionId);
                     nodes = new Address[]{addr};
@@ -262,7 +262,7 @@ public class NSQSimpleClient implements Client, Closeable {
                 //for partitions
                 if(first.hasPartitionDataNodes() && topicShardingID >= 0){
                     int partitionNum = first.getPartitionNum();
-                    int partitionId = topic.updatePartionIndex(topicShardingID, partitionNum);
+                    int partitionId = topic.updatePartitionIndex(topicShardingID, partitionNum);
                     //index out of boundry
                     Address addr = first.getPartitionAddress(partitionId);
                     nodes = new Address[]{addr};
