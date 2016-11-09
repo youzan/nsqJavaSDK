@@ -3,6 +3,7 @@ package com.youzan.nsq.client.core;
 import com.youzan.nsq.client.core.command.NSQCommand;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
@@ -40,6 +41,16 @@ public interface NSQConnection extends Closeable {
      * @throws TimeoutException a timeout error
      */
     void init() throws TimeoutException;
+
+    /**
+     * Check internalID and disk queue offset of message received in current connection, config of current connection
+     * must be in order mode.
+     * @param internalID internal ID of message for check
+     * @param diskQueueOffset diskQueueOffset of message for check
+     * @return true if connection is not in order mode or internalID and diskQueueOffset are newest(largest), otherwise
+     * return false.
+     */
+    boolean checkOrder(long internalID, long diskQueueOffset, final NSQMessage msg);
 
     /**
      * Synchronize the protocol packet

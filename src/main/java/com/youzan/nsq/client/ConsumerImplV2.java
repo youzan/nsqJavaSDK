@@ -6,6 +6,7 @@ import com.youzan.nsq.client.core.command.*;
 import com.youzan.nsq.client.core.pool.consumer.FixedPool;
 import com.youzan.nsq.client.entity.*;
 import com.youzan.nsq.client.exception.NSQException;
+import com.youzan.nsq.client.exception.NSQInvalidMessageException;
 import com.youzan.nsq.client.exception.NSQNoConnectionException;
 import com.youzan.nsq.client.exception.RetryBusinessException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
@@ -356,7 +357,8 @@ public class ConsumerImplV2 implements Consumer {
             }
             logger.info("TopicSize: {} , Address: {} , Connection-Size: {} , Topics: {}", topicSize, address, connectionSize, topics);
             for (int i = 0; i < connectionSize; i++) {
-                int k = i % topicArray.length;
+                //as connection to one topic is fixed to one
+                int k = i;
                 assert k < topicArray.length;
                 // init( connection, topic ) , let it be a consumer connection
                 final NSQConnection connection = connections.get(i);
@@ -441,6 +443,11 @@ public class ConsumerImplV2 implements Consumer {
             final NSQMessage message = createNSQMessage(msg, conn);
             //gather trace info
             //this.trace.handleMessage(message);
+            if(this.config.isOrdered()
+                    && !conn.checkOrder(message.getInternalID(), message.getDiskQueueOffset(), message)){
+                //order problem
+                throw new NSQInvalidMessageException("Invalid internalID or diskQueueOffset in order mode.");
+            }
             processMessage(message, conn);
         } else {
             simpleClient.incoming(frame, conn);

@@ -5,6 +5,7 @@ import com.youzan.nsq.client.core.command.Magic;
 import com.youzan.nsq.client.core.command.NSQCommand;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
@@ -17,6 +18,7 @@ import java.io.Serializable;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
@@ -40,6 +42,9 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     private final Channel channel;
     private final NSQConfig config;
 
+    private final AtomicLong latestInternalID = new AtomicLong(-1L);
+    private final AtomicLong latestDiskQueueOffset = new AtomicLong(-1L);
+
     public NSQConnectionImpl(int id, Address address, Channel channel, NSQConfig config) {
         this.id = id;
         this.address = address;
@@ -48,6 +53,22 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
         this.queryTimeoutInMillisecond = config.getQueryTimeoutInMillisecond();
 
+    }
+
+    @Override
+    public boolean checkOrder(long internalID, long diskQueueOffset, final NSQMessage msg){
+        if(!this.config.isOrdered())
+            return true;
+        if(internalID >= this.latestInternalID.get() && diskQueueOffset >= this.latestDiskQueueOffset.get()){
+            this.latestInternalID.set(internalID);
+            this.latestDiskQueueOffset.set(diskQueueOffset);
+            return true;
+        }else {
+            logger.warn("InternalID or diskQueueOffset is(are) NOT latest in current connection.\n" +
+                    "InternalID:{}, latestInternalID:{}. diskQueueOffset:{}, latestQueueOffset:{}.\n" +
+                    "Message: {}.", internalID, diskQueueOffset, this.latestInternalID.get(), this.latestDiskQueueOffset.get(), msg.toMetadataStr());
+            return false;
+        }
     }
 
     /**

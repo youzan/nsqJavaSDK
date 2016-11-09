@@ -311,14 +311,14 @@ public class NSQMessage implements MessageMetadata{
             String objStr = getClass().getName() + "@" + Integer.toHexString(hashCode());
             StringBuilder sb = new StringBuilder();
             sb.append(objStr + " meta-data:\n");
-            sb.append("\t[dateTime]:\t").append(this.datetime.toString());
-            sb.append("\t[attempts]:\t").append(this.readableAttempts);
-            sb.append("\t[messageID]:\t").append(this.readableMsgID);
-            sb.append("\t[internalID]:\t").append(this.internalID);
-            sb.append("\t[traceID]:\t").append(this.traceID);
-//        sb.append("\t[diskQueueOffset]:\t").append(this.diskQueueOffset);
-//        sb.append("\t[diskQueueDataSize]:\t").append(this.diskQueueDataSize);
-            sb.append("\t[NSQd address]:\t").append(this.address.toString());
+            sb.append("\t[dateTime]:\t").append(this.datetime.toString()).append("\n");
+            sb.append("\t[attempts]:\t").append(this.readableAttempts).append("\n");
+            sb.append("\t[messageID]:\t").append(this.readableMsgID).append("\n");
+            sb.append("\t[internalID]:\t").append(this.internalID).append("\n");
+            sb.append("\t[traceID]:\t").append(this.traceID).append("\n");
+            sb.append("\t[diskQueueOffset]:\t").append(this.diskQueueOffset).append("\n");
+            sb.append("\t[diskQueueDataSize]:\t").append(this.diskQueueDataSize).append("\n");
+            sb.append("\t[NSQd address]:\t").append(this.address.toString()).append("\n");
             sb.append(this.toString() + " end.");
             this.metaDataStr = sb.toString();
         }
