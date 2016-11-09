@@ -95,6 +95,7 @@ public class Topic implements Comparable<Topic> {
      * @return
      */
     public int updatePartionIndex(long seed, int partitionNum){
+        // TODO Spell Error : partion -> partition
         if(partitionNum <= 0) {
             //for partition Num < 0, treat it as sharding is no needed here
             return -1;
