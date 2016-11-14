@@ -17,9 +17,12 @@ public class TraceLogger {
    public static final String TRAE_LOGGER_NAME = ConfigAccessAgent.getProperty("nsq.sdk.message.trace.log");
    private static final Logger trace = LoggerFactory.getLogger(TRAE_LOGGER_NAME);
 
-   private static final String DEFAULT_MSG_REV_TRACE_FORMAT = "%s <= %s\n\tMessage meta-data: %s";
-   private static final String DEFAULT_MSG_SEN_TRACE_FORMAT = "%s => %s\n\tMessage meta-data: %s";
+   private static final String DEFAULT_MSG_REV_TRACE_FORMAT = "Client: %s <= NSQd: %s\n\tMessage meta-data: %s";
+   private static final String DEFAULT_MSG_SEN_TRACE_FORMAT = "Client: %s => NSQd: %s\n\tMessage meta-data: %s";
 
+   public static boolean isTraceLoggerEnabled(){
+      return trace.isDebugEnabled();
+   }
    /**
     * static function to record trace of pass in {@link Message} message in pass in client
     * @param client
@@ -30,8 +33,8 @@ public class TraceLogger {
       if(client instanceof Producer) {
          traceMsg = String.format(DEFAULT_MSG_SEN_TRACE_FORMAT, client.toString(), nsqd.getAddress().toString(), msg.toMetadataStr());
       }else {
-         traceMsg = String.format(DEFAULT_MSG_REV_TRACE_FORMAT, nsqd.getAddress().toString(), client.toString(), msg.toMetadataStr());
+         traceMsg = String.format(DEFAULT_MSG_REV_TRACE_FORMAT, client.toString(), nsqd.getAddress().toString(), msg.toMetadataStr());
       }
-      trace.info(traceMsg);
+      trace.debug(traceMsg);
    }
 }

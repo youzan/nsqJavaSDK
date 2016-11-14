@@ -2,7 +2,6 @@ package com.youzan.nsq.client;
 
 import com.youzan.nsq.client.configs.ConfigAccessAgent;
 import com.youzan.nsq.client.core.command.Pub;
-import com.youzan.nsq.client.core.command.PubOrdered;
 import com.youzan.nsq.client.core.command.PubTrace;
 import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.NSQConfig;
