@@ -1,16 +1,14 @@
 package com.youzan.nsq.client.entity;
 
-import com.youzan.nsq.client.MessageMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.nio.charset.Charset;
 
 /**
  * NSQ message class. Instance of Message presents one NSQ message will be sent from producer.
  * Created by lin on 16/10/28.
  */
-public class Message implements MessageMetadata {
+public class Message {
     private final static Logger logger = LoggerFactory.getLogger(Message.class);
 
     //trace id per message attached
@@ -80,18 +78,5 @@ public class Message implements MessageMetadata {
 
     public long getTopicShardingId(){
         return this.topicSharding;
-    }
-
-    @Override
-    public String toMetadataStr() {
-        if(null == this.metadataStr) {
-            StringBuilder sb = new StringBuilder();
-            sb.append(this.toString() + " meta-data:\n");
-            sb.append("\t[traceID]:\t").append(this.getTraceID());
-            sb.append("\t[topic]:\t").append(this.getTopic().getTopicText());
-            sb.append(this.toString() + " end.");
-            this.metadataStr = sb.toString();
-        }
-        return this.metadataStr;
     }
 }

@@ -219,8 +219,8 @@ public class ProducerImplV2 implements Producer {
                 final NSQFrame frame = conn.commandAndGetResponse(pub);
                 handleResponse(msg.getTopic().getTopicText(), frame, conn);
                 success.incrementAndGet();
-                if(msg.isTraced())
-                    TraceLogger.trace(this, conn, msg);
+                if(msg.isTraced() && frame instanceof MessageMetadata && TraceLogger.isTraceLoggerEnabled())
+                    TraceLogger.trace(this, conn, (MessageMetadata) frame);
                 return;
             } catch (Exception e) {
                 IOUtil.closeQuietly(conn);

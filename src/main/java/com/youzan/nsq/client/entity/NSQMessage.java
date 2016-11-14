@@ -319,7 +319,7 @@ public class NSQMessage implements MessageMetadata{
             sb.append("\t[diskQueueOffset]:\t").append(this.diskQueueOffset).append("\n");
             sb.append("\t[diskQueueDataSize]:\t").append(this.diskQueueDataSize).append("\n");
             sb.append("\t[NSQd address]:\t").append(this.address.toString()).append("\n");
-            sb.append(this.toString() + " end.");
+            sb.append(objStr + " end.");
             this.metaDataStr = sb.toString();
         }
         return this.metaDataStr;
