@@ -264,12 +264,9 @@ public class LookupServiceImpl implements LookupService {
             if(logger.isDebugEnabled())
                 start = System.currentTimeMillis();
             final JsonNode partitions = rootNode.get("partitions");
-            //new NSQd, read total partition number
-//            final int partitionNum = rootNode.get("partitionNum").asInt();
-            //when partition id found, it is a new NSQ lookupd
-            //unpartitioned data nodes
             List<Address> unPartitionedDataNodes = new ArrayList<>();
             List<Address> partitionedDataNodes = new ArrayList<>();
+            Set<Address> partitionNodeSet = new HashSet<>();
             if (null != partitions) {
                 Iterator<String> irt = partitions.fieldNames();
                 int partitionCount = 0;
@@ -280,29 +277,24 @@ public class LookupServiceImpl implements LookupService {
                     final Address address = createAddress(partition);
                     if(parIdInt >= 0) {
                         partitionedDataNodes.add(address);
+                        partitionNodeSet.add(address);
                         partitionCount++;
-                    }else{
-                        //it is a partition data node from new nsq lookupd, however data nodes points to a old nsqd
-                        //add as unpartitioned data node and do not record partition id
-                        unPartitionedDataNodes.add(address);
                     }
                 }
                 aPartitions.updatePartitionDataNode(partitionedDataNodes.toArray(new Address[0]), partitionCount);
                 if(logger.isDebugEnabled()){
                     logger.debug("SDK took {} mill sec to create mapping for partition.", (System.currentTimeMillis() - start));
                 }
-            } else {
-                //for old lookupd does not support partition
-                if (logger.isDebugEnabled())
-                    logger.debug("Partitions json data not found in current lookup service.");
-                //producers part in json
-                final JsonNode producers = rootNode.get("producers");
-                int idx = 0;
-                for (JsonNode node : producers) {
-                    final Address address = createAddress(node);
-                    unPartitionedDataNodes.add(address);
-                }
             }
+
+            //producers part in json
+            final JsonNode producers = rootNode.get("producers");
+            for (JsonNode node : producers) {
+                final Address address = createAddress(node);
+                if(!partitionNodeSet.contains(address))
+                    unPartitionedDataNodes.add(address);
+            }
+
             aPartitions.updateUnpartitionedDataNodea(unPartitionedDataNodes.toArray(new Address[0]));
             logger.debug("The server response info after looking up some DataNodes: {}", rootNode.toString());
             return aPartitions; // maybe it is empty

@@ -443,7 +443,7 @@ public class ConsumerImplV2 implements Consumer {
             final NSQMessage message = createNSQMessage(msg, conn);
             //gather trace info
             //this.trace.handleMessage(message);
-            if(TraceLogger.isTraceLoggerEnabled())
+            if(TraceLogger.isTraceLoggerEnabled() && conn.getAddress().isHA())
                 TraceLogger.trace(this, conn, message);
             if(this.config.isOrdered()
                     && !conn.checkOrder(message.getInternalID(), message.getDiskQueueOffset(), message)){
