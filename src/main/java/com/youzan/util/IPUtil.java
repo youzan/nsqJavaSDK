@@ -5,8 +5,6 @@ package com.youzan.util;
 
 import java.net.UnknownHostException;
 
-import org.apache.commons.validator.routines.InetAddressValidator;
-
 /**
  * IPv4 is 32 bit unsigned.
  * 
@@ -16,9 +14,6 @@ import org.apache.commons.validator.routines.InetAddressValidator;
 public final class IPUtil {
 
     public static long ipv4(String ipv4) throws UnknownHostException {
-        if (!InetAddressValidator.getInstance().isValidInet4Address(ipv4)) {
-            throw new UnknownHostException(ipv4);
-        }
         long result = 0L;
         String[] bs = ipv4.split("\\.");
         result |= Long.parseLong(bs[0]) << 24;
