@@ -65,8 +65,7 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber{
                     _INSTANCE = new LookupAddressUpdate();
                     //subscribe lookup config request to ConfigAccessAgent
                     try {
-                        //subscribe to config access agent
-                        _INSTANCE.subscribe(ConfigAccessAgent.getInstance());
+                        //TODO: when to subscribe? subscribe to config access agent
                     } catch (Exception e) {
                         logger.error("Fail to initialize LookupAddressUpdate.");
                         _INSTANCE = null;
@@ -98,9 +97,9 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber{
     }
 
     @Override
-    public void subscribe(ConfigAccessAgent subscribeTo) {
+    public void subscribe(String domain, String[] keys, ConfigAccessAgent subscribeTo) {
         logger.info("LookupAddressUpdate Instance subscribe to {}.", subscribeTo);
-        SortedMap<String, String> firstLookupAddress = subscribeTo.handleSubscribe(getDomain(), getKeys(), getCallback());
+        SortedMap<String, String> firstLookupAddress = subscribeTo.handleSubscribe(domain, keys, getCallback());
         if(null == firstLookupAddress || firstLookupAddress.size() == 0)
             logger.info("Subscribe to {} returns no result.", subscribeTo);
         updateLookupAddresses(firstLookupAddress);

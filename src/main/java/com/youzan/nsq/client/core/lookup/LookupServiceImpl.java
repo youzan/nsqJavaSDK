@@ -46,6 +46,8 @@ public class LookupServiceImpl implements LookupService {
      * the sorted lookup's addresses
      */
     private volatile List<String> addresses;
+    //lookup address seeds
+    private volatile List<String> seedLookupAddresses;
 
     /**
      * Load-Balancing Strategy: round-robin
@@ -59,15 +61,22 @@ public class LookupServiceImpl implements LookupService {
             .newSingleThreadScheduledExecutor(new NamedThreadFactory("LookupChecker", Thread.MAX_PRIORITY));
 
     /**
-     * @param addresses the lookup addresses
-     * @param role
+     * @param seedLookupAddresses the lookup addresses
+     * @param role  role for producer and consumer
      */
-    public LookupServiceImpl(final String[] addresses, Role role) {
-        if (addresses == null || addresses.length == 0) {
+    public LookupServiceImpl(final String[] seedLookupAddresses, Role role) {
+        if (seedLookupAddresses == null || seedLookupAddresses.length == 0) {
             throw new IllegalArgumentException("Your input 'addresses' is blank!");
         }
         this.role = role;
-        initAddresses(addresses);
+        initSeed(seedLookupAddresses);
+    }
+
+    private void initSeed(final String[] seedLookupAddresses) {
+        if (seedLookupAddresses == null || seedLookupAddresses.length == 0) {
+            throw new IllegalArgumentException("Your input addresses is blank!");
+        }
+        this.seedLookupAddresses = Arrays.asList(seedLookupAddresses);
     }
 
     private void initAddresses(final String[] addresses) {

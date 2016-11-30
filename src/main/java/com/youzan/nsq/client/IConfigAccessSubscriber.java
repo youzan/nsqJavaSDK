@@ -12,5 +12,5 @@ public interface IConfigAccessSubscriber {
     String getDomain();
     String[] getKeys();
     ConfigAccessAgent.IConfigAccessCallback getCallback();
-    void subscribe(ConfigAccessAgent subscribeTo);
+    void subscribe(String domain, String[] keys, ConfigAccessAgent subscribeTo);
 }

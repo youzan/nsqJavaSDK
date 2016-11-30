@@ -68,7 +68,7 @@ public class PubCmdFactory implements IConfigAccessSubscriber{
                 if(null == _INSTANCE){
                     _INSTANCE = new PubCmdFactory();
                     try {
-                        _INSTANCE.subscribe(ConfigAccessAgent.getInstance());
+                        _INSTANCE.subscribe(_INSTANCE.getDomain(), _INSTANCE.getKeys(), ConfigAccessAgent.getInstance());
                     }catch(Exception e){
                         logger.error("Fail to subscribe to ConfigAccessAgent.");
                         throw e;
@@ -139,9 +139,9 @@ public class PubCmdFactory implements IConfigAccessSubscriber{
     }
 
     @Override
-    public void subscribe(ConfigAccessAgent subscribeTo) {
+    public void subscribe(String domain, String[] keys, ConfigAccessAgent subscribeTo) {
         logger.info("PubCmdFactory Instance subscribe to {}.", subscribeTo);
-        SortedMap<String, String> firstLookupMap = subscribeTo.handleSubscribe(getDomain(), getKeys(), getCallback());
+        SortedMap<String, String> firstLookupMap = subscribeTo.handleSubscribe(domain, keys, getCallback());
         if(null == firstLookupMap || firstLookupMap.size() == 0)
             return;
         try {
