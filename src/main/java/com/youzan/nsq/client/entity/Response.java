@@ -22,6 +22,7 @@ public enum Response {
     E_MPUB_FAILED("E_MPUB_FAILED"),//
     E_FAILED_ON_NOT_LEADER("E_FAILED_ON_NOT_LEADER"),//
     E_FAILED_ON_NOT_WRITABLE("E_FAILED_ON_NOT_WRITABLE"), //
+    E_FIN_FAILED("E_FIN_FAILED"), //
     ;
 
     private final String content;

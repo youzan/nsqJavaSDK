@@ -31,6 +31,10 @@ public class Rdy implements NSQCommand {
         this.data = bb.array();
     }
 
+    public int getCount() {
+        return this.count;
+    }
+
     @Override
     public byte[] getBytes() {
         return data;

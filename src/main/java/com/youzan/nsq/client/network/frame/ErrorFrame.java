@@ -52,6 +52,9 @@ public class ErrorFrame extends NSQFrame {
             if (content.startsWith("E_PUB_FAILED")) {
                 return Response.E_PUB_FAILED;
             }
+            if (content.startsWith("E_FIN_FAILED")) {
+                return Response.E_FIN_FAILED;
+            }
         }
         return null;
     }
