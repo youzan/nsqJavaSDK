@@ -2,6 +2,7 @@ package com.youzan.nsq.client;
 
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
+import com.youzan.nsq.client.core.RdySpectrum;
 import com.youzan.nsq.client.core.command.*;
 import com.youzan.nsq.client.core.pool.consumer.FixedPool;
 import com.youzan.nsq.client.entity.*;
@@ -90,10 +91,6 @@ public class ConsumerImplV2 implements Consumer {
     private final NSQSimpleClient simpleClient;
     private final NSQConfig config;
 
-    private final Object traceLock = new Object();
-    private AtomicLong latestInternalID = new AtomicLong(0);
-    private AtomicLong latestDiskQueueOffset = new AtomicLong(0);
-
     /**
      * @param config  NSQConfig
      * @param handler the client code sets it
@@ -103,7 +100,11 @@ public class ConsumerImplV2 implements Consumer {
         this.handler = handler;
         this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(), Role.Consumer);
 
-        final int messagesPerBatch = config.getRdy();
+        int messagesPerBatch;
+        if(!config.isConsumerSlowStart())
+            messagesPerBatch = config.getRdy();
+        else
+            messagesPerBatch = 1;
         DEFAULT_RDY = new Rdy(Math.max(messagesPerBatch, 1));
         MEDIUM_RDY = new Rdy(Math.max((int) (messagesPerBatch * 0.5D), 1));
         currentRdy = DEFAULT_RDY;
@@ -461,27 +462,6 @@ public class ConsumerImplV2 implements Consumer {
             logger.debug(message.toString());
         }
 
-        if (this.config.isOrdered()) {
-            long diskQueueOffset = message.getDiskQueueOffset();
-            long internalID = message.getInternalID();
-            synchronized (traceLock) {
-                long current = this.latestInternalID.get();
-                if (internalID <= current) {
-                    //there is a problem
-                    logger.error("Internal ID in current message is smaller than what has received. Latest internal ID: {}, Current internal ID: {}.", current, internalID);
-                }
-
-                current = this.latestDiskQueueOffset.get();
-                if (diskQueueOffset <= current) {
-                    //there is another problem
-                    logger.error("Disk queue offset in current message is smaller than what has received. Latest disk queue offset ID: {}, Current disk queue offset: {}.", current, diskQueueOffset);
-                }
-                //update both values
-                this.latestInternalID.set(internalID);
-                this.latestDiskQueueOffset.set(diskQueueOffset);
-            }
-        }
-
         if (handler == null) {
             logger.error("No MessageHandler then drop the message {}", message);
             return;
@@ -510,6 +490,10 @@ public class ConsumerImplV2 implements Consumer {
             }
         }
         resumeRateLimiting(connection, 1000);
+        if(this.config.isConsumerSlowStart()) {
+            int newCount = RdySpectrum.increase(connection, connection.getCurrentRdyCount(), this.config.getRdy());
+            connection.setCurrentRdyCount(newCount);
+        }
     }
 
     private void resumeRateLimiting(final NSQConnection conn, final int delayInMillisecond) {
@@ -530,7 +514,7 @@ public class ConsumerImplV2 implements Consumer {
                     currentRdy = DEFAULT_RDY;
                 }
                 // Ignore the data-race
-                conn.command(currentRdy);
+                ChannelFuture future = conn.command(currentRdy);
                 if (willSleep) {
                     sleep(100);
                 }
@@ -562,6 +546,7 @@ public class ConsumerImplV2 implements Consumer {
     private void consume(final NSQMessage message, final NSQConnection connection) {
         boolean ok;
         boolean retry;
+        long start = System.currentTimeMillis();
         try {
             handler.process(message);
             ok = true;
@@ -585,6 +570,7 @@ public class ConsumerImplV2 implements Consumer {
                 logger.error("Client business has required SDK to do again, but still has one error. Original message: {}. Exception:", message.getReadableContent(), e);
             }
         }
+        long end = System.currentTimeMillis() - start;
 
         // The client commands ReQueue into NSQd.
         final Integer nextConsumingWaiting = message.getNextConsumingInSecond();
@@ -604,10 +590,16 @@ public class ConsumerImplV2 implements Consumer {
                     final byte[] id = message.getMessageID();
                     logger.info("Do a re-queue by SDK that is a default behavior. MessageID: {} , Hex: {}", id, message.newHexString(id));
                 } else {
-                    // Finish: client explicitly sets NextConsumingInSecond is null
-                    cmd = new Finish(message.getMessageID());
-                    final byte[] id = message.getMessageID();
-                    logger.info("Do a Finish by SDK, given that client process handler has failed and next consuming time elapse not specified. MessageID: {} , Hex: {}", id, message.newHexString(id));
+                    if(this.config.isConsumerSlowStart() && end > this.config.getMsgTimeoutInMillisecond()) {
+                        logger.warn("It tooks {} millisec to for message to be consumed by message handler, and exceeds message timeout in nsq config. Fin not be invoked as requeue from NSQ server is on its way.", end);
+                        int currentRdyCnt = RdySpectrum.decrease(connection, connection.getCurrentRdyCount(), connection.getCurrentRdyCount() - 1);
+                        connection.setCurrentRdyCount(currentRdyCnt);
+                    }else {
+                        // Finish: client explicitly sets NextConsumingInSecond is null
+                        cmd = new Finish(message.getMessageID());
+                        final byte[] id = message.getMessageID();
+                        logger.info("Do a Finish by SDK, given that client process handler has failed and next consuming time elapse not specified. MessageID: {} , Hex: {}", id, message.newHexString(id));
+                    }
                 }
             }
         } else {

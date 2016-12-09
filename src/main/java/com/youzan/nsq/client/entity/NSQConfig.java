@@ -62,7 +62,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private final String clientId;
     private final String hostname;
     private boolean featureNegotiation;
-
+    private boolean slowStart = true;
     /*-
      * =========================================================================
      *                             All of Timeout
@@ -109,9 +109,6 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /*-
      * ==========================configs agent for lookup discovery=================
      */
-    private static volatile boolean dccOn = false;
-
-
     private Integer heartbeatIntervalInMillisecond = null;
 
     private Integer outputBufferSize = null;
@@ -580,6 +577,15 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     public static String[] getConfigServerUrls(){
         return urls;
+    }
+
+    public boolean isConsumerSlowStart() {
+        return this.slowStart;
+    }
+
+    public NSQConfig setConsumerSlowStart(boolean allowSlowStart) {
+        this.slowStart = allowSlowStart;
+        return this;
     }
 
     /**

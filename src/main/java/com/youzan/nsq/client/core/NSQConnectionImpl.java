@@ -1,8 +1,6 @@
 package com.youzan.nsq.client.core;
 
-import com.youzan.nsq.client.core.command.Identify;
-import com.youzan.nsq.client.core.command.Magic;
-import com.youzan.nsq.client.core.command.NSQCommand;
+import com.youzan.nsq.client.core.command.*;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
@@ -41,6 +39,8 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     private final Address address;
     private final Channel channel;
     private final NSQConfig config;
+    //start ready cnt for current count
+    private volatile int currentRdy;
 
     private final AtomicLong latestInternalID = new AtomicLong(-1L);
     private final AtomicLong latestDiskQueueOffset = new AtomicLong(-1L);
@@ -50,7 +50,10 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         this.address = address;
         this.channel = channel;
         this.config = config;
-
+        if(!this.config.isConsumerSlowStart())
+            this.currentRdy = this.config.getRdy();
+        else
+            this.currentRdy = 1;
         this.queryTimeoutInMillisecond = config.getQueryTimeoutInMillisecond();
 
     }
@@ -101,6 +104,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         if (cmd == null) {
             return null;
         }
+
         // Use Netty Pipeline
         return channel.writeAndFlush(cmd);
     }
@@ -208,6 +212,15 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         }
     }
 
+    public void setCurrentRdyCount(int newCount) {
+        if(newCount <= 0 || this.currentRdy == newCount)
+            return;
+        this.currentRdy = newCount;
+    }
+
+    public int getCurrentRdyCount() {
+        return this.currentRdy;
+    }
     /**
      * @return the id , the primary key of the object
      */

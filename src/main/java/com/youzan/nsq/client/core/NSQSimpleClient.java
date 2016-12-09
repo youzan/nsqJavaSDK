@@ -209,6 +209,10 @@ public class NSQSimpleClient implements Client, Closeable {
                     logger.error("Address: {}, Exception:", conn.getAddress(), e);
                 }
                 logger.warn("Error-Frame from {} , frame: {}", conn.getAddress(), frame);
+                if(conn.getConfig().isConsumerSlowStart()) {
+                    int currentRdyCnt = RdySpectrum.decrease(conn, conn.getCurrentRdyCount(), conn.getCurrentRdyCount() - 1);
+                    conn.setCurrentRdyCount(currentRdyCnt);
+                }
                 break;
             }
             case MESSAGE_FRAME: {

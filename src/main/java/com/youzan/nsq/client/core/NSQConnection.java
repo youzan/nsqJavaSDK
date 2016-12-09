@@ -33,6 +33,10 @@ public interface NSQConnection extends Closeable {
 
     int getId();
 
+    int getCurrentRdyCount();
+
+    void setCurrentRdyCount(int newRdyCnt);
+
     /**
      * If any client wants to use my connection, then the client need to pass
      * itself into me before calling init(this method) because of the usage of
