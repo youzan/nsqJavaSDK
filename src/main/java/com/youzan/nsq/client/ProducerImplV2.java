@@ -1,5 +1,6 @@
 package com.youzan.nsq.client;
 
+import com.youzan.nsq.client.core.LookupAddressUpdate;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
 import com.youzan.nsq.client.core.command.Pub;
@@ -63,7 +64,7 @@ public class ProducerImplV2 implements Producer {
      */
     public ProducerImplV2(NSQConfig config) {
         this.config = config;
-        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(), Role.Producer);
+        this.simpleClient = new NSQSimpleClient(Role.Producer, this.config.getUserSpecifiedLookupAddress());
 
         this.poolConfig = new GenericKeyedObjectPoolConfig();
         this.factory = new KeyedPooledConnectionFactory(this.config, this);
@@ -93,8 +94,10 @@ public class ProducerImplV2 implements Producer {
             this.poolConfig.setBlockWhenExhausted(false);
             // new instance without performing to connect
             this.bigPool = new GenericKeyedObjectPool<>(this.factory, this.poolConfig);
-            //
+            //simple client starts and LookupAddressUpdate instance initialized there.
             this.simpleClient.start();
+            if(this.config.getUserSpecifiedLookupAddress())
+                LookupAddressUpdate.getInstance().setUpDefaultSeedLookupConfig(this.config.getLookupAddresses());
             scheduler.scheduleAtFixedRate(new Runnable() {
                 @Override
                 public void run() {
@@ -136,7 +139,7 @@ public class ProducerImplV2 implements Producer {
         final Long now = System.currentTimeMillis();
         topic_2_lastActiveTime.put(topic, now);
         //data nodes matches topic sharding returns
-        Address[] partitonAddrs = simpleClient.getPartitionNodes(topic, topicShardingID);
+        Address[] partitonAddrs = simpleClient.getPartitionNodes(topic, topicShardingID, true);
         final int size = partitonAddrs.length;
         int c = 0, index = (this.offset++);
         while (c++ < size) {
@@ -209,8 +212,14 @@ public class ProducerImplV2 implements Producer {
                 logger.debug("Sleep. CurrentRetries: {}", c);
                 sleep((1 << (c - 1)) * 1000);
             }
-            final NSQConnection conn = getNSQConnection(msg.getTopic(), msg.getTopicShardingId());
-            if (conn == null) {
+            NSQConnection conn = null;
+            try {
+                conn = getNSQConnection(msg.getTopic(), msg.getTopicShardingId());
+                if (conn == null) {
+                    continue;
+                }
+            }catch(NSQLookupException lookupE) {
+                logger.warn("publish process may hit a invalid Lookup address. retry in another round...");
                 continue;
             }
             //create PUB command
@@ -234,7 +243,7 @@ public class ProducerImplV2 implements Producer {
             }
         } // end loop
         if (c >= MAX_PUBLISH_RETRY) {
-            throw new NSQDataNodesDownException(new NSQNoConnectionException("The topic is " + msg.getTopic().getTopicText()));
+            throw new NSQDataNodesDownException(new NSQNoConnectionException("The topic is " + msg.getTopic().getTopicText() + " Message: " + msg.toString()));
         }
     }
 
@@ -319,6 +328,7 @@ public class ProducerImplV2 implements Producer {
         }
         scheduler.shutdownNow();
         logger.info("The producer has been closed.");
+        LookupAddressUpdate.getInstance().closed();
     }
 
     public void close(NSQConnection conn) {

@@ -1,16 +1,16 @@
 package com.youzan.nsq.client;
 
+import com.youzan.nsq.client.configs.AbstractConfigAccessDomain;
+import com.youzan.nsq.client.configs.AbstractConfigAccessKey;
 import com.youzan.nsq.client.configs.ConfigAccessAgent;
+import com.youzan.nsq.client.exception.NSQConfigAccessException;
 
 /**
  * Created by lin on 16/10/26.
  */
-public interface IConfigAccessSubscriber {
+public interface IConfigAccessSubscriber<T> {
     String NSQ_APP_VAL = "nsq.app.val";
     String DEFAULT_NSQ_APP_VAL = "nsq";
 
-    String getDomain();
-    String[] getKeys();
-    ConfigAccessAgent.IConfigAccessCallback getCallback();
-    void subscribe(String domain, String[] keys, ConfigAccessAgent subscribeTo);
+    T subscribe(ConfigAccessAgent subscribeTo, final AbstractConfigAccessDomain domain, final AbstractConfigAccessKey[] keys, final ConfigAccessAgent.IConfigAccessCallback callback) throws NSQConfigAccessException;
 }

@@ -10,6 +10,7 @@ import java.nio.charset.Charset;
  */
 public class Message {
     private final static Logger logger = LoggerFactory.getLogger(Message.class);
+    private final static String MSG_FORMAT = "Message:\n[TraceID: %d, TopicSharding: %d, Topic: %s]";
 
     //trace id per message attached
     //meta-data need initialized in received message
@@ -21,7 +22,10 @@ public class Message {
 
     //common part, message body
     private final String messageBody;
-    private String metadataStr;
+
+    public String toString() {
+        return String.format(MSG_FORMAT, this.traceID, this.topicSharding, this.topic.getTopicText());
+    }
 
     public static Message create(Topic topic, long traceID, String messageBody){
         return new Message(traceID, topic, messageBody);

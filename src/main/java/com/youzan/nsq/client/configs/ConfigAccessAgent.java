@@ -44,7 +44,7 @@ public abstract class ConfigAccessAgent implements Closeable {
                         Constructor<? extends ConfigAccessAgent> construactor = CAA_CLAZZ.getConstructor();
                         INSTANCE = construactor.newInstance();
                         INSTANCE.kickoff();
-                    } catch (InstantiationException | InvocationTargetException | NoSuchMethodException | IllegalAccessException e) {
+                    } catch (Exception e) {
                         logger.error("Fail to start config access agent {}. ", CAA_CLAZZ);
                         throw new RuntimeException(e);
                     }
@@ -57,10 +57,10 @@ public abstract class ConfigAccessAgent implements Closeable {
     /**
      * release resources allocated by ConfigAccessAgent
      */
-    private static void release(){
-        if(null != INSTANCE){
-            synchronized (LOCK){
-                if(null != INSTANCE){
+    private static void release() {
+        if (null != INSTANCE) {
+            synchronized (LOCK) {
+                if (null != INSTANCE) {
                     INSTANCE = null;
                     CAA_CLAZZ = null;
                     props = null;
@@ -120,13 +120,14 @@ public abstract class ConfigAccessAgent implements Closeable {
 
     /**
      * Handle subscribe on pass in domain:key, register callback on values under domain:key updated.
+     * Implementation should be threadsafe.
      *
      * @param domain   domain value of config, implementation varies.
      * @param keys     key values of config, implementation varies.
      * @param callback callback to handle new update items.
      * @return string[] first subscribe result
      */
-    public abstract SortedMap<String, String> handleSubscribe(String domain, final String[] keys, final IConfigAccessCallback callback);
+    public abstract SortedMap<String, String> handleSubscribe(AbstractConfigAccessDomain domain, AbstractConfigAccessKey[] keys, final IConfigAccessCallback callback);
 
     public interface IConfigAccessCallback<T extends SortedMap<String, String>> {
         void process(T newItems);
@@ -143,5 +144,11 @@ public abstract class ConfigAccessAgent implements Closeable {
      * release resource allocated to config access agent
      */
     abstract public void close();
+
+    /**
+     * return meta datas of config access agent, help in debugging
+     * @return
+     */
+    abstract public String metadata();
 }
 

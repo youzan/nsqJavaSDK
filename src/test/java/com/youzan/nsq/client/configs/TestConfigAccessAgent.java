@@ -13,7 +13,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * ConfigAccessAgent for testing, it caches what user feeds it and notify callbacks once new value passed in
- * via {@link TestConfigAccessAgent#updateValue(String, String[], SortedMap, boolean)}
+ * via {@link TestConfigAccessAgent#updateValue(AbstractConfigAccessDomain, AbstractConfigAccessKey[], SortedMap, boolean)}
  * Created by lin on 16/11/1.
  */
 public class TestConfigAccessAgent extends ConfigAccessAgent {
@@ -29,7 +29,7 @@ public class TestConfigAccessAgent extends ConfigAccessAgent {
 
     private static final ExecutorService exec = Executors.newFixedThreadPool(2, new NamedThreadFactory("TestConfigAccessAgentCallbackInvoker", Thread.MAX_PRIORITY));
 
-    public static SortedMap<String, String> updateValue(String domain, String[] keys, final SortedMap<String, String> newValueMap, boolean invokeOnProcess){
+    public static SortedMap<String, String> updateValue(AbstractConfigAccessDomain domain, AbstractConfigAccessKey[] keys, final SortedMap<String, String> newValueMap, boolean invokeOnProcess){
         assert null != newValueMap;
         final String key = generateSubscribeKey(domain, keys);
         SortedMap<String, String> oldValueMap;
@@ -67,7 +67,7 @@ public class TestConfigAccessAgent extends ConfigAccessAgent {
     }
 
     @Override
-    public SortedMap<String, String> handleSubscribe(String domain, String[] keys, IConfigAccessCallback callback) {
+    public SortedMap<String, String> handleSubscribe(AbstractConfigAccessDomain domain, AbstractConfigAccessKey[] keys, IConfigAccessCallback callback) {
         String key = generateSubscribeKey(domain, keys);
         try {
             subscribeLock.writeLock().lock();
@@ -91,13 +91,13 @@ public class TestConfigAccessAgent extends ConfigAccessAgent {
         logger.info("TestConfigAccessAgent kickoff.");
     }
 
-    private static String generateSubscribeKey(String domain, final String[] keys){
+    private static String generateSubscribeKey(AbstractConfigAccessDomain domain, final AbstractConfigAccessKey[] keys){
         assert null != domain && null!= keys && keys.length > 0;
         //build keys out from domain and keys
         StringBuilder sb = new StringBuilder();
-        sb.append(domain);
-        for(String key:keys){
-            sb.append(":" + key);
+        sb.append(domain.toDomain());
+        for(AbstractConfigAccessKey key:keys){
+            sb.append(":" + key.toKey());
         }
         return sb.toString();
     }
@@ -115,5 +115,10 @@ public class TestConfigAccessAgent extends ConfigAccessAgent {
             subscribeLock.writeLock().unlock();
             valueMapLock.writeLock().unlock();
         }
+    }
+
+    @Override
+    public String metadata() {
+        return TestConfigAccessAgent.class.getName();
     }
 }

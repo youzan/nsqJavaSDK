@@ -1,6 +1,7 @@
 package com.youzan.nsq.client;
 
 import com.youzan.nsq.client.configs.ConfigAccessAgent;
+import com.youzan.nsq.client.core.LookupAddressUpdate;
 import com.youzan.nsq.client.entity.NSQConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,6 +10,8 @@ import org.testng.annotations.BeforeClass;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.invoke.MethodHandles;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Properties;
@@ -54,6 +57,14 @@ public class AbstractNSQClientTestcase {
 
     public static Consumer createConsumer(final NSQConfig config, final MessageHandler handler){
         return new ConsumerImplV2(config, handler);
+    }
+
+    public static LookupAddressUpdate createLookupAddressUpdateInstance() throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
+        Class claz = LookupAddressUpdate.class;
+        Constructor con = claz.getConstructor();
+        con.setAccessible(true);
+        LookupAddressUpdate lau = (LookupAddressUpdate) con.newInstance();
+        return lau;
     }
 
     @AfterMethod

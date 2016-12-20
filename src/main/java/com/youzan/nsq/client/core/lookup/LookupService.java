@@ -1,10 +1,13 @@
 package com.youzan.nsq.client.core.lookup;
 
+import com.youzan.nsq.client.configs.TopicRuleCategory;
+import com.youzan.nsq.client.entity.IPartitionsSelector;
 import com.youzan.nsq.client.entity.Partitions;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQLookupException;
 
 import java.io.Closeable;
+import java.util.Map;
 import java.util.Random;
 
 /**
@@ -17,8 +20,6 @@ import java.util.Random;
 public interface LookupService extends java.io.Serializable, Closeable {
     Random _r = new Random(10000);
 
-    void start();
-
     /**
      *
      * lookup the writable NSQd (DataNode)
@@ -29,7 +30,7 @@ public interface LookupService extends java.io.Serializable, Closeable {
      * @throws NSQLookupException
      *             if an error occurs
      */
-    Partitions lookup(Topic topic) throws NSQLookupException;
+     IPartitionsSelector lookup(Topic topic, boolean localLookupd) throws NSQLookupException;
 
     /**
      * lookup the writable/non-writable NSQd (DataNode)
@@ -42,7 +43,7 @@ public interface LookupService extends java.io.Serializable, Closeable {
      * @throws NSQLookupException
      *             if an error occurs
      */
-    Partitions lookup(Topic topic, boolean writable) throws NSQLookupException;
+    IPartitionsSelector lookup(Topic topic, boolean writable, TopicRuleCategory category, boolean localLookupd) throws NSQLookupException;
 
     /**
      * Perform the action quietly. No exceptions.

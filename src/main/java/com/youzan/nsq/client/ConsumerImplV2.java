@@ -1,21 +1,24 @@
 package com.youzan.nsq.client;
 
+import com.youzan.nsq.client.configs.TopicRuleCategory;
+import com.youzan.nsq.client.core.LookupAddressUpdate;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
 import com.youzan.nsq.client.core.RdySpectrum;
 import com.youzan.nsq.client.core.command.*;
 import com.youzan.nsq.client.core.pool.consumer.FixedPool;
 import com.youzan.nsq.client.entity.*;
-import com.youzan.nsq.client.exception.NSQException;
-import com.youzan.nsq.client.exception.NSQInvalidMessageException;
-import com.youzan.nsq.client.exception.NSQNoConnectionException;
-import com.youzan.nsq.client.exception.RetryBusinessException;
+import com.youzan.nsq.client.entity.lookup.NSQLookupdAddress;
+import com.youzan.nsq.client.exception.*;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.MessageFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame.FrameType;
 import com.youzan.nsq.client.network.frame.OrderedMessageFrame;
-import com.youzan.util.*;
+import com.youzan.util.HostUtil;
+import com.youzan.util.IOUtil;
+import com.youzan.util.NamedThreadFactory;
+import com.youzan.util.ThreadSafe;
 import io.netty.channel.ChannelFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,7 +27,6 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * <pre>
@@ -37,8 +39,9 @@ import java.util.concurrent.atomic.AtomicLong;
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
 public class ConsumerImplV2 implements Consumer {
-
     private static final Logger logger = LoggerFactory.getLogger(ConsumerImplV2.class);
+
+    private static final int MAX_CONSUME_RETRY = 3;
     private final Object lock = new Object();
     private boolean started = false;
     private boolean closing = false;
@@ -98,10 +101,10 @@ public class ConsumerImplV2 implements Consumer {
     public ConsumerImplV2(NSQConfig config, MessageHandler handler) {
         this.config = config;
         this.handler = handler;
-        this.simpleClient = new NSQSimpleClient(config.getLookupAddresses(), Role.Consumer);
+        this.simpleClient = new NSQSimpleClient(Role.Consumer, this.config.getUserSpecifiedLookupAddress());
 
         int messagesPerBatch;
-        if(!config.isConsumerSlowStart())
+        if (!config.isConsumerSlowStart())
             messagesPerBatch = config.getRdy();
         else
             messagesPerBatch = 1;
@@ -121,7 +124,7 @@ public class ConsumerImplV2 implements Consumer {
         if (topics == null) {
             return;
         }
-        for(Topic topic:topics){
+        for (Topic topic : topics) {
             this.topics.add(topic);
             simpleClient.putTopic(topic);
         }
@@ -150,7 +153,10 @@ public class ConsumerImplV2 implements Consumer {
             if (!this.started) {
                 //set subscribe status
                 // create the pools
+                //simple client starts and LookupAddressUpdate instance initialized there.
                 this.simpleClient.start();
+                if(this.config.getUserSpecifiedLookupAddress())
+                    LookupAddressUpdate.getInstance().setUpDefaultSeedLookupConfig(this.config.getLookupAddresses());
                 // -----------------------------------------------------------------
                 //                       First, async keep
                 keepConnecting();
@@ -243,7 +249,19 @@ public class ConsumerImplV2 implements Consumer {
          */
         for (Topic topic : topics) {
             // maybe a exception occurs
-            final Address[] partitionDataNodes = simpleClient.getPartitionNodes(topic, -1L);
+            int maxRetry = MAX_CONSUME_RETRY;
+            int idx = 0;
+            Address[] partitionDataNodes = null;
+            while(null == partitionDataNodes) {
+                try {
+                    partitionDataNodes = simpleClient.getPartitionNodes(topic, -1L, false);
+                } catch (NSQLookupException lookupe) {
+                    logger.warn("Hit a invalid lookup address, retry another. Has retried: {}", idx);
+                    if(idx++ >= MAX_CONSUME_RETRY){
+                        throw lookupe;
+                    }
+                }
+            }
             final List<Address> dataNodeLst = Arrays.asList(partitionDataNodes);
             for (Address a : dataNodeLst) {
                 final Set<Topic> tmpTopics;
@@ -444,10 +462,10 @@ public class ConsumerImplV2 implements Consumer {
             final NSQMessage message = createNSQMessage(msg, conn);
             //gather trace info
             //this.trace.handleMessage(message);
-            if(TraceLogger.isTraceLoggerEnabled() && conn.getAddress().isHA())
+            if (TraceLogger.isTraceLoggerEnabled() && conn.getAddress().isHA())
                 TraceLogger.trace(this, conn, message);
-            if(this.config.isOrdered()
-                    && !conn.checkOrder(message.getInternalID(), message.getDiskQueueOffset(), message)){
+            if (this.config.isOrdered()
+                    && !conn.checkOrder(message.getInternalID(), message.getDiskQueueOffset(), message)) {
                 //order problem
                 throw new NSQInvalidMessageException("Invalid internalID or diskQueueOffset in order mode.");
             }
@@ -490,7 +508,7 @@ public class ConsumerImplV2 implements Consumer {
             }
         }
         resumeRateLimiting(connection, 1000);
-        if(this.config.isConsumerSlowStart()) {
+        if (this.config.isConsumerSlowStart()) {
             int newCount = RdySpectrum.increase(connection, connection.getCurrentRdyCount(), this.config.getRdy());
             connection.setCurrentRdyCount(newCount);
         }
@@ -590,11 +608,11 @@ public class ConsumerImplV2 implements Consumer {
                     final byte[] id = message.getMessageID();
                     logger.info("Do a re-queue by SDK that is a default behavior. MessageID: {} , Hex: {}", id, message.newHexString(id));
                 } else {
-                    if(this.config.isConsumerSlowStart() && end > this.config.getMsgTimeoutInMillisecond()) {
+                    if (this.config.isConsumerSlowStart() && end > this.config.getMsgTimeoutInMillisecond()) {
                         logger.warn("It tooks {} millisec to for message to be consumed by message handler, and exceeds message timeout in nsq config. Fin not be invoked as requeue from NSQ server is on its way.", end);
                         int currentRdyCnt = RdySpectrum.decrease(connection, connection.getCurrentRdyCount(), connection.getCurrentRdyCount() - 1);
                         connection.setCurrentRdyCount(currentRdyCnt);
-                    }else {
+                    } else {
                         // Finish: client explicitly sets NextConsumingInSecond is null
                         cmd = new Finish(message.getMessageID());
                         final byte[] id = message.getMessageID();
@@ -669,6 +687,7 @@ public class ConsumerImplV2 implements Consumer {
             close(connections);
         }
         logger.info("The consumer has been closed.");
+        LookupAddressUpdate.getInstance().closed();
     }
 
 
@@ -824,15 +843,15 @@ public class ConsumerImplV2 implements Consumer {
     }
 
     private NSQMessage createNSQMessage(final MessageFrame msgFrame, final NSQConnection conn) {
-        if(config.isOrdered() && msgFrame instanceof OrderedMessageFrame) {
-            OrderedMessageFrame orderedMsgFrame =  (OrderedMessageFrame) msgFrame;
+        if (config.isOrdered() && msgFrame instanceof OrderedMessageFrame) {
+            OrderedMessageFrame orderedMsgFrame = (OrderedMessageFrame) msgFrame;
             return new NSQMessage(orderedMsgFrame.getTimestamp(), orderedMsgFrame.getAttempts(), orderedMsgFrame.getMessageID(),
                     orderedMsgFrame.getInternalID(), orderedMsgFrame.getTractID(),
                     orderedMsgFrame.getDiskQueueOffset(), orderedMsgFrame.getDiskQueueDataSize(),
                     msgFrame.getMessageBody(), conn.getAddress(), conn.getId());
-        }else
+        } else
             return new NSQMessage(msgFrame.getTimestamp(), msgFrame.getAttempts(), msgFrame.getMessageID(),
-                msgFrame.getInternalID(), msgFrame.getTractID(), msgFrame.getMessageBody(), conn.getAddress(), conn.getId());
+                    msgFrame.getInternalID(), msgFrame.getTractID(), msgFrame.getMessageBody(), conn.getAddress(), conn.getId());
     }
 
     /**

@@ -36,7 +36,7 @@ public class ITProducer {
         final String msgTimeoutInMillisecond = props.getProperty("msgTimeoutInMillisecond");
         final String threadPoolSize4IO = props.getProperty("threadPoolSize4IO");
 
-
+        config.setUserSpecifiedLookupAddress(true);
         config.setLookupAddresses(lookups);
         config.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
         config.setMsgTimeoutInMillisecond(Integer.valueOf(msgTimeoutInMillisecond));

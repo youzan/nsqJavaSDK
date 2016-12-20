@@ -40,6 +40,7 @@ public class ITProducerOrdered {
 
 
         config.setLookupAddresses(lookups);
+        config.setUserSpecifiedLookupAddress(true);
         config.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
         config.setMsgTimeoutInMillisecond(Integer.valueOf(msgTimeoutInMillisecond));
         config.setThreadPoolSize4IO(Integer.valueOf(threadPoolSize4IO));

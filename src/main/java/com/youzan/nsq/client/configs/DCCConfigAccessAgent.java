@@ -27,12 +27,8 @@ public class DCCConfigAccessAgent extends ConfigAccessAgent {
     private static final Logger logger = LoggerFactory.getLogger(DCCConfigAccessAgent.class);
     private static final ObjectMapper mapper = new ObjectMapper();
     //app value configs client need to specify to fetch lookupd config from configs
-    private static final String NSQ_APP_VAL_PRO = "nsq.app.val";
-    //default value for app value
-//    private static final String DEFAULT_NSQ_APP_VAL = "nsq";
-//    public static String NSQ_APP_VAL = null;
     //property urls to configs remote
-    private static final String NSQ_DCCCONFIG_URLS = "nsq.configs.%s.urls";
+    private static final String NSQ_DCCCONFIG_URLS = "nsq.dcc.%s.urls";
     //property of backup file path
     private static final String NSQ_DCCCONFIG_BACKUP_PATH = "nsq.dcc.backupPath";
 
@@ -55,6 +51,18 @@ public class DCCConfigAccessAgent extends ConfigAccessAgent {
                 .setConfigEnvironment(env)
                 .setClientConfig(dccConfig)
                 .build();
+    }
+
+    public static String[] getUrls() {
+        return DCCConfigAccessAgent.urls;
+    }
+
+    public static String getBackupPath() {
+        return DCCConfigAccessAgent.backupPath;
+    }
+
+    public static String getEnv() {
+        return DCCConfigAccessAgent.env;
     }
 
     /**
@@ -88,17 +96,19 @@ public class DCCConfigAccessAgent extends ConfigAccessAgent {
     }
 
     @Override
-    public SortedMap<String, String> handleSubscribe(String domain, final String[] keys, final IConfigAccessCallback callback) {
-        if (null == domain || null == keys || keys.length == 0)
+    public SortedMap<String, String> handleSubscribe(AbstractConfigAccessDomain domain, AbstractConfigAccessKey[] keys, final IConfigAccessCallback callback) {
+        if (keys.length > 1)
+            throw new IllegalArgumentException("DCCConfigAccessAgent does not accept more than one key(consumer or producer).");
+        if (null == domain || keys.length == 0)
             return null;
         List<ConfigRequest> requests = new ArrayList<>();
         //create config requests out of pass in domain(app) and keys(keys)
-        for (String key : keys) {
+        for (AbstractConfigAccessKey key : keys) {
             ConfigRequest request = null;
             try {
                 request = (ConfigRequest) ConfigRequest.create(dccClient)
-                        .setApp(domain)
-                        .setKey(key)
+                        .setApp(domain.toDomain())
+                        .setKey(key.toKey())
                         .build();
             } catch (ConfigParserException e) {
                 logger.warn("Fail to parse config. {}", e.getContentInProblem(), e);
@@ -108,20 +118,26 @@ public class DCCConfigAccessAgent extends ConfigAccessAgent {
         }
 
         //subscribe
-        List<Config> firstList = dccClient.subscribe(new IResponseCallback() {
-            @Override
-            public void onChanged(List<Config> list) throws Exception {
-                SortedMap<String, String> map = extractValues(list);
-                callback.process(map);
-            }
+        long start = System.currentTimeMillis();
+        try {
+            List<Config> firstList = dccClient.subscribe(new IResponseCallback() {
+                @Override
+                public void onChanged(List<Config> list) throws Exception {
+                    SortedMap<String, String> map = extractValues(list);
+                    callback.process(map);
+                }
 
-            @Override
-            public void onFailed(List<Config> list, Exception e) throws Exception {
-                SortedMap<String, String> map = extractValues(list);
-                callback.fallback(map, e);
-            }
-        }, requests);
-        return extractValues(firstList);
+                @Override
+                public void onFailed(List<Config> list, Exception e) throws Exception {
+                    SortedMap<String, String> map = extractValues(list);
+                    callback.fallback(map, e);
+                }
+            }, requests);
+            return extractValues(firstList);
+        }finally {
+            if(logger.isDebugEnabled())
+                logger.debug("Time eclapse: {} millisec in getting subscribe response from config access remote.", System.currentTimeMillis() - start);
+        }
     }
 
     @Override
@@ -132,6 +148,18 @@ public class DCCConfigAccessAgent extends ConfigAccessAgent {
     @Override
     public void close() {
         //TODO: close configs client
+    }
+
+    @Override
+    public String metadata() {
+        StringBuilder sb = new StringBuilder(DCCConfigAccessAgent.class.getName() + "\n");
+        String urlStr = "";
+        for(String aUrl:urls)
+            urlStr += aUrl + ";";
+        sb.append("\turls: [").append(urlStr).append("]\n")
+                .append("\tenv: [").append(env).append("]\n")
+                .append("\tbackupPath: [").append(backupPath).append("]\n");
+        return sb.toString();
     }
 
     /**
@@ -156,10 +184,13 @@ public class DCCConfigAccessAgent extends ConfigAccessAgent {
         } catch (IOException IOE) {
             logger.error("Could not load properties from nsq config properties to initialize DCCConfigAccessAgent.");
             throw new RuntimeException(IOE);
-        } finally {
+        } catch (Exception e){
+            logger.error("Error initializing configs to DCC client.", e);
+        }
+        finally {
             try {
-                if(null != is)
-                is.close();
+                if (null != is)
+                    is.close();
             } catch (IOException e) {
                 //swallow it
             }
@@ -193,11 +224,13 @@ public class DCCConfigAccessAgent extends ConfigAccessAgent {
         //1.3 nsq sdk env, which is also the env of nsq sdk
         env = NSQConfig.getSDKEnv();
         assert null != env;
-
-        //1.4 config server urls, initialized based on sdk env
-        String urlsKey = String.format(NSQ_DCCCONFIG_URLS, env);
-        urls = props.getProperty(urlsKey)
-                .split(",");
+        urls = NSQConfig.getConfigAccessRemotes();
+        if(null == urls) {
+            //1.4 config server urls, initialized based on sdk env
+            String urlsKey = String.format(NSQ_DCCCONFIG_URLS, env);
+            urls = props.getProperty(urlsKey)
+                    .split(",");
+        }
         assert null != urls;
 
     }

@@ -30,7 +30,6 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private static final long serialVersionUID = 6624842850216901700L;
     private static final Logger logger = LoggerFactory.getLogger(NSQConfig.class);
 
-    private static final AtomicInteger id = new AtomicInteger(0);
     private static String sdkEnv;
     private boolean havingMonitoring = false;
 
@@ -63,6 +62,8 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private final String hostname;
     private boolean featureNegotiation;
     private boolean slowStart = true;
+    private boolean userSpecifiedLookupd = false;
+    private static String configAccessRemotes;
     /*-
      * =========================================================================
      *                             All of Timeout
@@ -80,6 +81,16 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * Netty handling TCP
      */
     private int queryTimeoutInMillisecond = 5000;
+    /**
+     * query timeout for topic based seed lookup address check
+     */
+    private static int queryTimeout4TopicSeedInMillisecond = 500;
+
+    /**
+     * interval between two list lookup operation for all seed lookups
+     */
+    private static int listLookupIntervalInSecond = 120;
+
     /**
      * the timeout after which any data that NSQd has buffered will be flushed
      * to this client
@@ -127,17 +138,14 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         initSDKEnv();
     }
 
-    @Deprecated
     /**
-     * Deprecated. Pls uses {@link NSQConfig#NSQConfig(String, String)} for {@link com.youzan.nsq.client.Consumer}
-     * or {@link com.youzan.nsq.client.Producer}, and
+     * NSQConfig constructor for {@link com.youzan.nsq.client.Producer}.
      */
     public NSQConfig() {
         try {
             hostname = HostUtil.getLocalIP();
             // JDK8, string contact is OK.
-            clientId = "IP:" + IPUtil.ipv4(hostname) + ", PID:" + SystemUtil.getPID() + ", ID:"
-                    + (id.getAndIncrement());
+            clientId =  ""+SystemUtil.getPID();
         } catch (Exception e) {
             throw new RuntimeException("System can't get the IPv4!", e);
         }
@@ -145,27 +153,39 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     @SuppressWarnings("deprecation")
     /**
-     * NSQConfig constructor for {@link com.youzan.nsq.client.Consumer} or {@link com.youzan.nsq.client.Producer}.
-     * @param lookupAddress lookup address.
+     * NSQConfig constructor for {@link com.youzan.nsq.client.Consumer}.
      * @param consumerName  channel name for consumer.
      */
-    public NSQConfig(final String lookupAddress, final String consumerName) {
+    public NSQConfig(final String consumerName) {
         this();
-        //update lookup address
-        setLookupAddresses(lookupAddress);
         //and channel name
         setConsumerName(consumerName);
     }
 
-    @SuppressWarnings("deprecation")
+    public boolean getUserSpecifiedLookupAddress() {
+        return this.userSpecifiedLookupd;
+    }
+
+    public NSQConfig setUserSpecifiedLookupAddress(boolean userLookupod) {
+        this.userSpecifiedLookupd = userLookupod;
+        return this;
+    }
+
     /**
-     * NSQConfig constructor for {@link com.youzan.nsq.client.Producer}.
-     * @param lookupAddress lookup address.
-     * @param consumerName  channel name for consumer.
+     * Update config access urls. By default, NSQ sdk pick what is defined in nested client config properties file for
+     * config access remote urls. if user set config access remotes with this function, sdk uses pass in config access
+     * remotes before initialize config access agent.
+     * Note: pls invoke this function BEFORE starting any NSQ client({@link com.youzan.nsq.client.Producer}, {@link com.youzan.nsq.client.Consumer})
+     * @param configAccessRemotes config access remotes, separated by comma.
      */
-    public NSQConfig(final String lookupAddress){
-        this();
-        setLookupAddresses(lookupAddress);
+    public static void setConfigAccessRemotes(String configAccessRemotes){
+        NSQConfig.configAccessRemotes = configAccessRemotes;
+    }
+
+    public static String[] getConfigAccessRemotes() {
+        if(null != NSQConfig.configAccessRemotes)
+            return NSQConfig.configAccessRemotes.split(",");
+        return null;
     }
 
     private static void initSDKEnv() {
@@ -544,6 +564,25 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         return this;
     }
 
+    public static int getListLookupIntervalInSecond() {
+        return listLookupIntervalInSecond;
+    }
+
+    public static void setListLookupIntervalInSecond(int newListLookupIntervalInSecond) {
+        if(newListLookupIntervalInSecond < 60) {
+            logger.warn("ListLookupInterval accepts value which is not smaller than 60Sec.");
+        }
+        listLookupIntervalInSecond = newListLookupIntervalInSecond;
+    }
+
+    public static int getQueryTimeout4TopicSeedInMillisecond() {
+        return queryTimeout4TopicSeedInMillisecond;
+    }
+
+    public static void setQueryTimeout4TopicSeedInMillisecond(int queryTimeout4TopicSeedInMillisecond) {
+        NSQConfig.queryTimeout4TopicSeedInMillisecond = queryTimeout4TopicSeedInMillisecond;
+    }
+
     /**
      * @return the queryTimeoutInMillisecond
      */
@@ -567,7 +606,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * set the environment value of config client
      * @param env
      */
-    static void setSDKEnv(String env){
+    public static void setSDKEnv(String env){
         sdkEnv = env;
     }
 
@@ -586,13 +625,6 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     public NSQConfig setConsumerSlowStart(boolean allowSlowStart) {
         this.slowStart = allowSlowStart;
         return this;
-    }
-
-    /**
-     * @return the id
-     */
-    public static AtomicInteger getId() {
-        return id;
     }
 
     public String identify() {
