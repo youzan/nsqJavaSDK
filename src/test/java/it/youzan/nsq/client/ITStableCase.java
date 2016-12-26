@@ -48,6 +48,7 @@ public class ITStableCase {
         logger.info("At {} , initialize: {}", System.currentTimeMillis(), this.getClass().getName());
 
         final String stableProp = System.getProperty("stable", "false");
+        System.setProperty("nsq.sdk.configFilePath", "src/test/resources/configClientTest.properties");
         stable = Boolean.valueOf(stableProp);
         if (!stable) {
             return;
@@ -78,6 +79,7 @@ public class ITStableCase {
         logger.info(""+allowedRunDeadline);
         final NSQConfig config = (NSQConfig) this.config.clone();
         config.setThreadPoolSize4IO(1);
+        config.setUserSpecifiedLookupAddress(true);
         producer = new ProducerImplV2(config);
         producer.start();
         for (long now = 0; now < allowedRunDeadline; now = System.currentTimeMillis()) {
@@ -111,6 +113,7 @@ public class ITStableCase {
             }
         };
         final NSQConfig config = (NSQConfig) this.config.clone();
+        config.setUserSpecifiedLookupAddress(true);
         config.setRdy(4);
         config.setConsumerName(consumerName);
         config.setThreadPoolSize4IO(Math.max(2, Runtime.getRuntime().availableProcessors()));

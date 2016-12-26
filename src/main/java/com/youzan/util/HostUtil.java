@@ -57,4 +57,15 @@ public final class HostUtil {
             throw new IOException(e);
         }
     }
+
+    public static String getHostname() {
+        String hostname = null;
+        try {
+            hostname = InetAddress.getLocalHost().getHostName();
+        } catch (UnknownHostException e) {
+            logger.error("Could not get host name for local host.", e);
+        }finally {
+            return hostname;
+        }
+    }
 }

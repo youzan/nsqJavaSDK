@@ -1,6 +1,6 @@
 package com.youzan.nsq.client;
 
-import com.youzan.nsq.client.configs.ConfigAccessAgent;
+import com.youzan.nsq.client.configs.*;
 import com.youzan.nsq.client.core.command.Pub;
 import com.youzan.nsq.client.core.command.PubTrace;
 import com.youzan.nsq.client.entity.Message;
@@ -21,8 +21,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public class PubCmdFactory implements IConfigAccessSubscriber{
     private final static Logger logger = LoggerFactory.getLogger(PubCmdFactory.class);
 
-    private final static String NSQ_TOPIC_TRACE_KEY = "nsq.topic.trace.key";
-    private final static String DEFAULT_NSQ_TOPIC_TRACE_PRODUCER_KEY = "trace";
+    private final static DCCTraceConfigAccessKey KEY = new DCCTraceConfigAccessKey();
+    private final static DCCTraceConfigAccessDomain DOMAIN = new DCCTraceConfigAccessDomain();
 
     //topic trace map, for example: JavaTesting-Producer-Base -> true, means trace is on for topic "JavaTesting-Producer-Base"
     private volatile Map<String, String> topicTrace = new TreeMap<>();
@@ -68,7 +68,7 @@ public class PubCmdFactory implements IConfigAccessSubscriber{
                 if(null == _INSTANCE){
                     _INSTANCE = new PubCmdFactory();
                     try {
-                        _INSTANCE.subscribe(ConfigAccessAgent.getInstance());
+                        _INSTANCE.subscribe(ConfigAccessAgent.getInstance(), DOMAIN, new AbstractConfigAccessKey[]{KEY}, _INSTANCE.getCallback());
                     }catch(Exception e){
                         logger.error("Fail to subscribe to ConfigAccessAgent.");
                         throw e;
@@ -119,36 +119,22 @@ public class PubCmdFactory implements IConfigAccessSubscriber{
         }
     }
 
-    @Override
-    public String getDomain() {
-        String domain = ConfigAccessAgent.getProperty(NSQ_APP_VAL);
-        return null == domain ? DEFAULT_NSQ_APP_VAL : domain;
-    }
-
-    @Override
-    public String[] getKeys() {
-        String[] keys = new String[1];
-        String key = ConfigAccessAgent.getProperty(NSQ_TOPIC_TRACE_KEY);
-        keys[0] = null == key ? DEFAULT_NSQ_TOPIC_TRACE_PRODUCER_KEY : key;
-        return keys;
-    }
-
-    @Override
-    public ConfigAccessAgent.IConfigAccessCallback getCallback() {
+    private ConfigAccessAgent.IConfigAccessCallback getCallback() {
         return this.topicTraceUpdateHandler;
     }
 
     @Override
-    public void subscribe(ConfigAccessAgent subscribeTo) {
+    public Object subscribe(ConfigAccessAgent subscribeTo, final AbstractConfigAccessDomain domain, final AbstractConfigAccessKey[] keys, final ConfigAccessAgent.IConfigAccessCallback callback) {
         logger.info("PubCmdFactory Instance subscribe to {}.", subscribeTo);
-        SortedMap<String, String> firstLookupMap = subscribeTo.handleSubscribe(getDomain(), getKeys(), getCallback());
+        SortedMap<String, String> firstLookupMap = subscribeTo.handleSubscribe(domain, keys, getCallback());
         if(null == firstLookupMap || firstLookupMap.size() == 0)
-            return;
+            return null;
         try {
             lock.writeLock().lock();
             topicTrace = firstLookupMap;
         }finally {
             lock.writeLock().unlock();
         }
+        return null;
     }
 }

@@ -38,7 +38,7 @@ public class NSQSimpleClient implements Client, Closeable {
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
     //maintain a mapping from topic to producer broadcast addresses
     private final Map<Topic, ConcurrentSortedSet<Address>> topic_2_dataNodes = new HashMap<>();
-    private final Map<Topic, Partitions> topic_2_partitions = new ConcurrentHashMap<>();
+    private final Map<Topic, IPartitionsSelector> topic_2_partitionsSelector = new ConcurrentHashMap<>();
     private final ConcurrentSortedSet<Address> dataNodes = new ConcurrentSortedSet<>();
 
     private volatile boolean started;
@@ -47,10 +47,12 @@ public class NSQSimpleClient implements Client, Closeable {
 
     private final Role role;
     private final LookupService lookup;
+    private final boolean useLocalLookupd;
 
-    public NSQSimpleClient(final String[] lookupAddresses, Role role) {
+    public NSQSimpleClient(Role role, boolean localLookupd) {
         this.role = role;
-        this.lookup = new LookupServiceImpl(lookupAddresses, role);
+        this.lookup = new LookupServiceImpl(role);
+        this.useLocalLookupd = localLookupd;
     }
 
     @Override
@@ -59,7 +61,7 @@ public class NSQSimpleClient implements Client, Closeable {
         try {
             if (!started) {
                 started = true;
-                lookup.start();
+                LookupAddressUpdate.getInstance(true).keepListLookup();
                 keepDataNodes();
             }
             started = true;
@@ -69,31 +71,31 @@ public class NSQSimpleClient implements Client, Closeable {
     }
 
     private void keepDataNodes() {
-        final int delay = _r.nextInt(60); // seconds
+        final int delay = _r.nextInt(40); // seconds
         scheduler.scheduleWithFixedDelay(new Runnable() {
             @Override
             public void run() {
                 try {
                     newDataNodes();
-                } catch (Exception e) {
-                    logger.error("Exception", e);
+                } catch (NSQException e) {
+                    logger.error("Error fetching data node. Process restarts in another round...", e);
                 }
             }
         }, delay, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
     }
 
-    private void newDataNodes() throws NSQLookupException {
+    private void newDataNodes() throws NSQException {
         //clear partitions does not valid(topic has no partition attached)
         lock.writeLock().lock();
         try {
             Set<Topic> brokenTopic = new HashSet<>();
-            for (Map.Entry<Topic, Partitions> pair : topic_2_partitions.entrySet()) {
+            for (Map.Entry<Topic, IPartitionsSelector> pair : topic_2_partitionsSelector.entrySet()) {
                 if (pair.getValue() == null) {
                     brokenTopic.add(pair.getKey());
                 }
             }
             for (Topic topic : brokenTopic) {
-                topic_2_partitions.remove(topic);
+                topic_2_partitionsSelector.remove(topic);
             }
         } finally {
             lock.writeLock().unlock();
@@ -103,7 +105,12 @@ public class NSQSimpleClient implements Client, Closeable {
         final Set<Topic> topics = new HashSet<>();
         try {
             lock.readLock().lock();
-            for (Topic topic : topic_2_partitions.keySet()) {
+            //not ant topic is subscribed. process ends
+            if(this.role == Role.Consumer && topic_2_partitionsSelector.size() == 0) {
+                logger.warn("No any subscribed topic is found, Consumer may not subscribe any topic. Data node updating process ends.");
+                return;
+            }
+            for (Topic topic : topic_2_partitionsSelector.keySet()) {
                 topics.add(topic);
             }
         } finally {
@@ -114,23 +121,39 @@ public class NSQSimpleClient implements Client, Closeable {
         final Set<Address> newDataNodes = new HashSet<>();
         for (Topic topic : topics) {
             try {
-                final Partitions newPartitions = lookup.lookup(topic);
-                //update partition mapping topic -> address
-                if (null != newPartitions && newPartitions.hasAnyDataNodes()) {
-                    newDataNodes.addAll(newPartitions.getAllDataNodes());
-                    try {
-                        lock.writeLock().lock();
-                        //topic partition update
-                        topic_2_partitions.put(topic, newPartitions);
-                    } finally {
-                        lock.writeLock().unlock();
-                    }
-                } else {
-                    logger.info("Having got an empty data nodes from topic: {}", topic);
+                final IPartitionsSelector aPs = lookup.lookup(topic, this.useLocalLookupd);
+                if(null == aPs){
+                    logger.warn("No fit partition data found for topic: {}.", topic.getTopicText());
+                    continue;
                 }
+                //dump all partitions in one partitions selector
+                Partitions[] allPartitions = aPs.dumpAllPartitions();
+                for(Partitions aPartitions:allPartitions) {
+                    //update partition mapping topic -> address
+                    if (null != aPartitions && aPartitions.hasAnyDataNodes()) {
+                        newDataNodes.addAll(aPartitions.getAllDataNodes());
+                        try {
+                            lock.writeLock().lock();
+                            //topic partition update
+                            //TODO: set cluster info when SeedLookupAddress is create for current topic, not here
+                            topic_2_partitionsSelector.put(topic, aPs);
+                        } finally {
+                            lock.writeLock().unlock();
+                        }
+                    } else {
+                        logger.info("Having got an empty data nodes from topic: {}", topic);
+                    }
+                }
+            } catch(NSQLookupException e){
+                logger.warn("Could not fetch lookup info for topic: {} at this moment, lookup info may not be ready.", topic);
             } catch (Exception e) {
                 logger.error("Exception", e);
             }
+        }
+
+        if (0 == newDataNodes.size()) {
+            logger.error("No any data node found for NSQ client.");
+            return;
         }
 
         try {
@@ -148,9 +171,9 @@ public class NSQSimpleClient implements Client, Closeable {
         }
         try {
             lock.writeLock().lock();
-            if (!topic_2_partitions.containsKey(topic)) {
-                final Partitions empty = new Partitions(topic);
-                topic_2_partitions.put(topic, empty);
+            if (!topic_2_partitionsSelector.containsKey(topic)) {
+                final IPartitionsSelector empty = new SimplePartitionsSelector(null);
+                topic_2_partitionsSelector.put(topic, empty);
             }
         } finally {
             lock.writeLock().unlock();
@@ -163,7 +186,7 @@ public class NSQSimpleClient implements Client, Closeable {
         }
         lock.writeLock().lock();
         try {
-            topic_2_partitions.remove(topic);
+            topic_2_partitionsSelector.remove(topic);
         } finally {
             lock.writeLock().unlock();
         }
@@ -171,14 +194,15 @@ public class NSQSimpleClient implements Client, Closeable {
 
     /**
      * remove multiple topics from simple client, invoker of this function needs to make sure pass in topics are valid
+     *
      * @param topics
      */
     public void removeTopics(final Collection<Topic> topics) {
         assert null != topics;
         lock.writeLock().lock();
         try {
-            for(Topic topic:topics)
-                topic_2_partitions.remove(topic);
+            for (Topic topic : topics)
+                topic_2_partitionsSelector.remove(topic);
         } finally {
             lock.writeLock().unlock();
         }
@@ -209,7 +233,7 @@ public class NSQSimpleClient implements Client, Closeable {
                     logger.error("Address: {}, Exception:", conn.getAddress(), e);
                 }
                 logger.warn("Error-Frame from {} , frame: {}", conn.getAddress(), frame);
-                if(conn.getConfig().isConsumerSlowStart()) {
+                if (conn.getConfig().isConsumerSlowStart()) {
                     int currentRdyCnt = RdySpectrum.decrease(conn, conn.getCurrentRdyCount(), conn.getCurrentRdyCount() - 1);
                     conn.setCurrentRdyCount(currentRdyCnt);
                 }
@@ -231,54 +255,76 @@ public class NSQSimpleClient implements Client, Closeable {
         conn.command(new Rdy(0));
     }
 
-    public Address[] getPartitionNodes(Topic topic, long topicShardingID) throws NSQException {
-        Partitions first = null;
-        Partitions partitions;
-        Address[] nodes = new Address[0];
+    public Address[] getPartitionNodes(Topic topic, long topicShardingID, boolean write) throws NSQException {
+        IPartitionsSelector aPs;
+        List<Address> nodes = new ArrayList<>();
         lock.readLock().lock();
         try {
-            partitions = topic_2_partitions.get(topic);
-            //what is a valid Partitions
-            if(null != partitions && partitions.hasAnyDataNodes()){
-                //for partitions
-                if(partitions.hasPartitionDataNodes() && topicShardingID >= 0){
-                    int partitionNum = partitions.getPartitionNum();
-                    int partitionId = topic.updatePartitionIndex(topicShardingID, partitionNum);
-                    //index out of boundry
-                    Address addr = partitions.getPartitionAddress(partitionId);
-                    nodes = new Address[]{addr};
-                //all data nodes
-                } else if(topicShardingID < 0){
-                    List<Address> address = partitions.getAllDataNodes();
-                    nodes = address.toArray(new Address[0]);
+            aPs = topic_2_partitionsSelector.get(topic);
+            if(null != aPs) {
+                Partitions[] partitions;
+                if(write)
+                    partitions = new Partitions[]{aPs.choosePartitions()};
+                else
+                    partitions = aPs.dumpAllPartitions();
+                //if partitions returned from choose partitions, means there is only one Partitions
+                for(Partitions aPartitions : partitions) {
+                    //what is a valid Partitions
+                    if (null != aPartitions && aPartitions.hasAnyDataNodes()) {
+                        //for partitions
+                        if (write) {
+                            if (aPartitions.hasPartitionDataNodes() && topicShardingID >= 0) {
+                                int partitionNum = aPartitions.getPartitionNum();
+                                int partitionId = topic.updatePartitionIndex(topicShardingID, partitionNum);
+                                //index out of boundry
+                                Address addr = aPartitions.getPartitionAddress(partitionId);
+                                nodes.add(addr);
+                                //all data nodes
+                            } else if (topicShardingID < 0) {
+                                List<Address> address = aPartitions.getAllDataNodes();
+                                nodes.addAll(address);
+                            }
+                        } else {
+                            if (aPartitions.hasPartitionDataNodes() && topic.hasPartition()) {
+                                Address addr = aPartitions.getPartitionAddress(topic.getPartitionId());
+                                nodes.add(addr);
+                            } else {
+                                //read from all data nodes
+                                List<Address> address = aPartitions.getAllDataNodes();
+                                nodes.addAll(address);
+                            }
+                        }
+                    }
                 }
-                return nodes;
+                return nodes.toArray(new Address[0]);
             }
-            first = lookup.lookup(topic);
+            aPs = lookup.lookup(topic, this.useLocalLookupd);
         } finally {
             lock.readLock().unlock();
         }
         //uses first to update existing Partitions
-        if (null != first) {
-            lock.writeLock().lock();
+        if (null != aPs) {
             try {
-                topic_2_partitions.put(topic, first);
-                //for partitions
-                if(first.hasPartitionDataNodes() && topicShardingID >= 0){
-                    int partitionNum = first.getPartitionNum();
-                    int partitionId = topic.updatePartitionIndex(topicShardingID, partitionNum);
-                    //index out of boundry
-                    Address addr = first.getPartitionAddress(partitionId);
-                    nodes = new Address[]{addr};
-                    //all data nodes
-                } else if(topicShardingID < 0){
-                    List<Address> address = first.getAllDataNodes();
-                    nodes = address.toArray(new Address[0]);
+                lock.writeLock().lock();
+                topic_2_partitionsSelector.put(topic, aPs);
+                for (Partitions aPartitions : aPs.dumpAllPartitions()) {
+                    //for partitions
+                    if (aPartitions.hasPartitionDataNodes() && topicShardingID >= 0) {
+                        int partitionNum = aPartitions.getPartitionNum();
+                        int partitionId = topic.updatePartitionIndex(topicShardingID, partitionNum);
+                        //index out of boundry
+                        Address addr = aPartitions.getPartitionAddress(partitionId);
+                        nodes.add(addr);
+                        //all data nodes
+                    } else if (topicShardingID < 0) {
+                        List<Address> address = aPartitions.getAllDataNodes();
+                        nodes.addAll(address);
+                    }
                 }
-                return nodes;
             } finally {
                 lock.writeLock().unlock();
             }
+            return nodes.toArray(new Address[0]);
         }
         throw new NSQInvalidTopicException(topic.getTopicText());
     }
