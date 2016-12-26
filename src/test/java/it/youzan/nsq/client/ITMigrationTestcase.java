@@ -291,7 +291,7 @@ public class ITMigrationTestcase {
 
     @AfterMethod
     public void release() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
-        System.clearProperty("nsq.configs.configFilePath");
+        System.clearProperty("nsq.sdk.configFilePath");
         Method method = ConfigAccessAgent.class.getDeclaredMethod("release");
         method.setAccessible(true);
         method.invoke(agent);

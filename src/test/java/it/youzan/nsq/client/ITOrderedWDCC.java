@@ -1,6 +1,7 @@
 package it.youzan.nsq.client;
 
 import com.youzan.nsq.client.*;
+import com.youzan.nsq.client.configs.ConfigAccessAgent;
 import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
@@ -9,9 +10,12 @@ import com.youzan.nsq.client.exception.NSQException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -80,5 +84,12 @@ public class ITOrderedWDCC {
         consumer.start();
         Assert.assertTrue(latch.await(3, TimeUnit.MINUTES));
         consumer.close();
+    }
+
+    @AfterMethod
+    public void release() throws InvocationTargetException, IllegalAccessException, NoSuchMethodException {
+        Method method = ConfigAccessAgent.class.getDeclaredMethod("release");
+        method.setAccessible(true);
+        method.invoke(ConfigAccessAgent.getInstance());
     }
 }

@@ -28,7 +28,7 @@ public abstract class ConfigAccessAgent implements Closeable {
     private static Properties props = null;
 
     //configs config file path for nsq sdk
-    static final String NSQDCCCONFIGPRO = "nsq.configs.configFilePath";
+    static final String NSQDCCCONFIGPRO = "nsq.sdk.configFilePath";
     private static final String CONFIG_ACCESS_CLASSNAME = "nsq.sdk.configAccessClass";
 
     public static ConfigAccessAgent getInstance() {
@@ -115,6 +115,7 @@ public abstract class ConfigAccessAgent implements Closeable {
     }
 
     public static String getProperty(String key) {
+//        getInstance();
         return props.getProperty(key);
     }
 

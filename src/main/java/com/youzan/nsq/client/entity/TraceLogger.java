@@ -2,7 +2,6 @@ package com.youzan.nsq.client.entity;
 
 import com.youzan.nsq.client.MessageMetadata;
 import com.youzan.nsq.client.Producer;
-import com.youzan.nsq.client.configs.ConfigAccessAgent;
 import com.youzan.nsq.client.core.Client;
 import com.youzan.nsq.client.core.NSQConnection;
 import org.slf4j.Logger;
@@ -14,8 +13,8 @@ import org.slf4j.LoggerFactory;
 public class TraceLogger {
    private static final Logger logger = LoggerFactory.getLogger(TraceLogger.class);
 
-   public static final String TRACE_LOGGER_NAME = ConfigAccessAgent.getProperty("nsq.sdk.message.trace.log");
-   private static final Logger trace = LoggerFactory.getLogger(null == TRACE_LOGGER_NAME ? "nsq.sdk.message.trace" : TRACE_LOGGER_NAME);
+//   public static final String TRACE_LOGGER_NAME = ConfigAccessAgent.getProperty("nsq.sdk.message.trace.log");
+   private static final Logger trace = LoggerFactory.getLogger("nsq.sdk.message.trace");
 
    private static final String DEFAULT_MSG_REV_TRACE_FORMAT = "Client: %s <= NSQd: %s\n\tMessage meta-data: %s";
    private static final String DEFAULT_MSG_SEN_TRACE_FORMAT = "Client: %s => NSQd: %s\n\tMessage meta-data: %s";

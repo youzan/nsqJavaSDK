@@ -49,19 +49,13 @@ public class ITPubConfigAccess {
     public void init() throws IOException {
         logger.info("init of [ITPubConfigAccess].");
         logger.info("Initialize ConfigAccessAgent from system specified config.");
-        System.setProperty("nsq.configs.configFilePath", "src/test/resources/configClientTest.properties");
+        System.setProperty("nsq.sdk.configFilePath", "src/test/resources/configClientTest.properties");
         //load properties from configClientTest.properties
         InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties");
         Properties proTest = new Properties();
         proTest.load(is);
         is.close();
         //initialize system property form config client properties
-        String configPath = proTest.getProperty("configClientPath.test");
-        System.setProperty("nsq.sdk.configFilePath", configPath);
-
-        Path configFielPath = Paths.get(configPath);
-        is = Files.newInputStream(configFielPath.toAbsolutePath(), StandardOpenOption.READ);
-        props.load(is);
         logger.info("init of [ConfigAccessAgentTestcase] ends.");
     }
 

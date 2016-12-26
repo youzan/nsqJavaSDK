@@ -152,7 +152,7 @@ public class NSQSimpleClient implements Client, Closeable {
         }
 
         if (0 == newDataNodes.size()) {
-            logger.error("No any data node found for NSQ client.");
+            logger.warn("No any data node found for NSQ client.");
             return;
         }
 
