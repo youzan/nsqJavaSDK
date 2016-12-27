@@ -10,14 +10,14 @@ import com.youzan.dcc.client.entity.config.interfaces.IResponseCallback;
 import com.youzan.dcc.client.exceptions.ConfigParserException;
 import com.youzan.dcc.client.exceptions.InvalidConfigException;
 import com.youzan.dcc.client.util.inetrfaces.ClientConfig;
-import com.youzan.nsq.client.entity.NSQConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
 /**
  * DCCConfigAccessAgent, which send config request to configs remote with configs client configs in configClient.properties
@@ -38,11 +38,8 @@ public class DCCConfigAccessAgent extends ConfigAccessAgent {
     private static String backupPath;
     private static String env;
 
-    static {
-        initDCCConfig();
-    }
-
     public DCCConfigAccessAgent() throws IOException {
+        initClientConfig();
         ClientConfig dccConfig = new ClientConfig();
         //setup client config
         DCCConfigAccessAgent.dccClient = ConfigClientBuilder.create()
@@ -163,50 +160,11 @@ public class DCCConfigAccessAgent extends ConfigAccessAgent {
     }
 
     /**
-     * function to initialize configs lookup properties, function tries to file something to read properties from in
-     * following order, default config file name is "clientConfig.properties":
-     * 1. try search default config file in classpath;
-     * 2. If #1 fails, try get config file path from system properties, the try loading properties from that path
-     */
-    private static void initDCCConfig() {
-        InputStream is = null;
-        try {
-            is = NSQConfig.loadClientConfigInputStream();
-            if (null != is) {
-                initClientConfig(is);
-            } else {
-                logger.warn("Could not load properties for config server access configuration. Make sure User define a valid location of configClient.properties.");
-                throw new RuntimeException();
-            }
-        } catch (FileNotFoundException configNotFoundE) {
-            logger.warn("Config properties for nsq sdk to configs not found. Make sure properties file located under {} system property", NSQDCCCONFIGPRO);
-            throw new RuntimeException(configNotFoundE);
-        } catch (IOException IOE) {
-            logger.error("Could not load properties from nsq config properties to initialize DCCConfigAccessAgent.");
-            throw new RuntimeException(IOE);
-        } catch (Exception e){
-            logger.error("Error initializing configs to DCC client.", e);
-        }
-        finally {
-            try {
-                if (null != is)
-                    is.close();
-            } catch (IOException e) {
-                //swallow it
-            }
-        }
-    }
-
-    /**
      * initialize config client properties.
      *
-     * @param is
      * @throws IOException
      */
-    private static void initClientConfig(final InputStream is) throws IOException {
-        Properties props = new Properties();
-        props.load(is);
-
+    private static void initClientConfig() throws IOException {
         //1.fixed properties initialization
         //1.1 config app
 //        String app = props.getProperty(NSQ_APP_VAL_PRO);
@@ -218,14 +176,26 @@ public class DCCConfigAccessAgent extends ConfigAccessAgent {
 
         //1.2 config client backup file
         backupPath = props.getProperty(NSQ_DCCCONFIG_BACKUP_PATH);
+
+        String customizedBackup = ConfigAccessAgent.getConfigAccessAgentBackupPath();
+        if(null != customizedBackup && !customizedBackup.isEmpty()){
+            logger.info("initialize backupPath with user specified value {}.", customizedBackup);
+            backupPath = customizedBackup;
+        }
         assert null != backupPath;
         logger.info("configs backup path: {}", backupPath);
 
         //1.3 nsq sdk env, which is also the env of nsq sdk
-        env = NSQConfig.getSDKEnv();
+        env = props.getProperty(NSQ_DCCCONFIG_ENV);
+        String customizedEnv = ConfigAccessAgent.getEnv();
+        if(null != customizedEnv && !customizedEnv.isEmpty()){
+            logger.info("initialize config access remote urls with user specified value {}.",customizedEnv);
+            env = customizedEnv;
+        }
         assert null != env;
-        urls = NSQConfig.getConfigAccessRemotes();
-        if(null == urls) {
+
+        urls = ConfigAccessAgent.getConfigAccessRemotes();
+        if(null == urls || urls.length == 0) {
             //1.4 config server urls, initialized based on sdk env
             String urlsKey = String.format(NSQ_DCCCONFIG_URLS, env);
             urls = props.getProperty(urlsKey)

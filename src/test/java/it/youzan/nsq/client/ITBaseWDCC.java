@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.InvocationTargetException;
@@ -25,7 +26,7 @@ public class ITBaseWDCC {
     private final static Logger logger = LoggerFactory.getLogger(ITBaseWDCC.class);
 
 
-    @BeforeClass
+    @BeforeMethod
     public void init() {
         /*
          * 配置全局NSQ配置变量,此处展示通过代码配置的一部分,
@@ -33,54 +34,17 @@ public class ITBaseWDCC {
          * 2. 指定Config access remote的地址,此处指定DCC的地址;
          * note: 必须在实例化NSQ Client之前设置全局变量。
          */
-        NSQConfig.setSDKEnv("prod");
-        NSQConfig.setConfigAccessRemotes("http://10.9.7.75:8089");
-    }
-
-    @Test(dependsOnMethods = {"testProduce"})
-    public void testConsume() throws NSQException, InterruptedException {
-        final CountDownLatch latch = new CountDownLatch(1);
-        //实例化consumer端的配置对象,使用带有channel name的构造函数
-        NSQConfig configConsume = new NSQConfig("BaseConsumer");
-        //connection pool size in Producer size and event pool size in Conusmer size
-        configConsume
-                //TCP 链接超时
-                .setConnectTimeoutInMillisecond(500)
-                //thread io size for nio event pool
-                .setThreadPoolSize4IO(Runtime.getRuntime().availableProcessors())
-                //设置Rdy大小
-                .setRdy(1);
-
-        final AtomicInteger cnt = new AtomicInteger(0);
-        Consumer consumer = new ConsumerImplV2(configConsume, new MessageHandler() {
-            @Override
-            public void process(NSQMessage message) {
-                //在此定义用户的消息处理逻辑
-                int count = cnt.incrementAndGet();
-                if(300 == count)
-                    latch.countDown();
-            }
-        });
-        //auto finish,默认开启
-        //consumer.setAutoFinish(true);
-        //创建topic消费
-        Topic aTopic = new Topic("JavaTesting-Producer-Base");
-        consumer.subscribe(aTopic);
-        //启动consumer
-        consumer.start();
-        //other logic....
-        latch.await(2, TimeUnit.MINUTES);
-        //关闭 consumer
-        consumer.close();
-        Assert.assertEquals(300, cnt.get());
-        logger.info("Received {} message(s).", cnt.get());
+        ConfigAccessAgent.setEnv("prod");
+        ConfigAccessAgent.setConfigAccessRemotes("http://10.9.7.75:8089");
     }
 
     @Test
-    public void testProduce() throws NSQException {
+    public void test() throws NSQException, InterruptedException {
         //实例化producer端的配置对象
         NSQConfig configProducer = new NSQConfig();
         configProducer
+                .setUserSpecifiedLookupAddress(true)
+                .setLookupAddresses("http://sqs-qa.s.qima-inc.com:4161")
                 .setConnectTimeoutInMillisecond(500)
                 .setThreadPoolSize4IO(Runtime.getRuntime().availableProcessors())
                 .setRdy(1);
@@ -107,10 +71,50 @@ public class ITBaseWDCC {
 
         //关闭Producer
         producer.close();
+
+        final CountDownLatch latch = new CountDownLatch(1);
+        //实例化consumer端的配置对象,使用带有channel name的构造函数
+        NSQConfig configConsume = new NSQConfig("BaseConsumer");
+        //connection pool size in Producer size and event pool size in Conusmer size
+        configConsume
+                .setUserSpecifiedLookupAddress(true)
+                .setLookupAddresses("http://sqs-qa.s.qima-inc.com:4161")
+                //TCP 链接超时
+                .setConnectTimeoutInMillisecond(500)
+                //thread io size for nio event pool
+                .setThreadPoolSize4IO(Runtime.getRuntime().availableProcessors())
+                //设置Rdy大小
+                .setRdy(1);
+
+        final AtomicInteger cnt = new AtomicInteger(0);
+        Consumer consumer = new ConsumerImplV2(configConsume, new MessageHandler() {
+            @Override
+            public void process(NSQMessage message) {
+                //在此定义用户的消息处理逻辑
+                int count = cnt.incrementAndGet();
+                if(300 == count)
+                    latch.countDown();
+            }
+        });
+        //auto finish,默认开启
+        //consumer.setAutoFinish(true);
+        //创建topic消费
+        consumer.subscribe(aTopic);
+        //启动consumer
+        consumer.start();
+        //other logic....
+        latch.await(2, TimeUnit.MINUTES);
+        //关闭 consumer
+        consumer.close();
+        Assert.assertEquals(cnt.get(), 300);
+        logger.info("Received {} message(s).", cnt.get());
     }
+
+
 
     @AfterMethod
     public void release() throws InvocationTargetException, IllegalAccessException, NoSuchMethodException {
+        System.clearProperty("nsq.sdk.configFilePath");
         Method method = ConfigAccessAgent.class.getDeclaredMethod("release");
         method.setAccessible(true);
         method.invoke(ConfigAccessAgent.getInstance());

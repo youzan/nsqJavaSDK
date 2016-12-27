@@ -3,6 +3,7 @@ package it.youzan.nsq.client;
 import com.youzan.nsq.client.ConsumerImplV2;
 import com.youzan.nsq.client.MessageHandler;
 import com.youzan.nsq.client.entity.NSQMessage;
+import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,7 +48,9 @@ public class ITConsumerOrdered extends AbstractITConsumer {
             }
         });
         consumer.setAutoFinish(true);
-        consumer.subscribe("JavaTesting-Order");
+        Topic aTopic = new Topic("JavaTesting-Order");
+        aTopic.setPartitionID(1);
+        consumer.subscribe(aTopic);
         consumer.start();
         Assert.assertTrue(latch.await(3, TimeUnit.MINUTES));
         Assert.assertFalse(fail.get());

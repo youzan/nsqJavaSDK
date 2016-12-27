@@ -8,6 +8,8 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Properties;
 import java.util.SortedMap;
 
@@ -24,12 +26,41 @@ public abstract class ConfigAccessAgent implements Closeable {
     private static ConfigAccessAgent INSTANCE = null;
 
     private static Class<? extends ConfigAccessAgent> CAA_CLAZZ;
+    private static String env;
+    private static String configAccessRemotes;
+    private static String backupFilePath;
     //config access agent properties
-    private static Properties props = null;
+    protected static Properties props = null;
 
     //configs config file path for nsq sdk
     static final String NSQDCCCONFIGPRO = "nsq.sdk.configFilePath";
     private static final String CONFIG_ACCESS_CLASSNAME = "nsq.sdk.configAccessClass";
+
+    //property of environment
+    protected static final String NSQ_DCCCONFIG_ENV = "nsq.sdk.env";
+
+    //default config file name, user is allow to use another by setting $nsq.configs.configFilePath
+    private static final String dccConfigFile = "configClient.properties";
+
+    public static void setConfigAccessAgentBackupPath(String path) {
+        ConfigAccessAgent.backupFilePath = path;
+    }
+
+    public static String getConfigAccessAgentBackupPath() {
+        return ConfigAccessAgent.backupFilePath;
+    }
+
+    /**
+     * set the environment value of config client
+     * @param env
+     */
+    public static void setEnv(String env){
+        ConfigAccessAgent.env = env;
+    }
+
+    public static String getEnv(){
+        return ConfigAccessAgent.env;
+    }
 
     public static ConfigAccessAgent getInstance() {
         if (null == INSTANCE) {
@@ -55,6 +86,28 @@ public abstract class ConfigAccessAgent implements Closeable {
     }
 
     /**
+     * Update config access urls. By default, NSQ sdk pick what is defined in nested client config properties file for
+     * config access remote urls. if user set config access remotes with this function, sdk uses pass in config access
+     * remotes before initialize config access agent.
+     * Note: pls invoke this function BEFORE starting any NSQ client({@link com.youzan.nsq.client.Producer}, {@link com.youzan.nsq.client.Consumer})
+     * @param configAccessRemotes config access remotes, separated by comma.
+     */
+    public static void setConfigAccessRemotes(String configAccessRemotes){
+        ConfigAccessAgent.configAccessRemotes = configAccessRemotes;
+    }
+
+    public static String[] getConfigAccessRemotes() {
+        if(null != ConfigAccessAgent.configAccessRemotes)
+            return ConfigAccessAgent.configAccessRemotes.split(",");
+        return null;
+    }
+
+
+    public void finalize() {
+        ConfigAccessAgent.release();
+    }
+
+    /**
      * release resources allocated by ConfigAccessAgent
      */
     private static void release() {
@@ -64,6 +117,9 @@ public abstract class ConfigAccessAgent implements Closeable {
                     INSTANCE = null;
                     CAA_CLAZZ = null;
                     props = null;
+                    env = null;
+                    configAccessRemotes = null;
+                    backupFilePath = null;
                 }
             }
         }
@@ -72,7 +128,7 @@ public abstract class ConfigAccessAgent implements Closeable {
     private static void initConfigAccessAgentProperties() {
         InputStream is = null;
         try {
-            is = NSQConfig.loadClientConfigInputStream();
+            is = loadClientConfigInputStream();
             props = new Properties();
             props.load(is);
         } catch (FileNotFoundException configNotFoundE) {
@@ -92,8 +148,6 @@ public abstract class ConfigAccessAgent implements Closeable {
 
     //load config access agent class according to configClient.properties
     private static void initConfigAccessAgentClass() {
-        //touch NSQConfig to initialize sdk environment var
-        String env = NSQConfig.getSDKEnv();
         try {
             //load class
             String clzName = props.getProperty(CONFIG_ACCESS_CLASSNAME);
@@ -114,8 +168,32 @@ public abstract class ConfigAccessAgent implements Closeable {
         logger.info("ConfigAccessAgentClass: {}", CAA_CLAZZ.getName());
     }
 
+    public static InputStream loadClientConfigInputStream(){
+        //read from system config
+        InputStream is = null;
+        String dccConfigProPath = System.getProperty(NSQDCCCONFIGPRO);
+        try {
+            if (null != dccConfigProPath) {
+                Path path = Paths.get(dccConfigProPath);
+                is = new FileInputStream(path.toAbsolutePath().toString());
+            } else
+                logger.info("{} property from system not specified.", NSQDCCCONFIGPRO);
+        }catch (FileNotFoundException e) {
+            logger.warn("Could not find config access properties file from {} System property.", NSQDCCCONFIGPRO);
+        }
+        //try default location
+        if(null == is){
+            is = NSQConfig.class.getClassLoader()
+                    .getResourceAsStream(dccConfigFile);
+        }
+        if(null == is) {
+            logger.error("Could not load config access properties from client config properties file.");
+            throw new RuntimeException("Could not load config access properties from client config properties file.");
+        }
+        return is;
+    }
+
     public static String getProperty(String key) {
-//        getInstance();
         return props.getProperty(key);
     }
 

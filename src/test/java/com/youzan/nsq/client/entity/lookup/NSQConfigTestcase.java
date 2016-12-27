@@ -32,7 +32,7 @@ public class NSQConfigTestcase {
     @Test
     public void testSetDCCUrlsInNSQConfig() {
         String dumyUrl = "http://invalid.dcc.url:1234";
-        NSQConfig.setConfigAccessRemotes(dumyUrl);
+        ConfigAccessAgent.setConfigAccessRemotes(dumyUrl);
         NSQConfig config = new NSQConfig();
         DCCConfigAccessAgent agent = (DCCConfigAccessAgent) ConfigAccessAgent.getInstance();
         Assert.assertEquals(dumyUrl, DCCConfigAccessAgent.getUrls()[0]);

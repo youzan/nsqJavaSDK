@@ -10,6 +10,7 @@ import com.youzan.nsq.client.entity.Topic;
 public class TopicRuleCategory implements ITopicRuleCategory {
     public static final String TOPIC_CATEGORIZATION_USER_SPECIFIED = "categorization.sdk.nsq.default";
     public static final String TOPIC_CATEGORIZATION_SUFFIX = "%s.nsq.lookupd.addr:%s";
+    private static final String TOPIC_BINLOG_PATTERN = "binlog_";
 
     private final Role role;
 
@@ -50,10 +51,20 @@ public class TopicRuleCategory implements ITopicRuleCategory {
 
     //TODO: what is final solution
     private String trimTopic(String topicText) {
-        String[] parts = topicText.split("\\.", 2);
-        if (null != parts && parts.length > 0)
-            return parts[0];
-        else
+        if(null  ==  topicText || topicText.isEmpty())
+            throw new IllegalArgumentException("pass in topic text should not be empty");
+        String[] parts;
+        if(topicText.startsWith(TOPIC_BINLOG_PATTERN)){
+            parts = topicText.split("_", 3);
+        }else{
+            parts = topicText.split("_", 2);
+        }
+        if (null != parts && parts.length > 0) {
+            if(topicText.startsWith(TOPIC_BINLOG_PATTERN))
+                return TOPIC_BINLOG_PATTERN + parts[1];
+            else
+                return parts[0];
+        }else
             return topicText;
     }
 }

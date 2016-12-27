@@ -24,7 +24,6 @@ public class ITProducerOrdered {
     private static final Logger logger = LoggerFactory.getLogger(ITProducerOrdered.class);
     private NSQConfig config = new NSQConfig();
     private Producer producer;
-    final Random random = new Random();
 
     @BeforeClass
     public void init() throws Exception {
@@ -54,9 +53,10 @@ public class ITProducerOrdered {
         Topic topic = new Topic("JavaTesting-Order");
         for (int i = 0; i < 100; i++) {
             String message = ("Message #" + i);
-            Message msg = Message.create(new Topic("JavaTesting-Order"), 1024L, message)
+            Message msg = Message.create(topic, 1024L, message)
                     .setTopicShardingID(123L);
             producer.publish(msg);
         }
+        producer.close();
     }
 }

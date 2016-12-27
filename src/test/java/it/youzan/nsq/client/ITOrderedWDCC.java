@@ -10,6 +10,7 @@ import com.youzan.nsq.client.exception.NSQException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -26,12 +27,12 @@ public class ITOrderedWDCC {
     @BeforeClass
     public void init() {
         //指定config access全局配置
-        NSQConfig.setSDKEnv("prod");
-        NSQConfig.setConfigAccessRemotes("http://10.9.7.75:8089");
+        ConfigAccessAgent.setEnv("prod");
+        ConfigAccessAgent.setConfigAccessRemotes("http://10.9.7.75:8089");
     }
 
     @Test
-    public void testProduceOrder() throws NSQException {
+    public void test() throws NSQException, InterruptedException {
         NSQConfig configProduce = new NSQConfig();
         Producer producer  = new ProducerImplV2(configProduce);
         producer.start();
@@ -62,31 +63,27 @@ public class ITOrderedWDCC {
 
         //关闭producer
         producer.close();
-    }
-
-    @Test(dependsOnMethods = {"testProduceOrder"})
-    public void testConsumeOrder() throws NSQException, InterruptedException {
         NSQConfig configConsume = new NSQConfig("BaseConsumer");
         //打开SubOrder标志位
         configConsume.setOrdered(true);
-        Topic aTopic = new Topic("JavaTesting-Order");
-        final CountDownLatch latch = new CountDownLatch(400);
+        aTopic = new Topic("JavaTesting-Order");
+        final CountDownLatch consumeLatch = new CountDownLatch(400);
         Consumer consumer = new ConsumerImplV2(configConsume, new MessageHandler() {
             @Override
             public void process(NSQMessage message) {
                 logger.info(message.getReadableContent());
-                latch.countDown();
+                consumeLatch.countDown();
             }
         });
         //指定消费的partition ID,默认情况下不指定,将消费topic下全部可用分区
         //aTopic.setPartitionID(1);
         consumer.subscribe(aTopic);
         consumer.start();
-        Assert.assertTrue(latch.await(3, TimeUnit.MINUTES));
+        Assert.assertTrue(consumeLatch.await(3, TimeUnit.MINUTES));
         consumer.close();
     }
 
-    @AfterMethod
+    @AfterClass
     public void release() throws InvocationTargetException, IllegalAccessException, NoSuchMethodException {
         Method method = ConfigAccessAgent.class.getDeclaredMethod("release");
         method.setAccessible(true);

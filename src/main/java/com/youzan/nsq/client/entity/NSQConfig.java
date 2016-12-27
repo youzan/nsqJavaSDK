@@ -30,7 +30,6 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private static final long serialVersionUID = 6624842850216901700L;
     private static final Logger logger = LoggerFactory.getLogger(NSQConfig.class);
 
-    private static String sdkEnv;
     private boolean havingMonitoring = false;
 
     private enum Compression {
@@ -63,7 +62,6 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private boolean featureNegotiation;
     private boolean slowStart = true;
     private boolean userSpecifiedLookupd = false;
-    private static String configAccessRemotes;
     /*-
      * =========================================================================
      *                             All of Timeout
@@ -102,22 +100,6 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      */
 
     /*-
-     * ==========================configs properties=================================
-     */
-    //default config file name, user is allow to use another by setting $nsq.configs.configFilePath
-    private static final String dccConfigFile = "configClient.properties";
-    //configs config file path for nsq sdk
-    private static final String NSQDCCCONFIGPRO = "nsq.sdk.configFilePath";
-    //property of environemnt
-    private static final String NSQ_DCCCONFIG_ENV = "nsq.sdk.env";
-
-    /*-
-     *  ==================configs configure-able objects, urls to configs and client config==========================
-     *  make them static so that one process has unified configs config.
-     */
-    private static String[] urls;
-
-    /*-
      * ==========================configs agent for lookup discovery=================
      */
     private Integer heartbeatIntervalInMillisecond = null;
@@ -133,11 +115,6 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private SslContext sslContext = null;
     private int rdy = 3;
 
-    //Use system properties to initialize config client config
-    static {
-        initSDKEnv();
-    }
-
     /**
      * NSQConfig constructor for {@link com.youzan.nsq.client.Producer}.
      */
@@ -151,7 +128,6 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         }
     }
 
-    @SuppressWarnings("deprecation")
     /**
      * NSQConfig constructor for {@link com.youzan.nsq.client.Consumer}.
      * @param consumerName  channel name for consumer.
@@ -169,70 +145,6 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     public NSQConfig setUserSpecifiedLookupAddress(boolean userLookupod) {
         this.userSpecifiedLookupd = userLookupod;
         return this;
-    }
-
-    /**
-     * Update config access urls. By default, NSQ sdk pick what is defined in nested client config properties file for
-     * config access remote urls. if user set config access remotes with this function, sdk uses pass in config access
-     * remotes before initialize config access agent.
-     * Note: pls invoke this function BEFORE starting any NSQ client({@link com.youzan.nsq.client.Producer}, {@link com.youzan.nsq.client.Consumer})
-     * @param configAccessRemotes config access remotes, separated by comma.
-     */
-    public static void setConfigAccessRemotes(String configAccessRemotes){
-        NSQConfig.configAccessRemotes = configAccessRemotes;
-    }
-
-    public static String[] getConfigAccessRemotes() {
-        if(null != NSQConfig.configAccessRemotes)
-            return NSQConfig.configAccessRemotes.split(",");
-        return null;
-    }
-
-    private static void initSDKEnv() {
-        //read from system property first
-        String envSys = System.getProperty(NSQ_DCCCONFIG_ENV);
-        if(null == envSys) {
-            //read from system config
-            InputStream is = loadClientConfigInputStream();
-            Properties props = new Properties();
-            try {
-                props.load(is);
-                String env = props.getProperty(NSQ_DCCCONFIG_ENV);
-                if(null == env)
-                    logger.error("Could not find {} in config access file. Pls check configClient.properties file.");
-                else {
-                    sdkEnv = env;
-                    logger.info("NSQ sdk works in {}.", sdkEnv);
-                }
-            } catch (IOException e) {
-                logger.error("Could load NSQ sdk environment from config access properties file.", e);
-            }
-        }
-    }
-
-    public static InputStream loadClientConfigInputStream(){
-        //read from system config
-        InputStream is = null;
-        String dccConfigProPath = System.getProperty(NSQDCCCONFIGPRO);
-        try {
-            if (null != dccConfigProPath) {
-                Path path = Paths.get(dccConfigProPath);
-                is = new FileInputStream(path.toAbsolutePath().toString());
-            } else
-                logger.info("{} property from system not specified.", NSQDCCCONFIGPRO);
-        }catch (FileNotFoundException e) {
-            logger.warn("Could not find config access properties file from {} System property.", NSQDCCCONFIGPRO);
-        }
-        //try default location
-        if(null == is){
-            is = NSQConfig.class.getClassLoader()
-                    .getResourceAsStream(dccConfigFile);
-        }
-        if(null == is) {
-            logger.error("Could not load config access properties from client config properties file.");
-            throw new RuntimeException("Could not load config access properties from client config properties file.");
-        }
-        return is;
     }
 
     /**
@@ -600,22 +512,6 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     private static Logger getLogger() {
         return logger;
-    }
-
-    /**
-     * set the environment value of config client
-     * @param env
-     */
-    public static void setSDKEnv(String env){
-        sdkEnv = env;
-    }
-
-    public static String getSDKEnv(){
-        return sdkEnv;
-    }
-
-    public static String[] getConfigServerUrls(){
-        return urls;
     }
 
     public boolean isConsumerSlowStart() {

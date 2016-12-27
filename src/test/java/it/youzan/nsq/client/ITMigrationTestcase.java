@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -32,7 +33,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class ITMigrationTestcase {
     private static final Logger logger = LoggerFactory.getLogger(ITMigrationTestcase.class);
-    private static final Properties props = new Properties();
+    private static Properties props;
 
     //old config points to nsq cluster, for producer only
     private NSQConfig oldConfig;
@@ -40,8 +41,9 @@ public class ITMigrationTestcase {
     private NSQConfig newConfig;
     private ConfigAccessAgent agent = null;
 
-    @BeforeClass
+    @BeforeMethod
     public void init() throws IOException {
+        props = new Properties();
         logger.info("At {} , initialize: {}", System.currentTimeMillis(), this.getClass().getName());
         try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {
             props.load(is);
