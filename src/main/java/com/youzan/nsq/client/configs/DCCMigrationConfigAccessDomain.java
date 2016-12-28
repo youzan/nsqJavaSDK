@@ -9,6 +9,7 @@ public class DCCMigrationConfigAccessDomain extends AbstractConfigAccessDomain<T
     private String domain;
 
     private static final String DOMAIN_SUFFIX = "%s.nsq.lookupd.addr";
+    private static final String TOPIC_BINLOG_PATTERN = "binlog_";
 
     public DCCMigrationConfigAccessDomain(Topic domain) {
         super(domain);
@@ -21,12 +22,21 @@ public class DCCMigrationConfigAccessDomain extends AbstractConfigAccessDomain<T
         return this.domain;
     }
 
-    //TODO: what is final solution
     private String trimTopic(String topicText) {
-        String[] parts = topicText.split("\\.", 2);
-        if (null != parts && parts.length > 0)
-            return parts[0];
-        else
+        if(null  ==  topicText || topicText.isEmpty())
+            throw new IllegalArgumentException("pass in topic text should not be empty");
+        String[] parts;
+        if(topicText.startsWith(TOPIC_BINLOG_PATTERN)){
+            parts = topicText.split("_", 3);
+        }else{
+            parts = topicText.split("_", 2);
+        }
+        if (null != parts && parts.length > 0) {
+            if(topicText.startsWith(TOPIC_BINLOG_PATTERN))
+                return TOPIC_BINLOG_PATTERN + parts[1];
+            else
+                return parts[0];
+        }else
             return topicText;
     }
 

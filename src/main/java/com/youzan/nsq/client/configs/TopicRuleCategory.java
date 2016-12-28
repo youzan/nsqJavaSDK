@@ -49,7 +49,6 @@ public class TopicRuleCategory implements ITopicRuleCategory {
         return String.format(TOPIC_CATEGORIZATION_SUFFIX, trimTopic(topic), this.role.getRoleTxt());
     }
 
-    //TODO: what is final solution
     private String trimTopic(String topicText) {
         if(null  ==  topicText || topicText.isEmpty())
             throw new IllegalArgumentException("pass in topic text should not be empty");
