@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
+ * SeedLookupdAddress
  * Created by lin on 16/12/5.
  */
 public class SeedLookupdAddress extends AbstractLookupdAddress {
@@ -62,7 +63,7 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
         if (logger.isDebugEnabled())
             logger.debug("Begin to get the new lookup servers. From URL: {}", url);
         JsonNode tmpRootNode = null;
-        final List<String> newLookups = new ArrayList();
+        final List<String> newLookups = new ArrayList<>();
         URL lookupUrl;
         try {
             lookupUrl = new URL(url);

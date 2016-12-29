@@ -133,8 +133,8 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
     }
 
     /**
-     * function to fall back to user specified seed lookup address
-     * @param seedLookups
+     * function to set up user specified seed lookup address
+     * @param seedLookups seed lookup addresses specified from user API {@link NSQConfig#setLookupAddresses(String)}.
      */
     public void setUpDefaultSeedLookupConfig(final String[] seedLookups){
         if(null == seedLookups || seedLookups.length == 0) {
@@ -147,13 +147,15 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
             String defaultSeedsStr = generateSeedLookupdsJsonStr(seedLookups);
             String defaultSeedLookupCtrlCnfStr = String.format(DEFAULT_CONTROL_CONFIG, defaultSeedsStr);
             AbstractControlConfig ctrlCnf = AbstractControlConfig.create(defaultSeedLookupCtrlCnfStr);
-            aSeedLookUpConfig.putTopicCtrlCnf(formatCategorizationTopic(TopicRuleCategory.TOPIC_CATEGORIZATION_USER_SPECIFIED, Topic.TOPIC_DEFAULT.getTopicText()), ctrlCnf);
-            updateCat2SeedLookupCnfMap(TopicRuleCategory.TOPIC_CATEGORIZATION_USER_SPECIFIED, aSeedLookUpConfig);
+            if(null != ctrlCnf) {
+                aSeedLookUpConfig.putTopicCtrlCnf(formatCategorizationTopic(TopicRuleCategory.TOPIC_CATEGORIZATION_USER_SPECIFIED, Topic.TOPIC_DEFAULT.getTopicText()), ctrlCnf);
+                updateCat2SeedLookupCnfMap(TopicRuleCategory.TOPIC_CATEGORIZATION_USER_SPECIFIED, aSeedLookUpConfig);
+            }
         }
     }
 
     @Override
-    public AbstractSeedLookupdConfig subscribe(ConfigAccessAgent subscribeTo, final AbstractConfigAccessDomain domain, final AbstractConfigAccessKey[] keys, final ConfigAccessAgent.IConfigAccessCallback callback) throws NSQConfigAccessException {
+    public AbstractSeedLookupdConfig subscribe(ConfigAccessAgent subscribeTo, final AbstractConfigAccessDomain domain, final AbstractConfigAccessKey<Role>[] keys, final ConfigAccessAgent.IConfigAccessCallback callback) throws NSQConfigAccessException {
         if(null == keys || keys.length == 0) {
             logger.warn("Only one keys allowed");
             return null;
@@ -214,7 +216,7 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
 
     /**
      * Checkout categorization from categorization to seed lookup mapping, it is a two-phase checkout.
-     * @param categorization
+     * @param categorization categorization string
      * @return {@link Boolean#TRUE} if categorization exists and checked out. otherwise {@link Boolean#FALSE}
      */
     private boolean checkoutCategorization(String categorization){
@@ -240,21 +242,17 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
 
     /**
      * Subscribe topics to configAccess
-     * @param category
-     * @param topics
-     * @return
+     * @param category category pass in topics belong to.
+     * @param topics topics to subscribe
      */
     public void subscribe(final TopicRuleCategory category, Topic... topics) {
-        if(null == topics && topics.length == 0)
+        if(null == topics || topics.length == 0)
             return;
         List<Topic> topics4Subscribe = new ArrayList<>();
         for(final Topic topic : topics) {
             final String categorization = category.category(topic);
-            if (!checkinCategorization(categorization))
-                continue;
-            else {
+            if (checkinCategorization(categorization))
                 topics4Subscribe.add(topic);
-            }
         }
         final CountDownLatch latch = new CountDownLatch(topics4Subscribe.size());
         for(final Topic topic: topics4Subscribe){
@@ -296,7 +294,7 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
      * invoke listlookup API for ALL cached {@link SeedLookupdAddress}
      * leave client(consumer&producer) to kick off listlookup
      */
-    public void keepListLookup() {
+    void keepListLookup() {
         if(!startListLookup) {
             synchronized (listLookupExec) {
                 if(!startListLookup) {
@@ -323,8 +321,7 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
             AbstractSeedLookupdConfig aSeedLookupCnf = cat2SeedLookupCnfMap.get(TopicRuleCategory.TOPIC_CATEGORIZATION_USER_SPECIFIED);
             if(null == aSeedLookupCnf)
                 throw new NSQLookupException("Local Seed Lookup config not found for Topic: " + topic.getTopicText() + " Categorization: " + TopicRuleCategory.TOPIC_CATEGORIZATION_USER_SPECIFIED);
-            NSQLookupdAddress aLookupdAddr = aSeedLookupCnf.punchLookupdAddress(TopicRuleCategory.TOPIC_CATEGORIZATION_USER_SPECIFIED, Topic.TOPIC_DEFAULT);
-            return aLookupdAddr;
+            return aSeedLookupCnf.punchLookupdAddress(TopicRuleCategory.TOPIC_CATEGORIZATION_USER_SPECIFIED, Topic.TOPIC_DEFAULT);
         }
 
         String categorization = category.category(topic);
@@ -332,11 +329,10 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
         AbstractSeedLookupdConfig aSeedLookupCnf =  cat2SeedLookupCnfMap.get(categorization);
         if(null == aSeedLookupCnf)
             throw new NSQLookupException("Seed Lookup config not found for Topic: " + topic.getTopicText() + " Categorization: " + categorization);
-        NSQLookupdAddress aLookupdAddr = aSeedLookupCnf.punchLookupdAddress(categorization, topic);
-        return aLookupdAddr;
+        return aSeedLookupCnf.punchLookupdAddress(categorization, topic);
     }
 
-    protected long touched(){
+    private long touched(){
         return this.clientCnt.incrementAndGet();
     }
 
@@ -344,7 +340,7 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
         long cnt = this.clientCnt.decrementAndGet();
         if(cnt == 0) {
             synchronized (clientCnt){
-                if(cnt == 0) {
+                if(clientCnt.get() == 0) {
                     this.close();
                 }
             }

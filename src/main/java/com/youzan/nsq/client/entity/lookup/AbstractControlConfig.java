@@ -14,11 +14,13 @@ import java.lang.ref.SoftReference;
 import java.util.*;
 
 /**
+ * Abstract class for migration control config.
  * Created by lin on 16/12/6.
  */
 public abstract class AbstractControlConfig {
     private static final Logger logger = LoggerFactory.getLogger(AbstractControlConfig.class);
 
+    private volatile boolean invalid = false;
     private List<SoftReference<SeedLookupdAddress>> seedsRef = new ArrayList<>();
     private int previous = 0, current = 0;
     private Gradation gradation;
@@ -36,10 +38,14 @@ public abstract class AbstractControlConfig {
     }
 
     public List<SoftReference<SeedLookupdAddress>> getPreviousReferences() {
+        if(invalid)
+            return null;
         return this.seedsRef.subList(this.previous, this.current);
     }
 
     public List<SoftReference<SeedLookupdAddress>> getCurrentReferences() {
+        if(invalid)
+            return null;
         return this.seedsRef.subList(this.current, this.seedsRef.size());
     }
 
@@ -60,6 +66,8 @@ public abstract class AbstractControlConfig {
      * clean reference and resource allocated by current Control Config
      */
     void clean() {
+        //set all index to 0
+        this.invalid = true;
         //clean seed lookup address and underline lookup address, all are reference
         for (SoftReference<SeedLookupdAddress> seedRef : this.seedsRef) {
             SeedLookupdAddress aSeed = seedRef.get();
@@ -86,7 +94,6 @@ public abstract class AbstractControlConfig {
 
             //current seed lookup
             JsonNode currentNodes = ctrlCnfNode.get("current");
-            List<String> currentList = new ArrayList<>();
             if (null != currentNodes) {
                 //set current position
                 dccCtrlCnf.setCurrent(previousNodes.size());
@@ -98,6 +105,7 @@ public abstract class AbstractControlConfig {
             //get gradation
             JsonNode gradatioNode = ctrlCnfNode.get("gradation");
             String localhost = HostUtil.getHostname();
+            //initialize with origin percentage 100%
             int factor = 100;
             Gradation aGradation;
             if (null != localhost) {
@@ -124,7 +132,7 @@ public abstract class AbstractControlConfig {
     }
 
     /**
-     * fucntion to check if seed lookup addresses and
+     * function to check if seed lookup addresses and
      *
      * @return
      */

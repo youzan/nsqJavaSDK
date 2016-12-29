@@ -50,7 +50,7 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
 
     /**
      * Update nsq cluster info associated migration control config.
-     *
+     * Not used in 2.3
      * @param clusterInfo
      * @param seedLookup
      */
@@ -68,8 +68,8 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
     }
 
     /**
-     * Get nsq cluster info associated migration control config
-     *
+     * Get nsq cluster info associated migration control config.
+     * Not used in 2.3
      * @param clusterInfo
      * @return
      */
@@ -111,7 +111,7 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
         List<SoftReference<SeedLookupdAddress>> preRefs = ctrlCnf.getPreviousReferences();
         String curLookupd = null, preLookupd = null;
         SeedLookupdAddress aCurSeed = null, aPreSeed = null;
-        if (curRefs.size() > 0) {
+        if (null != curRefs && curRefs.size() > 0) {
             try {
                 aCurSeed = curRefs.get((INDEX++ & Integer.MAX_VALUE) % curRefs.size()).get();
                 curLookupd = aCurSeed.punchLookupdAddressStr();
@@ -119,7 +119,7 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
                 //swallow it
             }
         }
-        if (preRefs.size() > 0) {
+        if (null != preRefs && preRefs.size() > 0) {
             try {
                 aPreSeed = preRefs.get((INDEX++ & Integer.MAX_VALUE) % preRefs.size()).get();
                 preLookupd = aPreSeed.punchLookupdAddressStr();

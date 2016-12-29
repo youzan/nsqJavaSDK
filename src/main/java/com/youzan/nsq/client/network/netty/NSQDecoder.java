@@ -18,8 +18,7 @@ public class NSQDecoder extends MessageToMessageDecoder<ByteBuf> {
         final int size = in.readInt();
         final int frameType = in.readInt();
         Attribute<Boolean> att =  ctx.channel().attr(Client.ORDERED);
-        Boolean isOrdered = false;
-        isOrdered = null == att.get() ? false : att.get();
+        Boolean isOrdered = null == att.get() ? false : att.get();
         final NSQFrame frame = NSQFrame.newInstance(frameType, isOrdered);
         if (frame == null) {
             // uhh, bad response from server.. what should we do?

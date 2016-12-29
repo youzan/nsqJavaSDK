@@ -7,14 +7,13 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Properties;
 import java.util.SortedMap;
 
 /**
- * config agent subscribes trace configs to confgi server and update new udpated trace configs response
+ * Config agent subscribes trace configs to config server and update new updated trace configs response
  * Created by lin on 16/9/20.
  * Modified by lin on 16/10/26
  */
@@ -33,11 +32,11 @@ public abstract class ConfigAccessAgent implements Closeable {
     protected static Properties props = null;
 
     //configs config file path for nsq sdk
-    static final String NSQDCCCONFIGPRO = "nsq.sdk.configFilePath";
+    private static final String NSQDCCCONFIGPRO = "nsq.sdk.configFilePath";
     private static final String CONFIG_ACCESS_CLASSNAME = "nsq.sdk.configAccessClass";
 
     //property of environment
-    protected static final String NSQ_DCCCONFIG_ENV = "nsq.sdk.env";
+    static final String NSQ_DCCCONFIG_ENV = "nsq.sdk.env";
 
     //default config file name, user is allow to use another by setting $nsq.configs.configFilePath
     private static final String dccConfigFile = "configClient.properties";
@@ -51,8 +50,8 @@ public abstract class ConfigAccessAgent implements Closeable {
     }
 
     /**
-     * set the environment value of config client
-     * @param env
+     * Set the environment value of config client
+     * @param env environment value config access agent works on.
      */
     public static void setEnv(String env){
         ConfigAccessAgent.env = env;
@@ -102,8 +101,11 @@ public abstract class ConfigAccessAgent implements Closeable {
         return null;
     }
 
-
-    public void finalize() {
+    /**
+     * finalize function for GC.
+     */
+    public void finalize() throws Throwable {
+        super.finalize();
         ConfigAccessAgent.release();
     }
 
@@ -114,6 +116,7 @@ public abstract class ConfigAccessAgent implements Closeable {
         if (null != INSTANCE) {
             synchronized (LOCK) {
                 if (null != INSTANCE) {
+                    INSTANCE.close();
                     INSTANCE = null;
                     CAA_CLAZZ = null;
                     props = null;
@@ -140,13 +143,16 @@ public abstract class ConfigAccessAgent implements Closeable {
         } finally {
             try {
                 is.close();
-            } catch (IOException e) {
+            } catch (Exception e) {
                 //swallow it
+                logger.warn("Exception in closing client config input stream.", e.getLocalizedMessage());
             }
         }
     }
 
-    //load config access agent class according to configClient.properties
+    /**
+     *load config access agent class according to configClient.properties
+     */
     private static void initConfigAccessAgentClass() {
         try {
             //load class
@@ -160,7 +166,7 @@ public abstract class ConfigAccessAgent implements Closeable {
                 //try with context class loader
                 CAA_CLAZZ = (Class<? extends ConfigAccessAgent>) Thread.currentThread().getContextClassLoader().loadClass(clzName);
                 if (null == CAA_CLAZZ)
-                    throw new ClassNotFoundException("ConfigAccessClass: " + clzName + " not found.");
+                    throw new ClassNotFoundException("ConfigAccessClass: " + clzName + " not found. Fail to initialize config access agent.");
             }
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
@@ -168,7 +174,7 @@ public abstract class ConfigAccessAgent implements Closeable {
         logger.info("ConfigAccessAgentClass: {}", CAA_CLAZZ.getName());
     }
 
-    public static InputStream loadClientConfigInputStream(){
+    private static InputStream loadClientConfigInputStream(){
         //read from system config
         InputStream is = null;
         String dccConfigProPath = System.getProperty(NSQDCCCONFIGPRO);
@@ -225,8 +231,8 @@ public abstract class ConfigAccessAgent implements Closeable {
     abstract public void close();
 
     /**
-     * return meta datas of config access agent, help in debugging
-     * @return
+     * return meta data of config access agent, help in debugging
+     * @return metadata string
      */
     abstract public String metadata();
 }

@@ -1,7 +1,6 @@
 package com.youzan.nsq.client.configs;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.youzan.dcc.client.ConfigClient;
 import com.youzan.dcc.client.ConfigClientBuilder;
 import com.youzan.dcc.client.entity.config.Config;
@@ -10,6 +9,7 @@ import com.youzan.dcc.client.entity.config.interfaces.IResponseCallback;
 import com.youzan.dcc.client.exceptions.ConfigParserException;
 import com.youzan.dcc.client.exceptions.InvalidConfigException;
 import com.youzan.dcc.client.util.inetrfaces.ClientConfig;
+import com.youzan.util.SystemUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,7 +25,6 @@ import java.util.TreeMap;
  */
 public class DCCConfigAccessAgent extends ConfigAccessAgent {
     private static final Logger logger = LoggerFactory.getLogger(DCCConfigAccessAgent.class);
-    private static final ObjectMapper mapper = new ObjectMapper();
     //app value configs client need to specify to fetch lookupd config from configs
     //property urls to configs remote
     private static final String NSQ_DCCCONFIG_URLS = "nsq.dcc.%s.urls";
@@ -72,7 +71,7 @@ public class DCCConfigAccessAgent extends ConfigAccessAgent {
         SortedMap<String, String> configMap = new TreeMap<>();
         for (Config config : list) {
             try {
-                JsonNode node = mapper.readTree(config.getContent());
+                JsonNode node = SystemUtil.getObjectMapper().readTree(config.getContent());
                 JsonNode valueNode = node.get("value");
                 if (valueNode.isArray()) {
                     //has subkeys
@@ -139,12 +138,13 @@ public class DCCConfigAccessAgent extends ConfigAccessAgent {
 
     @Override
     protected void kickoff() {
+        logger.info("DCCConfigAccessAgent kick off.");
         //no need to kick off.
     }
 
     @Override
     public void close() {
-        //TODO: close configs client
+        this.dccClient.release();
     }
 
     @Override
@@ -201,7 +201,5 @@ public class DCCConfigAccessAgent extends ConfigAccessAgent {
             urls = props.getProperty(urlsKey)
                     .split(",");
         }
-        assert null != urls;
-
     }
 }

@@ -49,7 +49,7 @@ public class TopicRuleCategory implements ITopicRuleCategory {
         return String.format(TOPIC_CATEGORIZATION_SUFFIX, trimTopic(topic), this.role.getRoleTxt());
     }
 
-    private String trimTopic(String topicText) {
+    public static String trimTopic(String topicText) {
         if(null  ==  topicText || topicText.isEmpty())
             throw new IllegalArgumentException("pass in topic text should not be empty");
         String[] parts;
@@ -58,7 +58,7 @@ public class TopicRuleCategory implements ITopicRuleCategory {
         }else{
             parts = topicText.split("_", 2);
         }
-        if (null != parts && parts.length > 0) {
+        if (parts.length > 0) {
             if(topicText.startsWith(TOPIC_BINLOG_PATTERN))
                 return TOPIC_BINLOG_PATTERN + parts[1];
             else

@@ -5,7 +5,7 @@ package com.youzan.nsq.client.configs;
  * Created by lin on 16/12/14.
  */
 public class DCCTraceConfigAccessKey extends AbstractConfigAccessKey {
-    private final static String NSQ_TOPIC_TRACE_KEY = "nsq.topic.trace.key";
+    private final static String NSQ_TOPIC_TRACE_KEY = "nsq.key.topic.trace";
     private final static String DEFAULT_NSQ_TOPIC_TRACE_PRODUCER_KEY = "trace";
 
     public DCCTraceConfigAccessKey() {
