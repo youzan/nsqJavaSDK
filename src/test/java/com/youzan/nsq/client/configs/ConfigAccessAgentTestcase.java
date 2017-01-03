@@ -16,10 +16,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.*;
 
 /**
@@ -224,6 +220,31 @@ public class ConfigAccessAgentTestcase {
         }finally {
             logger.info("[testGetConfigKeysFromPubCmdFactory] ends.");
         }
+    }
+
+    @Test
+    public void testConfigs() {
+        //property of environment
+        //system properties, "nsq.sdk.env" for sdk environment
+        //使用系统变量重载sdk环境变量
+        String sysEnv = "nsq.sdk.env";
+        System.setProperty(sysEnv, "qaTest");
+
+        //system properties, "nsq.sdk.configFilePath" for sdk config file path
+        //使用系统变量重载sdk 配置文件路径
+        String systemConfigFile = "./configFilePath/some/place/configFilePath.properties";
+        System.setProperty("nsq.sdk.configFilePath", systemConfigFile);
+
+        //override predefined properties in config file path
+        //使用接口重载sdk环境变量,优先级最高
+        ConfigAccessAgent.setEnv("qa");
+        ConfigAccessAgent.setConfigAccessRemotes("http://dcc.test.com");
+        ConfigAccessAgent.setConfigAccessAgentBackupPath("./dcc.backup");
+
+        //do your business with nsq client and nsq config
+        ConfigAccessAgent agent = ConfigAccessAgent.getInstance();
+        System.clearProperty("nsq.sdk.configFilePath");
+        System.clearProperty("nsq.sdk.env");
     }
 
     @AfterMethod

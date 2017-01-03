@@ -29,6 +29,8 @@ public interface Producer extends Client, Closeable {
     @Deprecated
     void publish(String message, String topic) throws NSQException;
 
+    void publish(String message, final Topic topic, long shardingID) throws NSQException;
+
     void publish(Message message) throws NSQException;
 
     /**

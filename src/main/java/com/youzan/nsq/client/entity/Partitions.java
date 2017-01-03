@@ -33,7 +33,7 @@ public class Partitions {
 
     public Partitions updateUnpartitionedDataNodea(final List<Address> dataNodes){
         if(null == dataNodes || dataNodes.size() == 0)
-            throw new RuntimeException("Length of pass in data nodes doe not match size of total partition number.");
+            throw new RuntimeException("Length of pass in data nodes does not match size of total partition number.");
         this.unpartitionedDataNodes = dataNodes;
         return this;
     }

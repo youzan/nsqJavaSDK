@@ -162,6 +162,12 @@ public class ProducerImplV2 implements Producer {
         publish(message.getBytes(IOUtil.DEFAULT_CHARSET), topic);
     }
 
+    public void publish(String message, final Topic topic, long shardingID) throws NSQException {
+        Message msg = Message.create(topic, message);
+        msg.setTopicShardingID(shardingID);
+        publish(msg);
+    }
+
     @Override
     public void publish(Message message) throws NSQException {
         if (message == null || message.getMessageBody().isEmpty()) {
