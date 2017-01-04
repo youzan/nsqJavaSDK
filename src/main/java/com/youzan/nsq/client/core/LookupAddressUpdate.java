@@ -267,6 +267,7 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
                 }catch(NSQConfigAccessException caE){
                     logger.error("Error in checking seed lookup address config for categorization {}, topic {}.", categorization, topic.getTopicText(), caE);
                 }catch(Exception exp) {
+                    logger.error("Unexpected error in checking seed lookup address config for categorization {}, topic {}.", categorization, topic.getTopicText(), exp);
                     checkoutCategorization(categorization);
                 }finally {
                     latch.countDown();
