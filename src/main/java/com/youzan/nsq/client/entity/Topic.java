@@ -3,6 +3,11 @@ package com.youzan.nsq.client.entity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.ref.SoftReference;
+import java.util.Map;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.SortedSet;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -12,6 +17,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public class Topic implements Comparable<Topic> {
     private static final Logger logger = LoggerFactory.getLogger(Topic.class);
     public static final Topic TOPIC_DEFAULT = new Topic("*");
+    private volatile SortedMap<Address, SortedSet<Integer>> nsqdAddr2Partition;
+    private String key = "";
 
     //topic sharding
     private static final TopicSharding<Long> TOPIC_SHARDING = new TopicSharding<Long>() {
@@ -121,4 +128,21 @@ public class Topic implements Comparable<Topic> {
         return this.partitionID;
 
     }
+
+    //form a address 2 partition list mapping, out of partititon 2 address mapping
+    public void updateNSQdAddr2Partition(String key, final SortedMap<Address, SortedSet<Integer>> map) {
+        if(!this.key.equals(key)) {
+            synchronized (this.key) {
+                if(!this.key.equals(key)) {
+                    this.key = key;
+                    this.nsqdAddr2Partition = map;
+                }
+            }
+        }
+    }
+
+    public SortedMap<Address, SortedSet<Integer>> getNsqdAddr2Partition() {
+        return this.nsqdAddr2Partition;
+    }
+
 }

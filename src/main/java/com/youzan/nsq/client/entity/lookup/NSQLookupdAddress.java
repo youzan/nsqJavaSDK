@@ -82,6 +82,7 @@ public class NSQLookupdAddress extends AbstractLookupdAddress {
             start = System.currentTimeMillis();
         final JsonNode partitions = rootNode.get("partitions");
         Map<Integer, SoftReference<Address>> partitionId2Ref;
+        SortedMap<Address, SortedSet<Integer>> nsqdAddr2partitionId;
         List<Address> partitionedDataNodes;
         Set<Address> partitionNodeSet = new HashSet<>();
 
@@ -89,6 +90,7 @@ public class NSQLookupdAddress extends AbstractLookupdAddress {
         if (null != partitions) {
 
             partitionId2Ref = new HashMap<>();
+            nsqdAddr2partitionId = new TreeMap<>();
             partitionedDataNodes = new ArrayList<>();
 
             int partitionCount = 0;
@@ -110,9 +112,30 @@ public class NSQLookupdAddress extends AbstractLookupdAddress {
                     partitionId2Ref.put(parIdInt, new SoftReference<>(address));
                     if(!writable)
                         partitionCount++;
+                    //update nsqd address 2 partition id
+                    SortedSet<Integer> aPartitionSet = nsqdAddr2partitionId.get(address);
+                    if(null == aPartitionSet){
+                        aPartitionSet = new TreeSet<>();
+                        nsqdAddr2partitionId.put(address, aPartitionSet);
+                        //key
+                    }
+                    aPartitionSet.add(parIdInt);
                 }
             }
             aPartitions.updatePartitionDataNode(partitionId2Ref, partitionedDataNodes, partitionCount);
+            //generate key for nsqd addr 2 partition
+            StringBuilder keyBuilder = new StringBuilder();
+            if(null != nsqdAddr2partitionId) {
+                for (Address addr : nsqdAddr2partitionId.keySet()){
+                    keyBuilder.append(addr.toString());
+                    for(int partitionId : nsqdAddr2partitionId.get(addr)){
+                        keyBuilder.append(":").append(partitionId);
+                    }
+                    keyBuilder.append(";");
+                }
+                String key = keyBuilder.toString();
+                topic.updateNSQdAddr2Partition(key, nsqdAddr2partitionId);
+            }
             if(logger.isDebugEnabled()){
                 logger.debug("SDK took {} mill sec to create mapping for partition.", (System.currentTimeMillis() - start));
             }

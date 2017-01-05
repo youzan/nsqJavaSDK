@@ -31,6 +31,10 @@ public class Partitions {
         return this;
     }
 
+    public Map<Integer, SoftReference<Address>> getPartitionId2Addr(){
+        return this.partitionId2Addr;
+    }
+
     public Partitions updateUnpartitionedDataNodea(final List<Address> dataNodes){
         if(null == dataNodes || dataNodes.size() == 0)
             throw new RuntimeException("Length of pass in data nodes does not match size of total partition number.");

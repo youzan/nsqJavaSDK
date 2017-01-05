@@ -355,13 +355,27 @@ public class ConsumerImplV2 implements Consumer {
             }
             final int topicSize = topics.size();
             //set connection size to 1 for consumer, 1 connection per topic/partition(dataNode)
-            final int connectionSize = topicSize;
+            //one topic may has more than one partition, they are managed
+            //calculate connection size
+            int connectionSizeCal = 0;
+            for(Topic aTopic : topics){
+                Set<Integer> partitionSet = aTopic.getNsqdAddr2Partition().get(address);
+                //if address is a old nsqd, should not return any partition info
+                if(null != partitionSet)
+                    connectionSizeCal += partitionSet.size();
+                else {
+                    //for old nsqd
+                    connectionSizeCal += 1;
+                }
+            }
+            final int connectionSize = connectionSizeCal;
             if (connectionSize <= 0) {
                 return;
             }
+
             final Topic[] topicArray = new Topic[topicSize];
             topics.toArray(topicArray);
-            if (connectionSize != topicArray.length) {
+            if (topics.size() != topicArray.length) {
                 // concurrent problem
                 return;
             }
@@ -375,41 +389,59 @@ public class ConsumerImplV2 implements Consumer {
                 return;
             }
             logger.info("TopicSize: {} , Address: {} , Connection-Size: {} , Topics: {}", topicSize, address, connectionSize, topics);
-            for (int i = 0; i < connectionSize; i++) {
-                //as connection to one topic is fixed to one
-                int k = i;
-                assert k < topicArray.length;
-                // init( connection, topic ) , let it be a consumer connection
-                final NSQConnection connection = connections.get(i);
-                final Topic topic = topicArray[k];
-                try {
-                    connection.init();
-                } catch (Exception e) {
-                    connection.close();
-                    if (!closing) {
-                        throw new NSQNoConnectionException("Creating a connection and having a negotiation fails!", e);
-                    }
+            int connectionIdx = 0;
+            for(int i = 0; i < topicSize; i++) {
+                Set<Integer> partitionSet = topicArray[i].getNsqdAddr2Partition().get(address);
+                Iterator<Integer> partitionIte = null;
+                int sizePerTopic = 1;
+                if(null != partitionSet) {
+                    sizePerTopic = partitionSet.size();
+                    partitionIte = partitionSet.iterator();
                 }
-                if (!connection.isConnected()) {
-                    connection.close();
-                    if (!closing) {
-                        throw new NSQNoConnectionException("Pool failed in connecting to NSQd! Closing: !" + closing);
+                for (int j = 0; j < sizePerTopic; j++){
+                    // init( connection, topic ) , let it be a consumer connection
+                    final NSQConnection connection = connections.get(connectionIdx++);
+                    final Topic topic = topicArray[i];
+                    try {
+                        connection.init();
+                    } catch (Exception e) {
+                        connection.close();
+                        if (!closing) {
+                            throw new NSQNoConnectionException("Creating a connection and having a negotiation fails!", e);
+                        }
                     }
-                } else {
-                    final Sub command = createSubCmd(topic, this.config.getConsumerName());
-                    final NSQFrame frame = connection.commandAndGetResponse(command);
-                    handleResponse(frame, connection);
-                    //as there is no success response from nsq, command is enough here
-                    connection.command(currentRdy);
+                    if (!connection.isConnected()) {
+                        connection.close();
+                        if (!closing) {
+                            throw new NSQNoConnectionException("Pool failed in connecting to NSQd! Closing: !" + closing);
+                        }
+                    } else {
+                        Sub command;
+                        if(null != partitionIte && partitionIte.hasNext())
+                            command = createSubCmd(partitionIte.next(), topic, this.config.getConsumerName());
+                        else
+                            command = createSubCmd(topic, this.config.getConsumerName());
+                        final NSQFrame frame = connection.commandAndGetResponse(command);
+                        handleResponse(frame, connection);
+                        //as there is no success response from nsq, command is enough here
+                        connection.command(currentRdy);
+                    }
+                    logger.info("Done. Current connection index: {}", i);
                 }
-                logger.info("Done. Current connection index: {}", i);
-            } // end loop creating a connection
+            }
         }
     }
 
     private Sub createSubCmd(final Topic topic, String channel) {
         if (this.config.isOrdered())
             return new SubOrdered(topic, channel);
+        else
+            return new Sub(topic, channel);
+    }
+
+    private Sub createSubCmd(int partitionIdOverride, final Topic topic, String channel) {
+        if (this.config.isOrdered())
+            return new SubOrdered(topic, channel, partitionIdOverride);
         else
             return new Sub(topic, channel);
     }
