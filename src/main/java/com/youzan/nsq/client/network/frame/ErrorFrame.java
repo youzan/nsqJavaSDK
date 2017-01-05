@@ -55,6 +55,9 @@ public class ErrorFrame extends NSQFrame {
             if (content.startsWith("E_FIN_FAILED")) {
                 return Response.E_FIN_FAILED;
             }
+            if (content.startsWith("E_SUB_ORDER_IS_MUST")) {
+               return Response.E_SUB_ORDER_IS_MUST;
+            }
         }
         return null;
     }

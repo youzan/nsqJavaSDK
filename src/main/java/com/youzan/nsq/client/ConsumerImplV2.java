@@ -355,13 +355,32 @@ public class ConsumerImplV2 implements Consumer {
             }
             final int topicSize = topics.size();
             //set connection size to 1 for consumer, 1 connection per topic/partition(dataNode)
-            final int connectionSize = topicSize;
+            //one topic may has more than one partition, they are managed
+            //calculate connection size
+            int connectionSizeCal = 0;
+            try {
+                for (Topic aTopic : topics) {
+                    Set<Integer> partitionSet = aTopic.getNsqdAddr2Partition().get(address);
+                    //if address is a old nsqd, should not return any partition info
+                    if (null != partitionSet)
+                        connectionSizeCal += partitionSet.size();
+                    else {
+                        //for old nsqd
+                        connectionSizeCal += 1;
+                    }
+                }
+            } catch (NullPointerException npe) {
+                logger.warn("Address to partition mapping is updated in topics. Connect process try later.");
+                return;
+            }
+            final int connectionSize = connectionSizeCal;
             if (connectionSize <= 0) {
                 return;
             }
+
             final Topic[] topicArray = new Topic[topicSize];
             topics.toArray(topicArray);
-            if (connectionSize != topicArray.length) {
+            if (topics.size() != topicArray.length) {
                 // concurrent problem
                 return;
             }
@@ -375,41 +394,67 @@ public class ConsumerImplV2 implements Consumer {
                 return;
             }
             logger.info("TopicSize: {} , Address: {} , Connection-Size: {} , Topics: {}", topicSize, address, connectionSize, topics);
-            for (int i = 0; i < connectionSize; i++) {
-                //as connection to one topic is fixed to one
-                int k = i;
-                assert k < topicArray.length;
-                // init( connection, topic ) , let it be a consumer connection
-                final NSQConnection connection = connections.get(i);
-                final Topic topic = topicArray[k];
-                try {
-                    connection.init();
-                } catch (Exception e) {
-                    connection.close();
-                    if (!closing) {
-                        throw new NSQNoConnectionException("Creating a connection and having a negotiation fails!", e);
+            int connectionIdx = 0;
+            try {
+                for (int i = 0; i < topicSize; i++) {
+                    Set<Integer> partitionSet = topicArray[i].getNsqdAddr2Partition().get(address);
+                    Iterator<Integer> partitionIte = null;
+                    int sizePerTopic = 1;
+                    final Topic topic = topicArray[i];
+                    //check if partition ID is specified by user
+                    if (null != partitionSet && !topic.hasPartition()) {
+                        if (logger.isDebugEnabled())
+                            logger.debug("Partition Id is not specified from user, try connection to all partitions.");
+                        sizePerTopic = partitionSet.size();
+                        partitionIte = partitionSet.iterator();
+                    }
+                    for (int j = 0; j < sizePerTopic; j++) {
+                        // init( connection, topic ) , let it be a consumer connection
+                        final NSQConnection connection = connections.get(connectionIdx++);
+                        try {
+                            connection.init();
+                        } catch (Exception e) {
+                            connection.close();
+                            if (!closing) {
+                                throw new NSQNoConnectionException("Creating a connection and having a negotiation fails!", e);
+                            }
+                        }
+                        if (!connection.isConnected()) {
+                            connection.close();
+                            if (!closing) {
+                                throw new NSQNoConnectionException("Pool failed in connecting to NSQd! Closing: !" + closing);
+                            }
+                        } else {
+                            Sub command;
+                            if (null != partitionIte && partitionIte.hasNext())
+                                command = createSubCmd(partitionIte.next(), topic, this.config.getConsumerName());
+                            else
+                                command = createSubCmd(topic, this.config.getConsumerName());
+                            final NSQFrame frame = connection.commandAndGetResponse(command);
+                            handleResponse(frame, connection);
+                            //as there is no success response from nsq, command is enough here
+                            connection.command(currentRdy);
+                        }
+                        logger.info("Done. Current connection index: {}", i);
                     }
                 }
-                if (!connection.isConnected()) {
-                    connection.close();
-                    if (!closing) {
-                        throw new NSQNoConnectionException("Pool failed in connecting to NSQd! Closing: !" + closing);
-                    }
-                } else {
-                    final Sub command = createSubCmd(topic, this.config.getConsumerName());
-                    final NSQFrame frame = connection.commandAndGetResponse(command);
-                    handleResponse(frame, connection);
-                    //as there is no success response from nsq, command is enough here
-                    connection.command(currentRdy);
-                }
-                logger.info("Done. Current connection index: {}", i);
-            } // end loop creating a connection
+            }catch(NullPointerException npe) {
+                logger.warn("Address to partition mapping is updating in topics. Connect process try later.");
+                clearDataNode(address);
+            }
         }
     }
 
     private Sub createSubCmd(final Topic topic, String channel) {
         if (this.config.isOrdered())
             return new SubOrdered(topic, channel);
+        else
+            return new Sub(topic, channel);
+    }
+
+    private Sub createSubCmd(int partitionIdOverride, final Topic topic, String channel) {
+        if (this.config.isOrdered())
+            return new SubOrdered(topic, channel, partitionIdOverride);
         else
             return new Sub(topic, channel);
     }

@@ -283,6 +283,8 @@ public class NSQSimpleClient implements Client, Closeable {
                             } else if (topicShardingID < 0) {
                                 List<Address> address = aPartitions.getAllDataNodes();
                                 nodes.addAll(address);
+                                //ugly hack, update all topic partitions id to topic;
+                                //TODO:
                             }
                         } else {
                             if (aPartitions.hasPartitionDataNodes() && topic.hasPartition()) {
@@ -292,6 +294,8 @@ public class NSQSimpleClient implements Client, Closeable {
                                 //read from all data nodes
                                 List<Address> address = aPartitions.getAllDataNodes();
                                 nodes.addAll(address);
+                                //ugly hack, update all topic partitions id to topic;
+                                //TODO: for SUB ORDER
                             }
                         }
                     }

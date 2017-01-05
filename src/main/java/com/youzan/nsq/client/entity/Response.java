@@ -23,6 +23,7 @@ public enum Response {
     E_FAILED_ON_NOT_LEADER("E_FAILED_ON_NOT_LEADER"),//
     E_FAILED_ON_NOT_WRITABLE("E_FAILED_ON_NOT_WRITABLE"), //
     E_FIN_FAILED("E_FIN_FAILED"), //
+    E_SUB_ORDER_IS_MUST("E_SUB_ORDER_IS_MUST"), //
     ;
 
     private final String content;
