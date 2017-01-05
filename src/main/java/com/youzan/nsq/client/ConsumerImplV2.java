@@ -1,6 +1,5 @@
 package com.youzan.nsq.client;
 
-import com.youzan.nsq.client.configs.TopicRuleCategory;
 import com.youzan.nsq.client.core.LookupAddressUpdate;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
@@ -8,7 +7,6 @@ import com.youzan.nsq.client.core.RdySpectrum;
 import com.youzan.nsq.client.core.command.*;
 import com.youzan.nsq.client.core.pool.consumer.FixedPool;
 import com.youzan.nsq.client.entity.*;
-import com.youzan.nsq.client.entity.lookup.NSQLookupdAddress;
 import com.youzan.nsq.client.exception.*;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.MessageFrame;
