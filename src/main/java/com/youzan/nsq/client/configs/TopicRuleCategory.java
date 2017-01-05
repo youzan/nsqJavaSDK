@@ -52,18 +52,11 @@ public class TopicRuleCategory implements ITopicRuleCategory {
     public static String trimTopic(String topicText) {
         if(null  ==  topicText || topicText.isEmpty())
             throw new IllegalArgumentException("pass in topic text should not be empty");
-        String[] parts;
-        if(topicText.startsWith(TOPIC_BINLOG_PATTERN)){
-            parts = topicText.split("_", 3);
-        }else{
-            parts = topicText.split("_", 2);
-        }
-        if (parts.length > 0) {
-            if(topicText.startsWith(TOPIC_BINLOG_PATTERN))
-                return TOPIC_BINLOG_PATTERN + parts[1];
-            else
-                return parts[0];
+        String[] parts = topicText.split("_", 3);
+
+        if(topicText.startsWith(TOPIC_BINLOG_PATTERN) && parts.length >=3){
+            return TOPIC_BINLOG_PATTERN + parts[1];
         }else
-            return topicText;
+            return parts[0];
     }
 }

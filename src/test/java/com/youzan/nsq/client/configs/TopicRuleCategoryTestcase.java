@@ -30,11 +30,23 @@ public class TopicRuleCategoryTestcase {
         result = category.category(aTopic);
         Assert.assertEquals(result, expectedSpecialCategorization);
 
-        String expectedAbnormalCategorization = "binlog_.nsq.lookupd.addr:producer";
+        String expectedAbnormalCategorization = "binlog.nsq.lookupd.addr:producer";
         aTopic = new Topic("binlog_");
         category = TopicRuleCategory.getInstance(Role.Producer);
         result = category.category(aTopic);
         Assert.assertEquals(result, expectedAbnormalCategorization);
+
+        String expectedShortBinlogCategorization = "binlog.nsq.lookupd.addr:consumer";
+        aTopic = new Topic("binlog_shouldSkip");
+        category = TopicRuleCategory.getInstance(Role.Consumer);
+        result = category.category(aTopic);
+        Assert.assertEquals(result, expectedShortBinlogCategorization);
+
+        String expectedAbnormalBinlogCategorization = "binlog_.nsq.lookupd.addr:consumer";
+        aTopic = new Topic("binlog__");
+        category = TopicRuleCategory.getInstance(Role.Consumer);
+        result = category.category(aTopic);
+        Assert.assertEquals(result, expectedAbnormalBinlogCategorization);
 
         try {
             aTopic = new Topic("");

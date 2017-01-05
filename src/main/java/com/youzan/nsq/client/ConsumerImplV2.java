@@ -368,7 +368,7 @@ public class ConsumerImplV2 implements Consumer {
                     }
                 }
             } catch (NullPointerException npe) {
-                logger.warn("Address to partition mapping is updated in topics. Connect process try later.");
+                logger.warn("Address to partition mapping is updated in topics. Connect process will try later.");
                 return;
             }
             final int connectionSize = connectionSizeCal;

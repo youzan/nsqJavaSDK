@@ -134,6 +134,7 @@ public class Topic implements Comparable<Topic> {
         if(!this.key.equals(key)) {
             synchronized (this.key) {
                 if(!this.key.equals(key)) {
+                    logger.info("NSQd addr 2 partition mapping for topic {} changed to {}.", this.getTopicText(), key);
                     this.key = key;
                     this.nsqdAddr2Partition = map;
                 }
