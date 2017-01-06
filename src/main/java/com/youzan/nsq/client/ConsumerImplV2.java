@@ -123,8 +123,9 @@ public class ConsumerImplV2 implements Consumer {
             return;
         }
         for (Topic topic : topics) {
-            this.topics.add(topic);
-            simpleClient.putTopic(topic);
+            Topic topicCopy = Topic.newInstacne(topic);
+            this.topics.add(topicCopy);
+            simpleClient.putTopic(topicCopy);
         }
     }
 

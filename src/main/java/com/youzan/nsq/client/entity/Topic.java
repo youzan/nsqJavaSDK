@@ -3,12 +3,8 @@ package com.youzan.nsq.client.entity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.ref.SoftReference;
-import java.util.Map;
-import java.util.Set;
 import java.util.SortedMap;
 import java.util.SortedSet;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Topic class with partition id
@@ -43,6 +39,13 @@ public class Topic implements Comparable<Topic> {
      */
     public Topic(String topic) {
         this.topic = topic;
+    }
+
+    public static Topic newInstacne(final Topic topic) {
+        Topic copy = new Topic(topic.getTopicText());
+        copy.setPartitionID(topic.getPartitionId());
+        copy.setTopicSharding(topic.getTopicSharding());
+        return copy;
     }
 
     public String getTopicText() {
@@ -109,6 +112,10 @@ public class Topic implements Comparable<Topic> {
     public Topic setTopicSharding(TopicSharding topicSharding) {
         this.sharding = topicSharding;
         return this;
+    }
+
+    public TopicSharding getTopicSharding() {
+        return this.sharding;
     }
 
     /**

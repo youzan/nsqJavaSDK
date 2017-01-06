@@ -123,6 +123,8 @@ public abstract class ConfigAccessAgent implements Closeable {
                     env = null;
                     configAccessRemotes = null;
                     backupFilePath = null;
+                    if(logger.isDebugEnabled())
+                        logger.debug("Config access agent released.");
                 }
             }
         }

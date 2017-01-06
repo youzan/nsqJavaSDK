@@ -8,10 +8,7 @@ import com.youzan.nsq.client.exception.NSQException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.testng.annotations.*;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -41,7 +38,7 @@ public class ITMigrationTestcase {
     private NSQConfig newConfig;
     private ConfigAccessAgent agent = null;
 
-    @BeforeMethod
+    @BeforeClass
     public void init() throws IOException {
         props = new Properties();
         logger.info("At {} , initialize: {}", System.currentTimeMillis(), this.getClass().getName());
@@ -291,8 +288,9 @@ public class ITMigrationTestcase {
         Assert.assertEquals(cnt.get(), cntPro.get());
     }
 
-    @AfterMethod
+    @AfterClass
     public void release() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        logger.info("release config access agent...");
         System.clearProperty("nsq.sdk.configFilePath");
         Method method = ConfigAccessAgent.class.getDeclaredMethod("release");
         method.setAccessible(true);
