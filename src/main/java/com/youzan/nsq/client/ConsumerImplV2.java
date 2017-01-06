@@ -361,7 +361,11 @@ public class ConsumerImplV2 implements Consumer {
             int connectionSizeCal = 0;
             try {
                 for (Topic aTopic : topics) {
-                    Set<Integer> partitionSet = aTopic.getNsqdAddr2Partition().get(address);
+                    //what happen if there is no mapping 2 partition(when connect to old nsqd)
+                    SortedMap<Address, SortedSet<Integer>> addr2Partitions = aTopic.getNsqdAddr2Partition();
+                    Set<Integer> partitionSet = null;
+                    if(null != addr2Partitions)
+                        partitionSet = addr2Partitions.get(address);
                     //if address is a old nsqd, should not return any partition info
                     if (null != partitionSet)
                         connectionSizeCal += partitionSet.size();
@@ -398,10 +402,16 @@ public class ConsumerImplV2 implements Consumer {
             int connectionIdx = 0;
             try {
                 for (int i = 0; i < topicSize; i++) {
-                    Set<Integer> partitionSet = topicArray[i].getNsqdAddr2Partition().get(address);
-                    Iterator<Integer> partitionIte = null;
                     int sizePerTopic = 1;
                     final Topic topic = topicArray[i];
+
+                    //what happen if there is no mapping 2 partition(when connect to old nsqd)
+                    SortedMap<Address, SortedSet<Integer>> addr2Partitions = topic.getNsqdAddr2Partition();
+                    SortedSet<Integer> partitionSet = null;
+                    if(null != addr2Partitions)
+                        partitionSet = addr2Partitions.get(address);
+                    Iterator<Integer> partitionIte = null;
+
                     //check if partition ID is specified by user
                     if (null != partitionSet && !topic.hasPartition()) {
                         if (logger.isDebugEnabled())
