@@ -2,22 +2,13 @@ package com.youzan.nsq.client.entity;
 
 import com.youzan.nsq.client.Version;
 import com.youzan.util.HostUtil;
-import com.youzan.util.IPUtil;
 import com.youzan.util.NotThreadSafe;
 import com.youzan.util.SystemUtil;
 import io.netty.handler.ssl.SslContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.Properties;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * It is used for Producer or Consumer, and not both two.

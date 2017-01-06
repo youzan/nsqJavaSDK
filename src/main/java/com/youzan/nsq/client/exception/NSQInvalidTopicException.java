@@ -1,7 +1,6 @@
 package com.youzan.nsq.client.exception;
 
 import com.youzan.nsq.client.entity.Response;
-import com.youzan.nsq.client.entity.Topic;
 
 public class NSQInvalidTopicException extends NSQException {
 

@@ -1,6 +1,7 @@
 package it.youzan.nsq.client;
 
 import com.youzan.nsq.client.*;
+import com.youzan.nsq.client.configs.ConfigAccessAgent;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.exception.NSQException;
@@ -12,6 +13,8 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.BlockingQueue;
@@ -138,9 +141,13 @@ public class ITStableCaseWDCC {
 
 
     @AfterClass
-    public void close() {
+    public void close() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
         IOUtil.closeQuietly(consumer, producer);
         logger.info("Done. successPub: {} , totalPub: {} , received: {} , successFinish: {} , now the temporary store in memory has {} messages.", successPub.get(), totalPub.get(), received.get(), successFinish.get(), store.size());
+        System.clearProperty("nsq.sdk.configFilePath");
+        Method method = ConfigAccessAgent.class.getDeclaredMethod("release");
+        method.setAccessible(true);
+        method.invoke(ConfigAccessAgent.getInstance());
     }
 
 }

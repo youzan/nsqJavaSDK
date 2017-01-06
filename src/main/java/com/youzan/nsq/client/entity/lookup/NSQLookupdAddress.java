@@ -171,7 +171,7 @@ public class NSQLookupdAddress extends AbstractLookupdAddress {
      * field to construct Address
      * @return Address nsq broker Address
      */
-    protected Address createAddress(JsonNode node){
+    private Address createAddress(JsonNode node){
         final String host = node.get("broadcast_address").asText();
         final int port = node.get("tcp_port").asInt();
         final String version = node.get("version").asText();

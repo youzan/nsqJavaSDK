@@ -6,9 +6,6 @@ import com.youzan.nsq.client.entity.Partitions;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQLookupException;
 
-import java.util.HashMap;
-import java.util.Map;
-
 /**
  * Created by lin on 16/12/13.
  */

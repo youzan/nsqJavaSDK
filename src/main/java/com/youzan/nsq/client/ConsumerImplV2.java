@@ -123,6 +123,8 @@ public class ConsumerImplV2 implements Consumer {
             return;
         }
         for (Topic topic : topics) {
+            //copy a new topic in consumer, as address 2 partition mapping need maintained in topic, and we do not
+            //expect to expose that to user.
             Topic topicCopy = Topic.newInstacne(topic);
             this.topics.add(topicCopy);
             simpleClient.putTopic(topicCopy);
@@ -146,7 +148,7 @@ public class ConsumerImplV2 implements Consumer {
             throw new IllegalArgumentException("Consumer Name is blank! Please check it!");
         }
         if (this.topics.isEmpty()) {
-            logger.warn("Are you kidding me? You do not subscribe any topic.");
+            logger.warn("No topic subscribed.");
         }
         synchronized (lock) {
             if (!this.started) {

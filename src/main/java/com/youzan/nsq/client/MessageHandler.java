@@ -1,7 +1,6 @@
 package com.youzan.nsq.client;
 
 import com.youzan.nsq.client.entity.NSQMessage;
-import com.youzan.nsq.client.exception.NSQException;
 
 /**
  * It is a callback what is a client processing.
