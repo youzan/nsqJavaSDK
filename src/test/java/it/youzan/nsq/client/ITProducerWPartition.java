@@ -18,6 +18,11 @@ public class ITProducerWPartition extends ITProducer{
     public void publish() throws NSQException {
         final byte[] message = new byte[64];
         Topic topic = new Topic("JavaTesting-Producer-Base");
+
+        String[] lookupds = config.getLookupAddresses();
+        if(config.getUserSpecifiedLookupAddress() && null != lookupds && lookupds[0].contains("nsq-"))
+            return;
+
         for (int i = 0; i < 10; i++) {
             random.nextBytes(message);
             Message msg = Message.create(topic, new String(message))
@@ -27,13 +32,17 @@ public class ITProducerWPartition extends ITProducer{
     }
 
 
-    public void publishWTopicAndPartition(String topic) throws NSQException {
+    private void publishWTopicAndPartition(String topic) throws NSQException {
         for (int i = 0; i < 10; i++) {
             producer.publish(("Message #" + i).getBytes(), new Topic(topic));
         }
     }
 
     public void testPublishPartition0() throws NSQException {
+        String[] lookupds = config.getLookupAddresses();
+        if(config.getUserSpecifiedLookupAddress() && null != lookupds && lookupds[0].contains("nsq-"))
+            return;
+
         publishWTopicAndPartition("JavaTesting-Partition");
     }
 }

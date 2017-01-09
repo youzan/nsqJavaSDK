@@ -50,6 +50,11 @@ public class ITProducerOrdered {
     }
 
     public void publishOrdered() throws NSQException {
+
+        String[] lookupds = config.getLookupAddresses();
+        if(config.getUserSpecifiedLookupAddress() && null != lookupds && lookupds[0].contains("nsq-"))
+            return;
+
         Topic topic = new Topic("JavaTesting-Order");
         for (int i = 0; i < 100; i++) {
             String message = ("Message #" + i);

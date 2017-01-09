@@ -51,7 +51,7 @@ public abstract class ConfigAccessAgent implements Closeable {
 
     /**
      * Set the environment value of config client
-     * @param env environment value config access agent works on.
+     * @param env environment value of config access remote, which config access agent talks to.
      */
     public static void setEnv(String env){
         ConfigAccessAgent.env = env;
@@ -71,8 +71,8 @@ public abstract class ConfigAccessAgent implements Closeable {
                     //create config request
                     try {
                         //As NSQConfig is invoked here, which means static variables like properties will be initialized before trace agent is invoked
-                        Constructor<? extends ConfigAccessAgent> construactor = CAA_CLAZZ.getConstructor();
-                        INSTANCE = construactor.newInstance();
+                        Constructor<? extends ConfigAccessAgent> constructor = CAA_CLAZZ.getConstructor();
+                        INSTANCE = constructor.newInstance();
                         INSTANCE.kickoff();
                     } catch (Exception e) {
                         logger.error("Fail to start config access agent {}. ", CAA_CLAZZ);

@@ -24,6 +24,11 @@ public class ITConsumerTrace extends AbstractITConsumer{
     public void test() throws InterruptedException, NSQException {
         final CountDownLatch latch = new CountDownLatch(10);
         final AtomicInteger received = new AtomicInteger(0);
+
+        String[] lookupds = config.getLookupAddresses();
+        if(config.getUserSpecifiedLookupAddress() && null != lookupds && lookupds[0].contains("nsq-"))
+            return;
+
         consumer = new ConsumerImplV2(config, new MessageHandler() {
             @Override
             public void process(NSQMessage message) {

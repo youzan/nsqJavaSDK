@@ -18,6 +18,9 @@ public class ITProducerTrace extends ITProducer {
     public void publishTrace() throws NSQException {
         //set trace id, which is a long(8-byte-length)
         Topic topic = new Topic("JavaTesting-Trace");
+        String[] lookupds = config.getLookupAddresses();
+        if(config.getUserSpecifiedLookupAddress() && null != lookupds && lookupds[0].contains("nsq-"))
+            return;
         for (int i = 0; i < 10; i++) {
             Message msg = Message.create(topic, 45678L, ("Message #" + i));
             producer.publish(msg);

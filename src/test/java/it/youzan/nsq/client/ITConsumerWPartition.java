@@ -23,6 +23,11 @@ public class ITConsumerWPartition extends AbstractITConsumer{
     private static final Logger logger = LoggerFactory.getLogger(ITConsumerWPartition.class);
 
     public void test() throws NSQException, InterruptedException {
+
+        String[] lookupds = config.getLookupAddresses();
+        if(config.getUserSpecifiedLookupAddress() && null != lookupds && lookupds[0].contains("nsq-"))
+            return;
+
         final CountDownLatch latch = new CountDownLatch(10);
         final AtomicInteger received = new AtomicInteger(0);
         Consumer consumer = new ConsumerImplV2(config, new MessageHandler() {
@@ -43,6 +48,11 @@ public class ITConsumerWPartition extends AbstractITConsumer{
 
     //start up two consumer subscribe on different partition, one should receive and another should NOT
     public void testTwoConsumerOn2Partition() throws NSQException, InterruptedException {
+
+        String[] lookupds = config.getLookupAddresses();
+        if(config.getUserSpecifiedLookupAddress() && null != lookupds && lookupds[0].contains("nsq-"))
+            return;
+
         final CountDownLatch latch = new CountDownLatch(10);
         final AtomicInteger received = new AtomicInteger(0);
         Consumer recievedConsumer = new ConsumerImplV2(config, new MessageHandler() {

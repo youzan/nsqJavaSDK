@@ -133,8 +133,8 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         return this.userSpecifiedLookupd;
     }
 
-    public NSQConfig setUserSpecifiedLookupAddress(boolean userLookupod) {
-        this.userSpecifiedLookupd = userLookupod;
+    public NSQConfig setUserSpecifiedLookupAddress(boolean userLookupd) {
+        this.userSpecifiedLookupd = userLookupd;
         return this;
     }
 

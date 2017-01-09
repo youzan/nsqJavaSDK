@@ -27,6 +27,11 @@ public class ITConsumerOrdered extends AbstractITConsumer {
         final AtomicInteger received = new AtomicInteger(0);
         final AtomicInteger current = new AtomicInteger(-1);
         final AtomicBoolean fail = new AtomicBoolean(false);
+
+        String[] lookupds = config.getLookupAddresses();
+        if(config.getUserSpecifiedLookupAddress() && null != lookupds && lookupds[0].contains("nsq-"))
+            return;
+
         //turn on sub ordered
         config.setOrdered(true);
         consumer = new ConsumerImplV2(config, new MessageHandler() {
