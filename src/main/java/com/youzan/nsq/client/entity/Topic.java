@@ -105,7 +105,7 @@ public class Topic implements Comparable<Topic> {
 
     public String toString() {
         if (null == toString)
-            toString = String.format("topic: %s.", this.topic);
+            toString = String.format("topic: %s, %d.", this.topic, this.partitionID);
         return toString;
     }
 

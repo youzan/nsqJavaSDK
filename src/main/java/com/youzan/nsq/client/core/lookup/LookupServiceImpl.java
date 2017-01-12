@@ -7,6 +7,7 @@ import com.youzan.nsq.client.entity.Partitions;
 import com.youzan.nsq.client.entity.Role;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.entity.lookup.NSQLookupdAddress;
+import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQLookupException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,7 +39,7 @@ public class LookupServiceImpl implements LookupService {
     }
 
     @Override
-    public IPartitionsSelector lookup(Topic topic, boolean localLookupd) throws NSQLookupException {
+    public IPartitionsSelector lookup(Topic topic, boolean localLookupd) throws NSQException {
         TopicRuleCategory category = TopicRuleCategory.getInstance(this.role);
         switch (this.role) {
             case Consumer: {
@@ -54,7 +55,7 @@ public class LookupServiceImpl implements LookupService {
     }
 
     @Override
-    public IPartitionsSelector lookup(final Topic topic, boolean writable, final TopicRuleCategory category, boolean localLookupd) throws NSQLookupException{
+    public IPartitionsSelector lookup(final Topic topic, boolean writable, final TopicRuleCategory category, boolean localLookupd) throws NSQException {
         if (null == topic || null == topic.getTopicText() || topic.getTopicText().isEmpty()) {
             throw new NSQLookupException("Your input topic is blank!");
         }

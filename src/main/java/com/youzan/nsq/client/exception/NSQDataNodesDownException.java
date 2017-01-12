@@ -13,4 +13,12 @@ public class NSQDataNodesDownException extends NSQException {
     public NSQDataNodesDownException(Throwable cause) {
         super("SDK has done its best effort! All of the data nodes(server-side) are down! Please check both the client and the server!", cause);
     }
+
+    public NSQDataNodesDownException(String message, Throwable cause) {
+        super(message, cause);
+    }
+
+    public NSQDataNodesDownException(String message) {
+        super(message);
+    }
 }

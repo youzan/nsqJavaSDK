@@ -50,7 +50,7 @@ public class ITLookup extends EasyMockSupport {
 
     }
 
-    public void lookup() throws NSQLookupException {
+    public void lookup() throws NSQException {
         lau = partialMockBuilder(LookupAddressUpdate.class)
                 .addMockedMethod("getLookup")
                 .withConstructor()

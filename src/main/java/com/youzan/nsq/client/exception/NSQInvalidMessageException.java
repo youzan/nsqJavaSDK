@@ -6,7 +6,7 @@ public class NSQInvalidMessageException extends NSQException {
     private static final long serialVersionUID = 2600952717826058158L;
 
     public NSQInvalidMessageException() {
-        super(Response.E_BAD_MESSAGE + " !!! Maybe SDK bug!");
+        super(Response.E_BAD_MESSAGE + " Pls check if message body size exceeds limitation in NSQ.");
     }
 
     public NSQInvalidMessageException(String message) {

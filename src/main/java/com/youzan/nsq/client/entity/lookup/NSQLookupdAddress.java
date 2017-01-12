@@ -2,11 +2,14 @@ package com.youzan.nsq.client.entity.lookup;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.youzan.nsq.client.entity.*;
+import com.youzan.nsq.client.exception.NSQProducerNotFoundException;
 import com.youzan.nsq.client.exception.NSQLookupException;
+import com.youzan.nsq.client.exception.NSQTopicNotFoundException;
 import com.youzan.util.IOUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.ref.SoftReference;
 import java.net.URL;
@@ -50,7 +53,7 @@ public class NSQLookupdAddress extends AbstractLookupdAddress {
      * @param writable
      * @return
      */
-    public IPartitionsSelector lookup(final Topic topic, boolean writable) throws NSQLookupException {
+    public IPartitionsSelector lookup(final Topic topic, boolean writable) throws NSQLookupException, NSQProducerNotFoundException, NSQTopicNotFoundException {
         if (null == topic || null == topic.getTopicText() || topic.getTopicText().isEmpty()) {
             throw new NSQLookupException("Your input topic is blank!");
         }
@@ -62,24 +65,34 @@ public class NSQLookupdAddress extends AbstractLookupdAddress {
             Partitions aPartitions = lookup(lookup, topic, writable);
             IPartitionsSelector ps = new SimplePartitionsSelector(aPartitions);
             return ps; // maybe it is empty
-        } catch (Exception e) {
+        } catch (IOException e) {
             final String tip = "SDK can't get the right lookup info. " + this.getAddress();
             throw new NSQLookupException(tip, e);
         }
     }
 
-    protected Partitions lookup(String lookupdAddress, final Topic topic, boolean writable) throws IOException {
+    protected Partitions lookup(String lookupdAddress, final Topic topic, boolean writable) throws IOException, NSQProducerNotFoundException, NSQTopicNotFoundException {
         if(!lookupdAddress.startsWith(HTTP_PRO_HEAD))
             lookupdAddress = HTTP_PRO_HEAD + lookupdAddress;
         String urlFormat = writable ? BROKER_QUERY_URL_WRITE : BROKER_QUERY_URL_READ ;
         final String url = String.format(urlFormat, lookupdAddress, topic.getTopicText(), writable ? "w" : "r");
         logger.debug("Begin to lookup some DataNodes from URL {}", url);
         Partitions aPartitions = new Partitions(topic);
-
-        final JsonNode rootNode = IOUtil.readFromUrl(new URL(url));
+        JsonNode rootNode;
+        try {
+            rootNode = IOUtil.readFromUrl(new URL(url));
+        }catch(FileNotFoundException topicNotFoundExp) {
+            throw new NSQTopicNotFoundException("Topic not found for " + topic.toString() + ", with query: " + url, topic, topicNotFoundExp);
+        }
         long start = 0L;
         if(logger.isDebugEnabled())
             start = System.currentTimeMillis();
+
+        //check if producers exists, if not, it could be a no channel exception
+        final JsonNode producers = rootNode.get("producers");
+        if(null == producers || producers.size() == 0){
+            throw new NSQProducerNotFoundException("No NSQd producer node return in lookup response. Check if there is any channel under " + topic.toString());
+        }
         final JsonNode partitions = rootNode.get("partitions");
         Map<Integer, SoftReference<Address>> partitionId2Ref;
         SortedMap<Address, SortedSet<Integer>> nsqdAddr2partitionId;
@@ -142,7 +155,7 @@ public class NSQLookupdAddress extends AbstractLookupdAddress {
         }
 
         //producers part in json
-        final JsonNode producers = rootNode.get("producers");
+
         for (JsonNode node : producers) {
             final Address address = createAddress(node);
             if(!partitionNodeSet.contains(address)) {

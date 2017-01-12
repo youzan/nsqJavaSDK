@@ -21,10 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -146,9 +143,7 @@ public class ProducerImplV2 implements Producer {
             // current broker | next broker when have a try again
             final int effectedIndex = (index++ & Integer.MAX_VALUE) % size;
             final Address address = partitonAddrs[effectedIndex];
-//            logger.debug("Load-Balancing algorithm is Round-Robin! DataNode Size: {} , Index: {} , Got {}", size, effectedIndex, address);
             try {
-//                logger.debug("Begin to borrowObject from the address: {}", address);
                 return bigPool.borrowObject(address);
             } catch (Exception e) {
                 logger.error("DataNode Size: {} , CurrentRetries: {} , Address: {} , Exception:", size, c, address, e);
@@ -181,7 +176,14 @@ public class ProducerImplV2 implements Producer {
             throw new IllegalStateException("Producer must be started before producing messages!");
         }
         total.incrementAndGet();
-        sendPUB(message);
+        try{
+            sendPUB(message);
+        }catch (NSQPubException pubE){
+            logger.error(pubE.getLocalizedMessage());
+            pubE.punchExceptions(logger);
+            List<? extends NSQException> exceptions = pubE.getNestedExceptions();
+            throw exceptions.get(exceptions.size() - 1);
+        }
     }
 
     @Override
@@ -213,19 +215,26 @@ public class ProducerImplV2 implements Producer {
 
     private void sendPUB(final Message msg) throws NSQException {
         int c = 0; // be continuous
+        NSQConnection conn;
+        List<NSQException> exceptions = new ArrayList<>();
         while (c++ < MAX_PUBLISH_RETRY) {
             if (c > 1) {
                 logger.debug("Sleep. CurrentRetries: {}", c);
                 sleep((1 << (c - 1)) * 1000);
             }
-            NSQConnection conn = null;
             try {
                 conn = getNSQConnection(msg.getTopic(), msg.getTopicShardingId());
                 if (conn == null) {
+                    exceptions.add(new NSQDataNodesDownException("Could not get NSQd connection for " + msg.getTopic().toString() + ", topic may does not exist."));
                     continue;
                 }
-            }catch(NSQLookupException lookupE) {
-                logger.warn("publish process may hit a invalid Lookup address. retry in another round...");
+            }
+            catch (NSQTopicNotFoundException | NSQProducerNotFoundException exp) {
+                //throw it directly
+                throw exp;
+            }
+            catch(NSQException lookupE) {
+                exceptions.add(lookupE);
                 continue;
             }
             //create PUB command
@@ -237,19 +246,22 @@ public class ProducerImplV2 implements Producer {
                 if(msg.isTraced() && frame instanceof MessageMetadata && TraceLogger.isTraceLoggerEnabled() && conn.getAddress().isHA())
                     TraceLogger.trace(this, conn, (MessageMetadata) frame);
                 return;
-            } catch (Exception e) {
+            }catch(NSQInvalidMessageException invalidMsg) {
+                //invalid message exception, may caused by too large message body
+                throw invalidMsg;
+            }catch (Exception e) {
                 IOUtil.closeQuietly(conn);
                 logger.error("MaxRetries: {} , CurrentRetries: {} , Address: {} , Topic: {}, RawMessage: {} , Exception:", MAX_PUBLISH_RETRY, c,
                         conn.getAddress(), msg.getTopic(), msg.getMessageBodyInByte(), e);
                 if (c >= MAX_PUBLISH_RETRY) {
-                    throw new NSQDataNodesDownException(e);
+                    throw new NSQPubException(exceptions);
                 }
             } finally {
                 bigPool.returnObject(conn.getAddress(), conn);
             }
         } // end loop
         if (c >= MAX_PUBLISH_RETRY) {
-            throw new NSQDataNodesDownException(new NSQNoConnectionException("The topic is " + msg.getTopic().getTopicText() + " Message: " + msg.toString()));
+            throw new NSQPubException(exceptions);
         }
     }
 
