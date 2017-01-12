@@ -135,7 +135,6 @@ public class NSQSimpleClient implements Client, Closeable {
                         try {
                             lock.writeLock().lock();
                             //topic partition update
-                            //TODO: set cluster info when SeedLookupAddress is create for current topic, not here
                             topic_2_partitionsSelector.put(topic, aPs);
                         } finally {
                             lock.writeLock().unlock();
