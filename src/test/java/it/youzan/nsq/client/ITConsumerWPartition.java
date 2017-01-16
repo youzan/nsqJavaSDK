@@ -55,6 +55,7 @@ public class ITConsumerWPartition extends AbstractITConsumer{
 
         final CountDownLatch latch = new CountDownLatch(10);
         final AtomicInteger received = new AtomicInteger(0);
+        config.setOrdered(true);
         Consumer recievedConsumer = new ConsumerImplV2(config, new MessageHandler() {
             @Override
             public void process(NSQMessage message) {

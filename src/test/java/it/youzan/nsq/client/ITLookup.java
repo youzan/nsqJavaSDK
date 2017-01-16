@@ -2,16 +2,13 @@ package it.youzan.nsq.client;
 
 import com.youzan.nsq.client.*;
 import com.youzan.nsq.client.configs.ConfigAccessAgent;
-import com.youzan.nsq.client.configs.DCCSeedLookupdConfig;
 import com.youzan.nsq.client.configs.TopicRuleCategory;
 import com.youzan.nsq.client.core.LookupAddressUpdate;
 import com.youzan.nsq.client.core.lookup.LookupService;
 import com.youzan.nsq.client.core.lookup.LookupServiceImpl;
 import com.youzan.nsq.client.entity.*;
-import com.youzan.nsq.client.entity.lookup.AbstractSeedLookupdConfig;
 import com.youzan.nsq.client.entity.lookup.NSQLookupdAddress;
 import com.youzan.nsq.client.exception.NSQException;
-import com.youzan.nsq.client.exception.NSQLookupException;
 import com.youzan.util.IOUtil;
 import org.easymock.EasyMockSupport;
 import org.slf4j.Logger;
@@ -29,7 +26,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static org.easymock.EasyMock.expect;
-import static org.easymock.EasyMock.same;
 
 @Test(priority = 3)
 public class ITLookup extends EasyMockSupport {

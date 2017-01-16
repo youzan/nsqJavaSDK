@@ -133,7 +133,6 @@ public class Topic implements Comparable<Topic> {
         //update partitionID
         this.partitionID = this.sharding.toPartitionID(seed, partitionNum);
         return this.partitionID;
-
     }
 
     //form a address 2 partition list mapping, out of partititon 2 address mapping

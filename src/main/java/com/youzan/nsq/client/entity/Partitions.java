@@ -1,5 +1,7 @@
 package com.youzan.nsq.client.entity;
 
+import com.youzan.nsq.client.exception.NSQPartitionNotAvailableException;
+
 import java.lang.ref.SoftReference;
 import java.util.*;
 
@@ -27,8 +29,18 @@ public class Partitions {
             throw new RuntimeException("Length of pass in data nodes doe not match size of total partition number.");
         this.partitionId2Addr = partitionId2Addr;
         this.dataNodes = dataNodes;
-        this.partitionNum = partitionNum;
+        updatePartitionNum(partitionNum);
         return this;
+    }
+
+    /**
+     * update partition number of current partition.
+     * @param newPartitionNum new partition number.
+     */
+    public void updatePartitionNum(int newPartitionNum){
+        if(newPartitionNum <= 0)
+            return;
+        this.partitionNum = newPartitionNum;
     }
 
     public Map<Integer, SoftReference<Address>> getPartitionId2Addr(){
@@ -42,10 +54,14 @@ public class Partitions {
         return this;
     }
 
-    public Address getPartitionAddress(int partitionID) throws IndexOutOfBoundsException{
+    public Address getPartitionAddress(int partitionID) throws IndexOutOfBoundsException, NSQPartitionNotAvailableException {
         if(partitionID < 0 || partitionID >= this.partitionNum)
             throw new IndexOutOfBoundsException("PartitionID: " + partitionID + " out of boundary. Partition number: " + this.partitionNum);
-        return this.partitionId2Addr.get(partitionID).get();
+        try {
+            return this.partitionId2Addr.get(partitionID).get();
+        } catch (NullPointerException npe) {
+            throw new NSQPartitionNotAvailableException("Partition: " + partitionID + " not found for " + this.topic);
+        }
     }
 
     public List<Address> getAllDataNodes(){

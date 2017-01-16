@@ -35,7 +35,7 @@ public class NSQLookupdAddress extends AbstractLookupdAddress {
     }
 
     public static NSQLookupdAddress create(String preClusterId, String previousLookupd, String curClusterId, String currentLookupd, int currentFactor) {
-        return new NSQLookupdAddressPair(preClusterId, preClusterId, curClusterId, currentLookupd, currentFactor);
+        return new NSQLookupdAddressPair(preClusterId, previousLookupd, curClusterId, currentLookupd, currentFactor);
     }
 
     /**
