@@ -38,6 +38,62 @@ public class NSQConfigTestcase {
         Assert.assertEquals(dumyUrl, DCCConfigAccessAgent.getUrls()[0]);
     }
 
+    @Test
+    public void testNSQConfig() {
+        NSQConfig config = new NSQConfig();
+        config
+                /*
+                开启／关闭顺序消费模式。默认状态下顺序消费模式为关闭状态。
+                */
+                .setOrdered(true)
+                /*
+                用于覆盖DCC返回的lookup address，配置为true时，ConfigAccessAgent将不会访问DCC，SDK
+                使用｛@link NSQConfig#setLookupAddresses(String)｝传入的地址。
+                */
+                .setUserSpecifiedLookupAddress(true)
+                /*
+                指定Seed lookup address。UserSpecifiedLookupAddress 未指定或指定为{@link Boolean#FALSE}时
+                传入地址将被忽略。在UserSpecifiedLookupAddress 为{@link Boolean#TRUE} 时有效。
+                */
+                .setLookupAddresses("sqs-qa.s.qima-inc.com:4161")
+                /*
+                指定Consumer消费的Channel，该配置对producer无效
+                 */
+                .setConsumerName("BaseConsumer")
+                /*
+                NSQd connection pool 的容量设置，默认值为10。
+                 */
+                .setConnectionPoolSize(10)
+                /*
+                开启／关闭Rdy慢启动。默认值为{@Boolean#TRUE}
+                 */
+                .setConsumerSlowStart(false)
+                /*
+                NSQ消息超时配置, 默认值为60秒
+                 */
+                .setMsgTimeoutInMillisecond(10000)
+                /*
+                NSQ output_buffer_size 配置项，可选配置
+                 */
+                .setOutputBufferSize(10000)
+                /*
+                NSQ output_buffer_timeout 配置项，可选配置
+                 */
+                .setOutputBufferTimeoutInMillisecond(10000)
+                /*
+                SDK 同步操作时的等到超时设置，可选配置
+                 */
+                .setQueryTimeoutInMillisecond(30000)
+                /*
+                Consumer RDY最大值设置
+                 */
+                .setRdy(3)
+                /*
+                用户消息处理线程池容量配置项
+                 */
+                .setThreadPoolSize4IO(Runtime.getRuntime().availableProcessors());
+    }
+
     @AfterMethod
     public void release(){
         System.clearProperty("nsq.sdk.configFilePath");

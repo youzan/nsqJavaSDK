@@ -133,6 +133,15 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         return this.userSpecifiedLookupd;
     }
 
+    /**
+     * Switch on/off (default is OFF) config access agent to remote for NSQ Seed lookup discovery.
+     * Once it is set to {@link Boolean#TRUE}, {@link NSQConfig#setLookupAddresses(String)} need to be invoked to pass
+     * in seed lookup address.
+     * @param userLookupd
+     *      {@link Boolean#TRUE} to override with user specified seed lookup address, {@link Boolean#FALSE} to turn off
+     *      user specified lookup address.
+     * @return current NSQConfig
+     */
     public NSQConfig setUserSpecifiedLookupAddress(boolean userLookupd) {
         this.userSpecifiedLookupd = userLookupd;
         return this;
@@ -217,28 +226,28 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * @return the threadPoolSize4IO
+     * @return threadPoolSize4IO in current NSQConfig
      */
     public int getThreadPoolSize4IO() {
         return threadPoolSize4IO;
     }
 
     /**
-     * For specifying connection pool size for producer.
-     * NOTE: setting threadPoolSizepls use {@link NSQConfig#setConnectionPoolSize(int)}.
+     * Specify max thread size for consumer client business process.
      * @param threadPoolSize4IO the threadPoolSize4IO to set
      */
     public NSQConfig setThreadPoolSize4IO(int threadPoolSize4IO) {
-        this.threadPoolSize4IO = threadPoolSize4IO;
-        if (threadPoolSize4IO > 1) {
-            logger.warn("SDK does not recommend the size > 1 when this client is a consumer. If you are a producer, please ignore the info.");
+        if (threadPoolSize4IO < 1) {
+            logger.warn("Thread pool size smaller than 1 is not accepted.");
         }
+        this.threadPoolSize4IO = threadPoolSize4IO;
         return this;
     }
 
     /**
-     * Specify connection pool size for producer,
+     * Specify connection pool size for producer, or default value(10) applies.
      * @param connectionPoolSize
+     *      connection pool size for producer connection pool.
      * @return current NSQConfig
      */
     public NSQConfig setConnectionPoolSize(int connectionPoolSize) {
@@ -252,6 +261,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     /**
      * @return connection
+     *      Connection size value for producer connection pool size
      */
     public int getConnectionSize(){
         return this.connectionSize;
@@ -330,6 +340,9 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
+     * Specify output_buffer_size (nsqd v0.2.21+) the size in bytes of the buffer nsqd will use when writing to this
+     * client.
+     *
      * @param outputBufferSize the outputBufferSize to set
      */
     public NSQConfig setOutputBufferSize(Integer outputBufferSize) {
@@ -345,6 +358,9 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
+     * Specify output_buffer_size (nsqd v0.2.21+) the size in bytes of the buffer nsqd will use when writing to this
+     * client.
+     *
      * @param outputBufferTimeoutInMillisecond the outputBufferTimeoutInMillisecond to set
      */
     public NSQConfig setOutputBufferTimeoutInMillisecond(Integer outputBufferTimeoutInMillisecond) {
@@ -509,6 +525,11 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         return this.slowStart;
     }
 
+    /**
+     * Turn on/off consumer slow start with {@link Boolean#TRUE} or {@link Boolean#FALSE}
+     * @param allowSlowStart switch to turn on/off consumer slow start
+     * @return this NSQConfig
+     */
     public NSQConfig setConsumerSlowStart(boolean allowSlowStart) {
         this.slowStart = allowSlowStart;
         return this;
