@@ -19,7 +19,7 @@
 
 ## 2.3.20170117-RELEASE
 Publish process fails without retry in three specified situations. Bug in lookup combination policy fixed.
-###Features:
+### Features:
 + exceptions in publish process.[#44](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/44)
-###Fixes:
+### Fixes:
 + curlookup reference is not assigned to NSQLookupd.[#43](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/43)
