@@ -4,6 +4,7 @@ import com.youzan.nsq.client.*;
 import com.youzan.nsq.client.configs.*;
 import com.youzan.nsq.client.core.LookupAddressUpdate;
 import com.youzan.nsq.client.entity.*;
+import com.youzan.nsq.client.exception.ConfigAccessAgentException;
 import com.youzan.nsq.client.exception.NSQException;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -59,7 +60,7 @@ public class ITConsumerOrderPartition {
     }
 
     @Test
-    public void testConsume2SQSWithPartitions() throws NSQException, InterruptedException {
+    public void testConsume2SQSWithPartitions() throws NSQException, InterruptedException, ConfigAccessAgentException {
         //note: topic "java_test_ordered_,ulti_topic" has partition num = 9.
         //initialize confgi access agent
         agent = ConfigAccessAgent.getInstance();

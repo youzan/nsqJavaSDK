@@ -4,7 +4,9 @@ import com.youzan.nsq.client.PubCmdFactory;
 import com.youzan.nsq.client.core.LookupAddressUpdate;
 import com.youzan.nsq.client.entity.Role;
 import com.youzan.nsq.client.entity.Topic;
+import com.youzan.nsq.client.exception.ConfigAccessAgentException;
 import com.youzan.nsq.client.exception.NSQConfigAccessException;
+import com.youzan.nsq.client.exception.NSQPubFactoryInitializeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -40,7 +42,7 @@ public class ConfigAccessAgentTestcase {
     }
 
     @Test
-    public void testInitConfigAccessAgentViaSystemProperty() throws IllegalAccessException, NoSuchMethodException, InvocationTargetException {
+    public void testInitConfigAccessAgentViaSystemProperty() throws IllegalAccessException, NoSuchMethodException, InvocationTargetException, ConfigAccessAgentException {
         //specify system property of
         logger.info("[testInitConfigAccessAgentViaSystemProperty] starts.");
 
@@ -59,7 +61,7 @@ public class ConfigAccessAgentTestcase {
     }
 
     @Test
-    public void testGetTraceConfigAccessProperties() {
+    public void testGetTraceConfigAccessProperties() throws ConfigAccessAgentException {
         try {
             logger.info("[testGetTraceConfigAccessProperties] starts.");
             //a config access instance needs initialization before getting properties from config access.
@@ -78,7 +80,7 @@ public class ConfigAccessAgentTestcase {
     }
 
     @Test
-    public void testGetMigrationConfigAccessProperties() {
+    public void testGetMigrationConfigAccessProperties() throws ConfigAccessAgentException {
         try{
             logger.info("[testGetMigrationConfigAccessProperties] starts.");
             agent = ConfigAccessAgent.getInstance();
@@ -112,7 +114,7 @@ public class ConfigAccessAgentTestcase {
     }
 
     @Test
-    public void testSubscribeLookupAddressUpdate() throws InterruptedException, NSQConfigAccessException {
+    public void testSubscribeLookupAddressUpdate() throws InterruptedException, NSQConfigAccessException, ConfigAccessAgentException {
         try {
             logger.info("[testSubscribeLookupAddressUpdate] starts.");
             //set testConfigAccessAgent
@@ -208,7 +210,7 @@ public class ConfigAccessAgentTestcase {
     }
 
     @Test
-    public void testGetConfigKeysFromPubCmdFactory() {
+    public void testGetConfigKeysFromPubCmdFactory() throws NSQPubFactoryInitializeException {
         try {
             logger.info("[testGetConfigKeysFromPubCmdFactory] starts.");
             PubCmdFactory pubFactory = PubCmdFactory.getInstance();
@@ -223,7 +225,7 @@ public class ConfigAccessAgentTestcase {
     }
 
     @Test
-    public void testConfigs() {
+    public void testConfigs() throws ConfigAccessAgentException {
         //property of environment
         //system properties, "nsq.sdk.env" for sdk environment
         //使用系统变量重载sdk环境变量

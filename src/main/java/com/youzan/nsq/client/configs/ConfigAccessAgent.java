@@ -2,6 +2,8 @@ package com.youzan.nsq.client.configs;
 
 import com.youzan.nsq.client.PropertyNotFoundException;
 import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.nsq.client.exception.ConfigAccessAgentException;
+import com.youzan.nsq.client.exception.ConfigAccessAgentInitializeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,6 +25,7 @@ public abstract class ConfigAccessAgent implements Closeable {
     //singleton instance&lock
     private static final Object LOCK = new Object();
     private static ConfigAccessAgent INSTANCE = null;
+    private static boolean TRIEDINITIALIZE = false;
 
     private static Class<? extends ConfigAccessAgent> CAA_CLAZZ;
     private static String env;
@@ -61,15 +64,20 @@ public abstract class ConfigAccessAgent implements Closeable {
         return ConfigAccessAgent.env;
     }
 
-    public static ConfigAccessAgent getInstance() {
+    public static ConfigAccessAgent getInstance() throws ConfigAccessAgentException {
         if (null == INSTANCE) {
             synchronized (LOCK) {
                 if (null == INSTANCE) {
+                    if(TRIEDINITIALIZE == true){
+                        //if we hit this line, it means SDK used to initialze ConfigAccessAgent, but failed.
+                        throw new ConfigAccessAgentInitializeException("Fail to initialize ConfigAccessAgent: " + CAA_CLAZZ);
+                    }
                     initConfigAccessAgentProperties();
                     initConfigAccessAgentClass();
                     //read config client from static client config in NSQConfig, if either config or urls is specified, throws an exception
                     //create config request
                     try {
+                        TRIEDINITIALIZE = true;
                         //As NSQConfig is invoked here, which means static variables like properties will be initialized before trace agent is invoked
                         Constructor<? extends ConfigAccessAgent> constructor = CAA_CLAZZ.getConstructor();
                         INSTANCE = constructor.newInstance();
@@ -117,6 +125,7 @@ public abstract class ConfigAccessAgent implements Closeable {
             synchronized (LOCK) {
                 if (null != INSTANCE) {
                     INSTANCE.close();
+                    TRIEDINITIALIZE = false;
                     INSTANCE = null;
                     CAA_CLAZZ = null;
                     props = null;

@@ -4,6 +4,7 @@ import com.youzan.nsq.client.*;
 import com.youzan.nsq.client.configs.*;
 import com.youzan.nsq.client.core.LookupAddressUpdate;
 import com.youzan.nsq.client.entity.*;
+import com.youzan.nsq.client.exception.ConfigAccessAgentException;
 import com.youzan.nsq.client.exception.NSQException;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -60,7 +61,7 @@ public class ITPubConfigAccess {
     }
 
     @Test
-    public void testPublish2SQSWithConfigAccess() throws NSQException, InterruptedException {
+    public void testPublish2SQSWithConfigAccess() throws NSQException, InterruptedException, ConfigAccessAgentException {
         //initialize confgi access agent
         agent = ConfigAccessAgent.getInstance();
         final SortedMap<String, String> valueMap = new TreeMap<>();

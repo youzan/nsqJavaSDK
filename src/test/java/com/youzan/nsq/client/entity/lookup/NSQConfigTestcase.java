@@ -3,6 +3,7 @@ package com.youzan.nsq.client.entity.lookup;
 import com.youzan.nsq.client.configs.ConfigAccessAgent;
 import com.youzan.nsq.client.configs.DCCConfigAccessAgent;
 import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.nsq.client.exception.ConfigAccessAgentException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -30,7 +31,7 @@ public class NSQConfigTestcase {
     }
 
     @Test
-    public void testSetDCCUrlsInNSQConfig() {
+    public void testSetDCCUrlsInNSQConfig() throws ConfigAccessAgentException {
         String dumyUrl = "http://invalid.dcc.url:1234";
         ConfigAccessAgent.setConfigAccessRemotes(dumyUrl);
         NSQConfig config = new NSQConfig();

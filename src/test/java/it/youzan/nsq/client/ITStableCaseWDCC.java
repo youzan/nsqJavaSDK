@@ -4,6 +4,7 @@ import com.youzan.nsq.client.*;
 import com.youzan.nsq.client.configs.ConfigAccessAgent;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
+import com.youzan.nsq.client.exception.ConfigAccessAgentException;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.util.IOUtil;
 import org.slf4j.Logger;
@@ -141,7 +142,7 @@ public class ITStableCaseWDCC {
 
 
     @AfterClass
-    public void close() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+    public void close() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException, ConfigAccessAgentException {
         IOUtil.closeQuietly(consumer, producer);
         logger.info("Done. successPub: {} , totalPub: {} , received: {} , successFinish: {} , now the temporary store in memory has {} messages.", successPub.get(), totalPub.get(), received.get(), successFinish.get(), store.size());
         System.clearProperty("nsq.sdk.configFilePath");
