@@ -187,6 +187,11 @@ public class DCCConfigAccessAgent extends ConfigAccessAgent {
 
         //1.3 nsq sdk env, which is also the env of nsq sdk
         env = props.getProperty(NSQ_DCCCONFIG_ENV);
+        String sysEnv = System.getProperty(NSQ_DCCCONFIG_ENV);
+        if(null != sysEnv && !sysEnv.isEmpty()){
+            logger.info("initialize config access remote urls with system property value {}.", sysEnv);
+            env = sysEnv;
+        }
         String customizedEnv = ConfigAccessAgent.getEnv();
         if(null != customizedEnv && !customizedEnv.isEmpty()){
             logger.info("initialize config access remote urls with user specified value {}.",customizedEnv);
