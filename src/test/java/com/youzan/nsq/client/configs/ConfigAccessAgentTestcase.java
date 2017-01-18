@@ -42,6 +42,22 @@ public class ConfigAccessAgentTestcase {
     }
 
     @Test
+    public void testConfigAccessAgentInitFromSystemProperty() throws ConfigAccessAgentException {
+        try{
+            logger.info("[testConfigAccessAgentInitFromSystemProperty] starts.");
+            System.clearProperty("nsq.sdk.configFilePath");
+            System.setProperty("nsq.sdk.env", "qa");
+            agent = ConfigAccessAgent.getInstance();
+            String metas = agent.metadata();
+            Assert.assertTrue(metas.contains("env: [qa]"));
+            Assert.assertTrue(metas.contains("urls: [http://10.9.7.75:8089;http://10.9.28.182:8089;http://10.9.17.150:8089;]"));
+        }finally {
+            logger.info("[testConfigAccessAgentInitFromSystemProperty] ends.");
+            System.setProperty("nsq.sdk.configFilePath", "src/test/resources/configClientTest.properties");
+        }
+    }
+
+    @Test
     public void testInitConfigAccessAgentViaSystemProperty() throws IllegalAccessException, NoSuchMethodException, InvocationTargetException, ConfigAccessAgentException {
         //specify system property of
         logger.info("[testInitConfigAccessAgentViaSystemProperty] starts.");
