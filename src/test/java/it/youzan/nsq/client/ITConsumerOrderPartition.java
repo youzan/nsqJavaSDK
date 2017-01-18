@@ -2,7 +2,6 @@ package it.youzan.nsq.client;
 
 import com.youzan.nsq.client.*;
 import com.youzan.nsq.client.configs.*;
-import com.youzan.nsq.client.core.LookupAddressUpdate;
 import com.youzan.nsq.client.entity.*;
 import com.youzan.nsq.client.exception.ConfigAccessAgentException;
 import com.youzan.nsq.client.exception.NSQException;
@@ -16,10 +15,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
