@@ -171,7 +171,6 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
 
         //handle first subscribe
         if(null == firstSeedLookupAddress || firstSeedLookupAddress.size() == 0) {
-            logger.warn("Subscribe to {} returns no result.", subscribeTo);
             checkoutCategorization(categorization);
             throw new NSQConfigAccessException("Subscribe to " + subscribeTo + " returns no result. ConfigAccessAgent metas:" + subscribeTo.metadata());
         }

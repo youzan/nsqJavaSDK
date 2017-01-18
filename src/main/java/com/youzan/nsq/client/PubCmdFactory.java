@@ -6,6 +6,9 @@ import com.youzan.nsq.client.core.command.PubTrace;
 import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.Topic;
+import com.youzan.nsq.client.exception.ConfigAccessAgentException;
+import com.youzan.nsq.client.exception.ConfigAccessAgentInitializeException;
+import com.youzan.nsq.client.exception.NSQPubFactoryInitializeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,16 +65,16 @@ public class PubCmdFactory implements IConfigAccessSubscriber{
 
     }
 
-    public static PubCmdFactory getInstance(){
+    public static PubCmdFactory getInstance() throws NSQPubFactoryInitializeException {
         if(null ==_INSTANCE){
             synchronized(LOCK){
                 if(null == _INSTANCE){
-                    _INSTANCE = new PubCmdFactory();
                     try {
+                        _INSTANCE = new PubCmdFactory();
                         _INSTANCE.subscribe(ConfigAccessAgent.getInstance(), DOMAIN, new AbstractConfigAccessKey[]{KEY}, _INSTANCE.getCallback());
-                    }catch(Exception e){
-                        logger.error("Fail to subscribe to ConfigAccessAgent.");
-                        throw e;
+                    }catch(ConfigAccessAgentException e){
+                        _INSTANCE = null;
+                        throw new NSQPubFactoryInitializeException("Fail to subscribe PubCmdFactory to ConfigAccessAgent.");
                     }
                 }
             }

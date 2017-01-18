@@ -3,6 +3,7 @@ package com.youzan.nsq.client;
 import com.youzan.nsq.client.configs.ConfigAccessAgent;
 import com.youzan.nsq.client.core.LookupAddressUpdate;
 import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.nsq.client.exception.ConfigAccessAgentException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
@@ -10,7 +11,6 @@ import org.testng.annotations.BeforeClass;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -68,7 +68,7 @@ public class AbstractNSQClientTestcase {
     }
 
     @AfterMethod
-    public void relase() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+    public void relase() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException, ConfigAccessAgentException {
         Class<ConfigAccessAgent> clazz = ConfigAccessAgent.class;
         Method method = clazz.getDeclaredMethod("release");
         method.setAccessible(true);

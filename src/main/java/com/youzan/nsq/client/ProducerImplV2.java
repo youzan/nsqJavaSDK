@@ -238,17 +238,18 @@ public class ProducerImplV2 implements Producer {
                 continue;
             }
             //create PUB command
-            final Pub pub = createPubCmd(msg);
             try {
+                final Pub pub = createPubCmd(msg);
                 final NSQFrame frame = conn.commandAndGetResponse(pub);
                 handleResponse(msg.getTopic().getTopicText(), frame, conn);
                 success.incrementAndGet();
                 if(msg.isTraced() && frame instanceof MessageMetadata && TraceLogger.isTraceLoggerEnabled() && conn.getAddress().isHA())
                     TraceLogger.trace(this, conn, (MessageMetadata) frame);
                 return;
-            }catch(NSQInvalidMessageException invalidMsg) {
+            }
+            catch(NSQInvalidMessageException | NSQPubFactoryInitializeException expShouldFail) {
                 //invalid message exception, may caused by too large message body
-                throw invalidMsg;
+                throw expShouldFail;
             }catch (Exception e) {
                 IOUtil.closeQuietly(conn);
                 logger.error("MaxRetries: {} , CurrentRetries: {} , Address: {} , Topic: {}, RawMessage: {} , Exception:", MAX_PUBLISH_RETRY, c,
@@ -269,7 +270,7 @@ public class ProducerImplV2 implements Producer {
      * function to create publish command based on traceability
      * @return Pub command
      */
-    private Pub createPubCmd(final Message msg){
+    private Pub createPubCmd(final Message msg) throws NSQPubFactoryInitializeException {
        return PubCmdFactory.getInstance().create(msg, this.config);
     }
 

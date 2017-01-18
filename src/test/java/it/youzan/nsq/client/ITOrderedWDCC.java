@@ -6,6 +6,7 @@ import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.entity.Topic;
+import com.youzan.nsq.client.exception.ConfigAccessAgentException;
 import com.youzan.nsq.client.exception.NSQException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -84,7 +85,7 @@ public class ITOrderedWDCC {
     }
 
     @AfterClass
-    public void release() throws InvocationTargetException, IllegalAccessException, NoSuchMethodException {
+    public void release() throws InvocationTargetException, IllegalAccessException, NoSuchMethodException, ConfigAccessAgentException {
         Method method = ConfigAccessAgent.class.getDeclaredMethod("release");
         method.setAccessible(true);
         method.invoke(ConfigAccessAgent.getInstance());

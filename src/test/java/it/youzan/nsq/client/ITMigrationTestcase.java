@@ -4,6 +4,7 @@ import com.youzan.nsq.client.*;
 import com.youzan.nsq.client.configs.*;
 import com.youzan.nsq.client.core.LookupAddressUpdate;
 import com.youzan.nsq.client.entity.*;
+import com.youzan.nsq.client.exception.ConfigAccessAgentException;
 import com.youzan.nsq.client.exception.NSQException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,7 +70,7 @@ public class ITMigrationTestcase {
     }
 
     @Test
-    public void test() throws NSQException, InterruptedException {
+    public void test() throws NSQException, InterruptedException, ConfigAccessAgentException {
         agent = ConfigAccessAgent.getInstance();
         final CountDownLatch latch = new CountDownLatch(1);
         final AtomicInteger oldCnt = new AtomicInteger(0);
@@ -175,7 +176,7 @@ public class ITMigrationTestcase {
     private String[] migrationConfigs = new String[]{configStr1, configStr2, configStr3, configStr4, configStr5};
 
     @Test
-    public void testMigrationAccordingToSeedConfig() throws NSQException, InterruptedException {
+    public void testMigrationAccordingToSeedConfig() throws NSQException, InterruptedException, ConfigAccessAgentException {
         agent = ConfigAccessAgent.getInstance();
 
         NSQConfig configConsumer = new NSQConfig("BaseConsumer");

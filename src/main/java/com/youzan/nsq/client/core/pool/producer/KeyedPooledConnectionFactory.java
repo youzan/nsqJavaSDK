@@ -40,6 +40,7 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
     private final AtomicInteger connectionIDGenerator = new AtomicInteger(0);
     private final EventLoopGroup eventLoopGroup;
     private final ConcurrentHashMap<Address, Bootstrap> bootstraps = new ConcurrentHashMap<>();
+    private final Object bootstrapsLock = new Object();
 //    private final ConcurrentHashMap<Address, Long> address_2_bootedTime = new ConcurrentHashMap<>();
 //    private final  ScheduledExecutorService scheduler = Executors
 //            .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
@@ -86,17 +87,19 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
     public NSQConnection create(Address address) throws Exception {
         logger.debug("Begin to create a connection, the address is {}", address);
         final Bootstrap bootstrap;
-        if (bootstraps.containsKey(address)) {
-            bootstrap = bootstraps.get(address);
-        } else {
-            bootstrap = new Bootstrap();
-            bootstraps.putIfAbsent(address, bootstrap);
-            bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
-            bootstrap.option(ChannelOption.TCP_NODELAY, true);
-            bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, config.getConnectTimeoutInMillisecond());
-            bootstrap.group(eventLoopGroup);
-            bootstrap.channel(NioSocketChannel.class);
-            bootstrap.handler(new NSQClientInitializer());
+        synchronized (bootstrapsLock) {
+            if (bootstraps.containsKey(address)) {
+                bootstrap = bootstraps.get(address);
+            } else {
+                bootstrap = new Bootstrap();
+                bootstraps.putIfAbsent(address, bootstrap);
+                bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
+                bootstrap.option(ChannelOption.TCP_NODELAY, true);
+                bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, config.getConnectTimeoutInMillisecond());
+                bootstrap.group(eventLoopGroup);
+                bootstrap.channel(NioSocketChannel.class);
+                bootstrap.handler(new NSQClientInitializer());
+            }
         }
         final ChannelFuture future = bootstrap.connect(address.getHost(), address.getPort());
 
