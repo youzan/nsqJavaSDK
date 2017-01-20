@@ -26,7 +26,7 @@ public class ITProducerWPartition extends ITProducer{
         for (int i = 0; i < 10; i++) {
             random.nextBytes(message);
             Message msg = Message.create(topic, new String(message))
-                    .setTopicShardingID(321L);
+                    .setTopicShardingIDLong(321L);
             producer.publish(msg);
         }
     }

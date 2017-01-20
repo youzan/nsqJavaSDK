@@ -2,8 +2,13 @@ package com.youzan.nsq.client.core;
 
 import com.youzan.nsq.client.IConfigAccessSubscriber;
 import com.youzan.nsq.client.configs.*;
-import com.youzan.nsq.client.entity.*;
-import com.youzan.nsq.client.entity.lookup.*;
+import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.nsq.client.entity.Role;
+import com.youzan.nsq.client.entity.Topic;
+import com.youzan.nsq.client.entity.lookup.AbstractControlConfig;
+import com.youzan.nsq.client.entity.lookup.AbstractSeedLookupdConfig;
+import com.youzan.nsq.client.entity.lookup.NSQLookupdAddress;
+import com.youzan.nsq.client.entity.lookup.SeedLookupdAddress;
 import com.youzan.nsq.client.exception.NSQConfigAccessException;
 import com.youzan.nsq.client.exception.NSQLookupException;
 import com.youzan.util.NamedThreadFactory;

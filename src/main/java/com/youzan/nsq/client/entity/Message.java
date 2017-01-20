@@ -2,6 +2,7 @@ package com.youzan.nsq.client.entity;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.nio.charset.Charset;
 
 /**
@@ -11,12 +12,16 @@ import java.nio.charset.Charset;
 public class Message {
     private final static Logger logger = LoggerFactory.getLogger(Message.class);
     private final static String MSG_FORMAT = "Message:\n[TraceID: %d, TopicSharding: %d, Topic: %s]";
-
+    public final static Object NO_SHARDING = new Object() {
+        public int hashCode() {
+            return -1;
+        }
+    };
     //trace id per message attached
     //meta-data need initialized in received message
     private final long traceID;
     //topic sharding ID, when larger than 0L, it is a valid sharding
-    private long topicSharding = -1L;
+    private Object topicSharding = NO_SHARDING;
     private boolean traced = false;
     private final Topic topic;
 
@@ -75,12 +80,36 @@ public class Message {
         return this.traced;
     }
 
-    public Message setTopicShardingID(long shardingID){
-        this.topicSharding = shardingID;
+    public Message setTopicShardingIDObject(Object shardingIDObj){
+        this.topicSharding = shardingIDObj;
         return this;
     }
 
-    public long getTopicShardingId(){
+    /**
+     * Set topic sharding with {@link Long}
+     * @param shardingIDLong sharding id long type
+     * @return
+     */
+    public Message setTopicShardingIDLong(long shardingIDLong){
+        this.topicSharding = shardingIDLong;
+        return this;
+    }
+
+    /**
+     * Set topic shardingID with {@link String}
+     * @param shardingIDString shardingId String type
+     * @return
+     */
+    public Message setTopicShardingIDString(String shardingIDString){
+        this.topicSharding = shardingIDString;
+        return this;
+    }
+
+    /**
+     * returns shardingId in {@link Object}
+     * @return shardingId object
+     */
+    public Object getTopicShardingId(){
         return this.topicSharding;
     }
 }

@@ -3,11 +3,11 @@
  */
 package com.youzan.nsq.client.core.command;
 
-import java.nio.ByteBuffer;
-import java.util.List;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.nio.ByteBuffer;
+import java.util.List;
 
 /**
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>

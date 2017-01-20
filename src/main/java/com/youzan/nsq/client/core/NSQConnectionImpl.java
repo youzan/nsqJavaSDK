@@ -1,6 +1,8 @@
 package com.youzan.nsq.client.core;
 
-import com.youzan.nsq.client.core.command.*;
+import com.youzan.nsq.client.core.command.Identify;
+import com.youzan.nsq.client.core.command.Magic;
+import com.youzan.nsq.client.core.command.NSQCommand;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;

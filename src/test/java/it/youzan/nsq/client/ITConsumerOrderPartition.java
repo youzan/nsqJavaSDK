@@ -81,7 +81,7 @@ public class ITConsumerOrderPartition {
         for(int i = 0; i < 1000; i++) {
             String msgStr = "Message " + i%partitionNum + " " + i;
             msg = Message.create(topic, msgStr);
-            msg.setTopicShardingID(i%partitionNum);
+            msg.setTopicShardingIDLong(i%partitionNum);
             producer.publish(msg);
         }
         producer.close();
@@ -130,6 +130,88 @@ public class ITConsumerOrderPartition {
         for(Consumer consumer:consumers)
             consumer.close();
     }
+
+    @Test
+    public void testConsume2SQSWithPartitionsWithShardingString() throws NSQException, InterruptedException, ConfigAccessAgentException {
+        //note: topic "java_test_ordered_,ulti_topic" has partition num = 9.
+        //initialize confgi access agent
+        agent = ConfigAccessAgent.getInstance();
+        final SortedMap<String, String> valueMap = new TreeMap<>();
+        valueMap.put("java_test_ordered_multi_topic", controlCnfStr);
+        final Topic topic = new Topic("java_test_ordered_multi_topic");
+
+        DCCMigrationConfigAccessDomain domain = (DCCMigrationConfigAccessDomain) DCCMigrationConfigAccessDomain.getInstance(topic);
+        Role aRole = Role.getInstance("producer");
+        DCCMigrationConfigAccessKey keyProducer = (DCCMigrationConfigAccessKey) DCCMigrationConfigAccessKey.getInstance(aRole);
+        TestConfigAccessAgent.updateValue(domain, new AbstractConfigAccessKey[]{keyProducer}, valueMap, true);
+
+        Role aRoleConsumer = Role.getInstance("consumer");
+        DCCMigrationConfigAccessKey keyConsumer = (DCCMigrationConfigAccessKey) DCCMigrationConfigAccessKey.getInstance(aRoleConsumer);
+        TestConfigAccessAgent.updateValue(domain, new AbstractConfigAccessKey[]{keyConsumer}, valueMap, true);
+
+        NSQConfig config =  new NSQConfig("BaseConsumer");
+        config.setOrdered(true);
+        Producer producer = new ProducerImplV2(config);
+        producer.start();
+        Message msg;
+        final int partitionNum = 9;
+        for(int i = 0; i < 1000; i++) {
+            String shardingIDString = "msg: " + i;
+            int partitionID = topic.getTopicSharding().toPartitionID(shardingIDString, 9);
+            Assert.assertTrue(partitionID >= 0 && partitionID < 9);
+            String msgStr = "Message " + partitionID + " " + i;
+            msg = Message.create(topic, msgStr);
+            msg.setTopicShardingIDString(shardingIDString);
+            producer.publish(msg);
+        }
+        producer.close();
+
+        final CountDownLatch latch = new CountDownLatch(1);
+        final AtomicInteger cnt = new AtomicInteger(1000);
+        final List<List<Integer>> numberLists = new ArrayList<>(9);
+        final List<Consumer> consumers = new ArrayList<>();
+        for(int i = 0; i < partitionNum; i++) {
+            final int idx = i;
+            numberLists.add(new ArrayList<Integer>());
+            Topic aTopic = new Topic("java_test_ordered_multi_topic");
+            aTopic.setPartitionID(idx);
+            Consumer consumer = new ConsumerImplV2(config, new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    logger.info(message.getReadableContent());
+                    String[] numbers = message.getReadableContent().split(" ", 3);
+                    int partitionId = Integer.valueOf(numbers[1]);
+                    int messageNum = Integer.valueOf(numbers[2]);
+                    Assert.assertEquals(partitionId, idx);
+                    String msgSharding = "msg: " + messageNum;
+                    Assert.assertEquals(topic.getTopicSharding().toPartitionID(msgSharding, 9), idx);
+                    //add to number list
+                    List numberList = numberLists.get(idx);
+                    synchronized (numberList) {
+                        numberList.add(messageNum);
+                    }
+                    cnt.decrementAndGet();
+                    if(cnt.get() == 0)
+                        latch.countDown();
+                }
+            });
+            consumer.subscribe(aTopic);
+            consumer.start();
+            consumers.add(consumer);
+        }
+        long start  = System.currentTimeMillis();
+        latch.await(3, TimeUnit.MINUTES);
+        logger.info("It takes {} to wait for consumers.", System.currentTimeMillis() - start);
+        Assert.assertEquals(cnt.get(), 0);
+        for(int i = 0; i < numberLists.size(); i++) {
+            for(int j=1; j < numberLists.get(i).size(); j++){
+                Assert.assertTrue(numberLists.get(i).get(j-1) < numberLists.get(i).get(j));
+            }
+        }
+        for(Consumer consumer:consumers)
+            consumer.close();
+    }
+
 
     @AfterMethod
     public void release() throws InvocationTargetException, IllegalAccessException, NoSuchMethodException {

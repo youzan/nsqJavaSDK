@@ -4,7 +4,6 @@
 package com.youzan.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.youzan.nsq.client.configs.ConfigAccessAgent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

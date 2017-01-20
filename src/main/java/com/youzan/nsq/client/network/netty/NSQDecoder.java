@@ -1,15 +1,14 @@
 package com.youzan.nsq.client.network.netty;
 
-import java.util.List;
-
 import com.youzan.nsq.client.core.Client;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.network.frame.NSQFrame;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToMessageDecoder;
 import io.netty.util.Attribute;
+
+import java.util.List;
 
 public class NSQDecoder extends MessageToMessageDecoder<ByteBuf> {
 

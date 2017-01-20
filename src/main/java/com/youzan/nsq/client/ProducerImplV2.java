@@ -6,9 +6,6 @@ import com.youzan.nsq.client.core.NSQSimpleClient;
 import com.youzan.nsq.client.core.command.Pub;
 import com.youzan.nsq.client.core.pool.producer.KeyedPooledConnectionFactory;
 import com.youzan.nsq.client.entity.*;
-import com.youzan.nsq.client.entity.Address;
-import com.youzan.nsq.client.entity.NSQConfig;
-import com.youzan.nsq.client.entity.Role;
 import com.youzan.nsq.client.exception.*;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
@@ -132,7 +129,7 @@ public class ProducerImplV2 implements Producer {
      * @return a validated {@link NSQConnection}
      * @throws NSQException that is having done a negotiation
      */
-    private NSQConnection getNSQConnection(Topic topic, long topicShardingID) throws NSQException {
+    private NSQConnection getNSQConnection(Topic topic, Object topicShardingID) throws NSQException {
         final Long now = System.currentTimeMillis();
         topic_2_lastActiveTime.put(topic, now);
         //data nodes matches topic sharding returns
@@ -157,9 +154,9 @@ public class ProducerImplV2 implements Producer {
         publish(message.getBytes(IOUtil.DEFAULT_CHARSET), topic);
     }
 
-    public void publish(String message, final Topic topic, long shardingID) throws NSQException {
+    public void publish(String message, final Topic topic, Object shardingID) throws NSQException {
         Message msg = Message.create(topic, message);
-        msg.setTopicShardingID(shardingID);
+        msg.setTopicShardingIDObject(shardingID);
         publish(msg);
     }
 

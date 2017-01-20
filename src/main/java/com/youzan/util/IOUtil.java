@@ -1,15 +1,15 @@
 package com.youzan.util;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public final class IOUtil {
 

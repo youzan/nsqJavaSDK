@@ -3,7 +3,9 @@ package com.youzan.nsq.client.entity;
 import com.youzan.nsq.client.exception.NSQPartitionNotAvailableException;
 
 import java.lang.ref.SoftReference;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Created by lin on 16/11/7.

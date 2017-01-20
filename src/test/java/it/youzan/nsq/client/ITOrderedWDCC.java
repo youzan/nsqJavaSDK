@@ -12,7 +12,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -46,7 +45,7 @@ public class ITOrderedWDCC {
             Message msg = Message.create(aTopic, msgStr);
             //在Message对象中指定shardingID, 默认sharding策略将shardingID与topic的partition number取模的结果作为目标的partition ID
             //shardingID为0
-            msg.setTopicShardingID(shardingId);
+            msg.setTopicShardingIDLong(shardingId);
             //发送该消息
             producer.publish(msg);
         }
@@ -57,7 +56,7 @@ public class ITOrderedWDCC {
             Message msg = Message.create(aTopic, msgStr);
             //在Message对象中指定shardingID, 默认sharding策略将shardingID与topic的partition number取模的结果作为目标的partition ID
             //shardingID为1
-            msg.setTopicShardingID(shardingId);
+            msg.setTopicShardingIDLong(shardingId);
             //发送该消息至
             producer.publish(msg);
         }

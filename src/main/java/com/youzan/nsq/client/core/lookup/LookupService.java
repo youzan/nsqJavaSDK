@@ -2,13 +2,11 @@ package com.youzan.nsq.client.core.lookup;
 
 import com.youzan.nsq.client.configs.TopicRuleCategory;
 import com.youzan.nsq.client.entity.IPartitionsSelector;
-import com.youzan.nsq.client.entity.Partitions;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQLookupException;
 
 import java.io.Closeable;
-import java.util.Map;
 import java.util.Random;
 
 /**

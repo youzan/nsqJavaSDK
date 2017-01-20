@@ -3,11 +3,10 @@
  */
 package com.youzan.nsq.client.core.command;
 
-import java.util.List;
-
-import com.youzan.nsq.client.entity.Topic;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.List;
 
 /**
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>

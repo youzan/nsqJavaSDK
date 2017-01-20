@@ -5,7 +5,6 @@ import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.network.frame.MessageFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.util.HostUtil;
-import com.youzan.util.IOUtil;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;

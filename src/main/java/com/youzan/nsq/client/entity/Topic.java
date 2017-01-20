@@ -17,12 +17,16 @@ public class Topic implements Comparable<Topic> {
     private String key = "";
 
     //topic sharding
-    private static final TopicSharding<Long> TOPIC_SHARDING = new TopicSharding<Long>() {
+    private static final TopicSharding<Object> TOPIC_SHARDING = new TopicSharding<Object>() {
         @Override
-        public int toPartitionID(Long passInSeed, int partitionNum) {
-            if (passInSeed < 0L)
-                return -1;
-            return (int) (passInSeed % partitionNum);
+        public int toPartitionID(Object passInSeed, int partitionNum) {
+            int code = passInSeed.hashCode() % partitionNum;
+            return code >=0 ? code : -code;
+        }
+
+        @Override
+        public long toShardingCode(Object passInSeed) {
+            return passInSeed.hashCode();
         }
     };
 
@@ -125,7 +129,7 @@ public class Topic implements Comparable<Topic> {
      * @param partitionNum
      * @return
      */
-    public int updatePartitionIndex(long seed, int partitionNum) {
+    public int updatePartitionIndex(Object seed, int partitionNum) {
         if (partitionNum <= 0) {
             //for partition Num < 0, treat it as sharding is no needed here
             return -1;

@@ -3,7 +3,6 @@ package com.youzan.nsq.client.core.lookup;
 import com.youzan.nsq.client.configs.TopicRuleCategory;
 import com.youzan.nsq.client.core.LookupAddressUpdate;
 import com.youzan.nsq.client.entity.IPartitionsSelector;
-import com.youzan.nsq.client.entity.Partitions;
 import com.youzan.nsq.client.entity.Role;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.entity.lookup.NSQLookupdAddress;
@@ -11,8 +10,6 @@ import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQLookupException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Map;
 
 /**
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>

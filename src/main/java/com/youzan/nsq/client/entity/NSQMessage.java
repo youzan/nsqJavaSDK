@@ -1,17 +1,16 @@
 package com.youzan.nsq.client.entity;
 
+import com.youzan.nsq.client.MessageMetadata;
+import com.youzan.nsq.client.core.command.Close;
+import com.youzan.nsq.client.exception.NSQException;
+import com.youzan.util.IOUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
-
-import com.youzan.nsq.client.MessageMetadata;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.youzan.nsq.client.core.command.Close;
-import com.youzan.nsq.client.exception.NSQException;
-import com.youzan.util.IOUtil;
 
 public class NSQMessage implements MessageMetadata{
     private static final Logger logger = LoggerFactory.getLogger(Close.class);

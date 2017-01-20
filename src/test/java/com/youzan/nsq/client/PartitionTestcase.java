@@ -1,16 +1,9 @@
 package com.youzan.nsq.client;
 
-import com.youzan.nsq.client.entity.NSQMessage;
-import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testng.Assert;
 import org.testng.annotations.Test;
-
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Created by lin on 16/9/24.

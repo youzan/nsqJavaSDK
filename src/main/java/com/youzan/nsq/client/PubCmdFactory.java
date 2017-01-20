@@ -7,7 +7,6 @@ import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.ConfigAccessAgentException;
-import com.youzan.nsq.client.exception.ConfigAccessAgentInitializeException;
 import com.youzan.nsq.client.exception.NSQPubFactoryInitializeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

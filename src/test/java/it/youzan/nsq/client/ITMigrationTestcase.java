@@ -2,14 +2,15 @@ package it.youzan.nsq.client;
 
 import com.youzan.nsq.client.*;
 import com.youzan.nsq.client.configs.*;
-import com.youzan.nsq.client.core.LookupAddressUpdate;
 import com.youzan.nsq.client.entity.*;
 import com.youzan.nsq.client.exception.ConfigAccessAgentException;
 import com.youzan.nsq.client.exception.NSQException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
-import org.testng.annotations.*;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.io.InputStream;

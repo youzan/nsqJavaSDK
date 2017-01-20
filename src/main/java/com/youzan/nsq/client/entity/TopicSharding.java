@@ -13,4 +13,9 @@ public interface TopicSharding<T> {
      */
     int toPartitionID(T passInSeed, final int partitionNum);
 
+    /**
+     * return sharding code in {@link Long}, for NSQ SDK to tell if sharding code is valid(>= 0), or not.
+     * @return sharding code in {@link Long}
+     */
+    long toShardingCode(T passInSeed);
 }

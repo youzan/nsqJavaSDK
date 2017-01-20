@@ -255,7 +255,7 @@ public class ConsumerImplV2 implements Consumer {
             Address[] partitionDataNodes = null;
             while(null == partitionDataNodes) {
                 try {
-                    partitionDataNodes = simpleClient.getPartitionNodes(topic, -1L, false);
+                    partitionDataNodes = simpleClient.getPartitionNodes(topic, Message.NO_SHARDING, false);
                 } catch (NSQLookupException lookupe) {
                     logger.warn("Hit a invalid lookup address, retry another. Has retried: {}", idx);
                     if(idx++ >= MAX_CONSUME_RETRY){

@@ -1,16 +1,10 @@
 package com.youzan.nsq.client.network.netty;
 
-import javax.net.ssl.SSLEngine;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
-
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -20,6 +14,10 @@ import io.netty.handler.codec.compression.SnappyFrameEncoder;
 import io.netty.handler.codec.compression.ZlibCodecFactory;
 import io.netty.handler.codec.compression.ZlibWrapper;
 import io.netty.handler.ssl.SslHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.net.ssl.SSLEngine;
 
 public class NSQFeatureDetectionHandler extends SimpleChannelInboundHandler<NSQFrame> {
 

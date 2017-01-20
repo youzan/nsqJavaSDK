@@ -11,7 +11,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.lang.ref.SoftReference;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Abstract class for migration control config.

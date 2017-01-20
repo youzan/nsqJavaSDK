@@ -3,12 +3,12 @@
  */
 package com.youzan.nsq.client.core.command;
 
-import java.nio.ByteBuffer;
-import java.util.List;
-
 import com.youzan.nsq.client.entity.Topic;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.nio.ByteBuffer;
+import java.util.List;
 
 public class ReQueue implements NSQCommand, PartitionEnable {
     private static final Logger logger = LoggerFactory.getLogger(ReQueue.class);

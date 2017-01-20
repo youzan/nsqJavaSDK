@@ -1,11 +1,9 @@
 package com.youzan.nsq.client.core.command;
 
 import com.youzan.nsq.client.entity.Message;
-import com.youzan.nsq.client.entity.Topic;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.UUID;
 

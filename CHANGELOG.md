@@ -23,3 +23,11 @@ Publish process fails without retry in three specified situations. Bug in lookup
 + exceptions in publish process.[#44](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/44)
 ### Fixes:
 + curlookup reference is not assigned to NSQLookupd.[#43](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/43)
+
+## 2.3.20170118.085718-24
+dev&pre env add for DCC in configClient.properties, and several bug fixes.
+### Features:
++ dev env appended in nested configClient.properties.[#47](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/47)
+### Fixes:
++ synchronization in boostrap map in producer connection pool factory.[#46](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/46)
++ nsq.sdk.env not work when set as system property  [#48](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/48)

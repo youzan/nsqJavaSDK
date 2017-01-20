@@ -254,9 +254,10 @@ public class NSQSimpleClient implements Client, Closeable {
         conn.command(new Rdy(0));
     }
 
-    public Address[] getPartitionNodes(Topic topic, long topicShardingID, boolean write) throws NSQException {
+    public Address[] getPartitionNodes(Topic topic, Object topicShardingID, boolean write) throws NSQException {
         IPartitionsSelector aPs;
         List<Address> nodes = new ArrayList<>();
+        long shardingCode = topic.getTopicSharding().toShardingCode(topicShardingID);
         lock.readLock().lock();
         try {
             aPs = topic_2_partitionsSelector.get(topic);
@@ -272,14 +273,14 @@ public class NSQSimpleClient implements Client, Closeable {
                     if (null != aPartitions && aPartitions.hasAnyDataNodes()) {
                         //for partitions
                         if (write) {
-                            if (aPartitions.hasPartitionDataNodes() && topicShardingID >= 0) {
+                            if (aPartitions.hasPartitionDataNodes() && topicShardingID != Message.NO_SHARDING) {
                                 int partitionNum = aPartitions.getPartitionNum();
                                 int partitionId = topic.updatePartitionIndex(topicShardingID, partitionNum);
                                 //index out of boundry
                                 Address addr = aPartitions.getPartitionAddress(partitionId);
                                 nodes.add(addr);
                                 //all data nodes
-                            } else if (topicShardingID < 0) {
+                            } else {
                                 List<Address> address = aPartitions.getAllDataNodes();
                                 nodes.addAll(address);
                             }
@@ -308,14 +309,14 @@ public class NSQSimpleClient implements Client, Closeable {
                 topic_2_partitionsSelector.put(topic, aPs);
                 for (Partitions aPartitions : aPs.dumpAllPartitions()) {
                     //for partitions
-                    if (aPartitions.hasPartitionDataNodes() && topicShardingID >= 0) {
+                    if (aPartitions.hasPartitionDataNodes() && topicShardingID != Message.NO_SHARDING) {
                         int partitionNum = aPartitions.getPartitionNum();
                         int partitionId = topic.updatePartitionIndex(topicShardingID, partitionNum);
                         //index out of boundry
                         Address addr = aPartitions.getPartitionAddress(partitionId);
                         nodes.add(addr);
                         //all data nodes
-                    } else if (topicShardingID < 0) {
+                    } else {
                         List<Address> address = aPartitions.getAllDataNodes();
                         nodes.addAll(address);
                     }

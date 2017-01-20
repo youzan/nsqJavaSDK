@@ -13,7 +13,6 @@ import org.testng.annotations.Test;
 
 import java.io.InputStream;
 import java.util.Properties;
-import java.util.Random;
 
 /**
  * Created by lin on 16/10/19.
@@ -59,7 +58,7 @@ public class ITProducerOrdered {
         for (int i = 0; i < 100; i++) {
             String message = ("Message #" + i);
             Message msg = Message.create(topic, 1024L, message)
-                    .setTopicShardingID(123L);
+                    .setTopicShardingIDLong(123L);
             producer.publish(msg);
         }
         producer.close();

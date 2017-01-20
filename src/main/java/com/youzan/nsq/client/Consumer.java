@@ -1,11 +1,11 @@
 package com.youzan.nsq.client;
 
-import java.io.Closeable;
-
 import com.youzan.nsq.client.core.Client;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQException;
+
+import java.io.Closeable;
 
 /**
  * Try to consume the message using the {@link MessageHandler} again after having a

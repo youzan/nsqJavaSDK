@@ -1,15 +1,12 @@
 package com.youzan.nsq.client.network.netty;
 
-import java.util.List;
-
 import com.youzan.nsq.client.core.command.NSQCommand;
-
-import com.youzan.nsq.client.core.command.PubTrace;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
-import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToMessageEncoder;
+
+import java.util.List;
 
 public class NSQEncoder extends MessageToMessageEncoder<NSQCommand> {
 

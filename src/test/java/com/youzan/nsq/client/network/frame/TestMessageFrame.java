@@ -1,10 +1,10 @@
 package com.youzan.nsq.client.network.frame;
 
-import java.nio.ByteBuffer;
-import java.util.Random;
-
 import org.testng.Assert;
 import org.testng.annotations.Test;
+
+import java.nio.ByteBuffer;
+import java.util.Random;
 
 /**
  * http://nsq.io/clients/tcp_protocol_spec.html#data-format

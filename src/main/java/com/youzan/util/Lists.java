@@ -6,13 +6,13 @@
  */
 package com.youzan.util;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.math.RoundingMode;
 import java.util.AbstractList;
 import java.util.List;
 import java.util.RandomAccess;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>

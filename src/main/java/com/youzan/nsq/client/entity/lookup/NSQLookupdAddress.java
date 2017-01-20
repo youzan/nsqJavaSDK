@@ -2,8 +2,8 @@ package com.youzan.nsq.client.entity.lookup;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.youzan.nsq.client.entity.*;
-import com.youzan.nsq.client.exception.NSQProducerNotFoundException;
 import com.youzan.nsq.client.exception.NSQLookupException;
+import com.youzan.nsq.client.exception.NSQProducerNotFoundException;
 import com.youzan.nsq.client.exception.NSQTopicNotFoundException;
 import com.youzan.util.IOUtil;
 import org.slf4j.Logger;
