@@ -236,57 +236,59 @@ public class ITMigrationTestcase {
         consumer.start();
 
         final Producer producer = new ProducerImplV2(configProduer);
-        producer.start();
         ExecutorService exec = Executors.newSingleThreadExecutor();
-        exec.submit(new Runnable() {
-            @Override
-            public void run() {
-                Message msg = Message.create(topic, "message migration");
-                try {
-                    while(true) {
-                        producer.publish(msg);
-                        cntPro.incrementAndGet();
-                        Thread.sleep(2000);
+        try {
+            producer.start();
+            exec.submit(new Runnable() {
+                @Override
+                public void run() {
+                    Message msg = Message.create(topic, "message migration");
+                    try {
+                        while (true) {
+                            producer.publish(msg);
+                            cntPro.incrementAndGet();
+                            Thread.sleep(2000);
+                        }
+                    } catch (NSQException | InterruptedException e) {
+                        Assert.fail("Error in publish", e);
                     }
-                } catch (NSQException | InterruptedException e) {
-                    Assert.fail("Error in publish", e);
                 }
-            }
-        });
+            });
 
-        Assert.assertTrue(phase1.await(60, TimeUnit.SECONDS));
-        //phase 2, update config
-        valueMapPro.clear();
-        valueMapPro.put("JavaTesting-Migration", migrationConfigs[1]);
-        TestConfigAccessAgent.updateValue(domain, new AbstractConfigAccessKey[]{keyProducer}, valueMapPro, true);
+            Assert.assertTrue(phase1.await(90, TimeUnit.SECONDS));
+            //phase 2, update config
+            valueMapPro.clear();
+            valueMapPro.put("JavaTesting-Migration", migrationConfigs[1]);
+            TestConfigAccessAgent.updateValue(domain, new AbstractConfigAccessKey[]{keyProducer}, valueMapPro, true);
 
 //        Assert.assertTrue(phase2.await(60, TimeUnit.SECONDS));
-        phase2.await();
-        //phase 3, update config
-        valueMapPro.clear();
-        valueMapPro.put("JavaTesting-Migration", migrationConfigs[2]);
-        TestConfigAccessAgent.updateValue(domain, new AbstractConfigAccessKey[]{keyProducer}, valueMapPro, true);
+            phase2.await();
+            //phase 3, update config
+            valueMapPro.clear();
+            valueMapPro.put("JavaTesting-Migration", migrationConfigs[2]);
+            TestConfigAccessAgent.updateValue(domain, new AbstractConfigAccessKey[]{keyProducer}, valueMapPro, true);
 
 //        Assert.assertTrue(phase3.await(60, TimeUnit.SECONDS));
-        phase3.await();
-        //phase 4, update config
-        valueMapPro.clear();
-        valueMapPro.put("JavaTesting-Migration", migrationConfigs[3]);
-        TestConfigAccessAgent.updateValue(domain, new AbstractConfigAccessKey[]{keyProducer}, valueMapPro, true);
+            phase3.await();
+            //phase 4, update config
+            valueMapPro.clear();
+            valueMapPro.put("JavaTesting-Migration", migrationConfigs[3]);
+            TestConfigAccessAgent.updateValue(domain, new AbstractConfigAccessKey[]{keyProducer}, valueMapPro, true);
 
-        Assert.assertTrue(phase4.await(60, TimeUnit.SECONDS));
+            Assert.assertTrue(phase4.await(60, TimeUnit.SECONDS));
 
-        //phase 5, update config final state
-        valueMapPro.clear();
-        valueMapPro.put("JavaTesting-Migration", migrationConfigs[4]);
-        TestConfigAccessAgent.updateValue(domain, new AbstractConfigAccessKey[]{keyProducer}, valueMapPro, true);
+            //phase 5, update config final state
+            valueMapPro.clear();
+            valueMapPro.put("JavaTesting-Migration", migrationConfigs[4]);
+            TestConfigAccessAgent.updateValue(domain, new AbstractConfigAccessKey[]{keyProducer}, valueMapPro, true);
 
-        Assert.assertTrue(phase4.await(60, TimeUnit.SECONDS));
-
-        exec.shutdownNow();
-        producer.close();
-        Thread.sleep(10000);
-        consumer.close();
+            Assert.assertTrue(phase4.await(60, TimeUnit.SECONDS));
+        }finally {
+            exec.shutdownNow();
+            producer.close();
+            Thread.sleep(10000);
+            consumer.close();
+        }
         Assert.assertEquals(cnt.get(), cntPro.get());
     }
 
