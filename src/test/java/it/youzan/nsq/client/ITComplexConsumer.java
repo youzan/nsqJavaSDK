@@ -1,8 +1,10 @@
 package it.youzan.nsq.client;
 
 import com.youzan.nsq.client.*;
+import com.youzan.nsq.client.configs.ConfigAccessAgent;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
+import com.youzan.nsq.client.exception.ConfigAccessAgentException;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.util.IOUtil;
 import org.apache.http.HttpEntity;
@@ -20,6 +22,8 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -45,6 +49,7 @@ public class ITComplexConsumer {
     @BeforeClass
     public void init() throws Exception {
         logger.info("At {} , initialize: {}", System.currentTimeMillis(), this.getClass().getName());
+        System.setProperty("nsq.sdk.configFilePath", "src/test/resources/configClientTest.properties");
         final Properties props = new Properties();
         try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {
             props.load(is);
@@ -177,8 +182,11 @@ public class ITComplexConsumer {
     }
 
     @AfterClass
-    public void close() {
+    public void close() throws NoSuchMethodException, ConfigAccessAgentException, InvocationTargetException, IllegalAccessException {
         logger.debug("================Begin to close");
         IOUtil.closeQuietly(producer, consumer4ReQueue, consumer4Finish);
+        Method method = ConfigAccessAgent.class.getDeclaredMethod("release");
+        method.setAccessible(true);
+        method.invoke(ConfigAccessAgent.getInstance());
     }
 }
