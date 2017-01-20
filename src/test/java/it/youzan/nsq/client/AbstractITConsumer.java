@@ -1,7 +1,9 @@
 package it.youzan.nsq.client;
 
 import com.youzan.nsq.client.Consumer;
+import com.youzan.nsq.client.configs.ConfigAccessAgent;
 import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.nsq.client.exception.ConfigAccessAgentException;
 import com.youzan.util.IOUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,6 +11,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
 import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Properties;
 
 /**
@@ -44,8 +48,11 @@ public abstract class AbstractITConsumer {
     }
 
     @AfterClass
-    public void close() {
+    public void close() throws NoSuchMethodException, ConfigAccessAgentException, InvocationTargetException, IllegalAccessException {
         logger.info("Consumer closed.");
         IOUtil.closeQuietly(consumer);
+        Method method = ConfigAccessAgent.class.getDeclaredMethod("release");
+        method.setAccessible(true);
+        method.invoke(ConfigAccessAgent.getInstance());
     }
 }
