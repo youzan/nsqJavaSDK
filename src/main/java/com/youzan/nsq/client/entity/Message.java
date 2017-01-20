@@ -91,8 +91,7 @@ public class Message {
      * @return
      */
     public Message setTopicShardingIDLong(long shardingIDLong){
-        this.topicSharding = shardingIDLong;
-        return this;
+        return setTopicShardingIDObject(shardingIDLong);
     }
 
     /**
@@ -101,8 +100,7 @@ public class Message {
      * @return
      */
     public Message setTopicShardingIDString(String shardingIDString){
-        this.topicSharding = shardingIDString;
-        return this;
+        return setTopicShardingIDObject(shardingIDString);
     }
 
     /**

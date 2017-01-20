@@ -154,6 +154,14 @@ public class ProducerImplV2 implements Producer {
         publish(message.getBytes(IOUtil.DEFAULT_CHARSET), topic);
     }
 
+    /**
+     * publish with shardingID object to passin topic. Message to publish is accept as {@link String}, and it will be
+     * convert to {@link byte[]} with {@link java.nio.charset.Charset#defaultCharset()}
+     * @param message message to send
+     * @param topic topic
+     * @param shardingID shardingID object.
+     * @throws NSQException exception raised in publish process.
+     */
     public void publish(String message, final Topic topic, Object shardingID) throws NSQException {
         Message msg = Message.create(topic, message);
         msg.setTopicShardingIDObject(shardingID);
