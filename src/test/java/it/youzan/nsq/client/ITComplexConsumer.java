@@ -188,5 +188,6 @@ public class ITComplexConsumer {
         Method method = ConfigAccessAgent.class.getDeclaredMethod("release");
         method.setAccessible(true);
         method.invoke(ConfigAccessAgent.getInstance());
+        System.clearProperty("nsq.sdk.configFilePath");
     }
 }

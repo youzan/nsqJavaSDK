@@ -31,4 +31,5 @@ dev&pre env add for DCC in configClient.properties, and several bug fixes.
 + publish API with shardingID as parameter.[#49](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/49)
 ### Fixes:
 + synchronization in boostrap map in producer connection pool factory.[#46](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/46)
-+ nsq.sdk.env not work when set as system property  [#48](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/48)
++ nsq.sdk.env not work when set as system property.[#48](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/48)
++ ProducerNotFoundException when code 4XX from lookup.[#50](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/50) 

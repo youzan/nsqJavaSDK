@@ -82,7 +82,7 @@ public class NSQLookupdAddress extends AbstractLookupdAddress {
         try {
             rootNode = IOUtil.readFromUrl(new URL(url));
         }catch(FileNotFoundException topicNotFoundExp) {
-            throw new NSQTopicNotFoundException("Topic not found for " + topic.toString() + ", with query: " + url, topic, topicNotFoundExp);
+            throw new NSQTopicNotFoundException("Topic not found for " + topic.toString() + ", with query: " + url + ". topic or channel within may NOT exist", topic, topicNotFoundExp);
         }
         long start = 0L;
         if(logger.isDebugEnabled())
@@ -91,7 +91,7 @@ public class NSQLookupdAddress extends AbstractLookupdAddress {
         //check if producers exists, if not, it could be a no channel exception
         final JsonNode producers = rootNode.get("producers");
         if(null == producers || producers.size() == 0){
-            throw new NSQProducerNotFoundException("No NSQd producer node return in lookup response. Check if there is any channel under " + topic.toString());
+            throw new NSQProducerNotFoundException("No NSQd producer node return in lookup response. NSQd may not ready at this moment. " + topic.toString());
         }
         final JsonNode partitions = rootNode.get("partitions");
         Map<Integer, SoftReference<Address>> partitionId2Ref;
