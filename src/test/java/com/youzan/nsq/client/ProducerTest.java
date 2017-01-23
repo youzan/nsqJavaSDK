@@ -42,7 +42,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
         }
     }
 
-    @Test(expectedExceptions = {NSQProducerNotFoundException.class})
+    @Test(expectedExceptions = {NSQTopicNotFoundException.class})
     public void testPubException2InvalidChannel() throws NSQException, IOException {
         String adminUrlStr = "http://" + props.getProperty("admin-address");
         String topicName = "topicHasNoChannel_" + System.currentTimeMillis();

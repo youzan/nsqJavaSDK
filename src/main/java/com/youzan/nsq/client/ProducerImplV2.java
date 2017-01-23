@@ -234,7 +234,7 @@ public class ProducerImplV2 implements Producer {
                     continue;
                 }
             }
-            catch (NSQTopicNotFoundException | NSQProducerNotFoundException exp) {
+            catch (NSQTopicNotFoundException exp) {
                 //throw it directly
                 throw exp;
             }
