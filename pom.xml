@@ -85,7 +85,7 @@
         <dependency>
             <groupId>com.youzan</groupId>
             <artifactId>DCC-Client</artifactId>
-            <version>0.1-SNAPSHOT</version>
+            <version>${dccClient.version}</version>
         </dependency>
         <dependency>
             <groupId>org.easymock</groupId>
