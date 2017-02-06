@@ -64,6 +64,13 @@ public class Topic implements Comparable<Topic> {
         return this.partitionID;
     }
 
+    /**
+     * specify partition Id under current topic to subscribe/publish.
+     * @param partitionID partiiton ID
+     */
+    public void setPartitionId(int partitionID) {
+        this.partitionID = partitionID;
+    }
 
     public void setToString(String toString) {
         this.toString = toString;

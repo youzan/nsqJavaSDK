@@ -71,7 +71,8 @@ public class NSQSimpleClient implements Client, Closeable {
     }
 
     private void keepDataNodes() {
-        final int delay = _r.nextInt(40); // seconds
+        //delay in data node loop, 1 is a minimum for {@link LookupAddressUpdate} to kickoff
+        final int delay = _r.nextInt(3) + 1; // seconds
         scheduler.scheduleWithFixedDelay(new Runnable() {
             @Override
             public void run() {
@@ -82,6 +83,7 @@ public class NSQSimpleClient implements Client, Closeable {
                 }
             }
         }, delay, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
+        logger.info("Data node maintain loop starts in {} seconds.", delay);
     }
 
     private void newDataNodes() throws NSQException {
