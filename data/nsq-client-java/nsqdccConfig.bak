@@ -1,2 +1,0 @@
-{"app":"JavaTesting-Order.nsq.lookupd.addr","env":"prod","key":"producer","version":115584734,"type":"COMBINATION","value":[{"key":"JavaTesting-Order","value":"{\"current\": [\"http://sqs-qa.s.qima-inc.com:4161\"], \"gradation\": {}, \"previous\": []}"}]}
-{"app":"JavaTesting-Order.nsq.lookupd.addr","env":"prod","key":"consumer","version":115584740,"type":"COMBINATION","value":[{"key":"JavaTesting-Order","value":"{\"current\": [\"http://sqs-qa.s.qima-inc.com:4161\"], \"gradation\": {}, \"previous\": []}"}]}
