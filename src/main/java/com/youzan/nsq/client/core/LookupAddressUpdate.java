@@ -70,7 +70,7 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
                 AbstractControlConfig ctrlCnf = AbstractControlConfig.create(controlCnfStr);
                 aSeedLookUpConfig.putTopicCtrlCnf(formatCategorizationTopic(categorization, topicKey), ctrlCnf);
                 if(logger.isDebugEnabled()){
-                    logger.debug("Control config udpated for topic: {} in categorization: {}", topicKey, categorization);
+                    logger.debug("Control config updated for topic: {} in categorization: {}", topicKey, categorization);
                 }
             }
 
@@ -316,17 +316,21 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
     }
 
     /**
-     * get one lookup address with given {@link Topic} and {@link TopicRuleCategory} (has role info)
+     * Get one lookup address with given {@link Topic} and {@link TopicRuleCategory} (has role info)
      * @param topic topic
      * @param category category to decide role of NSQ client
-     * @return {@link NSQLookupdAddress} lookupd address
+     * @param localLookupd {@link Boolean#TRUE} if user specified lookupd address is applied, which will override seed
+     *                                         lookupd from config access remote, otherwise {@link Boolean#FALSE}.
+     * @param force {@link Boolean#TRUE} to force seed lookup address to update it lookupd address, before return
+     *                                  a lookupd address, otherwise {@link Boolean#FALSE}.
+     * @return {@link NSQLookupdAddress} lookupd address.
      */
-    public NSQLookupdAddress getLookup(final Topic topic, TopicRuleCategory category, boolean localLookupd) throws NSQLookupException {
+    public NSQLookupdAddress getLookup(final Topic topic, TopicRuleCategory category, boolean localLookupd, boolean force) throws NSQLookupException {
         if(localLookupd) {
             AbstractSeedLookupdConfig aSeedLookupCnf = cat2SeedLookupCnfMap.get(TopicRuleCategory.TOPIC_CATEGORIZATION_USER_SPECIFIED);
             if(null == aSeedLookupCnf)
                 throw new NSQLookupException("Local Seed Lookup config not found for Topic: " + topic.getTopicText() + " Categorization: " + TopicRuleCategory.TOPIC_CATEGORIZATION_USER_SPECIFIED);
-            return aSeedLookupCnf.punchLookupdAddress(TopicRuleCategory.TOPIC_CATEGORIZATION_USER_SPECIFIED, Topic.TOPIC_DEFAULT);
+            return aSeedLookupCnf.punchLookupdAddress(TopicRuleCategory.TOPIC_CATEGORIZATION_USER_SPECIFIED, Topic.TOPIC_DEFAULT, force);
         }
 
         String categorization = category.category(topic);
@@ -334,7 +338,7 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
         AbstractSeedLookupdConfig aSeedLookupCnf =  cat2SeedLookupCnfMap.get(categorization);
         if(null == aSeedLookupCnf)
             throw new NSQLookupException("Seed Lookup config not found for Topic: " + topic.getTopicText() + " Categorization: " + categorization);
-        return aSeedLookupCnf.punchLookupdAddress(categorization, topic);
+        return aSeedLookupCnf.punchLookupdAddress(categorization, topic, force);
     }
 
     private long touched(){

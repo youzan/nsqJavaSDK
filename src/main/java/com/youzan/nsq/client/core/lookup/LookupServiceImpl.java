@@ -36,14 +36,14 @@ public class LookupServiceImpl implements LookupService {
     }
 
     @Override
-    public IPartitionsSelector lookup(Topic topic, boolean localLookupd) throws NSQException {
+    public IPartitionsSelector lookup(Topic topic, boolean localLookupd, boolean force) throws NSQException {
         TopicRuleCategory category = TopicRuleCategory.getInstance(this.role);
         switch (this.role) {
             case Consumer: {
-                return lookup(topic, false, category, localLookupd);
+                return lookup(topic, false, category, localLookupd, force);
             }
             case Producer: {
-                return lookup(topic, true, category, localLookupd);
+                return lookup(topic, true, category, localLookupd, force);
             }
             default: {
                 throw new UnsupportedOperationException("Unknown options. Writable or Readable?");
@@ -52,14 +52,14 @@ public class LookupServiceImpl implements LookupService {
     }
 
     @Override
-    public IPartitionsSelector lookup(final Topic topic, boolean writable, final TopicRuleCategory category, boolean localLookupd) throws NSQException {
+    public IPartitionsSelector lookup(final Topic topic, boolean writable, final TopicRuleCategory category, boolean localLookupd, boolean force) throws NSQException {
         if (null == topic || null == topic.getTopicText() || topic.getTopicText().isEmpty()) {
             throw new NSQLookupException("Your input topic is blank!");
         }
         /*
          * It is unnecessary to use Atomic/Lock for the variable
          */
-        NSQLookupdAddress aLookupdAddr = LookupAddressUpdate.getInstance().getLookup(topic, category, localLookupd);
+        NSQLookupdAddress aLookupdAddr = LookupAddressUpdate.getInstance().getLookup(topic, category, localLookupd, force);
         IPartitionsSelector ps = null;
         if(null != aLookupdAddr)
             ps = aLookupdAddr.lookup(topic, writable);

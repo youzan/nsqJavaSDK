@@ -152,7 +152,7 @@ public class SeedLookupdAddressTestcase {
             Assert.assertEquals(1, lookupdMap.size());
             //add and punch one lookup address
             aSeed.addLookupdAddress(aLookup1);
-            String lookupStr = aSeed.punchLookupdAddressStr();
+            String lookupStr = aSeed.punchLookupdAddressStr(false);
             Assert.assertEquals(lookupdAddresses[0], lookupStr);
         }finally {
             logger.info("[testLookupAddressOps] ends.");
@@ -228,13 +228,13 @@ public class SeedLookupdAddressTestcase {
             aSeed.addLookupdAddress(aLookupd2);
             aSeed.addLookupdAddress(aLookupd3);
 
-            String lookupStr1 = aSeed.punchLookupdAddressStr();
+            String lookupStr1 = aSeed.punchLookupdAddressStr(false);
             Assert.assertEquals(aLookupd1.getAddress(), lookupStr1);
 
-            String lookupStr2 = aSeed.punchLookupdAddressStr();
+            String lookupStr2 = aSeed.punchLookupdAddressStr(false);
             Assert.assertEquals(aLookupd2.getAddress(), lookupStr2);
 
-            String lookupStr3 = aSeed.punchLookupdAddressStr();
+            String lookupStr3 = aSeed.punchLookupdAddressStr(false);
             Assert.assertEquals(aLookupd3.getAddress(), lookupStr3);
         }finally {
             logger.info("[testInvalidLookupInReturnedListLookup] ends.");

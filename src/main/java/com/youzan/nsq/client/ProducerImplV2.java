@@ -246,7 +246,7 @@ public class ProducerImplV2 implements Producer {
             try {
                 final Pub pub = createPubCmd(msg);
                 final NSQFrame frame = conn.commandAndGetResponse(pub);
-                handleResponse(msg.getTopic().getTopicText(), frame, conn);
+                handleResponse(msg.getTopic(), frame, conn);
                 success.incrementAndGet();
                 if(msg.isTraced() && frame instanceof MessageMetadata && TraceLogger.isTraceLoggerEnabled() && conn.getAddress().isHA())
                     TraceLogger.trace(this, conn, (MessageMetadata) frame);
@@ -279,7 +279,7 @@ public class ProducerImplV2 implements Producer {
        return PubCmdFactory.getInstance().create(msg, this.config);
     }
 
-    private void handleResponse(String topic, NSQFrame frame, NSQConnection conn) throws NSQException {
+    private void handleResponse(final Topic topic, NSQFrame frame, NSQConnection conn) throws NSQException {
         if (frame == null) {
             logger.warn("SDK bug: the frame is null.");
             return;
@@ -292,7 +292,7 @@ public class ProducerImplV2 implements Producer {
                 final ErrorFrame err = (ErrorFrame) frame;
                 switch (err.getError()) {
                     case E_BAD_TOPIC: {
-                        throw new NSQInvalidTopicException(topic);
+                        throw new NSQInvalidTopicException(topic.getTopicText());
                     }
                     case E_BAD_MESSAGE: {
                         throw new NSQInvalidMessageException();
@@ -303,7 +303,10 @@ public class ProducerImplV2 implements Producer {
                     }
                     case E_TOPIC_NOT_EXIST: {
                         logger.error("Address: {} , Frame: {}", conn.getAddress(), frame);
-                        throw new NSQInvalidDataNodeException(topic);
+                        //clean topic 2 partitions selector and force a lookup for topic
+                        this.simpleClient.invalidatePartitionsSelector(topic, conn.getAddress());
+                        logger.info("Partitions info for {} invalidated and related lookup force updated.");
+                        throw new NSQInvalidDataNodeException(topic.getTopicText());
                     }
                     default: {
                         throw new NSQException("Unknown response error! The topic is " + topic + " . The error frame is " + err);

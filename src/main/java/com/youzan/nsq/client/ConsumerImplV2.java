@@ -829,11 +829,17 @@ public class ConsumerImplV2 implements Consumer {
             logger.info("Connection: {} got one error {} , that is {}", connection, err, err.getError());
             switch (err.getError()) {
                 case E_FAILED_ON_NOT_LEADER: {
+                    //NSQ node return from lookup is not a leader. This caused by a expired cached lookup from {@link LookupAddressUpdate}
                 }
                 case E_FAILED_ON_NOT_WRITABLE: {
                 }
                 case E_TOPIC_NOT_EXIST: {
                     Address address = connection.getAddress();
+                    for(Topic aTopic : this.topics) {
+                        this.simpleClient.invalidatePartitionsSelector(aTopic);
+                        logger.info("Partitions info for {} invalidated and related lookupd address force updated.");
+                    }
+                    this.simpleClient.clearDataNode(address);
                     clearDataNode(address);
                     logger.info("NSQInvalidDataNode. {}", frame);
                 }

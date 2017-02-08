@@ -69,6 +69,7 @@ public class ITStableCaseWDCC {
 
         final String lookups = props.getProperty("lookup-addresses");
         final String connTimeout = props.getProperty("connectTimeoutInMillisecond");
+        config.setUserSpecifiedLookupAddress(true);
         config.setLookupAddresses(lookups);
         config.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
         config.setThreadPoolSize4IO(1);
@@ -95,7 +96,7 @@ public class ITStableCaseWDCC {
             } catch (Exception e) {
                 logger.error("Exception", e);
             }
-            int sec = _r.nextInt(5) * 1000;
+            int sec = _r.nextInt(5) * 100;
             Thread.sleep(sec);
         }
         logger.info("Exit producing...");

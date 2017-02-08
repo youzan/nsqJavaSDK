@@ -98,12 +98,14 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
 
     /**
      * punch one lookup address from one Reference to {@link SeedLookupdAddress}
-     *
-     * @param topic
+     * @param categorization categorization string topic fall into.
+     * @param topic topic for lookup.
+     * @param force force seedlookup address to lookup if {@link Boolean#TRUE},
+     *              otherwise punch lookup address from cache.
      * @return NSQ lookup address if there is any in cache, otherwise null.
      */
     @Override
-    public NSQLookupdAddress punchLookupdAddress(String categorization, final Topic topic) {
+    public NSQLookupdAddress punchLookupdAddress(String categorization, final Topic topic, boolean force) {
         AbstractControlConfig ctrlCnf = getTopicCtrlCnf(LookupAddressUpdate.formatCategorizationTopic(categorization, topic.getTopicText()));
         if (null == ctrlCnf)
             return null;
@@ -114,7 +116,7 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
         if (null != curRefs && curRefs.size() > 0) {
             try {
                 aCurSeed = curRefs.get((INDEX++ & Integer.MAX_VALUE) % curRefs.size()).get();
-                curLookupd = aCurSeed.punchLookupdAddressStr();
+                curLookupd = aCurSeed.punchLookupdAddressStr(force);
             }catch(NullPointerException npe){
                 //swallow it
             }
@@ -122,7 +124,7 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
         if (null != preRefs && preRefs.size() > 0) {
             try {
                 aPreSeed = preRefs.get((INDEX++ & Integer.MAX_VALUE) % preRefs.size()).get();
-                preLookupd = aPreSeed.punchLookupdAddressStr();
+                preLookupd = aPreSeed.punchLookupdAddressStr(force);
             }catch(NullPointerException npe){
                 //swallow it
             }

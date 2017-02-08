@@ -13,7 +13,7 @@ public abstract class AbstractSeedLookupdConfig extends AbstractLookupdConfig {
 
     public abstract List<SoftReference<SeedLookupdAddress>> getSeedLookupAddress(String categorization, Topic topic);
 
-    public abstract NSQLookupdAddress punchLookupdAddress(String categorization, final Topic topic);
+    public abstract NSQLookupdAddress punchLookupdAddress(String categorization, final Topic topic, boolean force);
 
     public static AbstractSeedLookupdConfig create(String categorization) {
         return new DCCSeedLookupdConfig(categorization);

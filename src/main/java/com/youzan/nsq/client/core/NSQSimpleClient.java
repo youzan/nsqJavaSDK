@@ -37,7 +37,7 @@ public class NSQSimpleClient implements Client, Closeable {
 
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
     //maintain a mapping from topic to producer broadcast addresses
-    private final Map<Topic, ConcurrentSortedSet<Address>> topic_2_dataNodes = new HashMap<>();
+    private final Set<Topic> topicSubscribed = new HashSet<>();
     private final Map<Topic, IPartitionsSelector> topic_2_partitionsSelector = new ConcurrentHashMap<>();
     private final ConcurrentSortedSet<Address> dataNodes = new ConcurrentSortedSet<>();
 
@@ -108,11 +108,11 @@ public class NSQSimpleClient implements Client, Closeable {
         try {
             lock.readLock().lock();
             //not ant topic is subscribed. process ends
-            if(this.role == Role.Consumer && topic_2_partitionsSelector.size() == 0) {
+            if(this.role == Role.Consumer && topicSubscribed.size() == 0) {
                 logger.warn("No any subscribed topic is found, Consumer may not subscribe any topic. Data node updating process ends.");
                 return;
             }
-            for (Topic topic : topic_2_partitionsSelector.keySet()) {
+            for (Topic topic : topicSubscribed) {
                 topics.add(topic);
             }
         } finally {
@@ -123,7 +123,7 @@ public class NSQSimpleClient implements Client, Closeable {
         final Set<Address> newDataNodes = new HashSet<>();
         for (Topic topic : topics) {
             try {
-                final IPartitionsSelector aPs = lookup.lookup(topic, this.useLocalLookupd);
+                final IPartitionsSelector aPs = lookup.lookup(topic, this.useLocalLookupd, false);
                 if(null == aPs){
                     logger.warn("No fit partition data found for topic: {}.", topic.getTopicText());
                     continue;
@@ -172,9 +172,12 @@ public class NSQSimpleClient implements Client, Closeable {
         }
         try {
             lock.writeLock().lock();
-            if (!topic_2_partitionsSelector.containsKey(topic)) {
-                final IPartitionsSelector empty = new SimplePartitionsSelector(null);
-                topic_2_partitionsSelector.put(topic, empty);
+            if(!topicSubscribed.contains(topic)) {
+                topicSubscribed.add(topic);
+                if (!topic_2_partitionsSelector.containsKey(topic)) {
+                    final IPartitionsSelector empty = new SimplePartitionsSelector(null);
+                    topic_2_partitionsSelector.put(topic, empty);
+                }
             }
         } finally {
             lock.writeLock().unlock();
@@ -188,6 +191,8 @@ public class NSQSimpleClient implements Client, Closeable {
         lock.writeLock().lock();
         try {
             topic_2_partitionsSelector.remove(topic);
+            topicSubscribed.remove(topic);
+            logger.info("{} removed from consumer subscribe.", topic);
         } finally {
             lock.writeLock().unlock();
         }
@@ -202,8 +207,11 @@ public class NSQSimpleClient implements Client, Closeable {
         assert null != topics;
         lock.writeLock().lock();
         try {
-            for (Topic topic : topics)
+            for (Topic topic : topics) {
                 topic_2_partitionsSelector.remove(topic);
+                topicSubscribed.remove(topic);
+                logger.info("{} removed from consumer subscribe.", topic);
+            }
         } finally {
             lock.writeLock().unlock();
         }
@@ -300,7 +308,7 @@ public class NSQSimpleClient implements Client, Closeable {
                 }
                 return nodes.toArray(new Address[0]);
             }
-            aPs = lookup.lookup(topic, this.useLocalLookupd);
+            aPs = lookup.lookup(topic, this.useLocalLookupd, false);
         } finally {
             lock.readLock().unlock();
         }
@@ -331,6 +339,42 @@ public class NSQSimpleClient implements Client, Closeable {
         throw new NSQInvalidTopicException(topic.getTopicText());
     }
 
+    /**
+     * Invalidate pass in topic related partitions selector.
+     * @param topic topic
+     * @param address address to remove from dataNodes
+     */
+    public void invalidatePartitionsSelector(final Topic topic, final Address address) {
+        if(null == topic || null == address)
+            return;
+        try {
+            //force lookup here, and leaving update mapping from topic to partition to newDataNodes process.
+            lookup.lookup(topic, this.useLocalLookupd, true);
+        }catch (NSQException e){
+            logger.warn("Could not fetch lookup info for topic: {} at this moment, lookup info may not be ready.", topic);
+        }
+
+        topic_2_partitionsSelector.remove(topic);
+        dataNodes.remove(address);
+    }
+
+    /**
+     * Invalidate pass in topic related partitions selector.
+     * @param topic topic
+     */
+    public void invalidatePartitionsSelector(final Topic topic) {
+        if(null == topic)
+            return;
+        try {
+            //force lookup here, and leaving update mapping from topic to partition to newDataNodes process.
+            lookup.lookup(topic, this.useLocalLookupd, true);
+        }catch (NSQException e){
+            logger.warn("Could not fetch lookup info for topic: {} at this moment, lookup info may not be ready.", topic);
+        }
+
+        topic_2_partitionsSelector.remove(topic);
+    }
+
     @Override
     public boolean validateHeartbeat(NSQConnection conn) {
         final ChannelFuture future = conn.command(Nop.getInstance());
@@ -348,8 +392,9 @@ public class NSQSimpleClient implements Client, Closeable {
         lock.writeLock().lock();
         try {
             lookup.close();
-            topic_2_dataNodes.clear();
             dataNodes.clear();
+            topic_2_partitionsSelector.clear();
+            topicSubscribed.clear();
             scheduler.shutdownNow();
         } finally {
             lock.writeLock().unlock();

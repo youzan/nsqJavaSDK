@@ -100,6 +100,9 @@
     <logger name="ch.qos.logback" additivity="false">
         <appender-ref ref="ERROR"/>
     </logger>
+    <logger name="com.youzan.http" additivity="false">
+        <appender-ref ref="ERROR"/>
+    </logger>
     <logger name="com.youzan.dcc" additivity="false">
         <appender-ref ref="DCCSDKDEBUG"/>
     </logger>

@@ -56,10 +56,10 @@ public class ITLookup extends EasyMockSupport {
 
         Topic aTopic = new Topic("JavaTesting-Producer-Base");
         TopicRuleCategory category = TopicRuleCategory.getInstance(Role.Consumer);
-        expect(lau.getLookup(aTopic, category, true)).andStubReturn(NSQLookupdAddress.create("sqs-qa", "sqs-qa.s.qima-inc.com:4161"));
+        expect(lau.getLookup(aTopic, category, true, false)).andStubReturn(NSQLookupdAddress.create("sqs-qa", "sqs-qa.s.qima-inc.com:4161"));
         replayAll();
 
-        IPartitionsSelector aPs = lookup.lookup(aTopic, true, category, true);
+        IPartitionsSelector aPs = lookup.lookup(aTopic, true, category, true, false);
         Assert.assertNotNull(aPs);
         verifyAll();
     }
@@ -81,10 +81,10 @@ public class ITLookup extends EasyMockSupport {
 
         TopicRuleCategory category = TopicRuleCategory.getInstance(Role.Producer);
         TopicRuleCategory categoryConsume = TopicRuleCategory.getInstance(Role.Consumer);
-        expect(lau.getLookup(aTopic, category, true)).andReturn(badLookupd).times(2)
+        expect(lau.getLookup(aTopic, category, true, false)).andReturn(badLookupd).times(2)
                 .andReturn(goodLookupd).times(10);
 
-        expect(lau.getLookup(aTopic, categoryConsume, true)).andReturn(badLookupd).times(3).
+        expect(lau.getLookup(aTopic, categoryConsume, true, false)).andReturn(badLookupd).times(3).
                 andReturn(goodLookupd).anyTimes();
         replayAll();
 

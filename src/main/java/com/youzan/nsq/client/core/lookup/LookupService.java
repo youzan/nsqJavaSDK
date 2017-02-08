@@ -29,7 +29,7 @@ public interface LookupService extends java.io.Serializable, Closeable {
      * @throws NSQLookupException
      *             if an error occurs
      */
-     IPartitionsSelector lookup(Topic topic, boolean localLookupd) throws NSQException;
+     IPartitionsSelector lookup(Topic topic, boolean localLookupd, boolean force) throws NSQException;
 
     /**
      * lookup the writable/non-writable NSQd (DataNode)
@@ -42,7 +42,7 @@ public interface LookupService extends java.io.Serializable, Closeable {
      * @throws NSQLookupException
      *             if an error occurs
      */
-    IPartitionsSelector lookup(Topic topic, boolean writable, TopicRuleCategory category, boolean localLookupd) throws NSQException;
+    IPartitionsSelector lookup(Topic topic, boolean writable, TopicRuleCategory category, boolean localLookupd, boolean force) throws NSQException;
 
     /**
      * Perform the action quietly. No exceptions.

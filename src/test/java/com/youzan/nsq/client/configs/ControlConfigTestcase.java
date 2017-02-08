@@ -65,7 +65,7 @@ public class ControlConfigTestcase {
                 Assert.assertNotNull(aSeed);
                 Assert.assertEquals("http://sqs.s.qima-inc.com:4161", aSeed.getAddress());
                 Assert.assertEquals("http://sqs.s.qima-inc.com:4161", aSeed.getClusterId());
-                String lookupdNonexist = aSeed.punchLookupdAddressStr();
+                String lookupdNonexist = aSeed.punchLookupdAddressStr(false);
                 Assert.assertNull(lookupdNonexist);
             }
 
@@ -76,7 +76,7 @@ public class ControlConfigTestcase {
                 Assert.assertNotNull(aSeed);
                 Assert.assertEquals("http://global.s.qima-inc.com:4161", aSeed.getAddress());
                 Assert.assertEquals("http://global.s.qima-inc.com:4161", aSeed.getClusterId());
-                String lookupdNonexist = aSeed.punchLookupdAddressStr();
+                String lookupdNonexist = aSeed.punchLookupdAddressStr(false);
                 Assert.assertNull(lookupdNonexist);
             }
         }finally {

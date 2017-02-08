@@ -1,6 +1,7 @@
 package com.youzan.nsq.client.entity.lookup;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.util.IOUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,10 +12,7 @@ import java.lang.ref.SoftReference;
 import java.net.ConnectException;
 import java.net.InetAddress;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -28,6 +26,7 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
     private static final Logger logger = LoggerFactory.getLogger(SeedLookupdAddress.class);
 
     private static final String HTTP_PRO_HEAD = "http://";
+    private static Map<String, Long> LISTLOOKUP_LASTUPDATED = new ConcurrentHashMap<>();
     private volatile int INDEX = 0;
 
     private String clusterId;
@@ -62,6 +61,17 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
         }
 
         String seed = this.getAddress();
+        long current_inMills = System.currentTimeMillis();
+        if(!force) {
+            long lastUpdated_inMills = LISTLOOKUP_LASTUPDATED.get(seed);
+            if (current_inMills - lastUpdated_inMills < NSQConfig.getListLookupIntervalInSecond() * 1000) {
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Seed lookupd address: {} has list lookup in last {} sec.", seed, NSQConfig.getListLookupIntervalInSecond());
+                }
+                return;
+            }
+        }
+
         if (!seed.startsWith(HTTP_PRO_HEAD))
             seed = HTTP_PRO_HEAD + seed;
         final String url = String.format("%s/listlookup", seed);
@@ -96,6 +106,10 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
         }
         String[] newLookupsArr = newLookups.toArray(new String[0]);
         this.addLookupdAddresses(newLookupsArr);
+
+        //update last update timestamp
+        if(LISTLOOKUP_LASTUPDATED.containsKey(seed))
+            LISTLOOKUP_LASTUPDATED.put(seed, current_inMills);
         if (logger.isDebugEnabled())
             logger.debug("Recently have got the lookup servers: {} from seed lookup: {}", newLookupsArr, seed);
     }
@@ -181,10 +195,16 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
 
     }
 
+    /**
+     * create SeedLookupdAddress for pass in address
+     * @param address
+     * @return
+     */
     public static SeedLookupdAddress create(String address) {
         SeedLookupdAddress aSeed = new SeedLookupdAddress(address);
         if (!seedLookupMap.containsKey(address)) {
             seedLookupMap.put(address, aSeed);
+            LISTLOOKUP_LASTUPDATED.put(address, 0L);
         } else {
             aSeed = seedLookupMap.get(address);
         }
@@ -220,6 +240,7 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
                     long cnt = aSeed.updateRefCounter(-1);
                     if (cnt <= 0) {
                         seedLookupMap.remove(aSeed.getAddress());
+                        LISTLOOKUP_LASTUPDATED.remove(aSeed.getAddress());
                         aSeed.clean();
                         return 0;
                     }
@@ -232,13 +253,13 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
     /**
      * pubch out one lookup address
      *
-     * @return
+     * @return lookupd address
      */
-    public String punchLookupdAddressStr() {
+    public String punchLookupdAddressStr(boolean force) {
         try {
-            this.listLookup(false);
+            this.listLookup(force);
         } catch (IOException e) {
-            logger.error("Fail to get lookup address for seed lookup address: {}.", this.getAddress());
+            logger.error("Fail to get lookup address for seed lookup address: {}. Start to punch one cached lookupd address, if there is any.", this.getAddress());
         }
 
         LookupdAddress lookupdAddress = null;
@@ -269,7 +290,7 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
         }
         for (SeedLookupdAddress aSeed : seedLookupMap.values()) {
             try {
-                aSeed.listLookup(true);
+                aSeed.listLookup(false);
             } catch (IOException e) {
                 logger.error("Fail to get lookup address for seed lookup address: {}.", aSeed.getAddress());
             }
