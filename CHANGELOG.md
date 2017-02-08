@@ -25,13 +25,14 @@ Publish process fails without retry in three specified situations. Bug in lookup
 + curlookup reference is not assigned to NSQLookupd.[#43](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/43)
 
 ## 2.3.20170118.085718-24
-"dev"&"pre" env add for DCC in configClient.properties, and several bug fixes. In client, bew API for producer publish(String, final Topic, Object), and
+"dev"&"pre" env add for DCC in configClient.properties, and several bug fixes. In client, new API for producer publish(String, final Topic, Object), and
 partition ID could be specified via Topic#setPartitionId(int).
 ### Features:
 + dev env appended in nested configClient.properties.[#47](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/47)
 + publish API with shardingID as parameter.[#49](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/49)
-+ decrease delay for simple client to maintain dat node. [#51](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/51)
++ decrease delay for simple client to maintain data node. [#51](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/51)
 + setPartitionId API in Topic class. [#52]((http://gitlab.qima-inc.com/paas/nsq-client-java/issues/52))
++ fast recovery ability from net work partition. [#54](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/54)
 ### Fixes:
 + synchronization in boostrap map in producer connection pool factory.[#46](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/46)
 + nsq.sdk.env not work when set as system property.[#48](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/48)

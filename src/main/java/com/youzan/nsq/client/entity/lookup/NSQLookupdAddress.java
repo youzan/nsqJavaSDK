@@ -40,7 +40,7 @@ public class NSQLookupdAddress extends AbstractLookupdAddress {
 
     /**
      * return factor of previous lookup address(in %)
-     * @return
+     * @return preFactor percent factor in previous node.
      */
     public int getPreFactor(){
         return this.prefactor;
@@ -49,9 +49,9 @@ public class NSQLookupdAddress extends AbstractLookupdAddress {
 
     /**
      * lookup NSQ nodes from current {@link NSQLookupdAddress}, return mapping from cluster ID to partition nodes
-     * @param topic
-     * @param writable
-     * @return
+     * @param topic     topic for lookup
+     * @param writable  {@link Boolean#TRUE} for write access, otherwise {@link Boolean#FALSE}.
+     * @return partitionsSelector partitions selector containing nsq data nodes for current NSQ(and optional previous NSQ, in a merge NSQ)
      */
     public IPartitionsSelector lookup(final Topic topic, boolean writable) throws NSQLookupException, NSQProducerNotFoundException, NSQTopicNotFoundException {
         if (null == topic || null == topic.getTopicText() || topic.getTopicText().isEmpty()) {
@@ -138,17 +138,15 @@ public class NSQLookupdAddress extends AbstractLookupdAddress {
             aPartitions.updatePartitionDataNode(partitionId2Ref, partitionedDataNodes, partitionCount);
             //generate key for nsqd addr 2 partition
             StringBuilder keyBuilder = new StringBuilder();
-            if(null != nsqdAddr2partitionId) {
-                for (Address addr : nsqdAddr2partitionId.keySet()){
-                    keyBuilder.append(addr.toString());
-                    for(int partitionId : nsqdAddr2partitionId.get(addr)){
-                        keyBuilder.append(":").append(partitionId);
-                    }
-                    keyBuilder.append(";");
+            for (Address addr : nsqdAddr2partitionId.keySet()){
+                keyBuilder.append(addr.toString());
+                for(int partitionId : nsqdAddr2partitionId.get(addr)){
+                    keyBuilder.append(":").append(partitionId);
                 }
-                String key = keyBuilder.toString();
-                topic.updateNSQdAddr2Partition(key, nsqdAddr2partitionId);
+                keyBuilder.append(";");
             }
+            String key = keyBuilder.toString();
+            topic.updateNSQdAddr2Partition(key, nsqdAddr2partitionId);
             if(logger.isDebugEnabled()){
                 logger.debug("SDK took {} mill sec to create mapping for partition.", (System.currentTimeMillis() - start));
             }

@@ -55,6 +55,21 @@ public class NSQSimpleClient implements Client, Closeable {
         this.useLocalLookupd = localLookupd;
     }
 
+    private static final String SIMPLECLIENT_META_FORMAT = "%s: [" +
+            "started: %b," +
+            "\t" + "role: %s," +
+            "\t" + "userLocalLookupd: %b," +
+            "\t" + "topic size: %d" + "]";
+
+    /**
+     * return meta data of current simple client and {@link Client} current simple client belongs to.
+     * @return string meta data of simple client.
+     */
+    public String toString() {
+        String toString = String.format(SIMPLECLIENT_META_FORMAT, super.toString(), this.started, this.role.getRoleTxt(), this.useLocalLookupd, this.topicSubscribed.size());
+        return toString;
+    }
+
     @Override
     public void start() {
         lock.writeLock().lock();
@@ -152,8 +167,8 @@ public class NSQSimpleClient implements Client, Closeable {
             }
         }
 
-        if (0 == newDataNodes.size()) {
-            logger.warn("No any data node found for NSQ client.");
+        if (0 == newDataNodes.size() && this.role == Role.Consumer) {
+            logger.warn("No any data node found for NSQ client {} in this try.", this.toString());
             return;
         }
 
