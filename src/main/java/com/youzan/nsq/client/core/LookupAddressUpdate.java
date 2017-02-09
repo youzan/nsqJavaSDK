@@ -7,7 +7,7 @@ import com.youzan.nsq.client.entity.Role;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.entity.lookup.AbstractControlConfig;
 import com.youzan.nsq.client.entity.lookup.AbstractSeedLookupdConfig;
-import com.youzan.nsq.client.entity.lookup.NSQLookupdAddress;
+import com.youzan.nsq.client.entity.lookup.NSQLookupdAddresses;
 import com.youzan.nsq.client.entity.lookup.SeedLookupdAddress;
 import com.youzan.nsq.client.exception.NSQConfigAccessException;
 import com.youzan.nsq.client.exception.NSQLookupException;
@@ -323,9 +323,9 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
      *                                         lookupd from config access remote, otherwise {@link Boolean#FALSE}.
      * @param force {@link Boolean#TRUE} to force seed lookup address to update it lookupd address, before return
      *                                  a lookupd address, otherwise {@link Boolean#FALSE}.
-     * @return {@link NSQLookupdAddress} lookupd address.
+     * @return {@link NSQLookupdAddresses} lookupd address.
      */
-    public NSQLookupdAddress getLookup(final Topic topic, TopicRuleCategory category, boolean localLookupd, boolean force) throws NSQLookupException {
+    public NSQLookupdAddresses getLookup(final Topic topic, TopicRuleCategory category, boolean localLookupd, boolean force) throws NSQLookupException {
         if(localLookupd) {
             AbstractSeedLookupdConfig aSeedLookupCnf = cat2SeedLookupCnfMap.get(TopicRuleCategory.TOPIC_CATEGORIZATION_USER_SPECIFIED);
             if(null == aSeedLookupCnf)

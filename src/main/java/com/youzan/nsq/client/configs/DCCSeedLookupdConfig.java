@@ -7,7 +7,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.ref.SoftReference;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -105,37 +110,64 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
      * @return NSQ lookup address if there is any in cache, otherwise null.
      */
     @Override
-    public NSQLookupdAddress punchLookupdAddress(String categorization, final Topic topic, boolean force) {
+    public NSQLookupdAddresses punchLookupdAddress(String categorization, final Topic topic, boolean force) {
         AbstractControlConfig ctrlCnf = getTopicCtrlCnf(LookupAddressUpdate.formatCategorizationTopic(categorization, topic.getTopicText()));
         if (null == ctrlCnf)
             return null;
         List<SoftReference<SeedLookupdAddress>> curRefs = ctrlCnf.getCurrentReferences();
         List<SoftReference<SeedLookupdAddress>> preRefs = ctrlCnf.getPreviousReferences();
-        String curLookupd = null, preLookupd = null;
-        SeedLookupdAddress aCurSeed = null, aPreSeed = null;
+
+        //use a set here to category seed lookups belong to different cluster by hostname
+        Set<String> clusterIds = new HashSet<>();
+        List<String> curLookupds = new ArrayList<>();
+        List<String> curClusterIds = new ArrayList<>();
         if (null != curRefs && curRefs.size() > 0) {
-            try {
-                aCurSeed = curRefs.get((INDEX++ & Integer.MAX_VALUE) % curRefs.size()).get();
-                curLookupd = aCurSeed.punchLookupdAddressStr(force);
-            }catch(NullPointerException npe){
-                //swallow it
+            for(SoftReference<SeedLookupdAddress> seedRef : curRefs){
+                try {
+                    SeedLookupdAddress aCurSeed = seedRef.get();
+                    String clusterId = aCurSeed.getClusterId();
+                    if(!clusterIds.contains(clusterId)){
+                        String curLookupd = aCurSeed.punchLookupdAddressStr(force);
+                        curLookupds.add(curLookupd);
+                        curClusterIds.add(clusterId);
+                        clusterIds.add(clusterId);
+                    }
+                }catch(NullPointerException npe) {
+                    //swallow it
+                }
             }
         }
+
+        clusterIds.clear();
+        List<String> preLookupds = new ArrayList<>();
+        List<String> preClusterIds = new ArrayList<>();
         if (null != preRefs && preRefs.size() > 0) {
-            try {
-                aPreSeed = preRefs.get((INDEX++ & Integer.MAX_VALUE) % preRefs.size()).get();
-                preLookupd = aPreSeed.punchLookupdAddressStr(force);
-            }catch(NullPointerException npe){
-                //swallow it
+            for(SoftReference<SeedLookupdAddress> seedRef : preRefs){
+                try {
+                    SeedLookupdAddress aPreSeed = seedRef.get();
+                    String clusterId = aPreSeed.getClusterId();
+                    URL url = new URL(aPreSeed.getAddress());
+                    String host = url.getHost();
+                    if(!clusterIds.contains(host)){
+                        String preLookupd = aPreSeed.punchLookupdAddressStr(force);
+                        preLookupds.add(preLookupd);
+                        preClusterIds.add(clusterId);
+                        clusterIds.add(host);
+                    }
+                }catch(NullPointerException npe){
+                    //swallow it
+                } catch (MalformedURLException e) {
+                    logger.error("Seed lookupd address {} is NOT valid URL form. Skip and check with config access remote.");
+                }
             }
         }
 
         //create one NSQLookupdAddress instance
-        NSQLookupdAddress aLookupAddress = null;
-        if (null != preLookupd && null != curLookupd)
-            aLookupAddress = NSQLookupdAddress.create(aPreSeed.getClusterId(), preLookupd, aCurSeed.getClusterId(), curLookupd, ctrlCnf.getGradation().getPercentage().getFactor());
-        else if (null != curLookupd)
-            aLookupAddress = NSQLookupdAddress.create(aCurSeed.getClusterId(), curLookupd);
+        NSQLookupdAddresses aLookupAddress = null;
+        if (preLookupds.size() > 0 && curLookupds.size() > 0)
+            aLookupAddress = NSQLookupdAddresses.create(preClusterIds, preLookupds, curClusterIds, curLookupds, ctrlCnf.getGradation().getPercentage().getFactor());
+        else if (curLookupds.size() > 0)
+            aLookupAddress = NSQLookupdAddresses.create(curClusterIds, curLookupds);
         else {
             logger.warn("No lookup address found for passin topic {}, categorization {}.", topic.getTopicText(), categorization);
         }

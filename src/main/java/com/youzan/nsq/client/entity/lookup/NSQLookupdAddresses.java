@@ -18,24 +18,24 @@ import java.util.*;
 /**
  * Created by lin on 16/12/13.
  */
-public class NSQLookupdAddress extends AbstractLookupdAddress {
-    private static final Logger logger = LoggerFactory.getLogger(NSQLookupdAddress.class);
+public class NSQLookupdAddresses extends AbstractLookupdAddresses {
+    private static final Logger logger = LoggerFactory.getLogger(NSQLookupdAddresses.class);
     private static final String HTTP_PRO_HEAD = "http://";
     private static final String BROKER_QUERY_URL_WRITE = "%s/lookup?topic=%s&access=%s&metainfo=true";
     private static final String BROKER_QUERY_URL_READ = "%s/lookup?topic=%s&access=%s";
 
     protected int prefactor = 0;
 
-    public NSQLookupdAddress(String clusterId, String address) {
-        super(clusterId, address);
+    public NSQLookupdAddresses(List<String> clusterIds, List<String> addresses) {
+        super(clusterIds, addresses);
     }
 
-    public static NSQLookupdAddress create(String clusterId, String lookupdAddrs) {
-        return new NSQLookupdAddress(clusterId, lookupdAddrs);
+    public static NSQLookupdAddresses create(List<String> clusterIds, List<String> lookupdAddrs) {
+        return new NSQLookupdAddresses(clusterIds, lookupdAddrs);
     }
 
-    public static NSQLookupdAddress create(String preClusterId, String previousLookupd, String curClusterId, String currentLookupd, int currentFactor) {
-        return new NSQLookupdAddressPair(preClusterId, previousLookupd, curClusterId, currentLookupd, currentFactor);
+    public static NSQLookupdAddresses create(List<String> preClusterIds, List<String> previousLookupds, List<String> curClusterIds, List<String> currentLookupds, int currentFactor) {
+        return new NSQLookupdAddressesPair(preClusterIds, previousLookupds, curClusterIds, currentLookupds, currentFactor);
     }
 
     /**
@@ -48,7 +48,7 @@ public class NSQLookupdAddress extends AbstractLookupdAddress {
 
 
     /**
-     * lookup NSQ nodes from current {@link NSQLookupdAddress}, return mapping from cluster ID to partition nodes
+     * lookup NSQ nodes from current {@link NSQLookupdAddresses}, return mapping from cluster ID to partition nodes
      * @param topic     topic for lookup
      * @param writable  {@link Boolean#TRUE} for write access, otherwise {@link Boolean#FALSE}.
      * @return partitionsSelector partitions selector containing nsq data nodes for current NSQ(and optional previous NSQ, in a merge NSQ)
@@ -60,15 +60,22 @@ public class NSQLookupdAddress extends AbstractLookupdAddress {
         /*
          * It is unnecessary to use Atomic/Lock for the variable
          */
-        try{
-            String lookup = this.getAddress();
-            Partitions aPartitions = lookup(lookup, topic, writable);
-            IPartitionsSelector ps = new SimplePartitionsSelector(aPartitions);
-            return ps; // maybe it is empty
-        } catch (IOException e) {
-            final String tip = "SDK can't get the right lookup info. " + this.getAddress();
-            throw new NSQLookupException(tip, e);
+        List<String> lookups = this.getAddresses();
+        List<Partitions> allPartitions = new ArrayList<>();
+        for(String aLookup:lookups) {
+            try {
+                Partitions aPartitions = lookup(aLookup, topic, writable);
+                if (null != aPartitions)
+                    allPartitions.add(aPartitions);
+            }catch (IOException e) {
+                final String tip = "SDK can't get the right lookup info. " + aLookup;
+                throw new NSQLookupException(tip, e);
+            }
         }
+        if(allPartitions.size() < 1)
+            return null;
+        IPartitionsSelector ps = new SimplePartitionsSelector(allPartitions);
+        return ps; // maybe it is empty
     }
 
     protected Partitions lookup(String lookupdAddress, final Topic topic, boolean writable) throws IOException, NSQProducerNotFoundException, NSQTopicNotFoundException {
@@ -170,7 +177,7 @@ public class NSQLookupdAddress extends AbstractLookupdAddress {
             logger.debug("The server response info after looking up some DataNodes: {}", rootNode.toString());
 
         if(!aPartitions.hasAnyDataNodes()){
-            logger.error("Could not find any NSQ data node from lookup address {}", this.getAddress());
+            logger.error("Could not find any NSQ data node from lookup address {}", lookupdAddress);
             return null;
         }
         return aPartitions;

@@ -15,6 +15,8 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
 import static org.easymock.EasyMock.expect;
@@ -39,7 +41,7 @@ public class PartitionTestcase extends EasyMockSupport{
     /**
      * trying fetching a missing partition using shardingID
      */
-    @Test(expectedExceptions = {NullPointerException.class})
+    @Test(expectedExceptions = {NSQPartitionNotAvailableException.class})
     public void testPartitionMissing() throws NSQProducerNotFoundException, NSQTopicNotFoundException, NSQLookupException, NSQPartitionNotAvailableException {
         try {
             Topic mockTopic = partialMockBuilder(Topic.class).withConstructor("java_test_ordered_multi_topic")
@@ -48,20 +50,22 @@ public class PartitionTestcase extends EasyMockSupport{
             replayAll();
             //and hack partition num
             String cluster = props.getProperty("lookup-addresses");
-            NSQLookupdAddress lookupd = createNSQLookupdAddr(cluster, cluster);
+            List<String> clusters = new ArrayList<>();
+            clusters.add(cluster);
+            NSQLookupdAddresses lookupd = createNSQLookupdAddr(clusters, clusters);
             IPartitionsSelector ps = lookupd.lookup(mockTopic, true);
-            Partitions par = ps.choosePartitions();
+            Partitions[] par = ps.choosePartitions();
             //hack partition number
-            par.updatePartitionNum(10);
+            par[0].updatePartitionNum(10);
             mockTopic.setPartitionID(9);
-            par.getPartitionAddress(mockTopic.getPartitionId());
+            par[0].getPartitionAddress(mockTopic.getPartitionId());
         }finally {
             resetAll();
             logger.info("Mocking reset.");
         }
     }
 
-    public NSQLookupdAddress createNSQLookupdAddr(String clusterId, String lookupAddr){
-        return NSQLookupdAddress.create(clusterId, lookupAddr);
+    public NSQLookupdAddresses createNSQLookupdAddr(List<String> clusterIds, List<String> lookupAddrs){
+        return NSQLookupdAddresses.create(clusterIds, lookupAddrs);
     }
 }

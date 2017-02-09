@@ -7,7 +7,7 @@ import com.youzan.nsq.client.core.LookupAddressUpdate;
 import com.youzan.nsq.client.core.lookup.LookupService;
 import com.youzan.nsq.client.core.lookup.LookupServiceImpl;
 import com.youzan.nsq.client.entity.*;
-import com.youzan.nsq.client.entity.lookup.NSQLookupdAddress;
+import com.youzan.nsq.client.entity.lookup.NSQLookupdAddresses;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.util.IOUtil;
 import org.easymock.EasyMockSupport;
@@ -21,6 +21,8 @@ import org.testng.annotations.Test;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -56,7 +58,11 @@ public class ITLookup extends EasyMockSupport {
 
         Topic aTopic = new Topic("JavaTesting-Producer-Base");
         TopicRuleCategory category = TopicRuleCategory.getInstance(Role.Consumer);
-        expect(lau.getLookup(aTopic, category, true, false)).andStubReturn(NSQLookupdAddress.create("sqs-qa", "sqs-qa.s.qima-inc.com:4161"));
+        List<String> clusterIds = new ArrayList<>();
+        clusterIds.add("sqs-qa");
+        List<String> addresses = new ArrayList<>();
+        addresses.add("sqs-qa.s.qima-inc.com:4161");
+        expect(lau.getLookup(aTopic, category, true, false)).andStubReturn(NSQLookupdAddresses.create(clusterIds, addresses));
         replayAll();
 
         IPartitionsSelector aPs = lookup.lookup(aTopic, true, category, true, false);
@@ -76,8 +82,17 @@ public class ITLookup extends EasyMockSupport {
         lau.setUpDefaultSeedLookupConfig(lookups.split(","));
         LookupAddressUpdate.setInstance(lau);
 
-        NSQLookupdAddress badLookupd = NSQLookupdAddress.create("sqs-qa.s.qima-inc.com:4161", "sqs-qa.which.is.invalid:4161");
-        NSQLookupdAddress goodLookupd = NSQLookupdAddress.create("sqs-qa.s.qima-inc.com:4161", "sqs-qa.s.qima-inc.com:4161");
+        List<String> clusterIds = new ArrayList<>();
+        clusterIds.add("sqs-qa.s.qima-inc.com:4161");
+
+        List<String> addresses = new ArrayList<>();
+        addresses.add("sqs-qa.s.qima-inc.com:4161");
+
+        List<String> invalidAddresses = new ArrayList<>();
+        invalidAddresses.add("sqs-qa.s.qima-inc.com:4161");
+
+        NSQLookupdAddresses badLookupd = NSQLookupdAddresses.create(clusterIds, addresses);
+        NSQLookupdAddresses goodLookupd = NSQLookupdAddresses.create(clusterIds, invalidAddresses);
 
         TopicRuleCategory category = TopicRuleCategory.getInstance(Role.Producer);
         TopicRuleCategory categoryConsume = TopicRuleCategory.getInstance(Role.Consumer);

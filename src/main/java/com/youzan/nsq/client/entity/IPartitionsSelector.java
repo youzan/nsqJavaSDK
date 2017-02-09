@@ -9,7 +9,7 @@ public interface IPartitionsSelector {
      * return one {@link Partitions} dataNode in selector
      * @return
      */
-    Partitions choosePartitions();
+    Partitions[] choosePartitions();
 
     Partitions[] dumpAllPartitions();
 }

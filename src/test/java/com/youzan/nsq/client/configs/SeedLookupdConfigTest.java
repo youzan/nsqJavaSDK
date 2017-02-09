@@ -5,7 +5,7 @@ import com.youzan.nsq.client.entity.Role;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.entity.lookup.AbstractControlConfig;
 import com.youzan.nsq.client.entity.lookup.AbstractSeedLookupdConfig;
-import com.youzan.nsq.client.entity.lookup.NSQLookupdAddress;
+import com.youzan.nsq.client.entity.lookup.NSQLookupdAddresses;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -66,8 +66,8 @@ public class SeedLookupdConfigTest {
             AbstractControlConfig ctrlCnf = AbstractControlConfig.create(invalidControlCnfStr);
             lookupdConfig.putTopicCtrlCnf(LookupAddressUpdate.formatCategorizationTopic(categorization, aTopic.getTopicText()), ctrlCnf);
 
-            NSQLookupdAddress aNsqLookupd = lookupdConfig.punchLookupdAddress(categorization, aTopic, false);
-            Assert.assertNull(aNsqLookupd);
+            NSQLookupdAddresses aNsqLookupd = lookupdConfig.punchLookupdAddress(categorization, aTopic, false);
+            Assert.assertNotNull(aNsqLookupd);
 
         }finally {
             logger.info("[testPunchLookupdAddress] ends.");
@@ -86,8 +86,9 @@ public class SeedLookupdConfigTest {
 
             AbstractControlConfig ctrlCnf = AbstractControlConfig.create(invalidControlCnfStr);
             lookupdConfig.putTopicCtrlCnf(LookupAddressUpdate.formatCategorizationTopic(categorization, aTopic.getTopicText()), ctrlCnf);
-
-            Assert.assertNull(lookupdConfig.punchLookupdAddress(categorization, aTopic, false));
+            Topic anotherTopic = new Topic("topicNotConfiged");
+            categorization = category.category(anotherTopic);
+            Assert.assertNull(lookupdConfig.punchLookupdAddress(categorization, anotherTopic, false));
 
         }finally {
             logger.info("[testQueryTopicWhichNotConfigedInConfigAccess] ends.");

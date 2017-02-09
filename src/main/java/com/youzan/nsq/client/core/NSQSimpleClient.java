@@ -35,6 +35,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public class NSQSimpleClient implements Client, Closeable {
     private static final Logger logger = LoggerFactory.getLogger(NSQSimpleClient.class);
 
+    private static final IPartitionsSelector EMPTY = new SimplePartitionsSelector(null);
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
     //maintain a mapping from topic to producer broadcast addresses
     private final Set<Topic> topicSubscribed = new HashSet<>();
@@ -113,6 +114,7 @@ public class NSQSimpleClient implements Client, Closeable {
             }
             for (Topic topic : brokenTopic) {
                 topic_2_partitionsSelector.remove(topic);
+                logger.info("{} removed from topic to partitions selector mapping.");
             }
         } finally {
             lock.writeLock().unlock();
@@ -127,7 +129,8 @@ public class NSQSimpleClient implements Client, Closeable {
                 logger.warn("No any subscribed topic is found, Consumer may not subscribe any topic. Data node updating process ends.");
                 return;
             }
-            for (Topic topic : topicSubscribed) {
+
+            for (Topic topic : topic_2_partitionsSelector.keySet()) {
                 topics.add(topic);
             }
         } finally {
@@ -190,8 +193,7 @@ public class NSQSimpleClient implements Client, Closeable {
             if(!topicSubscribed.contains(topic)) {
                 topicSubscribed.add(topic);
                 if (!topic_2_partitionsSelector.containsKey(topic)) {
-                    final IPartitionsSelector empty = new SimplePartitionsSelector(null);
-                    topic_2_partitionsSelector.put(topic, empty);
+                    topic_2_partitionsSelector.put(topic, EMPTY);
                 }
             }
         } finally {
@@ -286,10 +288,10 @@ public class NSQSimpleClient implements Client, Closeable {
         lock.readLock().lock();
         try {
             aPs = topic_2_partitionsSelector.get(topic);
-            if(null != aPs) {
+            if(aPs != EMPTY && null != aPs) {
                 Partitions[] partitions;
                 if(write)
-                    partitions = new Partitions[]{aPs.choosePartitions()};
+                    partitions = aPs.choosePartitions();
                 else
                     partitions = aPs.dumpAllPartitions();
                 //if partitions returned from choose partitions, means there is only one Partitions
@@ -355,7 +357,7 @@ public class NSQSimpleClient implements Client, Closeable {
     }
 
     /**
-     * Invalidate pass in topic related partitions selector.
+     * Invalidate pass in topic related partitions selector, in {@link com.youzan.nsq.client.Producer} side.
      * @param topic topic
      * @param address address to remove from dataNodes
      */
@@ -369,12 +371,13 @@ public class NSQSimpleClient implements Client, Closeable {
             logger.warn("Could not fetch lookup info for topic: {} at this moment, lookup info may not be ready.", topic);
         }
 
-        topic_2_partitionsSelector.remove(topic);
+        //remove directly, as getPartitionNode will add topic back.
+        topic_2_partitionsSelector.put(topic, EMPTY);
         dataNodes.remove(address);
     }
 
     /**
-     * Invalidate pass in topic related partitions selector.
+     * Invalidate pass in topic related partitions selector, in {@link com.youzan.nsq.client.Consumer} side.
      * @param topic topic
      */
     public void invalidatePartitionsSelector(final Topic topic) {
@@ -387,7 +390,7 @@ public class NSQSimpleClient implements Client, Closeable {
             logger.warn("Could not fetch lookup info for topic: {} at this moment, lookup info may not be ready.", topic);
         }
 
-        topic_2_partitionsSelector.remove(topic);
+        topic_2_partitionsSelector.put(topic, EMPTY);
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.youzan.nsq.client.entity.lookup;
 
 /**
+ *
  * Created by lin on 16/12/5.
  */
 public abstract class AbstractLookupdAddress {
