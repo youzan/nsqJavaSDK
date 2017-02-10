@@ -6,8 +6,8 @@ package com.youzan.nsq.client.entity;
 public interface IPartitionsSelector {
 
     /**
-     * return one {@link Partitions} dataNode in selector
-     * @return
+     * return array of {@link Partitions} dataNode in selector
+     * @return {@link Partitions} array
      */
     Partitions[] choosePartitions();
 

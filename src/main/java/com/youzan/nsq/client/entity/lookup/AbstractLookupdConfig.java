@@ -17,7 +17,7 @@ public abstract class AbstractLookupdConfig {
     /**
      * Update topic associated migration control config.
      * @param categorizationTopic categorization tailed with topic name
-     * @param cc
+     * @param cc new control config
      */
     public void putTopicCtrlCnf(String categorizationTopic, final AbstractControlConfig cc) {
         if(null == categorizationTopic || null == cc)
@@ -33,7 +33,7 @@ public abstract class AbstractLookupdConfig {
     /**
      * get topic associated migration control config
      * @param categorizationTopic categorization tailed with topic name
-     * @return
+     * @return control config
      */
     public AbstractControlConfig getTopicCtrlCnf(String categorizationTopic) {
         if(null == categorizationTopic)

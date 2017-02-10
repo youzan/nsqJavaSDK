@@ -324,6 +324,7 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
      * @param force {@link Boolean#TRUE} to force seed lookup address to update it lookupd address, before return
      *                                  a lookupd address, otherwise {@link Boolean#FALSE}.
      * @return {@link NSQLookupdAddresses} lookupd address.
+     * @throws NSQLookupException {@link NSQLookupException} exception during lookup process.
      */
     public NSQLookupdAddresses getLookup(final Topic topic, TopicRuleCategory category, boolean localLookupd, boolean force) throws NSQLookupException {
         if(localLookupd) {

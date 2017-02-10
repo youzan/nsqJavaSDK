@@ -51,6 +51,7 @@ public interface NSQConnection extends Closeable {
      * must be in order mode.
      * @param internalID internal ID of message for check
      * @param diskQueueOffset diskQueueOffset of message for check
+     * @param msg message to check order
      * @return true if connection is not in order mode or internalID and diskQueueOffset are newest(largest), otherwise
      * return false.
      */

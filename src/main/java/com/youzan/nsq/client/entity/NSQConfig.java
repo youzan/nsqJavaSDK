@@ -167,7 +167,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     /**
      * return user specified lookupaddresses
-     * @return
+     * @return lookupd addresses specified via {@link NSQConfig#setLookupAddresses(String)}
      */
     public String[] getLookupAddresses() {
         return this.lookupAddresses;
@@ -182,6 +182,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     /**
      * @param connectTimeoutInMillisecond the connectTimeoutInMillisecond to set
+     * @return {@link NSQConfig}
      */
     public NSQConfig setConnectTimeoutInMillisecond(int connectTimeoutInMillisecond) {
         this.connectTimeoutInMillisecond = connectTimeoutInMillisecond;
@@ -204,6 +205,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     /**
      * @param consumerName the consumerName to set
+     * @return {@link NSQConfig}
      */
     public NSQConfig setConsumerName(String consumerName) {
         this.consumerName = consumerName;
@@ -219,6 +221,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     /**
      * @param ordered the ordered to set
+     * @return {@link NSQConfig}
      */
     public NSQConfig setOrdered(boolean ordered) {
         this.ordered = ordered;
@@ -235,6 +238,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * Specify max thread size for consumer client business process.
      * @param threadPoolSize4IO the threadPoolSize4IO to set
+     * @return {@link NSQConfig}
      */
     public NSQConfig setThreadPoolSize4IO(int threadPoolSize4IO) {
         if (threadPoolSize4IO < 1) {
@@ -290,6 +294,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     /**
      * @param msgTimeoutInMillisecond the msgTimeoutInMillisecond to set
+     * @return {@link NSQConfig}
      */
     public NSQConfig setMsgTimeoutInMillisecond(int msgTimeoutInMillisecond) {
         this.msgTimeoutInMillisecond = msgTimeoutInMillisecond;
@@ -311,6 +316,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     /**
      * @param heartbeatIntervalInMillisecond the heartbeatIntervalInMillisecond to set
+     * @return {@link NSQConfig}
      */
     public NSQConfig setHeartbeatIntervalInMillisecond(Integer heartbeatIntervalInMillisecond) {
         this.heartbeatIntervalInMillisecond = heartbeatIntervalInMillisecond;
@@ -326,6 +332,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     /**
      * @param featureNegotiation the featureNegotiation to set
+     * @return {@link NSQConfig}
      */
     public NSQConfig setFeatureNegotiation(boolean featureNegotiation) {
         this.featureNegotiation = featureNegotiation;
@@ -344,6 +351,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * client.
      *
      * @param outputBufferSize the outputBufferSize to set
+     * @return {@link NSQConfig}
      */
     public NSQConfig setOutputBufferSize(Integer outputBufferSize) {
         this.outputBufferSize = outputBufferSize;
@@ -362,6 +370,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * client.
      *
      * @param outputBufferTimeoutInMillisecond the outputBufferTimeoutInMillisecond to set
+     * @return {@link NSQConfig}
      */
     public NSQConfig setOutputBufferTimeoutInMillisecond(Integer outputBufferTimeoutInMillisecond) {
         this.outputBufferTimeoutInMillisecond = outputBufferTimeoutInMillisecond;
@@ -384,6 +393,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     /**
      * @param havingMonitoring the havingMonitoring to set
+     * @return {@link NSQConfig}
      */
     public NSQConfig setHavingMonitoring(boolean havingMonitoring) {
         this.havingMonitoring = havingMonitoring;
@@ -412,6 +422,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     /**
      * @param tlsV1 the tlsV1 to set
+     * @return {@link NSQConfig}
      */
     public NSQConfig setTlsV1(boolean tlsV1) {
         this.tlsV1 = tlsV1;
@@ -427,6 +438,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     /**
      * @param compression the compression to set
+     * @return {@link NSQConfig}
      */
     public NSQConfig setCompression(Compression compression) {
         this.compression = compression;
@@ -442,6 +454,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     /**
      * @param deflateLevel the deflateLevel to set
+     * @return {@link NSQConfig}
      */
     public NSQConfig setDeflateLevel(Integer deflateLevel) {
         this.deflateLevel = deflateLevel;
@@ -457,6 +470,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     /**
      * @param sampleRate the sampleRate to set
+     * @return {@link NSQConfig}
      */
     public NSQConfig setSampleRate(Integer sampleRate) {
         this.sampleRate = sampleRate;
@@ -473,6 +487,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * @param rdy the rdy to set , it is ready to receive the pushing message
      *            count
+     * @return {@link NSQConfig}
      */
     public NSQConfig setRdy(int rdy) {
         if (rdy <= 0) {
@@ -511,6 +526,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     /**
      * @param queryTimeoutInMillisecond the queryTimeoutInMillisecond to set
+     * @return {@link NSQConfig}
      */
     public NSQConfig setQueryTimeoutInMillisecond(int queryTimeoutInMillisecond) {
         this.queryTimeoutInMillisecond = queryTimeoutInMillisecond;
@@ -528,7 +544,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * Turn on/off consumer slow start with {@link Boolean#TRUE} or {@link Boolean#FALSE}
      * @param allowSlowStart switch to turn on/off consumer slow start
-     * @return this NSQConfig
+     * @return {@link NSQConfig} this NSQConfig
      */
     public NSQConfig setConsumerSlowStart(boolean allowSlowStart) {
         this.slowStart = allowSlowStart;

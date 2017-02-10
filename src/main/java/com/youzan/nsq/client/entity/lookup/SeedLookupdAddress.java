@@ -197,8 +197,8 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
 
     /**
      * create SeedLookupdAddress for pass in address
-     * @param address
-     * @return
+     * @param address seed lookupd address
+     * @return  {@link SeedLookupdAddress}
      */
     public static SeedLookupdAddress create(String address) {
         SeedLookupdAddress aSeed = new SeedLookupdAddress(address);
@@ -214,8 +214,8 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
     /**
      * Add one reference count to current {@link SeedLookupdAddress} object
      *
-     * @param aSeed
-     * @return
+     * @param   aSeed seed lookupd address
+     * @return  reference count after addReference
      */
     static long addReference(SeedLookupdAddress aSeed) {
         if (seedLookupMap.containsValue(aSeed)) {
@@ -230,8 +230,8 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
      * Decrease one reference count to current {@link SeedLookupdAddress}, if updated reference count is smaller than 1,
      * current SeedLookupdAddress object will be removed.
      *
-     * @param aSeed
-     * @return
+     * @param   aSeed seed lookupd address
+     * @return  reference after removeReference.
      */
     static long removeReference(SeedLookupdAddress aSeed) {
         if (seedLookupMap.containsValue(aSeed)) {
@@ -251,8 +251,8 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
     }
 
     /**
-     * pubch out one lookup address
-     *
+     * punch out one lookup address
+     * @param force {@link Boolean#TRUE} to force list lookup addresses, otherwise {@link Boolean#FALSE}
      * @return lookupd address
      */
     public String punchLookupdAddressStr(boolean force) {

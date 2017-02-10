@@ -29,7 +29,7 @@ public class TopicRuleCategory implements ITopicRuleCategory {
     }
 
     /**
-     * return {@link Role} of current topic rule category
+     * @return {@link Role} of current topic rule category
      */
     public Role getRole() {
         return this.role;

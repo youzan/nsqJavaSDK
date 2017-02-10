@@ -24,7 +24,7 @@ public interface Producer extends Client, Closeable {
      *
      * @param message the client sets it that is be published
      * @param topic   the specified topic name
-     * @throws NSQException
+     * @throws NSQException {@link NSQException}
      */
     @Deprecated
     void publish(String message, String topic) throws NSQException;
@@ -42,15 +42,15 @@ public interface Producer extends Client, Closeable {
      *
      * @param message the client sets it that is be published
      * @param topic   the specified topic name
-     * @throws NSQException
+     * @throws NSQException {@link NSQException}
      */
     void publish(byte[] message, String topic) throws NSQException;
 
     /**
      * publish messages to specified topic
-     * @param message
-     * @param topic
-     * @throws NSQException
+     * @param message message to be sent
+     * @param topic the specified topic
+     * @throws NSQException {@link NSQException}
      */
     void publish(byte[] message, Topic topic) throws NSQException;
 
@@ -65,7 +65,7 @@ public interface Producer extends Client, Closeable {
      *
      * @param messages the client sets it that is be published
      * @param topic    the specified topic name
-     * @throws NSQException if an error occurs
+     * @throws NSQException {@link NSQException} if an error occurs.
      */
     void publishMulti(List<byte[]> messages, String topic) throws NSQException;
 

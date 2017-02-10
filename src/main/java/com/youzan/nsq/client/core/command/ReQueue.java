@@ -49,8 +49,8 @@ public class ReQueue implements NSQCommand, PartitionEnable {
     }
 
     /**
-     * NOT implemented
-     * @param topic
+     * NOTE: NOT implemented
+     * @param topic {@link Topic}
      * @return null
      */
     @Override

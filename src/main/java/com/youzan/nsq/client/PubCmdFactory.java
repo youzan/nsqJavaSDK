@@ -59,10 +59,7 @@ public class PubCmdFactory implements IConfigAccessSubscriber{
     private static Object LOCK = new Object();
     private static PubCmdFactory _INSTANCE = null;
 
-
-    private PubCmdFactory(){
-
-    }
+    private PubCmdFactory(){}
 
     public static PubCmdFactory getInstance() throws NSQPubFactoryInitializeException {
         if(null ==_INSTANCE){
@@ -98,8 +95,8 @@ public class PubCmdFactory implements IConfigAccessSubscriber{
     /**
      * check if message pass in:
      * 1. has config which indicate that topic it is about to be sent to has trace config on.
-     * @param msg
-     * @return
+     * @param msg message to check if trace is ON.
+     * @return {@link Boolean#TRUE} if pass in message is traced, otherwise {@link Boolean#FALSE}.
      */
     private boolean isTracedMessage(final Message msg){
         String flag = null;

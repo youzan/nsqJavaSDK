@@ -216,9 +216,9 @@ public class NSQSimpleClient implements Client, Closeable {
     }
 
     /**
-     * remove multiple topics from simple client, invoker of this function needs to make sure pass in topics are valid
+     * remove multiple topics from simple client, invoker of this function needs to make sure pass in topics are valid.
      *
-     * @param topics
+     * @param topics {@link Collection} of {@link Topic} to be removed.
      */
     public void removeTopics(final Collection<Topic> topics) {
         assert null != topics;

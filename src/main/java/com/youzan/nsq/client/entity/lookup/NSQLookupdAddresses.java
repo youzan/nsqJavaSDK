@@ -52,6 +52,12 @@ public class NSQLookupdAddresses extends AbstractLookupdAddresses {
      * @param topic     topic for lookup
      * @param writable  {@link Boolean#TRUE} for write access, otherwise {@link Boolean#FALSE}.
      * @return partitionsSelector partitions selector containing nsq data nodes for current NSQ(and optional previous NSQ, in a merge NSQ)
+     * @throws NSQLookupException
+     *      exception during lookup process
+     * @throws NSQProducerNotFoundException
+     *      exception raised when NSQd not found
+     * @throws NSQTopicNotFoundException
+     *      exception when target topic not found
      */
     public IPartitionsSelector lookup(final Topic topic, boolean writable) throws NSQLookupException, NSQProducerNotFoundException, NSQTopicNotFoundException {
         if (null == topic || null == topic.getTopicText() || topic.getTopicText().isEmpty()) {

@@ -31,6 +31,8 @@ public class NSQMessage implements MessageMetadata{
      * @param timestamp    the raw bytes from the data-node
      * @param attempts     the raw bytes from the data-node
      * @param messageID    the raw bytes from the data-node
+     * @param internalID   message internal ID in bytes
+     * @param traceID      trace ID in bytes
      * @param messageBody  the raw bytes from the data-node
      * @param address      the address of the message
      * @param connectionID the primary key of the connection
@@ -60,16 +62,14 @@ public class NSQMessage implements MessageMetadata{
 
     /**
      * NSQMessage constructor, for sub ordered message frame
-     * @param timestamp
-     * @param attempts
-     * @param messageID
-     * @param internalID
-     * @param traceID
-     * @param diskQueueOffset
-     * @param diskQueueDataSize
-     * @param messageBody
-     * @param address
-     * @param connectionID
+     * @param timestamp    the raw bytes from the data-node
+     * @param attempts     the raw bytes from the data-node
+     * @param messageID    the raw bytes from the data-node
+     * @param internalID   message internal ID in bytes
+     * @param traceID      trace ID in bytes
+     * @param messageBody  the raw bytes from the data-node
+     * @param address      the address of the message
+     * @param connectionID the primary key of the connection
      */
     public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
                       final byte[] diskQueueOffset, final byte[] diskQueueDataSize, byte[] messageBody, Address address,

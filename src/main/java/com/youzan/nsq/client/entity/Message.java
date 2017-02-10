@@ -88,7 +88,7 @@ public class Message {
     /**
      * Set topic sharding with {@link Long}
      * @param shardingIDLong sharding id long type
-     * @return
+     * @return {@link Message}
      */
     public Message setTopicShardingIDLong(long shardingIDLong){
         return setTopicShardingIDObject(shardingIDLong);
@@ -97,7 +97,7 @@ public class Message {
     /**
      * Set topic shardingID with {@link String}
      * @param shardingIDString shardingId String type
-     * @return
+     * @return {@link Message}
      */
     public Message setTopicShardingIDString(String shardingIDString){
         return setTopicShardingIDObject(shardingIDString);

@@ -5,8 +5,8 @@ package com.youzan.nsq.client;
  */
 public interface MessageMetadata {
     /**
-     * output message metada in {@link String}
-     * @return
+     * output message meta data in {@link String}
+     * @return meta data in {@link String}
      */
     String toMetadataStr();
 }

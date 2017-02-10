@@ -132,9 +132,9 @@ public class Topic implements Comparable<Topic> {
     /**
      * this function touches current topic to set/update its current partition ID.
      *
-     * @param seed
-     * @param partitionNum
-     * @return
+     * @param seed          partition seed
+     * @param partitionNum  partition number
+     * @return partitionID  generated partition ID
      */
     public int updatePartitionIndex(Object seed, int partitionNum) {
         if (partitionNum <= 0) {

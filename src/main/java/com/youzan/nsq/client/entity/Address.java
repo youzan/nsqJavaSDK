@@ -11,9 +11,9 @@ public class Address implements java.io.Serializable, Comparable<Address> {
     private Boolean isHA = null;
 
     /**
-     *
-     * @param host
-     * @param port
+     * @param host a {@link String} to presenting
+     * @param port a integer number
+     * @param version NSQd version
      */
     public Address(String host, String port, String version) {
         this.host = host;
@@ -22,8 +22,9 @@ public class Address implements java.io.Serializable, Comparable<Address> {
     }
 
     /**
-     * @param host a {@link String}
+     * @param host a {@link String} to presenting
      * @param port a integer number
+     * @param version NSQd version
      */
     public Address(String host, int port, String version) {
         this.host = host;

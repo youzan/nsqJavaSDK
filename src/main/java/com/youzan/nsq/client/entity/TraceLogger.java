@@ -13,7 +13,6 @@ import org.slf4j.LoggerFactory;
 public class TraceLogger {
    private static final Logger logger = LoggerFactory.getLogger(TraceLogger.class);
 
-//   public static final String TRACE_LOGGER_NAME = ConfigAccessAgent.getProperty("nsq.sdk.message.trace.log");
    private static final Logger trace = LoggerFactory.getLogger("nsq.sdk.message.trace");
 
    private static final String DEFAULT_MSG_REV_TRACE_FORMAT = "Client: %s <= NSQd: %s\n\tMessage meta-data: %s";
@@ -24,8 +23,9 @@ public class TraceLogger {
    }
    /**
     * static function to record trace of pass in {@link Message} message in pass in client
-    * @param client
-    * @param msg
+    * @param client  {@link Client} NSQ Producer or Consumer
+    * @param nsqd     {@link NSQConnection} NSQd connection
+    * @param msg     {@link MessageMetadata} message meta data
     */
    public static void trace(final Client client, final NSQConnection nsqd, final MessageMetadata msg){
       String traceMsg;

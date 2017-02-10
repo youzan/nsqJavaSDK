@@ -56,8 +56,8 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
     /**
      * Update nsq cluster info associated migration control config.
      * Not used in 2.3
-     * @param clusterInfo
-     * @param seedLookup
+     * @param clusterInfo cluster info
+     * @param seedLookup  seed lookupd address of default cluster
      */
     @Deprecated
     public void putDefaultCluster(String clusterInfo, String seedLookup) {
@@ -75,8 +75,8 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
     /**
      * Get nsq cluster info associated migration control config.
      * Not used in 2.3
-     * @param clusterInfo
-     * @return
+     * @param clusterInfo default clusterinfo
+     * @return seed lookupd address for default cluster
      */
     @Deprecated
     public String getDefaultCluster(String clusterInfo) {

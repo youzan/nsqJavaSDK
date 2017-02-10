@@ -15,6 +15,7 @@ public interface TopicSharding<T> {
 
     /**
      * return sharding code in {@link Long}, for NSQ SDK to tell if sharding code is valid(>= 0), or not.
+     * @param passInSeed pass in seed
      * @return sharding code in {@link Long}
      */
     long toShardingCode(T passInSeed);

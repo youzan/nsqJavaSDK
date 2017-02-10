@@ -50,6 +50,7 @@ public final class IOUtil {
      *
      * @param url url of json resource
      * @return jsonNode
+     * @throws IOException {@link IOException}
      */
     public static JsonNode readFromUrl(final URL url) throws IOException {
         logger.debug("Prepare to open HTTP Connection...");

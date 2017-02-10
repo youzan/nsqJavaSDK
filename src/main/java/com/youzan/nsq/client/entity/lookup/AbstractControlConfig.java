@@ -133,9 +133,8 @@ public abstract class AbstractControlConfig {
     }
 
     /**
-     * function to check if seed lookup addresses and
-     *
-     * @return
+     * function to check if seed lookup addresses and gradation is not empty
+     * @return {@link Boolean#TRUE} if current control config is valid.
      */
     public boolean isValid() {
         return ((this.current == 0 && this.previous == 0 && this.seedsRef.size() > 0) || (this.current > 0 && this.seedsRef.size() > 0)) && null != this.getGradation();
