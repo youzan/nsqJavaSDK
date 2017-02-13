@@ -259,6 +259,8 @@ public class ProducerImplV2 implements Producer {
                 IOUtil.closeQuietly(conn);
                 logger.error("MaxRetries: {} , CurrentRetries: {} , Address: {} , Topic: {}, RawMessage: {} , Exception:", MAX_PUBLISH_RETRY, c,
                         conn.getAddress(), msg.getTopic(), msg.getMessageBodyInByte(), e);
+                NSQException nsqE = new NSQException(e);
+                exceptions.add(nsqE);
                 if (c >= MAX_PUBLISH_RETRY) {
                     throw new NSQPubException(exceptions);
                 }
