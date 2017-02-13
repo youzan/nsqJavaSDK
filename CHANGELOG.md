@@ -24,7 +24,7 @@ Publish process fails without retry in three specified situations. Bug in lookup
 ### Fixes:
 + curlookup reference is not assigned to NSQLookupd.[#43](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/43)
 
-## 2.3.20170118.085718-24
+## 2.3.20170214-RELEASE
 "dev"&"pre" env add for DCC in configClient.properties, and several bug fixes. In client, new API for producer publish(String, final Topic, Object), and
 partition ID could be specified via Topic#setPartitionId(int).
 ### Features:
