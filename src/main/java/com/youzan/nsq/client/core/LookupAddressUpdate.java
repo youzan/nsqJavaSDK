@@ -139,22 +139,25 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
 
     /**
      * function to set up user specified seed lookup address
+     * @param lookupLocalID lookupLocalId used to specify lookup addresses of client's own.
      * @param seedLookups seed lookup addresses specified from user API {@link NSQConfig#setLookupAddresses(String)}.
      */
-    public void setUpDefaultSeedLookupConfig(final String[] seedLookups){
+    public void setUpDefaultSeedLookupConfig(int lookupLocalID, final String[] seedLookups){
         if(null == seedLookups || seedLookups.length == 0) {
             logger.warn("Pass in seed lookup address should not be null.");
             return;
         }
 
-        AbstractSeedLookupdConfig aSeedLookUpConfig = AbstractSeedLookupdConfig.create(TopicRuleCategory.TOPIC_CATEGORIZATION_USER_SPECIFIED);
-        if(checkinCategorization(TopicRuleCategory.TOPIC_CATEGORIZATION_USER_SPECIFIED)) {
+        int id = lookupLocalID;
+        String categorization = TopicRuleCategory.TOPIC_CATEGORIZATION_USER_SPECIFIED + '_' + id;
+        AbstractSeedLookupdConfig aSeedLookUpConfig = AbstractSeedLookupdConfig.create(categorization);
+        if(checkinCategorization(categorization)) {
             String defaultSeedsStr = generateSeedLookupdsJsonStr(seedLookups);
             String defaultSeedLookupCtrlCnfStr = String.format(DEFAULT_CONTROL_CONFIG, defaultSeedsStr);
             AbstractControlConfig ctrlCnf = AbstractControlConfig.create(defaultSeedLookupCtrlCnfStr);
             if(null != ctrlCnf) {
-                aSeedLookUpConfig.putTopicCtrlCnf(formatCategorizationTopic(TopicRuleCategory.TOPIC_CATEGORIZATION_USER_SPECIFIED, Topic.TOPIC_DEFAULT.getTopicText()), ctrlCnf);
-                updateCat2SeedLookupCnfMap(TopicRuleCategory.TOPIC_CATEGORIZATION_USER_SPECIFIED, aSeedLookUpConfig);
+                aSeedLookUpConfig.putTopicCtrlCnf(formatCategorizationTopic(categorization, Topic.TOPIC_DEFAULT.getTopicText()), ctrlCnf);
+                updateCat2SeedLookupCnfMap(categorization, aSeedLookUpConfig);
             }
         }
     }
@@ -323,15 +326,17 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
      *                                         lookupd from config access remote, otherwise {@link Boolean#FALSE}.
      * @param force {@link Boolean#TRUE} to force seed lookup address to update it lookupd address, before return
      *                                  a lookupd address, otherwise {@link Boolean#FALSE}.
+     * @param lookupLocalID int value to form lookup categorization key for client
      * @return {@link NSQLookupdAddresses} lookupd address.
      * @throws NSQLookupException {@link NSQLookupException} exception during lookup process.
      */
-    public NSQLookupdAddresses getLookup(final Topic topic, TopicRuleCategory category, boolean localLookupd, boolean force) throws NSQLookupException {
-        if(localLookupd) {
-            AbstractSeedLookupdConfig aSeedLookupCnf = cat2SeedLookupCnfMap.get(TopicRuleCategory.TOPIC_CATEGORIZATION_USER_SPECIFIED);
+    public NSQLookupdAddresses getLookup(final Topic topic, TopicRuleCategory category, boolean localLookupd, boolean force, int lookupLocalID) throws NSQLookupException {
+        if(localLookupd && lookupLocalID > 0) {
+            String categorization = TopicRuleCategory.TOPIC_CATEGORIZATION_USER_SPECIFIED + '_' +lookupLocalID;
+            AbstractSeedLookupdConfig aSeedLookupCnf = cat2SeedLookupCnfMap.get(categorization);
             if(null == aSeedLookupCnf)
-                throw new NSQLookupException("Local Seed Lookup config not found for Topic: " + topic.getTopicText() + " Categorization: " + TopicRuleCategory.TOPIC_CATEGORIZATION_USER_SPECIFIED);
-            return aSeedLookupCnf.punchLookupdAddress(TopicRuleCategory.TOPIC_CATEGORIZATION_USER_SPECIFIED, Topic.TOPIC_DEFAULT, force);
+                throw new NSQLookupException("Local Seed Lookup config not found for Topic: " + topic.getTopicText() + " Categorization: " + categorization);
+            return aSeedLookupCnf.punchLookupdAddress(categorization, Topic.TOPIC_DEFAULT, force);
         }
 
         String categorization = category.category(topic);

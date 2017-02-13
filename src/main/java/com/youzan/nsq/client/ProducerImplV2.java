@@ -90,8 +90,9 @@ public class ProducerImplV2 implements Producer {
             this.bigPool = new GenericKeyedObjectPool<>(this.factory, this.poolConfig);
             //simple client starts and LookupAddressUpdate instance initialized there.
             this.simpleClient.start();
-            if(this.config.getUserSpecifiedLookupAddress())
-                LookupAddressUpdate.getInstance().setUpDefaultSeedLookupConfig(this.config.getLookupAddresses());
+            if(this.config.getUserSpecifiedLookupAddress()) {
+                LookupAddressUpdate.getInstance().setUpDefaultSeedLookupConfig(this.simpleClient.getLookupLocalID(), this.config.getLookupAddresses());
+            }
             scheduler.scheduleAtFixedRate(new Runnable() {
                 @Override
                 public void run() {

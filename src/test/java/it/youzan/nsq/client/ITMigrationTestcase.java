@@ -38,6 +38,7 @@ public class ITMigrationTestcase {
     private NSQConfig oldConfig;
     //new config points to sqs cluster, for producer and consumer
     private NSQConfig newConfig;
+    private NSQConfig configConsumer;
     private ConfigAccessAgent agent = null;
 
     @BeforeClass
@@ -56,18 +57,27 @@ public class ITMigrationTestcase {
         final String msgTimeoutInMillisecond = props.getProperty("msgTimeoutInMillisecond");
         final String threadPoolSize4IO = props.getProperty("threadPoolSize4IO");
 
-        oldConfig = new NSQConfig(oldLookupAddresses);
+        oldConfig = new NSQConfig();
+        oldConfig.setLookupAddresses(oldLookupAddresses);
         oldConfig.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
         oldConfig.setMsgTimeoutInMillisecond(Integer.valueOf(msgTimeoutInMillisecond));
         oldConfig.setThreadPoolSize4IO(Integer.valueOf(threadPoolSize4IO));
         oldConfig.setUserSpecifiedLookupAddress(true);
 
-        newConfig = new NSQConfig("BaseConsumer");
+        newConfig = new NSQConfig();
         newConfig.setLookupAddresses(newLookupAddresses);
         newConfig.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
         newConfig.setMsgTimeoutInMillisecond(Integer.valueOf(msgTimeoutInMillisecond));
         newConfig.setThreadPoolSize4IO(Integer.valueOf(threadPoolSize4IO));
         newConfig.setUserSpecifiedLookupAddress(true);
+
+        configConsumer = new NSQConfig();
+        configConsumer.setConsumerName("BaseConsumer");
+        configConsumer.setLookupAddresses(newLookupAddresses + ", " + oldLookupAddresses);
+        configConsumer.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
+        configConsumer.setMsgTimeoutInMillisecond(Integer.valueOf(msgTimeoutInMillisecond));
+        configConsumer.setThreadPoolSize4IO(Integer.valueOf(threadPoolSize4IO));
+        configConsumer.setUserSpecifiedLookupAddress(true);
     }
 
     @Test
@@ -77,7 +87,7 @@ public class ITMigrationTestcase {
         final AtomicInteger oldCnt = new AtomicInteger(0);
         final AtomicInteger newCnt = new AtomicInteger(0);
         //1. consumer subscribe to sqs lookup address
-        Consumer consumer = new ConsumerImplV2(newConfig, new MessageHandler() {
+        Consumer consumer = new ConsumerImplV2(configConsumer, new MessageHandler() {
             @Override
             public void process(NSQMessage message) {
                 logger.info("Got: " + message.getReadableContent());
@@ -95,7 +105,7 @@ public class ITMigrationTestcase {
         consumer.subscribe("JavaTesting-Migration");
         consumer.start();
         CountDownLatch waitLatch = new CountDownLatch(1);
-        waitLatch.await(2, TimeUnit.MINUTES);
+        waitLatch.await(30, TimeUnit.SECONDS);
 
         //2. producer send message to nsq cluster;
         Producer producer2Old  = new ProducerImplV2(oldConfig);

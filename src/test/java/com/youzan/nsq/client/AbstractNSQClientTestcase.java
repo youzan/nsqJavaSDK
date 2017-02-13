@@ -29,6 +29,7 @@ public class AbstractNSQClientTestcase {
     @BeforeClass
     public void init() throws IOException {
         logger.info("At {} , initialize: {}", System.currentTimeMillis(), this.getClass().getName());
+        System.setProperty("nsq.sdk.configFilePath", "src/test/resources/configClientTest.properties");
         try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {
             props.load(is);
         }
@@ -68,10 +69,11 @@ public class AbstractNSQClientTestcase {
     }
 
     @AfterMethod
-    public void relase() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException, ConfigAccessAgentException {
+    public void release() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException, ConfigAccessAgentException {
         Class<ConfigAccessAgent> clazz = ConfigAccessAgent.class;
         Method method = clazz.getDeclaredMethod("release");
         method.setAccessible(true);
         method.invoke(ConfigAccessAgent.getInstance());
+        System.clearProperty("nsq.sdk.configFilePath");
     }
 }

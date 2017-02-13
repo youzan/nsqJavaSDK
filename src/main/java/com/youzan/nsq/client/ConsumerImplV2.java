@@ -156,8 +156,10 @@ public class ConsumerImplV2 implements Consumer {
                 // create the pools
                 //simple client starts and LookupAddressUpdate instance initialized there.
                 this.simpleClient.start();
-                if(this.config.getUserSpecifiedLookupAddress())
-                    LookupAddressUpdate.getInstance().setUpDefaultSeedLookupConfig(this.config.getLookupAddresses());
+                if(this.config.getUserSpecifiedLookupAddress()) {
+                    LookupAddressUpdate.getInstance().setUpDefaultSeedLookupConfig(this.simpleClient.getLookupLocalID(), this.config.getLookupAddresses());
+                }
+
                 // -----------------------------------------------------------------
                 //                       First, async keep
                 keepConnecting();

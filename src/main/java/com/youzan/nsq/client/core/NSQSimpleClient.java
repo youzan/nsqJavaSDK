@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
@@ -35,6 +36,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public class NSQSimpleClient implements Client, Closeable {
     private static final Logger logger = LoggerFactory.getLogger(NSQSimpleClient.class);
 
+    private final static AtomicInteger CLIENT_ID = new AtomicInteger(0);
+    private int lookupLocalID = -1;
     private static final IPartitionsSelector EMPTY = new SimplePartitionsSelector(null);
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
     //maintain a mapping from topic to producer broadcast addresses
@@ -52,22 +55,32 @@ public class NSQSimpleClient implements Client, Closeable {
 
     public NSQSimpleClient(Role role, boolean localLookupd) {
         this.role = role;
-        this.lookup = new LookupServiceImpl(role);
+        this.lookupLocalID = CLIENT_ID.incrementAndGet();
+        this.lookup = new LookupServiceImpl(role, this.lookupLocalID);
         this.useLocalLookupd = localLookupd;
+    }
+
+    /**
+     * reset lookup local ID back to 0. As it is designed for test case, User do no need to use this function.
+     */
+    public static void resetLookupLocalID(){
+        CLIENT_ID.set(0);
+        logger.info("Global lookup local ID set back to 0.");
     }
 
     private static final String SIMPLECLIENT_META_FORMAT = "%s: [" +
             "started: %b," +
             "\t" + "role: %s," +
             "\t" + "userLocalLookupd: %b," +
-            "\t" + "topic size: %d" + "]";
+            "\t" + "lookupLocalID: %d," +
+            "\t" + "topic size: %d," + "]";
 
     /**
      * return meta data of current simple client and {@link Client} current simple client belongs to.
      * @return string meta data of simple client.
      */
     public String toString() {
-        String toString = String.format(SIMPLECLIENT_META_FORMAT, super.toString(), this.started, this.role.getRoleTxt(), this.useLocalLookupd, this.topicSubscribed.size());
+        String toString = String.format(SIMPLECLIENT_META_FORMAT, super.toString(), this.started, this.role.getRoleTxt(), this.useLocalLookupd, this.lookupLocalID, this.topicSubscribed.size());
         return toString;
     }
 
@@ -84,6 +97,14 @@ public class NSQSimpleClient implements Client, Closeable {
         } finally {
             lock.writeLock().unlock();
         }
+    }
+
+    /**
+     * return lookupLocalId of current SimpleClient.
+     * @return lookupLocalID
+     */
+    public int getLookupLocalID() {
+        return this.lookupLocalID;
     }
 
     private void keepDataNodes() {

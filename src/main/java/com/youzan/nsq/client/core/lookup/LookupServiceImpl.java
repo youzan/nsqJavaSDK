@@ -19,6 +19,7 @@ public class LookupServiceImpl implements LookupService {
     private static final Logger logger = LoggerFactory.getLogger(LookupServiceImpl.class);
     private static final long serialVersionUID = 1773482379917817275L;
     private final Role role;
+    private int lookupLocalId = -1;
 
     /**
      * Load-Balancing Strategy: round-robin
@@ -31,8 +32,9 @@ public class LookupServiceImpl implements LookupService {
     /**
      * @param role  role for producer and consumer
      */
-    public LookupServiceImpl(Role role) {
+    public LookupServiceImpl(Role role, int lookupLocalId) {
         this.role = role;
+        this.lookupLocalId = lookupLocalId;
     }
 
     @Override
@@ -59,7 +61,7 @@ public class LookupServiceImpl implements LookupService {
         /*
          * It is unnecessary to use Atomic/Lock for the variable
          */
-        NSQLookupdAddresses aLookupdAddr = LookupAddressUpdate.getInstance().getLookup(topic, category, localLookupd, force);
+        NSQLookupdAddresses aLookupdAddr = LookupAddressUpdate.getInstance().getLookup(topic, category, localLookupd, force, this.lookupLocalId);
         IPartitionsSelector ps = null;
         if(null != aLookupdAddr)
             ps = aLookupdAddr.lookup(topic, writable);

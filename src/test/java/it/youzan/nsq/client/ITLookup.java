@@ -4,6 +4,7 @@ import com.youzan.nsq.client.*;
 import com.youzan.nsq.client.configs.ConfigAccessAgent;
 import com.youzan.nsq.client.configs.TopicRuleCategory;
 import com.youzan.nsq.client.core.LookupAddressUpdate;
+import com.youzan.nsq.client.core.NSQSimpleClient;
 import com.youzan.nsq.client.core.lookup.LookupService;
 import com.youzan.nsq.client.core.lookup.LookupServiceImpl;
 import com.youzan.nsq.client.entity.*;
@@ -44,16 +45,17 @@ public class ITLookup extends EasyMockSupport {
             props.load(is);
         }
         lookups = props.getProperty("lookup-addresses");
-        lookup = new LookupServiceImpl(Role.Producer);
+        lookup = new LookupServiceImpl(Role.Producer, 1);
 
     }
 
+    @Test
     public void lookup() throws NSQException {
         lau = partialMockBuilder(LookupAddressUpdate.class)
                 .addMockedMethod("getLookup")
                 .withConstructor()
                 .createMock();
-        lau.setUpDefaultSeedLookupConfig(lookups.split(","));
+        lau.setUpDefaultSeedLookupConfig(1, lookups.split(","));
         LookupAddressUpdate.setInstance(lau);
 
         Topic aTopic = new Topic("JavaTesting-Producer-Base");
@@ -62,24 +64,25 @@ public class ITLookup extends EasyMockSupport {
         clusterIds.add("sqs-qa");
         List<String> addresses = new ArrayList<>();
         addresses.add("sqs-qa.s.qima-inc.com:4161");
-        expect(lau.getLookup(aTopic, category, true, false)).andStubReturn(NSQLookupdAddresses.create(clusterIds, addresses));
+        expect(lau.getLookup(aTopic, category, true, false, 1)).andStubReturn(NSQLookupdAddresses.create(clusterIds, addresses));
         replayAll();
 
         IPartitionsSelector aPs = lookup.lookup(aTopic, true, category, true, false);
         Assert.assertNotNull(aPs);
         verifyAll();
+        resetAll();
     }
 
     //test with invalid lookup address in listlookup API
     @Test
     public void testInvalidLookupAddress() throws NSQException, InterruptedException {
         Topic aTopic = new Topic("JavaTesting-Producer-Base");
-
+        NSQSimpleClient.resetLookupLocalID();
         lau = partialMockBuilder(LookupAddressUpdate.class)
                 .addMockedMethod("getLookup")
                 .withConstructor()
                 .createMock();
-        lau.setUpDefaultSeedLookupConfig(lookups.split(","));
+        lau.setUpDefaultSeedLookupConfig(1, lookups.split(","));
         LookupAddressUpdate.setInstance(lau);
 
         List<String> clusterIds = new ArrayList<>();
@@ -89,17 +92,21 @@ public class ITLookup extends EasyMockSupport {
         addresses.add("sqs-qa.s.qima-inc.com:4161");
 
         List<String> invalidAddresses = new ArrayList<>();
-        invalidAddresses.add("sqs-qa.s.qima-inc.com:4161");
+        invalidAddresses.add("invalid-sqs-qa.s.qima-inc.com:4161");
 
-        NSQLookupdAddresses badLookupd = NSQLookupdAddresses.create(clusterIds, addresses);
-        NSQLookupdAddresses goodLookupd = NSQLookupdAddresses.create(clusterIds, invalidAddresses);
+        NSQLookupdAddresses badLookupd = NSQLookupdAddresses.create(clusterIds, invalidAddresses);
+        NSQLookupdAddresses goodLookupd = NSQLookupdAddresses.create(clusterIds, addresses);
 
         TopicRuleCategory category = TopicRuleCategory.getInstance(Role.Producer);
         TopicRuleCategory categoryConsume = TopicRuleCategory.getInstance(Role.Consumer);
-        expect(lau.getLookup(aTopic, category, true, false)).andReturn(badLookupd).times(2)
+        expect(lau.getLookup(aTopic, category, true, false, 1)).andReturn(badLookupd).times(2)
+                .andReturn(goodLookupd).times(10);
+        expect(lau.getLookup(aTopic, category, true, false, 2)).andReturn(badLookupd).times(2)
                 .andReturn(goodLookupd).times(10);
 
-        expect(lau.getLookup(aTopic, categoryConsume, true, false)).andReturn(badLookupd).times(3).
+        expect(lau.getLookup(aTopic, categoryConsume, true, false, 1)).andReturn(badLookupd).times(3).
+                andReturn(goodLookupd).anyTimes();
+        expect(lau.getLookup(aTopic, categoryConsume, true, false, 2)).andReturn(badLookupd).times(3).
                 andReturn(goodLookupd).anyTimes();
         replayAll();
 
