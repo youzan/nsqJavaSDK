@@ -69,8 +69,8 @@ public class ITStableCaseWDCC {
 
         final String lookups = props.getProperty("lookup-addresses");
         final String connTimeout = props.getProperty("connectTimeoutInMillisecond");
-        config.setUserSpecifiedLookupAddress(true);
-        config.setLookupAddresses(lookups);
+//        config.setUserSpecifiedLookupAddress(true);
+//        config.setLookupAddresses(lookups);
         config.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
         config.setThreadPoolSize4IO(1);
     }

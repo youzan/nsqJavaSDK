@@ -6,7 +6,7 @@ package com.youzan.nsq.client.configs;
  */
 public class DCCTraceConfigAccessKey extends AbstractConfigAccessKey {
     private final static String NSQ_TOPIC_TRACE_KEY = "nsq.key.topic.trace";
-    private final static String DEFAULT_NSQ_TOPIC_TRACE_PRODUCER_KEY = "trace";
+    private final static String DEFAULT_NSQ_TOPIC_TRACE_PRODUCER_KEY = "topic.trace";
 
     public DCCTraceConfigAccessKey() {
         super(null);

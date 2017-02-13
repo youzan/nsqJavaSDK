@@ -109,7 +109,7 @@ public class PubCmdFactory implements IConfigAccessSubscriber{
             lock.readLock().unlock();
         }
 
-        if(null == flag || !Boolean.valueOf(flag))
+        if(null == flag || Integer.valueOf(flag) == 0)
             return false;
         else {
             //mark message as traced
