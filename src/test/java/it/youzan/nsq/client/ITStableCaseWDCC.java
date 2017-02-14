@@ -46,6 +46,7 @@ public class ITStableCaseWDCC {
     private final NSQConfig config = new NSQConfig();
     private Producer producer;
     private Consumer consumer;
+    private final String TOPICNAME = "JavaTesting-Migration";
 
     @BeforeClass
     public void init() throws Exception {
@@ -91,7 +92,7 @@ public class ITStableCaseWDCC {
             byte[] message = ("Message At: " + now).getBytes();
             try {
                 totalPub.getAndIncrement();
-                producer.publish(message, "JavaTesting-Stable");
+                producer.publish(message, TOPICNAME);
                 successPub.getAndIncrement();
             } catch (Exception e) {
                 logger.error("Exception", e);
@@ -122,7 +123,7 @@ public class ITStableCaseWDCC {
         config.setThreadPoolSize4IO(Math.max(2, Runtime.getRuntime().availableProcessors()));
         consumer = new ConsumerImplV2(config, handler);
         consumer.setAutoFinish(false);
-        consumer.subscribe("JavaTesting-Stable");
+        consumer.subscribe(TOPICNAME);
         consumer.start();
 
         for (long now = 0; now < (allowedRunDeadline + 10 * 1000); now = System.currentTimeMillis()) {

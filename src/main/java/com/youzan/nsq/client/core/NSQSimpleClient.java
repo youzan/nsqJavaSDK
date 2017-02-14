@@ -305,7 +305,6 @@ public class NSQSimpleClient implements Client, Closeable {
     public Address[] getPartitionNodes(Topic topic, Object topicShardingID, boolean write) throws NSQException {
         IPartitionsSelector aPs;
         List<Address> nodes = new ArrayList<>();
-        long shardingCode = topic.getTopicSharding().toShardingCode(topicShardingID);
         lock.readLock().lock();
         try {
             aPs = topic_2_partitionsSelector.get(topic);
