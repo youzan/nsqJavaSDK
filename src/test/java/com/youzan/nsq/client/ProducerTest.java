@@ -67,9 +67,9 @@ public class ProducerTest extends AbstractNSQClientTestcase {
 
     @Test(expectedExceptions = {NSQInvalidMessageException.class})
     public void testPubMessageExceed() throws NSQException {
-        ByteBuffer bf =  ByteBuffer.allocate(9000000);
+        ByteBuffer bf =  ByteBuffer.allocate(2000000);
         int i = 0;
-        while(i++ < 9000000) {
+        while(i++ < 2000000) {
             bf.put("M".getBytes());
         }
 

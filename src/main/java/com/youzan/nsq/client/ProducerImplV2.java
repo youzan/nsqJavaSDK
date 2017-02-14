@@ -38,6 +38,7 @@ public class ProducerImplV2 implements Producer {
 
     private static final int MAX_PUBLISH_RETRY = 6;
 
+    private static final int MAX_MSG_OUTPUT_LEN = 100;
     private static final Logger logger = LoggerFactory.getLogger(ProducerImplV2.class);
     private volatile boolean started = false;
     private volatile int offset = 0;
@@ -226,7 +227,7 @@ public class ProducerImplV2 implements Producer {
         while (c++ < MAX_PUBLISH_RETRY) {
             if (c > 1) {
                 logger.debug("Sleep. CurrentRetries: {}", c);
-                sleep((1 << (c - 1)) * 1000);
+                sleep((1 << (c - 1)) * 10);
             }
             try {
                 conn = getNSQConnection(msg.getTopic(), msg.getTopicShardingId());
@@ -258,8 +259,10 @@ public class ProducerImplV2 implements Producer {
                 throw expShouldFail;
             }catch (Exception e) {
                 IOUtil.closeQuietly(conn);
-                logger.error("MaxRetries: {} , CurrentRetries: {} , Address: {} , Topic: {}, RawMessage: {} , Exception:", MAX_PUBLISH_RETRY, c,
-                        conn.getAddress(), msg.getTopic(), msg.getMessageBodyInByte(), e);
+                String msgStr = msg.getMessageBody();
+                int maxlen = msgStr.length() > MAX_MSG_OUTPUT_LEN ? MAX_MSG_OUTPUT_LEN : msgStr.length();
+                logger.error("MaxRetries: {} , CurrentRetries: {} , Address: {} , Topic: {}, MessageLength: {}, RawMessage: {}, Exception:", MAX_PUBLISH_RETRY, c,
+                        conn.getAddress(), msg.getTopic(), msgStr.length(), msgStr.substring(0, maxlen), e);
                 NSQException nsqE = new NSQException(e);
                 exceptions.add(nsqE);
                 if (c >= MAX_PUBLISH_RETRY) {
