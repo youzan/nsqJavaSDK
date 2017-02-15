@@ -155,6 +155,7 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
     public void destroyObject(Address address, PooledObject<NSQConnection> p) throws Exception {
         NSQConnection connection = p.getObject();
         if (connection.isConnected()) {
+            logger.info("Connection pool factory close conn: {}", connection.toString());
             connection.close();
         }
     }

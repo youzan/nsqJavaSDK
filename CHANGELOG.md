@@ -37,3 +37,16 @@ partition ID could be specified via Topic#setPartitionId(int).
 + synchronization in boostrap map in producer connection pool factory.[#46](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/46)
 + nsq.sdk.env not work when set as system property.[#48](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/48)
 + ProducerNotFoundException when code 4XX from lookup.[#50](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/50) 
+
+## 2.3-RELEASE
+Note worthy:
+Bug fixes release for closed NSQConnection clean up issue.
+Error log for publish exception handle is truncated if message content is too large.
+Default connection size capacity increased to 30.
+Producer retry interval base is configurable, default base if modified to 100 milliseconds.
+### Features:
++ truncate message output when exception raised in publish.[#55](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/55)
++ increase default connection size capacity to 30.[#57](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/57)
++ producer retry interval configurable.[#58](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/58)
+### Fixes:
++ closed NSQConnection is returned to producer connection pool, without invalidated.[#56](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/56)

@@ -47,7 +47,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      */
     private int threadPoolSize4IO = 1;
     //connection pool size for producer
-    private int connectionSize = 10;
+    private int connectionSize = 30;
     private final String clientId;
     private final String hostname;
     private boolean featureNegotiation;
@@ -79,6 +79,11 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * interval between two list lookup operation for all seed lookups
      */
     private static int listLookupIntervalInSecond = 120;
+
+    /**
+     * interval base for producer retry interval
+     */
+    private int producerRetryIntervalBase = 100;
 
     /**
      * the timeout after which any data that NSQd has buffered will be flushed
@@ -549,6 +554,27 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     public NSQConfig setConsumerSlowStart(boolean allowSlowStart) {
         this.slowStart = allowSlowStart;
         return this;
+    }
+
+    /**
+     * Set producer retry interval base when exception raised in publish.
+     * producer retry 6 times when exception which SDK does not know happen.
+     * producer sleeps  1 << (currentRetry - 1) * retryIntervalBase milliseconds in each interval.
+     *
+     * @param retryIntervalBase retry interval base in milliseconds
+     * @return {@link NSQConfig} this NSQConfig
+     */
+    public NSQConfig setProducerRetryIntervalBaseInMilliSeconds(int retryIntervalBase) {
+        this.producerRetryIntervalBase = retryIntervalBase;
+        return this;
+    }
+
+    /**
+     * return producer retry interval base in milliseconds of current NSQConfig.
+     * @return producerRetryIntervalBase
+     */
+    public int getProducerRetryIntervalBaseInMilloSeconds() {
+        return this.producerRetryIntervalBase;
     }
 
     public String identify() {
