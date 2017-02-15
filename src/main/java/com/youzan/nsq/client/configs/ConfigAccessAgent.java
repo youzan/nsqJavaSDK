@@ -109,13 +109,13 @@ public abstract class ConfigAccessAgent implements Closeable {
         return null;
     }
 
-    /**
-     * finalize function for GC.
-     */
-    public void finalize() throws Throwable {
-        super.finalize();
-        ConfigAccessAgent.release();
-    }
+//    /**
+//     * finalize function for GC.
+//     */
+//    public void finalize() throws Throwable {
+//        super.finalize();
+//        ConfigAccessAgent.release();
+//    }
 
     /**
      * release resources allocated by ConfigAccessAgent
@@ -132,8 +132,7 @@ public abstract class ConfigAccessAgent implements Closeable {
                     env = null;
                     configAccessRemotes = null;
                     backupFilePath = null;
-                    if(logger.isDebugEnabled())
-                        logger.debug("Config access agent released.");
+                    logger.info("Config access agent released.");
                 }
             }
         }

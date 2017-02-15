@@ -58,6 +58,7 @@ public class ITConsumerOrderPartition {
     public void testConsume2SQSWithPartitions() throws NSQException, InterruptedException, ConfigAccessAgentException {
         //note: topic "java_test_ordered_,ulti_topic" has partition num = 9.
         //initialize confgi access agent
+        logger.info("[testConsume2SQSWithPartitions] starts");
         agent = ConfigAccessAgent.getInstance();
         final SortedMap<String, String> valueMap = new TreeMap<>();
         valueMap.put("java_test_ordered_multi_topic", controlCnfStr);
@@ -84,7 +85,6 @@ public class ITConsumerOrderPartition {
             msg.setTopicShardingIDLong(i%partitionNum);
             producer.publish(msg);
         }
-        producer.close();
 
         final CountDownLatch latch = new CountDownLatch(1);
         final AtomicInteger cnt = new AtomicInteger(1000);
@@ -129,12 +129,15 @@ public class ITConsumerOrderPartition {
         }
         for(Consumer consumer:consumers)
             consumer.close();
+        producer.close();
+        logger.info("[testConsume2SQSWithPartitions] ends");
     }
 
     @Test
     public void testConsume2SQSWithPartitionsWithShardingString() throws NSQException, InterruptedException, ConfigAccessAgentException {
         //note: topic "java_test_ordered_,ulti_topic" has partition num = 9.
         //initialize confgi access agent
+        logger.info("[testConsume2SQSWithPartitionsWithShardingString] starts");
         agent = ConfigAccessAgent.getInstance();
         final SortedMap<String, String> valueMap = new TreeMap<>();
         valueMap.put("java_test_ordered_multi_topic", controlCnfStr);
@@ -164,7 +167,6 @@ public class ITConsumerOrderPartition {
             msg.setTopicShardingIDString(shardingIDString);
             producer.publish(msg);
         }
-        producer.close();
 
         final CountDownLatch latch = new CountDownLatch(1);
         final AtomicInteger cnt = new AtomicInteger(1000);
@@ -210,6 +212,8 @@ public class ITConsumerOrderPartition {
         }
         for(Consumer consumer:consumers)
             consumer.close();
+        producer.close();
+        logger.info("[testConsume2SQSWithPartitionsWithShardingString] ends");
     }
 
 
