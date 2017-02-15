@@ -145,7 +145,7 @@ public class ProducerImplV2 implements Producer {
             try {
                 return bigPool.borrowObject(address);
             } catch (Exception e) {
-                logger.error("DataNode Size: {} , CurrentRetries: {} , Address: {} , Exception:", size, c, address, e);
+                logger.error("Fail to fetch connection for publish. DataNode Size: {} , CurrentRetries: {} , Address: {} , Exception:", size, c, address, e);
             }
         }
         // no available {@link NSQConnection}
@@ -222,17 +222,18 @@ public class ProducerImplV2 implements Producer {
 
     private void sendPUB(final Message msg) throws NSQException {
         int c = 0; // be continuous
+        boolean returnCon = true;
         NSQConnection conn;
         List<NSQException> exceptions = new ArrayList<>();
         while (c++ < MAX_PUBLISH_RETRY) {
             if (c > 1) {
                 logger.debug("Sleep. CurrentRetries: {}", c);
-                sleep((1 << (c - 1)) * 10);
+                sleep((1 << (c - 1)) * this.config.getProducerRetryIntervalBaseInMilloSeconds());
             }
             try {
                 conn = getNSQConnection(msg.getTopic(), msg.getTopicShardingId());
                 if (conn == null) {
-                    exceptions.add(new NSQDataNodesDownException("Could not get NSQd connection for " + msg.getTopic().toString() + ", topic may does not exist."));
+                    exceptions.add(new NSQDataNodesDownException("Could not get NSQd connection for " + msg.getTopic().toString() + ", topic may does not exist, or connection pool resource exhausted."));
                     continue;
                 }
             }
@@ -257,8 +258,16 @@ public class ProducerImplV2 implements Producer {
             catch(NSQInvalidMessageException | NSQPubFactoryInitializeException expShouldFail) {
                 //invalid message exception, may caused by too large message body
                 throw expShouldFail;
-            }catch (Exception e) {
+            }
+            catch (Exception e) {
                 IOUtil.closeQuietly(conn);
+                returnCon = false;
+                try {
+                    bigPool.invalidateObject(conn.getAddress(), conn);
+                    logger.info("Connection invalidated.");
+                } catch (Exception e1) {
+                    logger.error("Fail to destroy connection {}.", conn.toString(), e1);
+                }
                 String msgStr = msg.getMessageBody();
                 int maxlen = msgStr.length() > MAX_MSG_OUTPUT_LEN ? MAX_MSG_OUTPUT_LEN : msgStr.length();
                 logger.error("MaxRetries: {} , CurrentRetries: {} , Address: {} , Topic: {}, MessageLength: {}, RawMessage: {}, Exception:", MAX_PUBLISH_RETRY, c,
@@ -269,7 +278,8 @@ public class ProducerImplV2 implements Producer {
                     throw new NSQPubException(exceptions);
                 }
             } finally {
-                bigPool.returnObject(conn.getAddress(), conn);
+                if(returnCon)
+                    bigPool.returnObject(conn.getAddress(), conn);
             }
         } // end loop
         if (c >= MAX_PUBLISH_RETRY) {

@@ -46,7 +46,7 @@ public class ITStableCaseWDCC {
     private final NSQConfig config = new NSQConfig();
     private Producer producer;
     private Consumer consumer;
-    private final String TOPICNAME = "JavaTesting-Migration";
+    private final String TOPICNAME = "JavaTesting-Stable";
 
     @BeforeClass
     public void init() throws Exception {

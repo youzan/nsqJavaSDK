@@ -5,7 +5,6 @@ import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQInvalidMessageException;
-import com.youzan.nsq.client.exception.NSQProducerNotFoundException;
 import com.youzan.nsq.client.exception.NSQTopicNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -107,6 +106,41 @@ public class ProducerTest extends AbstractNSQClientTestcase {
             logger.debug("Request to {} responses {}:{}.", url.toString(), con.getResponseCode(), con.getResponseMessage());
         }
     }
+
+//    @Test
+//    public void testMultiProducer() throws NSQException, InterruptedException {
+//        int producerNum = 3;
+//        int connectionNUm = 9;
+//        NSQConfig configPro = new NSQConfig();
+//        configPro.setConnectionPoolSize(connectionNUm);
+//        final Topic topic = new Topic("JavaTesting-Stable");
+//        configPro.setUserSpecifiedLookupAddress(true);
+//        configPro.setLookupAddresses("sqs-qa.s.qima-inc.com:4161");
+//        ExecutorService exec = Executors.newFixedThreadPool(20);
+//        for(int i=0; i < producerNum;i++){
+//            final Producer pro = new ProducerImplV2(configPro);
+//            pro.start();
+//            exec.submit(new Runnable() {
+//                @Override
+//                public void run() {
+//                    while(true) {
+//                        try {
+//                            pro.publish("message from producer.", topic, 0);
+//                            try {
+//                                Thread.sleep(100);
+//                            } catch (InterruptedException e) {
+//                                logger.error(e.getLocalizedMessage(), e);
+//                            }
+//                        } catch (NSQException e) {
+//                            logger.error(e.getLocalizedMessage(), e);
+//                        }
+//                    }
+//                }
+//            });
+//        }
+//        final CountDownLatch latch = new CountDownLatch(1);
+//        latch.await();
+//    }
 
     //DELETE /api/topics/:topic
     private void deleteTopic(String adminUrl, String topicName) throws IOException {
