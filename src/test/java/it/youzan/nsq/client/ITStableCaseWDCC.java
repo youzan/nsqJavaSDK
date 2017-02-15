@@ -76,7 +76,7 @@ public class ITStableCaseWDCC {
         config.setThreadPoolSize4IO(1);
     }
 
-    @Test(priority = 12)
+    @Test(priority = 12, invocationCount = 10, threadPoolSize = 10)
     public void produce() throws NSQException, InterruptedException {
         if (!stable) {
             return;
@@ -103,7 +103,7 @@ public class ITStableCaseWDCC {
         logger.info("Exit producing...");
     }
 
-    @Test(priority = 12)
+    @Test(priority = 12, invocationCount = 10, threadPoolSize = 10)
     public void consume() throws InterruptedException, NSQException {
         if (!stable) {
             return;
@@ -122,7 +122,7 @@ public class ITStableCaseWDCC {
         config.setConsumerName(consumerName);
         config.setThreadPoolSize4IO(Math.max(2, Runtime.getRuntime().availableProcessors()));
         consumer = new ConsumerImplV2(config, handler);
-        consumer.setAutoFinish(false);
+//        consumer.setAutoFinish(false);
         consumer.subscribe(TOPICNAME);
         consumer.start();
 
@@ -133,7 +133,7 @@ public class ITStableCaseWDCC {
                     continue;
                 }
                 logger.info("Message got at: {}, Deadline: {}", now, allowedRunDeadline);
-                consumer.finish(message);
+//                consumer.finish(message);
                 successFinish.getAndIncrement();
             } catch (Exception e) {
                 logger.error("Exception", e);
