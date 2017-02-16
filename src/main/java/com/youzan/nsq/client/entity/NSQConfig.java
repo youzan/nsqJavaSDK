@@ -561,11 +561,15 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * producer retry 6 times when exception which SDK does not know happen.
      * producer sleeps  1 << (currentRetry - 1) * retryIntervalBase milliseconds in each interval.
      *
-     * @param retryIntervalBase retry interval base in milliseconds
+     * @param retryIntervalBase retry interval base in milliseconds, needs to be larger than 0. If pass in value is 0,
+     *                          it means producer does not sleep when failure happens.
      * @return {@link NSQConfig} this NSQConfig
      */
     public NSQConfig setProducerRetryIntervalBaseInMilliSeconds(int retryIntervalBase) {
-        this.producerRetryIntervalBase = retryIntervalBase;
+        if(retryIntervalBase >=0 ) {
+            this.producerRetryIntervalBase = retryIntervalBase;
+            logger.info("producer retry interval base set to {}.", retryIntervalBase);
+        }
         return this;
     }
 

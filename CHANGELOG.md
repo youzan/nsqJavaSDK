@@ -38,7 +38,7 @@ partition ID could be specified via Topic#setPartitionId(int).
 + nsq.sdk.env not work when set as system property.[#48](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/48)
 + ProducerNotFoundException when code 4XX from lookup.[#50](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/50) 
 
-## 2.3-RELEASE
+## 2.3.20170216-RELEASE
 Note worthy:
 Bug fixes release for closed NSQConnection clean up issue.
 Error log for publish exception handle is truncated if message content is too large.
