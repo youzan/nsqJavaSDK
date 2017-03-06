@@ -69,7 +69,6 @@ public class ConsumerImplV2 implements Consumer {
     private final ConcurrentHashMap<Address, FixedPool> address_2_pool = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getSimpleName(), Thread.NORM_PRIORITY));
-
     /*-
       * =========================================================================
       *                          Client delegates to me
@@ -425,7 +424,7 @@ public class ConsumerImplV2 implements Consumer {
                         // init( connection, topic ) , let it be a consumer connection
                         final NSQConnection connection = connections.get(connectionIdx++);
                         try {
-                            connection.init();
+                            connection.init(topic);
                         } catch (Exception e) {
                             connection.close();
                             if (!closing) {
@@ -661,10 +660,27 @@ public class ConsumerImplV2 implements Consumer {
             } else {
                 // an error occurs
                 if (nextConsumingWaiting != null) {
-                    // ReQueue
-                    cmd = new ReQueue(message.getMessageID(), nextConsumingWaiting.intValue());
-                    final byte[] id = message.getMessageID();
-                    logger.info("Do a re-queue by SDK that is a default behavior. MessageID: {} , Hex: {}", id, message.newHexString(id));
+                    //check if max retry times reaches before requeue
+                    // Post
+                    if (!this.config.isOrdered() && message.getReadableAttempts() > this.config.getMaxRequeueTimes()) {
+                        logger.warn("Message {} has reached max retry limitation: {}. it will be published to NSQ again for consume.", message, this.config.getMaxRequeueTimes());
+                        //TODO: set up temporary publish
+                        Producer producer = null;
+                        try {
+                            producer = compensationPublish(connection.getTopic(), message);
+                            cmd = new Finish(message.getMessageID());
+                        } catch (NSQException e) {
+                            logger.error("Fail to publish compensation message for incoming message {}. Retry in next round.");
+                        } finally {
+                            if(null != producer)
+                                producer.close();
+                        }
+                    }else {
+                        // ReQueue
+                        cmd = new ReQueue(message.getMessageID(), nextConsumingWaiting.intValue());
+                        final byte[] id = message.getMessageID();
+                        logger.info("Do a re-queue by SDK that is a default behavior. MessageID: {} , Hex: {}", id, message.newHexString(id));
+                    }
                 } else {
                     if (this.config.isConsumerSlowStart() && end > this.config.getMsgTimeoutInMillisecond()) {
                         logger.warn("It tooks {} millisec to for message to be consumed by message handler, and exceeds message timeout in nsq config. Fin not be invoked as requeue from NSQ server is on its way.", end);
@@ -702,12 +718,19 @@ public class ConsumerImplV2 implements Consumer {
             }
         }
         // Post
-        if (message.getReadableAttempts() > 10) {
-            logger.warn("Fire,Fire,Fire! Processing 10 times is still a failure!!! {}", message);
-        }
+        //log warn
         if (!ok) {
             logger.warn("Exception occurs but you don't catch it! Please check it right now!!! {} , Original message: {}.", message, message.getReadableContent());
         }
+    }
+
+    private Producer compensationPublish(final Topic topic, final NSQMessage msg) throws NSQException {
+        Producer producer = new ProducerImplV2(this.config);
+        producer.start();
+        Message newMsg = Message.create(topic, msg.getTraceID(), msg.getReadableContent());
+        producer.publish(newMsg);
+        logger.info("Compensation publish finished.");
+        return producer;
     }
 
     @Override

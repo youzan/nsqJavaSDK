@@ -228,7 +228,7 @@ public class ProducerImplV2 implements Producer {
         while (c++ < MAX_PUBLISH_RETRY) {
             if (c > 1) {
                 logger.debug("Sleep. CurrentRetries: {}", c);
-                sleep((1 << (c - 1)) * this.config.getProducerRetryIntervalBaseInMilloSeconds());
+                sleep((1 << (c - 1)) * this.config.getProducerRetryIntervalBaseInMilliSeconds());
             }
             try {
                 conn = getNSQConnection(msg.getTopic(), msg.getTopicShardingId());
@@ -255,8 +255,7 @@ public class ProducerImplV2 implements Producer {
                     TraceLogger.trace(this, conn, (MessageMetadata) frame);
                 return;
             }
-            catch(NSQInvalidMessageException | NSQPubFactoryInitializeException expShouldFail) {
-                //invalid message exception, may caused by too large message body
+            catch(NSQPubFactoryInitializeException expShouldFail) {
                 throw expShouldFail;
             }
             catch (Exception e) {
@@ -272,6 +271,9 @@ public class ProducerImplV2 implements Producer {
                 int maxlen = msgStr.length() > MAX_MSG_OUTPUT_LEN ? MAX_MSG_OUTPUT_LEN : msgStr.length();
                 logger.error("MaxRetries: {} , CurrentRetries: {} , Address: {} , Topic: {}, MessageLength: {}, RawMessage: {}, Exception:", MAX_PUBLISH_RETRY, c,
                         conn.getAddress(), msg.getTopic(), msgStr.length(), msgStr.substring(0, maxlen), e);
+                //as to NSQInvalidMessaegException throw it out after conenction close.
+                if(e instanceof NSQInvalidMessageException)
+                    throw (NSQInvalidMessageException)e;
                 NSQException nsqE = new NSQException(e);
                 exceptions.add(nsqE);
                 if (c >= MAX_PUBLISH_RETRY) {
