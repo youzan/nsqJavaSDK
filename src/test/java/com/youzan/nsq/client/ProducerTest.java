@@ -2,6 +2,7 @@ package com.youzan.nsq.client;
 
 import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQInvalidMessageException;
@@ -15,6 +16,9 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.ByteBuffer;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Created by lin on 17/1/11.
@@ -84,6 +88,51 @@ public class ProducerTest extends AbstractNSQClientTestcase {
         }finally {
             producer.close();
             logger.info("Producer closed");
+        }
+    }
+
+
+    @Test
+    public void testCompensationPublish() throws NSQException, IOException, InterruptedException {
+        String adminUrlStr = "http://" + props.getProperty("admin-address");
+        String topicName = "topicCompensation_" + System.currentTimeMillis();
+        //create topic
+        try {
+            createTopic(adminUrlStr, topicName);
+
+            NSQConfig config = this.getNSQConfig();
+            config.setUserSpecifiedLookupAddress(true);
+            config.setLookupAddresses(props.getProperty("lookup-addresses"));
+            config.setMaxRequeueTimes(0);
+            config.setConsumerName("BaseConsumer");
+
+            Topic topic = new Topic(topicName);
+            final AtomicInteger cnt = new AtomicInteger(0);
+            final CountDownLatch latch = new CountDownLatch(1);
+            Consumer consumer = new ConsumerImplV2(this.config, new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    if (cnt.getAndIncrement() == 0)
+                        throw new RuntimeException("exp");
+                    else {
+                        logger.info("compensation message get.");
+                        latch.countDown();
+                    }
+                }
+            });
+            consumer.subscribe(topic);
+            consumer.start();
+            final CountDownLatch consumerWaitlatch = new CountDownLatch(1);
+            logger.info("Wait for 60s for consumer to subscribe.");
+            consumerWaitlatch.await(60, TimeUnit.SECONDS);
+            Producer producer = new ProducerImplV2(config);
+            producer.start();
+            //publish one message
+            producer.publish(Message.create(topic, "message"));
+
+            latch.await(3, TimeUnit.MINUTES);
+        }finally {
+            deleteTopic(adminUrlStr, topicName);
         }
     }
 

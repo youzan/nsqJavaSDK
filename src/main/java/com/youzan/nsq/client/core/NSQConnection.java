@@ -4,6 +4,7 @@ import com.youzan.nsq.client.core.command.NSQCommand;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
+import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
@@ -47,6 +48,13 @@ public interface NSQConnection extends Closeable {
     void init() throws TimeoutException;
 
     /**
+     * initialization of NSQConnection for consumer, with topic name passin.
+     * @param topic topic this NSQConenction subscribe to
+     * @throws TimeoutException raised when timeout in initialization
+     */
+    void init(final Topic topic) throws TimeoutException;
+
+    /**
      * Check internalID and disk queue offset of message received in current connection, config of current connection
      * must be in order mode.
      * @param internalID internal ID of message for check
@@ -71,6 +79,10 @@ public interface NSQConnection extends Closeable {
     void addResponseFrame(ResponseFrame frame);
 
     void addErrorFrame(ErrorFrame frame);
+
+    void setTopic(Topic topic);
+
+    Topic getTopic();
 
     /**
      * Perform the action quietly. No exceptions.

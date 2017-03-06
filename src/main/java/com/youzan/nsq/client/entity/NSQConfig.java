@@ -90,6 +90,15 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * to this client
      */
     private Integer outputBufferTimeoutInMillisecond = null;
+
+    /**
+     * max requeue times setting for consumer, if message read attempts exceeds that value, consumer will:
+     * 1. log that message;
+     * 2. publish that message back to NSQ;
+     * 3. ACK origin message.
+     */
+    private int maxRequeueTimes = 30;
+
     /*-
      *                             All of Timeout
      * =========================================================================
@@ -577,8 +586,17 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * return producer retry interval base in milliseconds of current NSQConfig.
      * @return producerRetryIntervalBase
      */
-    public int getProducerRetryIntervalBaseInMilloSeconds() {
+    public int getProducerRetryIntervalBaseInMilliSeconds() {
         return this.producerRetryIntervalBase;
+    }
+
+    public NSQConfig setMaxRequeueTimes(int times) {
+       this.maxRequeueTimes = times;
+       return this;
+    }
+
+    public int getMaxRequeueTimes() {
+        return this.maxRequeueTimes;
     }
 
     public String identify() {

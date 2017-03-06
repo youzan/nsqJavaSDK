@@ -6,6 +6,7 @@ import com.youzan.nsq.client.core.command.NSQCommand;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
+import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
@@ -40,6 +41,8 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     private final Address address;
     private final Channel channel;
+    //topic for subscribe
+    private Topic topic;
     private final NSQConfig config;
     //start ready cnt for current count
     private volatile int currentRdy;
@@ -99,6 +102,12 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         assert channel.isActive();
         assert isConnected();
         logger.debug("Having initiated {}", this);
+    }
+
+    @Override
+    public void init(final Topic topic) throws TimeoutException {
+        setTopic(topic);
+        this.init();
     }
 
     @Override
@@ -178,6 +187,16 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
             Thread.currentThread().interrupt();
             logger.error("Thread was interrupted, probably shutting down!", e);
         }
+    }
+
+    @Override
+    public void setTopic(final Topic topic) {
+        this.topic = topic;
+    }
+
+    @Override
+    public Topic getTopic() {
+        return this.topic;
     }
 
     @Override
