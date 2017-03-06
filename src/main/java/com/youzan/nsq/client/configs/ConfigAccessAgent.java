@@ -74,6 +74,7 @@ public abstract class ConfigAccessAgent implements Closeable {
                     }
                     initConfigAccessAgentProperties();
                     initConfigAccessAgentClass();
+                    //initConfigAccessAgentFrom NSQConfig which has dcc applied.
                     //read config client from static client config in NSQConfig, if either config or urls is specified, throws an exception
                     //create config request
                     try {

@@ -8,6 +8,8 @@ import io.netty.handler.ssl.SslContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Arrays;
 
 /**
@@ -79,6 +81,10 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * interval between two list lookup operation for all seed lookups
      */
     private static int listLookupIntervalInSecond = 120;
+
+    private static String[] configAccessURLs;
+
+    private static String configAccessEnv;
 
     /**
      * interval base for producer retry interval
@@ -166,6 +172,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * info from remote config server is invalid at the very beginning. If access to lookup break down in the middle of
      * nsq sdk process, cached lookup address takes precedence of backup lookup address.
      * @param lookupAddresses the lookupAddresses to set
+     * @throws IllegalArgumentException exception raised when lookup address and config access URLs are mixed.
      */
     public NSQConfig setLookupAddresses(final String lookupAddresses) {
         if(null == lookupAddresses || lookupAddresses.isEmpty()) {
@@ -175,7 +182,45 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         }
         String[] newLookupAddresses = lookupAddresses.replaceAll(" ", "").split(",");
         Arrays.sort(newLookupAddresses);
-        this.lookupAddresses = newLookupAddresses;
+        String conversalEnv = null;
+        //validate that config access urls and lookup address are not mixed.
+        boolean configAccess = false, lookupaddress = false;
+        String[] newLookupAddressesParsed = new String[newLookupAddresses.length];
+        for(int idx = 0; idx < newLookupAddresses.length; idx++){
+            if(newLookupAddresses[idx].startsWith("dcc://")) {
+                configAccess = true;
+                try {
+                    URI uri = new URI(newLookupAddresses[idx]);
+                    String[] params = uri.getQuery().split("&");
+                    for(String param:params){
+                        if(param.startsWith("env=")) {
+                            String env = param.split("=")[1];
+                            if(null == conversalEnv && null != env)
+                                conversalEnv = env;
+                            else if(null != env && !conversalEnv.equals(env))
+                                throw new IllegalArgumentException("pass in config access URLs must has same env environment value.");
+                        }
+                    }
+                    newLookupAddressesParsed[idx] = newLookupAddresses[idx].split("\\?")[0].replace("dcc://", "http://");
+                } catch (URISyntaxException e) {
+                    throw new IllegalArgumentException("pass in config access URLs must confirm to format \"dcc://{host}:{port}\".");
+                }
+            } else lookupaddress = true;
+        }
+
+        if(configAccess && lookupaddress){
+            throw new IllegalArgumentException("Local lookup addresses & config access URLs could not mix.");
+        }
+
+        if(lookupaddress) {
+            this.lookupAddresses = newLookupAddresses;
+            this.setUserSpecifiedLookupAddress(true);
+        } else {
+            //replace static config access URLs with new one.
+            configAccessURLs = newLookupAddressesParsed;
+            configAccessEnv = conversalEnv;
+            logger.info("Setup config access URLs with: {}, env: {}", newLookupAddresses, conversalEnv);
+        }
         return this;
     }
 
@@ -597,6 +642,14 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     public int getMaxRequeueTimes() {
         return this.maxRequeueTimes;
+    }
+
+    public static String[] getConfigAccessURLs() {
+        return configAccessURLs;
+    }
+
+    public static String getConfigAccessEnv() {
+        return configAccessEnv;
     }
 
     public String identify() {
