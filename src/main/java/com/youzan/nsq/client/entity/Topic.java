@@ -13,7 +13,6 @@ import java.util.SortedSet;
 public class Topic implements Comparable<Topic> {
     private static final Logger logger = LoggerFactory.getLogger(Topic.class);
     public static final Topic TOPIC_DEFAULT = new Topic("*");
-    private volatile SortedMap<Address, SortedSet<Integer>> nsqdAddr2Partition;
     private String key = "";
 
     //topic sharding
@@ -145,22 +144,4 @@ public class Topic implements Comparable<Topic> {
         this.partitionID = this.sharding.toPartitionID(seed, partitionNum);
         return this.partitionID;
     }
-
-    //form a address 2 partition list mapping, out of partititon 2 address mapping
-    public void updateNSQdAddr2Partition(String key, final SortedMap<Address, SortedSet<Integer>> map) {
-        if(!this.key.equals(key)) {
-            synchronized (this.key) {
-                if(!this.key.equals(key)) {
-                    logger.info("NSQd addr 2 partition mapping for topic {} changed to {}.", this.getTopicText(), key);
-                    this.key = key;
-                    this.nsqdAddr2Partition = map;
-                }
-            }
-        }
-    }
-
-    public SortedMap<Address, SortedSet<Integer>> getNsqdAddr2Partition() {
-        return this.nsqdAddr2Partition;
-    }
-
 }

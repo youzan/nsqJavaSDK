@@ -84,6 +84,55 @@ public class NSQLookupdAddresses extends AbstractLookupdAddresses {
         return ps; // maybe it is empty
     }
 
+    class AddressCompatibility implements Comparable<AddressCompatibility>{
+        private Address addr;
+
+        public AddressCompatibility(final Address addr) {
+           this.addr = addr;
+        }
+
+        @Override
+        public int compareTo(AddressCompatibility o2) {
+            if (null == o2) {
+                return 1;
+            }
+            final AddressCompatibility o1 = this;
+            final int hostComparator = o1.addr.getHost().compareTo(o2.addr.getHost());
+            return hostComparator == 0 ? o1.addr.getPort() - o2.addr.getPort() : hostComparator;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null) {
+                return false;
+            }
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+            AddressCompatibility other = (AddressCompatibility) obj;
+            if (addr.getHost() == null) {
+                if (other.addr.getHost() != null) {
+                    return false;
+                }
+            } else if (!addr.getHost().equals(other.addr.getHost())) {
+                return false;
+            }
+            return addr.getPort() == other.addr.getPort();
+        }
+
+        @Override
+        public int hashCode() {
+            final int prime = 31;
+            int result = 1;
+            result = prime * result + ((addr.getHost() == null) ? 0 : addr.getHost().hashCode());
+            result = prime * result + addr.getPort();
+            return result;
+        }
+    }
+
     protected Partitions lookup(String lookupdAddress, final Topic topic, boolean writable) throws IOException, NSQProducerNotFoundException, NSQTopicNotFoundException {
         if(!lookupdAddress.startsWith(HTTP_PRO_HEAD))
             lookupdAddress = HTTP_PRO_HEAD + lookupdAddress;
@@ -108,15 +157,13 @@ public class NSQLookupdAddresses extends AbstractLookupdAddresses {
         }
         final JsonNode partitions = rootNode.get("partitions");
         Map<Integer, SoftReference<Address>> partitionId2Ref;
-        SortedMap<Address, SortedSet<Integer>> nsqdAddr2partitionId;
         List<Address> partitionedDataNodes;
-        Set<Address> partitionNodeSet = new HashSet<>();
+        Set<AddressCompatibility> partitionNodeSet = new HashSet<>();
 
         List<Address> unPartitionedDataNodes = null;
         if (null != partitions) {
 
             partitionId2Ref = new HashMap<>();
-            nsqdAddr2partitionId = new TreeMap<>();
             partitionedDataNodes = new ArrayList<>();
 
             int partitionCount = 0;
@@ -131,45 +178,26 @@ public class NSQLookupdAddresses extends AbstractLookupdAddresses {
                 String parId = irt.next();
                 int parIdInt = Integer.valueOf(parId);
                 JsonNode partition = partitions.get(parId);
-                final Address address = createAddress(partition);
+                final Address address = createAddress(topic.getTopicText(), parIdInt, partition);
                 if(parIdInt >= 0) {
                     partitionedDataNodes.add(address);
-                    partitionNodeSet.add(address);
+                    partitionNodeSet.add(new AddressCompatibility(address));
                     partitionId2Ref.put(parIdInt, new SoftReference<>(address));
                     if(!writable)
                         partitionCount++;
-                    //update nsqd address 2 partition id
-                    SortedSet<Integer> aPartitionSet = nsqdAddr2partitionId.get(address);
-                    if(null == aPartitionSet){
-                        aPartitionSet = new TreeSet<>();
-                        nsqdAddr2partitionId.put(address, aPartitionSet);
-                        //key
-                    }
-                    aPartitionSet.add(parIdInt);
                 }
             }
             aPartitions.updatePartitionDataNode(partitionId2Ref, partitionedDataNodes, partitionCount);
-            //generate key for nsqd addr 2 partition
-            StringBuilder keyBuilder = new StringBuilder();
-            for (Address addr : nsqdAddr2partitionId.keySet()){
-                keyBuilder.append(addr.toString());
-                for(int partitionId : nsqdAddr2partitionId.get(addr)){
-                    keyBuilder.append(":").append(partitionId);
-                }
-                keyBuilder.append(";");
-            }
-            String key = keyBuilder.toString();
-            topic.updateNSQdAddr2Partition(key, nsqdAddr2partitionId);
             if(logger.isDebugEnabled()){
                 logger.debug("SDK took {} mill sec to create mapping for partition.", (System.currentTimeMillis() - start));
             }
         }
 
         //producers part in json
-
         for (JsonNode node : producers) {
-            final Address address = createAddress(node);
-            if(!partitionNodeSet.contains(address)) {
+            //for old NSQd partition, we set partition as -1
+            final Address address = createAddress(topic.getTopicText(), -1, node);
+            if(!partitionNodeSet.contains(new AddressCompatibility(address))) {
                 if(null == unPartitionedDataNodes)
                     unPartitionedDataNodes = new ArrayList<>();
                 unPartitionedDataNodes.add(address);
@@ -195,11 +223,11 @@ public class NSQLookupdAddresses extends AbstractLookupdAddresses {
      * field to construct Address
      * @return Address nsq broker Address
      */
-    private Address createAddress(JsonNode node){
+    private Address createAddress(final String topic, int partition, JsonNode node){
         final String host = node.get("broadcast_address").asText();
         final int port = node.get("tcp_port").asInt();
         final String version = node.get("version").asText();
-        return new Address(host, port, version);
+        return new Address(host, port, version, topic, partition);
     }
 }
 
