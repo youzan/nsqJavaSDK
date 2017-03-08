@@ -5,8 +5,10 @@ public class Address implements java.io.Serializable, Comparable<Address> {
 
     private final String host;
     private final int port;
+    private final int partition;
 
     //version number, used to specify old nsq and new
+    private final String topic;
     private final String version;
     private Boolean isHA = null;
 
@@ -15,9 +17,11 @@ public class Address implements java.io.Serializable, Comparable<Address> {
      * @param port a integer number
      * @param version NSQd version
      */
-    public Address(String host, String port, String version) {
+    public Address(String host, String port, String version, String topic, int partition) {
         this.host = host;
         this.port = Integer.valueOf(port);
+        this.topic = topic;
+        this.partition = partition;
         this.version = version;
     }
 
@@ -26,9 +30,11 @@ public class Address implements java.io.Serializable, Comparable<Address> {
      * @param port a integer number
      * @param version NSQd version
      */
-    public Address(String host, int port, String version) {
+    public Address(String host, int port, String version, String topic, int partition) {
         this.host = host;
         this.port = port;
+        this.topic = topic;
+        this.partition = partition;
         this.version = version;
     }
 
@@ -42,6 +48,14 @@ public class Address implements java.io.Serializable, Comparable<Address> {
 
     public String getVersion(){
         return this.version;
+    }
+
+    public int getPartition() {
+        return this.partition;
+    }
+
+    public String getTopic() {
+        return this.topic;
     }
 
     /**
@@ -59,7 +73,7 @@ public class Address implements java.io.Serializable, Comparable<Address> {
 
     @Override
     public String toString() {
-        return host + ":" + port;
+        return host + ":" + port + ", " + topic + ", " + partition;
     }
 
     @Override
@@ -69,7 +83,9 @@ public class Address implements java.io.Serializable, Comparable<Address> {
         }
         final Address o1 = this;
         final int hostComparator = o1.host.compareTo(o2.getHost());
-        return hostComparator == 0 ? o1.port - o2.port : hostComparator;
+        final int portComparator = hostComparator == 0 ? o1.port - o2.port : hostComparator;
+        final int topicComparator = portComparator == 0 ? o1.topic.compareTo(o2.topic) : portComparator;
+        return topicComparator == 0 ? o1.partition - o2.partition : topicComparator;
     }
 
     @Override
@@ -78,6 +94,8 @@ public class Address implements java.io.Serializable, Comparable<Address> {
         int result = 1;
         result = prime * result + ((host == null) ? 0 : host.hashCode());
         result = prime * result + port;
+        result = prime * result + topic.hashCode();
+        result = prime * result + partition;
         return result;
     }
 
@@ -99,8 +117,10 @@ public class Address implements java.io.Serializable, Comparable<Address> {
             }
         } else if (!host.equals(other.host)) {
             return false;
+        } else if (port != other.port) {
+            return false;
         }
-        return port == other.port;
+        return partition == other.partition;
     }
 
 }
