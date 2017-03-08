@@ -34,8 +34,8 @@ public class ITBaseWDCC {
          * 2. 指定Config access remote的地址,此处指定DCC的地址;
          * note: 必须在实例化NSQ Client之前设置全局变量。
          */
-        ConfigAccessAgent.setEnv("prod");
-        ConfigAccessAgent.setConfigAccessRemotes("http://10.9.7.75:8089");
+//        ConfigAccessAgent.setEnv("prod");
+//        ConfigAccessAgent.setConfigAccessRemotes("http://10.9.7.75:8089");
     }
 
     @Test
@@ -43,8 +43,9 @@ public class ITBaseWDCC {
         //实例化producer端的配置对象
         NSQConfig configProducer = new NSQConfig();
         configProducer
-                .setUserSpecifiedLookupAddress(true)
-                .setLookupAddresses("http://sqs-qa.s.qima-inc.com:4161")
+//                .setUserSpecifiedLookupAddress(true)
+//                .setLookupAddresses("http://sqs-qa.s.qima-inc.com:4161")
+                .setLookupAddresses("dcc://10.9.7.75:8089?env=qa")
                 .setConnectTimeoutInMillisecond(500)
                 .setThreadPoolSize4IO(Runtime.getRuntime().availableProcessors())
                 .setRdy(1);
@@ -77,8 +78,9 @@ public class ITBaseWDCC {
         NSQConfig configConsume = new NSQConfig("BaseConsumer");
         //connection pool size in Producer size and event pool size in Conusmer size
         configConsume
-                .setUserSpecifiedLookupAddress(true)
-                .setLookupAddresses("http://sqs-qa.s.qima-inc.com:4161")
+//                .setUserSpecifiedLookupAddress(true)
+//                .setLookupAddresses("http://sqs-qa.s.qima-inc.com:4161")
+//                it should be ok through we specify nothing
                 //TCP 链接超时
                 .setConnectTimeoutInMillisecond(500)
                 //thread io size for nio event pool

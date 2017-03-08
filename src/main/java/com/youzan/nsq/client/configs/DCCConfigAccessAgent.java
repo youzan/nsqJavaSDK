@@ -9,6 +9,7 @@ import com.youzan.dcc.client.entity.config.interfaces.IResponseCallback;
 import com.youzan.dcc.client.exceptions.ConfigParserException;
 import com.youzan.dcc.client.exceptions.InvalidConfigException;
 import com.youzan.dcc.client.util.inetrfaces.ClientConfig;
+import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.util.SystemUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -185,26 +186,33 @@ public class DCCConfigAccessAgent extends ConfigAccessAgent {
         assert null != backupPath;
         logger.info("configs backup path: {}", backupPath);
 
-        //1.3 nsq sdk env, which is also the env of nsq sdk
-        env = props.getProperty(NSQ_DCCCONFIG_ENV);
-        String sysEnv = System.getProperty(NSQ_DCCCONFIG_ENV);
-        if(null != sysEnv && !sysEnv.isEmpty()){
-            logger.info("initialize config access remote urls with system property value {}.", sysEnv);
-            env = sysEnv;
-        }
-        String customizedEnv = ConfigAccessAgent.getEnv();
-        if(null != customizedEnv && !customizedEnv.isEmpty()){
-            logger.info("initialize config access remote urls with user specified value {}.",customizedEnv);
-            env = customizedEnv;
-        }
-        assert null != env;
-
-        urls = ConfigAccessAgent.getConfigAccessRemotes();
-        if(null == urls || urls.length == 0) {
-            //1.4 config server urls, initialized based on sdk env
-            String urlsKey = String.format(NSQ_DCCCONFIG_URLS, env);
-            urls = props.getProperty(urlsKey)
-                    .split(",");
+        String[] configAccessURLs = NSQConfig.getConfigAccessURLs();
+        String configAccessEnv = NSQConfig.getConfigAccessEnv();
+        if(null != configAccessURLs && configAccessURLs.length > 0 && null != configAccessEnv){
+            logger.info("initialize config access remote urls & env with user specified lookup address API {}, env: {}.",configAccessURLs, configAccessEnv);
+            urls = configAccessURLs;
+            env = configAccessEnv;
+        } else {
+            //1.3 nsq sdk env, which is also the env of nsq sdk
+            env = props.getProperty(NSQ_DCCCONFIG_ENV);
+            String sysEnv = System.getProperty(NSQ_DCCCONFIG_ENV);
+            if(null != sysEnv && !sysEnv.isEmpty()){
+                logger.info("initialize config access remote urls with system property value {}.", sysEnv);
+                env = sysEnv;
+            }
+            String customizedEnv = ConfigAccessAgent.getEnv();
+            if(null != customizedEnv && !customizedEnv.isEmpty()){
+                logger.info("initialize config access remote urls with user specified value {}.",customizedEnv);
+                env = customizedEnv;
+            }
+            assert null != env;
+            urls = ConfigAccessAgent.getConfigAccessRemotes();
+            if(null == urls || urls.length == 0) {
+                //1.4 config server urls, initialized based on sdk env
+                String urlsKey = String.format(NSQ_DCCCONFIG_URLS, env);
+                urls = props.getProperty(urlsKey)
+                        .split(",");
+            }
         }
     }
 }

@@ -165,7 +165,7 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
     @Override
     public AbstractSeedLookupdConfig subscribe(ConfigAccessAgent subscribeTo, final AbstractConfigAccessDomain domain, final AbstractConfigAccessKey<Role>[] keys, final ConfigAccessAgent.IConfigAccessCallback callback) throws NSQConfigAccessException {
         if(null == keys || keys.length == 0) {
-            logger.warn("Only one keys allowed");
+            logger.warn("Only one key allowed");
             return null;
         }
 
