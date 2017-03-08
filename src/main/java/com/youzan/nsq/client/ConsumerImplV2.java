@@ -359,26 +359,26 @@ public class ConsumerImplV2 implements Consumer {
             //set connection size to 1 for consumer, 1 connection per topic/partition(dataNode)
             //one topic may has more than one partition, they are managed
             //calculate connection size
-            int connectionSizeCal = 0;
-            try {
-                for (Topic aTopic : topics) {
-                    //what happen if there is no mapping 2 partition(when connect to old nsqd)
-                    SortedMap<Address, SortedSet<Integer>> addr2Partitions = aTopic.getNsqdAddr2Partition();
-                    Set<Integer> partitionSet = null;
-                    if(null != addr2Partitions)
-                        partitionSet = addr2Partitions.get(address);
-                    //if address is a old nsqd, should not return any partition info
-                    if (null != partitionSet)
-                        connectionSizeCal += partitionSet.size();
-                    else {
-                        //for old nsqd
-                        connectionSizeCal += 1;
-                    }
-                }
-            } catch (NullPointerException npe) {
-                logger.warn("Address to partition mapping is updated in topics. Connect process will try later.");
-                return;
-            }
+            int connectionSizeCal = topics.size();
+//            try {
+//                for (Topic aTopic : topics) {
+//                    //what happen if there is no mapping 2 partition(when connect to old nsqd)
+//                    SortedMap<Address, SortedSet<Integer>> addr2Partitions = aTopic.getNsqdAddr2Partition();
+//                    Set<Integer> partitionSet = null;
+//                    if(null != addr2Partitions)
+//                        partitionSet = addr2Partitions.get(address);
+//                    //if address is a old nsqd, should not return any partition info
+//                    if (null != partitionSet)
+//                        connectionSizeCal += partitionSet.size();
+//                    else {
+//                        //for old nsqd
+//                        connectionSizeCal += 1;
+//                    }
+//                }
+//            } catch (NullPointerException npe) {
+//                logger.warn("Address to partition mapping is updated in topics. Connect process will try later.");
+//                return;
+//            }
             final int connectionSize = connectionSizeCal;
             if (connectionSize <= 0) {
                 return;
@@ -403,52 +403,35 @@ public class ConsumerImplV2 implements Consumer {
             int connectionIdx = 0;
             try {
                 for (int i = 0; i < topicSize; i++) {
-                    int sizePerTopic = 1;
                     final Topic topic = topicArray[i];
 
-                    //what happen if there is no mapping 2 partition(when connect to old nsqd)
-                    SortedMap<Address, SortedSet<Integer>> addr2Partitions = topic.getNsqdAddr2Partition();
-                    SortedSet<Integer> partitionSet = null;
-                    if(null != addr2Partitions)
-                        partitionSet = addr2Partitions.get(address);
-                    Iterator<Integer> partitionIte = null;
-
-                    //check if partition ID is specified by user
-                    if (null != partitionSet && !topic.hasPartition()) {
-                        if (logger.isDebugEnabled())
-                            logger.debug("Partition Id is not specified from user, try connection to all partitions.");
-                        sizePerTopic = partitionSet.size();
-                        partitionIte = partitionSet.iterator();
-                    }
-                    for (int j = 0; j < sizePerTopic; j++) {
-                        // init( connection, topic ) , let it be a consumer connection
-                        final NSQConnection connection = connections.get(connectionIdx++);
-                        try {
-                            connection.init(topic);
-                        } catch (Exception e) {
-                            connection.close();
-                            if (!closing) {
-                                throw new NSQNoConnectionException("Creating a connection and having a negotiation fails!", e);
-                            }
+                    // init( connection, topic ) , let it be a consumer connection
+                    final NSQConnection connection = connections.get(connectionIdx++);
+                    try {
+                        connection.init();
+                    } catch (Exception e) {
+                        connection.close();
+                        if (!closing) {
+                            throw new NSQNoConnectionException("Creating a connection and having a negotiation fails!", e);
                         }
-                        if (!connection.isConnected()) {
-                            connection.close();
-                            if (!closing) {
-                                throw new NSQNoConnectionException("Pool failed in connecting to NSQd! Closing: !" + closing);
-                            }
-                        } else {
-                            Sub command;
-                            if (null != partitionIte && partitionIte.hasNext())
-                                command = createSubCmd(partitionIte.next(), topic, this.config.getConsumerName());
-                            else
-                                command = createSubCmd(topic, this.config.getConsumerName());
-                            final NSQFrame frame = connection.commandAndGetResponse(command);
-                            handleResponse(frame, connection);
-                            //as there is no success response from nsq, command is enough here
-                            connection.command(currentRdy);
-                        }
-                        logger.info("Done. Current connection index: {}", i);
                     }
+                    if (!connection.isConnected()) {
+                        connection.close();
+                        if (!closing) {
+                            throw new NSQNoConnectionException("Pool failed in connecting to NSQd! Closing: !" + closing);
+                        }
+                    } else {
+                        Sub command;
+                        if (address.getPartition() > -1)
+                            command = createSubCmd(address.getPartition(), topic, this.config.getConsumerName());
+                        else
+                            command = createSubCmd(topic, this.config.getConsumerName());
+                        final NSQFrame frame = connection.commandAndGetResponse(command);
+                        handleResponse(frame, connection);
+                        //as there is no success response from nsq, command is enough here
+                        connection.command(currentRdy);
+                    }
+                    logger.info("Done. Current connection index: {}", i);
                 }
             }catch(NullPointerException npe) {
                 logger.warn("Address to partition mapping is updating in topics. Connect process try later.");

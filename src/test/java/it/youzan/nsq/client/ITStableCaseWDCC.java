@@ -76,7 +76,7 @@ public class ITStableCaseWDCC {
         config.setThreadPoolSize4IO(1);
     }
 
-    @Test(priority = 12, invocationCount = 10, threadPoolSize = 10)
+    @Test(priority = 12, invocationCount = 1, threadPoolSize = 1)
     public void produce() throws NSQException, InterruptedException {
         if (!stable) {
             return;
@@ -103,7 +103,7 @@ public class ITStableCaseWDCC {
         logger.info("Exit producing...");
     }
 
-    @Test(priority = 12, invocationCount = 10, threadPoolSize = 10)
+    @Test(priority = 12, invocationCount = 1, threadPoolSize = 1)
     public void consume() throws InterruptedException, NSQException {
         if (!stable) {
             return;

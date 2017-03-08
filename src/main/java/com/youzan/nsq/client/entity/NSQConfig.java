@@ -195,15 +195,17 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
                     for(String param:params){
                         if(param.startsWith("env=")) {
                             String env = param.split("=")[1];
-                            if(null == conversalEnv && null != env)
+                            if(null == conversalEnv && null != env) {
                                 conversalEnv = env;
+                                break;
+                            }
                             else if(null != env && !conversalEnv.equals(env))
                                 throw new IllegalArgumentException("pass in config access URLs must has same env environment value.");
                         }
                     }
                     newLookupAddressesParsed[idx] = newLookupAddresses[idx].split("\\?")[0].replace("dcc://", "http://");
                 } catch (URISyntaxException e) {
-                    throw new IllegalArgumentException("pass in config access URLs must confirm to format \"dcc://{host}:{port}\".");
+                    throw new IllegalArgumentException("pass in config access URLs must confirm to format \"dcc://{host}:{port}?env={env}\".");
                 }
             } else lookupaddress = true;
         }
