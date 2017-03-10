@@ -46,6 +46,7 @@ public class ConsumerImplV2 implements Consumer {
     private volatile long lastConnecting = 0L;
 
 
+    private final AtomicInteger queue4Consume = new AtomicInteger(0);
     private final AtomicInteger received = new AtomicInteger(0);
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger finished = new AtomicInteger(0);
@@ -158,7 +159,7 @@ public class ConsumerImplV2 implements Consumer {
                 } catch (Exception e) {
                     logger.error("Exception", e);
                 }
-                logger.info("Client received {} messages , success {} , finished {} , reQueue explicitly {}. The values do not use a lock action.", received, success, finished, re);
+                logger.info("Client received {} messages , success {} , finished {}, queue4Consume {} , reQueue explicitly {}. The values do not use a lock action.", received, success, finished, queue4Consume, re);
             }
         }, delay, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
     }
@@ -317,14 +318,13 @@ public class ConsumerImplV2 implements Consumer {
                 return;
             }
             final int topicSize = topics.size();
-            final int manualPoolSize = config.getThreadPoolSize4IO();
-            final int connectionSize = manualPoolSize * topicSize;
+//          final int manualPoolSize = config.getThreadPoolSize4IO();
+            final int connectionSize = topicSize;
             if (connectionSize <= 0) {
                 return;
             }
-            final String[] topicArray = new String[topicSize];
-            topics.toArray(topicArray);
-            if (connectionSize != manualPoolSize * topicArray.length) {
+            final String[] topicArray = topics.toArray(new String[0]);
+            if (connectionSize != topicArray.length) {
                 // concurrent problem
                 return;
             }
@@ -334,10 +334,10 @@ public class ConsumerImplV2 implements Consumer {
             pool.prepare();
             List<NSQConnection> connections = pool.getConnections();
             if (connections == null || connections.isEmpty()) {
-                logger.info("TopicSize: {} , Address: {} , ThreadPoolSize4IO: {} , Connection-Size: {} . The pool is empty.", topicSize, address, manualPoolSize, connectionSize);
+                logger.info("TopicSize: {} , Address: {}, Connection-Size: {} . The pool is empty.", topicSize, address , connectionSize);
                 return;
             }
-            logger.info("TopicSize: {} , Address: {} , ThreadPoolSize4IO: {} , Connection-Size: {} , Topics: {}", topicSize, address, manualPoolSize, connectionSize, topics);
+            logger.info("TopicSize: {} , Address: {} , Connection-Size: {} , Topics: {}", topicSize, address, connectionSize, topics);
             for (int i = 0; i < connectionSize; i++) {
                 int k = i % topicArray.length;
                 assert k < topicArray.length;
@@ -428,6 +428,7 @@ public class ConsumerImplV2 implements Consumer {
             return;
         }
         try {
+            queue4Consume.incrementAndGet();
             executor.execute(new Runnable() {
                 @Override
                 public void run() {
@@ -574,6 +575,7 @@ public class ConsumerImplV2 implements Consumer {
                 re.incrementAndGet();
             }
         }
+        queue4Consume.decrementAndGet();
         // Post
         if (message.getReadableAttempts() > 10) {
             logger.warn("Fire,Fire,Fire! Processing 10 times is still a failure!!! {}", message);
