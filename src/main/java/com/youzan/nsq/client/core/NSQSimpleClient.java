@@ -17,6 +17,7 @@ import com.youzan.util.ConcurrentSortedSet;
 import com.youzan.util.NamedThreadFactory;
 import com.youzan.util.ThreadSafe;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,6 +26,7 @@ import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
@@ -35,6 +37,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 @ThreadSafe
 public class NSQSimpleClient implements Client, Closeable {
     private static final Logger logger = LoggerFactory.getLogger(NSQSimpleClient.class);
+    private static final Logger HEARTBEATLOG = LoggerFactory.getLogger("com.youzan.nsq.client.heartbeat");
 
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
     //maintain a mapping from topic text to producer broadcast address
@@ -183,7 +186,23 @@ public class NSQSimpleClient implements Client, Closeable {
             case RESPONSE_FRAME: {
                 final String resp = frame.getMessage();
                 if (Response._HEARTBEAT_.getContent().equals(resp)) {
-                    conn.command(Nop.getInstance());
+                    if(HEARTBEATLOG.isDebugEnabled()) {
+                        HEARTBEATLOG.debug("heartbeat received from {}, role {}.", conn.getAddress(), this.role);
+                    }
+                    ChannelFuture future = conn.command(Nop.getInstance());
+                    future.addListener(new ChannelFutureListener() {
+                        @Override
+                        public void operationComplete(ChannelFuture future) throws Exception {
+                            if(future.isSuccess()){
+                                if(HEARTBEATLOG.isDebugEnabled()) {
+                                    HEARTBEATLOG.debug("Nop response to {}, role {}.", conn.getAddress(), role);
+                                }
+                            }else{
+                                HEARTBEATLOG.error("Nop fail to response to {}, role: {}, Cause: {}", conn.getAddress(), role, future.cause());
+                            }
+                        }
+                    });
+
                     return;
                 } else {
                     conn.addResponseFrame((ResponseFrame) frame);
@@ -192,6 +211,13 @@ public class NSQSimpleClient implements Client, Closeable {
             }
             case ERROR_FRAME: {
                 final ErrorFrame err = (ErrorFrame) frame;
+                if(Response.E_FIN_FAILED.getContent().equals(((ErrorFrame) frame).getError().getContent())){
+                    logger.warn("Fail to ACK a deferred message. Worker logic in Consumer MessageHandler needs to improve performance, or decrease Consumer Rdy value, if this warning persists.");
+                    logger.error(err.getMessage());
+                    //there is no point to add E_FIN_FAILED in response, as finish in 2.2 returns void.
+                    break;
+                }
+
                 try {
                     conn.addErrorFrame(err);
                 } catch (Exception e) {

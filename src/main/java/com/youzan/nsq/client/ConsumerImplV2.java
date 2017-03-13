@@ -20,6 +20,7 @@ import com.youzan.util.IOUtil;
 import com.youzan.util.NamedThreadFactory;
 import com.youzan.util.ThreadSafe;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,6 +41,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ConsumerImplV2 implements Consumer {
 
     private static final Logger logger = LoggerFactory.getLogger(ConsumerImplV2.class);
+    private static final Logger BUSINESS_PERFORMANCE_LOG = LoggerFactory.getLogger("com.youzan.nsq.client.ConsumerImplV2.messageHandlerPerf");
     private final Object lock = new Object();
     private boolean started = false;
     private boolean closing = false;
@@ -51,6 +53,7 @@ public class ConsumerImplV2 implements Consumer {
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger finished = new AtomicInteger(0);
     private final AtomicInteger re = new AtomicInteger(0); // have done reQueue
+    private final AtomicInteger deferred = new AtomicInteger(0); // have done reQueue
 
 
     /*-
@@ -505,7 +508,11 @@ public class ConsumerImplV2 implements Consumer {
         boolean ok = false;
         boolean retry = false;
         try {
+            long start = System.currentTimeMillis();
             handler.process(message);
+            long eclapse = System.currentTimeMillis() - start;
+            if(BUSINESS_PERFORMANCE_LOG.isDebugEnabled())
+                BUSINESS_PERFORMANCE_LOG.debug("message handler logic ends in {} milliSec, messageID: {}", eclapse, message.getMessageID());
             ok = true;
             retry = false;
         } catch (RetryBusinessException e) {
@@ -568,7 +575,17 @@ public class ConsumerImplV2 implements Consumer {
             }
         }
         if (cmd != null) {
-            connection.command(cmd);
+            final String cmdStr = cmd.toString();
+            ChannelFuture finFuture = connection.command(cmd);
+            finFuture.addListener(new ChannelFutureListener() {
+                @Override
+                public void operationComplete(ChannelFuture future) throws Exception {
+                    if(!future.isSuccess()) {
+                        logger.warn("Fail to {} message {}. Message will be received from NSQ server again. Cause: {}", cmdStr, message.getAddress(), future.cause().getLocalizedMessage());
+                        deferred.incrementAndGet();
+                    }
+                }
+            });
             if (cmd instanceof Finish) {
                 finished.incrementAndGet();
             } else {
