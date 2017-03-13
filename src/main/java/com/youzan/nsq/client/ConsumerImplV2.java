@@ -8,6 +8,7 @@ import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.entity.Role;
+import com.youzan.nsq.client.exception.NSQClientInitializationException;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQNoConnectionException;
 import com.youzan.nsq.client.exception.RetryBusinessException;
@@ -134,7 +135,11 @@ public class ConsumerImplV2 implements Consumer {
         synchronized (lock) {
             if (!this.started) {
                 // create the pools
-                this.simpleClient.start();
+                try {
+                    this.simpleClient.start();
+                } catch (NSQClientInitializationException iniExp) {
+                    throw new NSQClientInitializationException("Fail to start Consumer.", iniExp);
+                }
                 // -----------------------------------------------------------------
                 //                       First, async keep
                 keepConnecting();

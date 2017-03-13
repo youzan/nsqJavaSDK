@@ -15,15 +15,15 @@ import org.testng.annotations.Test;
 
 import java.io.InputStream;
 import java.util.Properties;
-import java.util.Random;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-@Test(groups = {"ITConsumer-Base"}, /*dependsOnGroups = {"ITProducer-Base"},*/ priority = 5)
+@Test(groups = {"ITConsumer-Base"}, dependsOnGroups = {"ITProducer-Base"}, priority = 5)
 public class ITConsumer {
     private static final Logger logger = LoggerFactory.getLogger(ITConsumer.class);
 
-    private final int rdy = 50;
+    private final int rdy = 10;
     private final NSQConfig config = new NSQConfig();
     private Consumer consumer;
 
@@ -43,35 +43,25 @@ public class ITConsumer {
         config.setLookupAddresses(lookups);
         config.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
         config.setMsgTimeoutInMillisecond(Integer.valueOf(msgTimeoutInMillisecond));
-        config.setHeartbeatIntervalInMillisecond(50000);
-        config.setThreadPoolSize4IO(8/*Integer.valueOf(threadPoolSize4IO)*/);
+        config.setThreadPoolSize4IO(Integer.valueOf(threadPoolSize4IO));
         config.setRdy(rdy);
-        config.setConsumerName("tracing-consumer-debug");
+        config.setConsumerName("BaseConsumer");
     }
 
     public void test() throws NSQException, InterruptedException {
         final CountDownLatch latch = new CountDownLatch(10);
         final AtomicInteger received = new AtomicInteger(0);
-        final Random ran = new Random();
         consumer = new ConsumerImplV2(config, new MessageHandler() {
             @Override
             public void process(NSQMessage message) {
                 received.incrementAndGet();
-                int sec = ran.nextInt(10);
-                try {
-                    Thread.sleep(sec * 100L);
-                } catch (InterruptedException e) {
-                    logger.error("sleep interrupted.");
-                }
-//                latch.countDown();
+                latch.countDown();
             }
         });
         consumer.setAutoFinish(true);
-//        consumer.subscribe("JavaTesting-Producer-Base");
-        consumer.subscribe("agent_forward");
+        consumer.subscribe("JavaTesting-Producer-Base");
         consumer.start();
-//        latch.await(1, TimeUnit.MINUTES);
-        latch.await();
+        latch.await(1, TimeUnit.MINUTES);
         logger.info("Consumer received {} messages.", received.get());
     }
 
