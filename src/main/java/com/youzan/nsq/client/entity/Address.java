@@ -119,6 +119,8 @@ public class Address implements java.io.Serializable, Comparable<Address> {
             return false;
         } else if (port != other.port) {
             return false;
+        } else if (!topic.equals(other.topic)) {
+            return false;
         }
         return partition == other.partition;
     }

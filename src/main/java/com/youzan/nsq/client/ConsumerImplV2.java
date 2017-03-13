@@ -548,7 +548,7 @@ public class ConsumerImplV2 implements Consumer {
             }
         }
         resumeRateLimiting(connection, 1000);
-        if (this.config.isConsumerSlowStart()) {
+        if (!this.config.isOrdered() && this.config.isConsumerSlowStart()) {
             int newCount = RdySpectrum.increase(connection, connection.getCurrentRdyCount(), this.config.getRdy());
             connection.setCurrentRdyCount(newCount);
         }
@@ -665,7 +665,7 @@ public class ConsumerImplV2 implements Consumer {
                         logger.info("Do a re-queue by SDK that is a default behavior. MessageID: {} , Hex: {}", id, message.newHexString(id));
                     }
                 } else {
-                    if (this.config.isConsumerSlowStart() && end > this.config.getMsgTimeoutInMillisecond()) {
+                    if (!this.config.isOrdered() && this.config.isConsumerSlowStart() && end > this.config.getMsgTimeoutInMillisecond()) {
                         logger.warn("It tooks {} millisec to for message to be consumed by message handler, and exceeds message timeout in nsq config. Fin not be invoked as requeue from NSQ server is on its way.", end);
                         int currentRdyCnt = RdySpectrum.decrease(connection, connection.getCurrentRdyCount(), connection.getCurrentRdyCount() - 1);
                         connection.setCurrentRdyCount(currentRdyCnt);

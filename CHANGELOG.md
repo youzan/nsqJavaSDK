@@ -51,9 +51,15 @@ Producer retry interval base is configurable, default base if modified to 100 mi
 ### Fixes:
 + closed NSQConnection is returned to producer connection pool, without invalidated.[#56](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/56)
 
-##2.3-RELEASE-pending
+##2.3.20170309-RELEASE
 Note worthy:
-Policy for message ack in autoFinish mode is modified, when one message exceeds retry limitation, in NON Sub order mode,
+Policy for message ACK in autoFinish mode is modified, when one message exceeds retry limitation, in NON Sub order mode,
 consumer will publish message to the NSQ queue end, and ACK that message which fail to consume in max retry times.
+
+Bug fix in SDK consumer. When consumer subscribes:
+   1. to multi-partitions total number is larger than NSQd ndoes;
+   2. to partition has more than one replica;
 ### Features:
 + max retry in consumer.[#62](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/62)
+### Fixes:
++ SDK connection NOT recover when leader NSQd node switch.[#64](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/64)
