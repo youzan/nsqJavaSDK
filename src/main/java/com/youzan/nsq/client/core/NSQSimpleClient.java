@@ -7,6 +7,7 @@ import com.youzan.nsq.client.core.lookup.LookupServiceImpl;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.Response;
 import com.youzan.nsq.client.entity.Role;
+import com.youzan.nsq.client.exception.NSQClientInitializationException;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQInvalidTopicException;
 import com.youzan.nsq.client.exception.NSQLookupException;
@@ -22,11 +23,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
@@ -57,7 +58,7 @@ public class NSQSimpleClient implements Client, Closeable {
     }
 
     @Override
-    public void start() {
+    public void start() throws NSQException{
         lock.writeLock().lock();
         try {
             if (!started) {
@@ -65,7 +66,10 @@ public class NSQSimpleClient implements Client, Closeable {
                 lookup.start();
                 keepDataNodes();
             }
-            started = true;
+        } catch (IOException e) {
+            logger.error("Fail to start lookup service, SimpleClient stopped.");
+            started = false;
+            throw new NSQClientInitializationException("Fail to start SimpleClint", e);
         } finally {
             lock.writeLock().unlock();
         }
