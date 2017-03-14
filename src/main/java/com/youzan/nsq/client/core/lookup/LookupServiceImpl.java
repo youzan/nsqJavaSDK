@@ -6,12 +6,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.Role;
 import com.youzan.nsq.client.exception.NSQLookupException;
+import com.youzan.nsq.client.exception.NSQProducerNotFoundException;
 import com.youzan.util.NamedThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.lang.ref.SoftReference;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -253,12 +255,62 @@ public class LookupServiceImpl implements LookupService {
         }
     }
 
+    class AddressCompatibility implements Comparable<AddressCompatibility>{
+        private Address addr;
+
+        public AddressCompatibility(final Address addr) {
+            this.addr = addr;
+        }
+
+        @Override
+        public int compareTo(AddressCompatibility o2) {
+            if (null == o2) {
+                return 1;
+            }
+            final AddressCompatibility o1 = this;
+            final int hostComparator = o1.addr.getHost().compareTo(o2.addr.getHost());
+            return hostComparator == 0 ? o1.addr.getPort() - o2.addr.getPort() : hostComparator;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null) {
+                return false;
+            }
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+            AddressCompatibility other = (AddressCompatibility) obj;
+            if (addr.getHost() == null) {
+                if (other.addr.getHost() != null) {
+                    return false;
+                }
+            } else if (!addr.getHost().equals(other.addr.getHost())) {
+                return false;
+            }
+            return addr.getPort() == other.addr.getPort();
+        }
+
+        @Override
+        public int hashCode() {
+            final int prime = 31;
+            int result = 1;
+            result = prime * result + ((addr.getHost() == null) ? 0 : addr.getHost().hashCode());
+            result = prime * result + addr.getPort();
+            return result;
+        }
+    }
+
     @Override
     public SortedSet<Address> lookup(String topic, boolean writable) throws NSQLookupException {
         if (null == topic || topic.isEmpty()) {
             throw new NSQLookupException("Your input topic is blank!");
         }
         final SortedSet<Address> dataNodes = new TreeSet<>();
+        Set<AddressCompatibility> dataNodeSetCheck = new HashSet<>();
         assert null != this.seed2Addresses;
         /*
          * It is unnecessary to use Atomic/Lock for the variable
@@ -270,12 +322,36 @@ public class LookupServiceImpl implements LookupService {
             logger.debug("Begin to lookup some DataNodes from URL {}", url);
             try {
                 final JsonNode rootNode = readFromUrl(new URL(url));
+                dataNodeSetCheck.clear();
+                //check if producers exists, if not, it could be a no channel exception
                 final JsonNode producers = rootNode.get("producers");
+                if(null == producers || producers.size() == 0){
+                    logger.error("No NSQd producer node return in lookup response. NSQd may not ready at this moment. {}", topic.toString());
+                    continue;
+                }
+                final JsonNode partitions = rootNode.get("partitions");
+
+                if (null != partitions) {
+                    Iterator<String> irt = partitions.fieldNames();
+                    while (irt.hasNext()) {
+                        String parId = irt.next();
+                        int parIdInt = Integer.valueOf(parId);
+                        JsonNode partition = partitions.get(parId);
+                        final Address address = createAddress(topic, parIdInt, partition);
+                        if(parIdInt >= 0) {
+                            dataNodeSetCheck.add(new AddressCompatibility(address));
+                            dataNodes.add(address);
+                        }
+                    }
+                }
+
+                //producers part in json
                 for (JsonNode node : producers) {
-                    final String host = node.get("broadcast_address").asText();
-                    final int port = node.get("tcp_port").asInt();
-                    final Address address = new Address(host, port);
-                    dataNodes.add(address);
+                    //for old NSQd partition, we set partition as -1
+                    final Address address = createAddress(topic, -1, node);
+                    if(!dataNodeSetCheck.contains(new AddressCompatibility(address))) {
+                        dataNodes.add(address);
+                    }
                 }
                 logger.debug("The server response info after looking up some DataNodes: {}", rootNode.toString());
             } catch (Exception e) {
@@ -301,5 +377,18 @@ public class LookupServiceImpl implements LookupService {
     public void close() {
         closing = true;
         scheduler.shutdownNow();
+    }
+
+    /**
+     * create nsq broker Address, using pass in JsonNode,
+     * specidied key in function will be used to extract
+     * field to construct Address
+     * @return Address nsq broker Address
+     */
+    private Address createAddress(final String topic, int partition, JsonNode node){
+        final String host = node.get("broadcast_address").asText();
+        final int port = node.get("tcp_port").asInt();
+        final String version = node.get("version").asText();
+        return new Address(host, port, version, topic, partition);
     }
 }
