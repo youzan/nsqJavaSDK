@@ -5,12 +5,13 @@ public class Address implements java.io.Serializable, Comparable<Address> {
 
     private final String host;
     private final int port;
-    private final int partition;
 
     //version number, used to specify old nsq and new
-    private final String topic;
     private final String version;
     private Boolean isHA = null;
+
+    private final String topic;
+    private final int partition;
 
     /**
      * @param host a {@link String} to presenting
@@ -118,6 +119,8 @@ public class Address implements java.io.Serializable, Comparable<Address> {
         } else if (!host.equals(other.host)) {
             return false;
         } else if (port != other.port) {
+            return false;
+        } else if (!topic.equals(other.topic)) {
             return false;
         }
         return partition == other.partition;
