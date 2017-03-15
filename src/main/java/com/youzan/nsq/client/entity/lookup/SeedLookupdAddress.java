@@ -251,7 +251,7 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
     }
 
     /**
-     * punch out one lookup address
+     * punch out one lookup address, from current seed lookupd address.
      * @param force {@link Boolean#TRUE} to force list lookup addresses, otherwise {@link Boolean#FALSE}
      * @return lookupd address
      */

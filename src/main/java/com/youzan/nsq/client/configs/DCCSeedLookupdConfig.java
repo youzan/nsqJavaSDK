@@ -126,11 +126,15 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
                 try {
                     SeedLookupdAddress aCurSeed = seedRef.get();
                     String clusterId = aCurSeed.getClusterId();
+                    //clusterIds set is used to make sure that there is only ONE lookupd address from one NSQd cluster
                     if(!clusterIds.contains(clusterId)){
+                        //punch ONE lookupd address from one cluster seed lookupd address
                         String curLookupd = aCurSeed.punchLookupdAddressStr(force);
-                        curLookupds.add(curLookupd);
-                        curClusterIds.add(clusterId);
-                        clusterIds.add(clusterId);
+                        if(null != curLookupd) {
+                            curLookupds.add(curLookupd);
+                            curClusterIds.add(clusterId);
+                            clusterIds.add(clusterId);
+                        }
                     }
                 }catch(NullPointerException npe) {
                     //swallow it
@@ -150,9 +154,11 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
                     String host = url.getHost();
                     if(!clusterIds.contains(host)){
                         String preLookupd = aPreSeed.punchLookupdAddressStr(force);
-                        preLookupds.add(preLookupd);
-                        preClusterIds.add(clusterId);
-                        clusterIds.add(host);
+                        if(null != preLookupd) {
+                            preLookupds.add(preLookupd);
+                            preClusterIds.add(clusterId);
+                            clusterIds.add(host);
+                        }
                     }
                 }catch(NullPointerException npe){
                     //swallow it
