@@ -35,11 +35,12 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
 public class ProducerImplV2 implements Producer {
+    private static final Logger logger = LoggerFactory.getLogger(ProducerImplV2.class);
+    private static final Logger PERF_LOG = LoggerFactory.getLogger(ProducerImplV2.class.getName() + ".perf");
 
     private static final int MAX_PUBLISH_RETRY = 6;
 
     private static final int MAX_MSG_OUTPUT_LEN = 100;
-    private static final Logger logger = LoggerFactory.getLogger(ProducerImplV2.class);
     private volatile boolean started = false;
     private volatile int offset = 0;
     private final GenericKeyedObjectPoolConfig poolConfig;
@@ -223,8 +224,9 @@ public class ProducerImplV2 implements Producer {
     private void sendPUB(final Message msg) throws NSQException {
         int c = 0; // be continuous
         boolean returnCon = true;
-        NSQConnection conn;
+        NSQConnection conn = null;
         List<NSQException> exceptions = new ArrayList<>();
+        long start = System.currentTimeMillis();
         while (c++ < MAX_PUBLISH_RETRY) {
             if (c > 1) {
                 logger.debug("Sleep. CurrentRetries: {}", c);
@@ -253,7 +255,7 @@ public class ProducerImplV2 implements Producer {
                 success.incrementAndGet();
                 if(msg.isTraced() && frame instanceof MessageMetadata && TraceLogger.isTraceLoggerEnabled() && conn.getAddress().isHA())
                     TraceLogger.trace(this, conn, (MessageMetadata) frame);
-                return;
+                break;
             }
             catch(NSQPubFactoryInitializeException expShouldFail) {
                 throw expShouldFail;
@@ -286,6 +288,9 @@ public class ProducerImplV2 implements Producer {
         } // end loop
         if (c >= MAX_PUBLISH_RETRY) {
             throw new NSQPubException(exceptions);
+        }
+        if(PERF_LOG.isDebugEnabled()){
+            PERF_LOG.debug("Producer took {} milliSec to send message to {}", System.currentTimeMillis() - start, conn.getAddress());
         }
     }
 

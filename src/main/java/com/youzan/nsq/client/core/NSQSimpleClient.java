@@ -15,6 +15,7 @@ import com.youzan.util.ConcurrentSortedSet;
 import com.youzan.util.NamedThreadFactory;
 import com.youzan.util.ThreadSafe;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,6 +36,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 @ThreadSafe
 public class NSQSimpleClient implements Client, Closeable {
     private static final Logger logger = LoggerFactory.getLogger(NSQSimpleClient.class);
+    private static final Logger PERF_LOG = LoggerFactory.getLogger(NSQSimpleClient.class.getName() + ".perf");
 
     private final static AtomicInteger CLIENT_ID = new AtomicInteger(0);
     private int lookupLocalID = -1;
@@ -265,7 +267,20 @@ public class NSQSimpleClient implements Client, Closeable {
             case RESPONSE_FRAME: {
                 final String resp = frame.getMessage();
                 if (Response._HEARTBEAT_.getContent().equals(resp)) {
-                    conn.command(Nop.getInstance());
+                    if(PERF_LOG.isDebugEnabled())
+                        PERF_LOG.debug("heartbeat received from {}.", conn.getAddress());
+                    ChannelFuture nopFuture = conn.command(Nop.getInstance());
+                    nopFuture.addListener(new ChannelFutureListener() {
+                        @Override
+                        public void operationComplete(ChannelFuture future) throws Exception {
+                            if(future.isSuccess()) {
+                                if (PERF_LOG.isDebugEnabled())
+                                    PERF_LOG.debug("nop response to {}.", conn.getAddress());
+                            }else{
+                                logger.error("Fail to response to heartbeat from {}.", conn.getAddress());
+                            }
+                        }
+                    });
                     return;
                 } else {
                     conn.addResponseFrame((ResponseFrame) frame);

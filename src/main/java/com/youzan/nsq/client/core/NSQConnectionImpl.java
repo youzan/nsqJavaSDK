@@ -106,8 +106,8 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     @Override
     public void init(final Topic topic) throws TimeoutException {
-        setTopic(topic);
         this.init();
+        setTopic(topic);
     }
 
     @Override
