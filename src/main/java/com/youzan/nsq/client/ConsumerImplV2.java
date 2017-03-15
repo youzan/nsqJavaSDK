@@ -18,6 +18,7 @@ import com.youzan.util.IOUtil;
 import com.youzan.util.NamedThreadFactory;
 import com.youzan.util.ThreadSafe;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,6 +39,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class ConsumerImplV2 implements Consumer {
     private static final Logger logger = LoggerFactory.getLogger(ConsumerImplV2.class);
+    private static final Logger PERF_LOG = LoggerFactory.getLogger(ConsumerImplV2.class.getName() + ".perf");
 
     private static final int MAX_CONSUME_RETRY = 3;
     private final Object lock = new Object();
@@ -50,6 +52,7 @@ public class ConsumerImplV2 implements Consumer {
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger finished = new AtomicInteger(0);
     private final AtomicInteger re = new AtomicInteger(0); // have done reQueue
+    private final AtomicInteger queue4Consume = new AtomicInteger(0); // have done reQueue
 
 
     /*-
@@ -186,7 +189,7 @@ public class ConsumerImplV2 implements Consumer {
                 } catch (Exception e) {
                     logger.error("Exception", e);
                 }
-                logger.info("Client received {} messages , success {} , finished {} , reQueue explicitly {}. The values do not use a lock action.", received, success, finished, re);
+                logger.info("Client received {} messages , success {} , finished {} , queue4Consume {}, reQueue explicitly {}. The values do not use a lock action.", received, success, finished, queue4Consume, re);
             }
         }, delay, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
     }
@@ -525,7 +528,7 @@ public class ConsumerImplV2 implements Consumer {
             return;
         }
         try {
-            executor.execute(new Runnable() {
+             executor.execute(new Runnable() {
                 @Override
                 public void run() {
                     try {
@@ -534,9 +537,12 @@ public class ConsumerImplV2 implements Consumer {
                     } catch (Exception e) {
                         IOUtil.closeQuietly(connection);
                         logger.error("Exception", e);
+                    } finally {
+                        queue4Consume.decrementAndGet();
                     }
                 }
             });
+            queue4Consume.incrementAndGet();
         } catch (RejectedExecutionException re) {
             try {
                 backoff(connection);
@@ -629,6 +635,8 @@ public class ConsumerImplV2 implements Consumer {
             }
         }
         long end = System.currentTimeMillis() - start;
+        if(PERF_LOG.isDebugEnabled())
+            PERF_LOG.debug("Message handler took {} milliSec to finish consuming message for connection {}. Success:{}, Retry:{}", end, connection.getAddress(), ok, retry);
 
         // The client commands ReQueue into NSQd.
         final Integer nextConsumingWaiting = message.getNextConsumingInSecond();
@@ -666,7 +674,7 @@ public class ConsumerImplV2 implements Consumer {
                     }
                 } else {
                     if (!this.config.isOrdered() && this.config.isConsumerSlowStart() && end > this.config.getMsgTimeoutInMillisecond()) {
-                        logger.warn("It tooks {} millisec to for message to be consumed by message handler, and exceeds message timeout in nsq config. Fin not be invoked as requeue from NSQ server is on its way.", end);
+                        logger.warn("It tooks {} milliSec to for message to be consumed by message handler, and exceeds message timeout in nsq config. Fin not be invoked as requeue from NSQ server is on its way.", end);
                         int currentRdyCnt = RdySpectrum.decrease(connection, connection.getCurrentRdyCount(), connection.getCurrentRdyCount() - 1);
                         connection.setCurrentRdyCount(currentRdyCnt);
                     } else {
@@ -693,7 +701,18 @@ public class ConsumerImplV2 implements Consumer {
             }
         }
         if (cmd != null) {
-            connection.command(cmd);
+            final String cmdStr = cmd.toString();
+            ChannelFuture future = connection.command(cmd);
+            future.addListener(new ChannelFutureListener() {
+                @Override
+                public void operationComplete(ChannelFuture future) throws Exception {
+                    if(!future.isSuccess()){
+                        logger.error("Fail to send {}. Message {} will be delivered to consumer in another round.", cmdStr, message.getMessageID());
+                    }else if(PERF_LOG.isDebugEnabled()) {
+                        PERF_LOG.debug("Command {} to {} for message {} sent.", cmdStr, connection.getAddress(), message.getMessageID());
+                    }
+                }
+            });
             if (cmd instanceof Finish) {
                 finished.incrementAndGet();
             } else {
