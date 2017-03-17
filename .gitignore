@@ -53,7 +53,7 @@ iron.iml
 koala-config.json
 
 .externalToolBuilders/
-
+data/
 target/
 out/
 *.iml
