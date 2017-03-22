@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration debug="false" scan="true" scanPeriod="60 seconds">
-    <property name="LOG_HOME" value="/data/logs/nsq-client-java"/>
+    <property name="LOG_HOME" value="./data/logs"/>
     <property name="CONSOLE_PATTERN" value="%d{HH:mm:ss.SSS} [%thread] %-5level -- %class [%3line] -- %msg%n"/>
     <property name="MSG_PATTERN" value="%d{ISO8601} -- %msg%n"/>
     <property name="NORMAL_PATTERN" value="%d{ISO8601} -- %-60.60class [%3line] -- %msg%n"/>

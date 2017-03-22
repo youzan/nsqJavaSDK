@@ -51,12 +51,13 @@ public class FixedPool {
 
 
     public void prepare() throws NSQNoConnectionException {
-        bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
-        bootstrap.option(ChannelOption.TCP_NODELAY, true);
-        bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, config.getConnectTimeoutInMillisecond());
-        bootstrap.group(eventLoopGroup);
-        bootstrap.channel(NioSocketChannel.class);
-        bootstrap.handler(new NSQClientInitializer());
+        bootstrap.option(ChannelOption.SO_KEEPALIVE, true)
+                .option(ChannelOption.TCP_NODELAY, true)
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, config.getConnectTimeoutInMillisecond())
+                .group(eventLoopGroup)
+                .channel(NioSocketChannel.class)
+                .handler(new NSQClientInitializer());
+
         for (int i = 0; i < size; i++) {
             final ChannelFuture future = bootstrap.connect(address.getHost(), address.getPort());
             // Wait until the connection attempt succeeds or fails.

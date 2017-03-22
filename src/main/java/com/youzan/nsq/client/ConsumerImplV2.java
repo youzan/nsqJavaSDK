@@ -8,6 +8,7 @@ import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.entity.Role;
+import com.youzan.nsq.client.exception.NSQClientInitializationException;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQNoConnectionException;
 import com.youzan.nsq.client.exception.RetryBusinessException;
@@ -20,6 +21,7 @@ import com.youzan.util.IOUtil;
 import com.youzan.util.NamedThreadFactory;
 import com.youzan.util.ThreadSafe;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,16 +42,19 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ConsumerImplV2 implements Consumer {
 
     private static final Logger logger = LoggerFactory.getLogger(ConsumerImplV2.class);
+    private static final Logger BUSINESS_PERFORMANCE_LOG = LoggerFactory.getLogger("com.youzan.nsq.client.ConsumerImplV2.messageHandlerPerf");
     private final Object lock = new Object();
     private boolean started = false;
     private boolean closing = false;
     private volatile long lastConnecting = 0L;
 
 
+    private final AtomicInteger queue4Consume = new AtomicInteger(0);
     private final AtomicInteger received = new AtomicInteger(0);
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger finished = new AtomicInteger(0);
     private final AtomicInteger re = new AtomicInteger(0); // have done reQueue
+    private final AtomicInteger deferred = new AtomicInteger(0); // have done reQueue
 
 
     /*-
@@ -130,7 +135,11 @@ public class ConsumerImplV2 implements Consumer {
         synchronized (lock) {
             if (!this.started) {
                 // create the pools
-                this.simpleClient.start();
+                try {
+                    this.simpleClient.start();
+                } catch (NSQClientInitializationException iniExp) {
+                    throw new NSQClientInitializationException("Fail to start Consumer.", iniExp);
+                }
                 // -----------------------------------------------------------------
                 //                       First, async keep
                 keepConnecting();
@@ -158,7 +167,7 @@ public class ConsumerImplV2 implements Consumer {
                 } catch (Exception e) {
                     logger.error("Exception", e);
                 }
-                logger.info("Client received {} messages , success {} , finished {} , reQueue explicitly {}. The values do not use a lock action.", received, success, finished, re);
+                logger.info("Client received {} messages , success {} , finished {}, queue4Consume {} , reQueue explicitly {}. The values do not use a lock action.", received, success, finished, queue4Consume, re);
             }
         }, delay, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
     }
@@ -317,14 +326,13 @@ public class ConsumerImplV2 implements Consumer {
                 return;
             }
             final int topicSize = topics.size();
-            final int manualPoolSize = config.getThreadPoolSize4IO();
-            final int connectionSize = manualPoolSize * topicSize;
+//          final int manualPoolSize = config.getThreadPoolSize4IO();
+            final int connectionSize = topicSize;
             if (connectionSize <= 0) {
                 return;
             }
-            final String[] topicArray = new String[topicSize];
-            topics.toArray(topicArray);
-            if (connectionSize != manualPoolSize * topicArray.length) {
+            final String[] topicArray = topics.toArray(new String[0]);
+            if (connectionSize != topicArray.length) {
                 // concurrent problem
                 return;
             }
@@ -334,10 +342,10 @@ public class ConsumerImplV2 implements Consumer {
             pool.prepare();
             List<NSQConnection> connections = pool.getConnections();
             if (connections == null || connections.isEmpty()) {
-                logger.info("TopicSize: {} , Address: {} , ThreadPoolSize4IO: {} , Connection-Size: {} . The pool is empty.", topicSize, address, manualPoolSize, connectionSize);
+                logger.info("TopicSize: {} , Address: {}, Connection-Size: {} . The pool is empty.", topicSize, address , connectionSize);
                 return;
             }
-            logger.info("TopicSize: {} , Address: {} , ThreadPoolSize4IO: {} , Connection-Size: {} , Topics: {}", topicSize, address, manualPoolSize, connectionSize, topics);
+            logger.info("TopicSize: {} , Address: {} , Connection-Size: {} , Topics: {}", topicSize, address, connectionSize, topics);
             for (int i = 0; i < connectionSize; i++) {
                 int k = i % topicArray.length;
                 assert k < topicArray.length;
@@ -428,6 +436,7 @@ public class ConsumerImplV2 implements Consumer {
             return;
         }
         try {
+            queue4Consume.incrementAndGet();
             executor.execute(new Runnable() {
                 @Override
                 public void run() {
@@ -504,7 +513,11 @@ public class ConsumerImplV2 implements Consumer {
         boolean ok = false;
         boolean retry = false;
         try {
+            long start = System.currentTimeMillis();
             handler.process(message);
+            long eclapse = System.currentTimeMillis() - start;
+            if(BUSINESS_PERFORMANCE_LOG.isDebugEnabled())
+                BUSINESS_PERFORMANCE_LOG.debug("message handler logic ends in {} milliSec, messageID: {}", eclapse, message.getMessageID());
             ok = true;
             retry = false;
         } catch (RetryBusinessException e) {
@@ -567,13 +580,24 @@ public class ConsumerImplV2 implements Consumer {
             }
         }
         if (cmd != null) {
-            connection.command(cmd);
+            final String cmdStr = cmd.toString();
+            ChannelFuture finFuture = connection.command(cmd);
+            finFuture.addListener(new ChannelFutureListener() {
+                @Override
+                public void operationComplete(ChannelFuture future) throws Exception {
+                    if(!future.isSuccess()) {
+                        logger.warn("Fail to {} message {}. Message will be received from NSQ server again. Cause: {}", cmdStr, message.getAddress(), future.cause().getLocalizedMessage());
+                        deferred.incrementAndGet();
+                    }
+                }
+            });
             if (cmd instanceof Finish) {
                 finished.incrementAndGet();
             } else {
                 re.incrementAndGet();
             }
         }
+        queue4Consume.decrementAndGet();
         // Post
         if (message.getReadableAttempts() > 10) {
             logger.warn("Fire,Fire,Fire! Processing 10 times is still a failure!!! {}", message);
@@ -737,19 +761,21 @@ public class ConsumerImplV2 implements Consumer {
             return;
         }
         final FixedPool pool = address_2_pool.get(message.getAddress());
-        final List<NSQConnection> connections = pool.getConnections();
-        if (connections != null) {
-            for (NSQConnection c : connections) {
-                if (c.getId() == message.getConnectionID().intValue()) {
-                    synchronized (c) {
-                        if (c.isConnected()) {
-                            c.command(new Finish(message.getMessageID()));
-                            finished.incrementAndGet();
-                            // It is OK.
-                            return;
+        if(null != pool) {
+            final List<NSQConnection> connections = pool.getConnections();
+            if (connections != null) {
+                for (NSQConnection c : connections) {
+                    if (c.getId() == message.getConnectionID().intValue()) {
+                        synchronized (c) {
+                            if (c.isConnected()) {
+                                c.command(new Finish(message.getMessageID()));
+                                finished.incrementAndGet();
+                                // It is OK.
+                                return;
+                            }
                         }
+                        break;
                     }
-                    break;
                 }
             }
         }

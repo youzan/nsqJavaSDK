@@ -1,12 +1,12 @@
 package com.youzan.nsq.client.core.lookup;
 
-import java.io.Closeable;
-import java.util.Random;
-import java.util.Set;
-import java.util.SortedSet;
-
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.exception.NSQLookupException;
+
+import java.io.Closeable;
+import java.io.IOException;
+import java.util.Random;
+import java.util.SortedSet;
 
 /**
  * One lookup cluster
@@ -18,7 +18,7 @@ import com.youzan.nsq.client.exception.NSQLookupException;
 public interface LookupService extends java.io.Serializable, Closeable {
     Random _r = new Random(10000);
 
-    void start();
+    void start() throws IOException;
 
     /**
      *

@@ -6,22 +6,37 @@ public class Address implements java.io.Serializable, Comparable<Address> {
     private final String host;
     private final int port;
 
+    //version number, used to specify old nsq and new
+    private final String version;
+    private Boolean isHA = null;
+
+    private final String topic;
+    private final int partition;
+
     /**
-     * @param host a {@link String}
-     * @param port a {@link String}
+     * @param host a {@link String} to presenting
+     * @param port a integer number
+     * @param version NSQd version
      */
-    public Address(String host, String port) {
+    public Address(String host, String port, String version, String topic, int partition) {
         this.host = host;
         this.port = Integer.valueOf(port);
+        this.topic = topic;
+        this.partition = partition;
+        this.version = version;
     }
 
     /**
-     * @param host a {@link String}
+     * @param host a {@link String} to presenting
      * @param port a integer number
+     * @param version NSQd version
      */
-    public Address(String host, int port) {
+    public Address(String host, int port, String version, String topic, int partition) {
         this.host = host;
         this.port = port;
+        this.topic = topic;
+        this.partition = partition;
+        this.version = version;
     }
 
     public String getHost() {
@@ -32,9 +47,34 @@ public class Address implements java.io.Serializable, Comparable<Address> {
         return port;
     }
 
+    public String getVersion(){
+        return this.version;
+    }
+
+    public int getPartition() {
+        return this.partition;
+    }
+
+    public String getTopic() {
+        return this.topic;
+    }
+
+    /**
+     * check if version # ends with HA.*
+     * @return {@link Boolean#TRUE} if NSQd has HA capability within.
+     */
+    public boolean isHA(){
+        if(null != isHA)
+            return isHA;
+        else
+        if(this.version.contains("-HA."))
+            return isHA = Boolean.TRUE;
+        else return isHA = Boolean.FALSE;
+    }
+
     @Override
     public String toString() {
-        return host + ":" + port;
+        return host + ":" + port + ", " + topic + ", " + partition;
     }
 
     @Override
@@ -44,7 +84,9 @@ public class Address implements java.io.Serializable, Comparable<Address> {
         }
         final Address o1 = this;
         final int hostComparator = o1.host.compareTo(o2.getHost());
-        return hostComparator == 0 ? o1.port - o2.port : hostComparator;
+        final int portComparator = hostComparator == 0 ? o1.port - o2.port : hostComparator;
+        final int topicComparator = portComparator == 0 ? o1.topic.compareTo(o2.topic) : portComparator;
+        return topicComparator == 0 ? o1.partition - o2.partition : topicComparator;
     }
 
     @Override
@@ -53,6 +95,8 @@ public class Address implements java.io.Serializable, Comparable<Address> {
         int result = 1;
         result = prime * result + ((host == null) ? 0 : host.hashCode());
         result = prime * result + port;
+        result = prime * result + topic.hashCode();
+        result = prime * result + partition;
         return result;
     }
 
@@ -74,8 +118,12 @@ public class Address implements java.io.Serializable, Comparable<Address> {
             }
         } else if (!host.equals(other.host)) {
             return false;
+        } else if (port != other.port) {
+            return false;
+        } else if (!topic.equals(other.topic)) {
+            return false;
         }
-        return port == other.port;
+        return partition == other.partition;
     }
 
 }

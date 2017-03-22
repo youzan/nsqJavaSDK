@@ -5,15 +5,19 @@ import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.OutputStreamAppender;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.Role;
+import com.youzan.nsq.client.exception.NSQLookupException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;
-import java.io.UnsupportedEncodingException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -22,9 +26,12 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
+import java.util.SortedSet;
 
 public class TestNSQLookupService {
     private static final Logger logger = LoggerFactory.getLogger(TestNSQLookupService.class);
+    final Properties props = new Properties();
 
     @DataProvider
     public Object[][] generateIPs() {
@@ -107,7 +114,7 @@ public class TestNSQLookupService {
     }
 
     @Test
-    public void makeBadOfLookup4ConnectionTimeoutTrace() throws NoSuchMethodException, NoSuchFieldException, IllegalAccessException, InvocationTargetException, InstantiationException, UnsupportedEncodingException {
+    public void makeBadOfLookup4ConnectionTimeoutTrace() throws NoSuchMethodException, NoSuchFieldException, IllegalAccessException, InvocationTargetException, InstantiationException, IOException {
         logger.info("Begin to test a invalid lookup address 127.0.0.1 !");
         //create LookupServiceImpl via reflect, and inject appender into logger
         Class lookupClazz = LookupServiceImpl.class;
@@ -138,6 +145,30 @@ public class TestNSQLookupService {
     public void testInit(String ips, List<String> expected) {
         try (LookupServiceImpl srv = new LookupServiceImpl(ips, null)) {
             Assert.assertEquals(srv.getAddresses(), expected);
+        }
+    }
+
+
+    /**
+     * pick lookup address from multi-seed lookup address
+     */
+    @Test
+    public void testMultiSeedLookup() throws NSQLookupException, InterruptedException, IOException {
+        String lookupSeed = props.getProperty("lookup-addresses");
+        String lookupSeedAnother = props.getProperty("lookup-addresses-dev");
+        LookupServiceImpl lookupSrv = new LookupServiceImpl(lookupSeed+","+lookupSeedAnother, Role.Producer);
+        lookupSrv.start();
+        lookupSrv.newLookupServers();
+        SortedSet<Address> dataNodes =  lookupSrv.lookup("JavaTesting-Producer-Base", true);
+        //assert
+        assert dataNodes.size() == 2;
+    }
+
+    @BeforeClass
+    public void init() throws Exception {
+        logger.info("At {} , initialize: {}", System.currentTimeMillis(), this.getClass().getName());
+        try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {
+            props.load(is);
         }
     }
 }

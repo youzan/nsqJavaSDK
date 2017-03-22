@@ -3,29 +3,23 @@ package com.youzan.nsq.client.core.lookup;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.youzan.nsq.client.Consumer;
-import com.youzan.nsq.client.Producer;
-import com.youzan.nsq.client.core.Client;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.Role;
 import com.youzan.nsq.client.exception.NSQLookupException;
+import com.youzan.nsq.client.exception.NSQProducerNotFoundException;
 import com.youzan.util.NamedThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.net.ConnectException;
-import java.net.HttpURLConnection;
-import java.net.InetAddress;
-import java.net.URL;
+import java.lang.ref.SoftReference;
+import java.net.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-
-import static com.youzan.nsq.client.entity.Role.Consumer;
-import static com.youzan.nsq.client.entity.Role.Producer;
 
 /**
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
@@ -43,10 +37,12 @@ public class LookupServiceImpl implements LookupService {
 
 
     private final Role role;
+    private List<String> seedLookupds;
     /**
      * the sorted lookup's addresses
      */
-    private volatile List<String> addresses;
+    private volatile Map<String, List<String>> seed2Addresses = new ConcurrentHashMap<>();
+    private volatile List<String> addresses = new ArrayList<>();
     /**
      * Load-Balancing Strategy: round-robin
      */
@@ -64,7 +60,7 @@ public class LookupServiceImpl implements LookupService {
      */
     public LookupServiceImpl(List<String> addresses, Role role) {
         this.role = role;
-        initAddresses(addresses);
+        initSeedAddresses(addresses);
     }
 
     /**
@@ -83,35 +79,25 @@ public class LookupServiceImpl implements LookupService {
             address = address.replace(" ", "");
             tmpList.add(address);
         }
-        initAddresses(tmpList);
+        initSeedAddresses(tmpList);
     }
 
-    private void initAddresses(List<String> addresses) {
+    private void initSeedAddresses(List<String> addresses) {
         if (addresses == null || addresses.isEmpty()) {
             throw new IllegalArgumentException("Your input addresses is blank!");
         }
         Collections.sort(addresses);
-        setAddresses(addresses);
+        seedLookupds = addresses;
     }
 
     @Override
-    public void start() {
+    public void start() throws IOException {
         if (!started) {
             // begin: a light implement way
             started = true;
             offset = _r.nextInt(100);
             keepLookupServers();
-        }
-    }
-
-    /**
-     * @param addresses the addresses to set
-     */
-    private void setAddresses(List<String> addresses) {
-        final List<String> tmp = this.addresses;
-        this.addresses = addresses;
-        if (null != tmp) {
-            tmp.clear();
+            newLookupServers();
         }
     }
 
@@ -141,8 +127,8 @@ public class LookupServiceImpl implements LookupService {
         }, delay, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
     }
 
-    private void newLookupServers() throws IOException {
-        if (this.addresses == null || this.addresses.isEmpty()) {
+    public void newLookupServers() throws IOException {
+        if (this.seedLookupds == null || this.seedLookupds.isEmpty()) {
             return;
         }
         if (System.currentTimeMillis() < lastConnecting + TimeUnit.SECONDS.toMillis(_INTERVAL_IN_SECOND)) {
@@ -155,46 +141,65 @@ public class LookupServiceImpl implements LookupService {
             }
             return;
         }
-        final int index = ((offset++) & Integer.MAX_VALUE) % this.addresses.size();
-        final String lookup = this.addresses.get(index);
-        final String url = String.format("http://%s/listlookup", lookup);
-        logger.debug("Begin to get the new lookup servers. LB: Size: {}, Index: {}, From URL: {}",
-                this.addresses.size(), index, url);
-        final JsonNode rootNode;
-        JsonNode tmpRootNode = null;
-        URL lookupUrl = null;
-        try {
-            lookupUrl = new URL(url);
-            tmpRootNode = readFromUrl(lookupUrl);
-        } catch (ConnectException ce) {
-            //got a connection timeout exception(maybe), what we do here is:
-            //1. record the ip&addr of both client and server side for trace debug.
-            //2. TODO: improve timeout value of jackson parser to give it a retry, record
-            //   a trace about the result, if failed, throws exception to interrupt
-            //   lookup checker run().
-            _handleConnectionTimeout(lookup, ce);
-            return;
-        } finally {
-            //assign temp root node to rootNode, in both successful case and filed case
-            rootNode = tmpRootNode;
+        for(String seed:seedLookupds) {
+            List<String> newLookupdAdrress = new ArrayList<>();
+            final String url = String.format("http://%s/listlookup", seed);
+            if(logger.isDebugEnabled())
+                logger.debug("Begin to get the new lookup servers. LB: Size: {}, From URL: {}",
+                    this.seedLookupds.size(), url);
+            final JsonNode rootNode;
+            JsonNode tmpRootNode = null;
+            URL lookupUrl = null;
+            try {
+                lookupUrl = new URL(url);
+                tmpRootNode = readFromUrl(lookupUrl);
+            } catch (SocketTimeoutException | ConnectException ce) {
+                //got a connection timeout exception(maybe), what we do here is:
+                //1. record the ip&addr of both client and server side for trace debug.
+                //2. TODO: improve timeout value of jackson parser to give it a retry, record
+                //   a trace about the result, if failed, throws exception to interrupt
+                //   lookup checker run().
+                _handleConnectionTimeout(seed, ce);
+                return;
+            } catch (FileNotFoundException fofe) {
+                logger.info("URL {} is of old NSQd lookupd. Add it directly into lookupd addresses.", seed);
+                newLookupdAdrress.add(seed);
+            } finally {
+                //assign temp root node to rootNode, in both successful case and filed case
+                rootNode = tmpRootNode;
+            }
+            if(null != rootNode) {
+                final JsonNode nodes = rootNode.get("lookupdnodes");
+                if (null == nodes) {
+                    logger.error("NSQ Server do response without any lookup servers!");
+                    return;
+                }
+                final List<String> newLookups = new ArrayList<>(nodes.size());
+                for (JsonNode node : nodes) {
+                    final String host = node.get("NodeIP").asText();
+                    final int port = node.get("HttpPort").asInt();
+                    final String address = host + ":" + port;
+                    newLookups.add(address);
+                }
+                if (!newLookups.isEmpty()) {
+                    newLookupdAdrress.addAll(newLookups);
+                }
+            }
+            //update seed2lookupdaddress map
+            seed2Addresses.put(seed, newLookupdAdrress);
         }
-        final JsonNode nodes = rootNode.get("lookupdnodes");
-        if (null == nodes) {
-            logger.error("NSQ Server do response without any lookup servers!");
-            return;
+        if(logger.isDebugEnabled()) {
+            logger.debug("Seed lookup addresses mapping:");
+            StringBuilder seed2LookupdMapping = new StringBuilder();
+            for(String seed : seed2Addresses.keySet()) {
+                seed2LookupdMapping.append(seed +" => {\n");
+                for(String lookupd : seed2Addresses.get(seed)) {
+                    seed2LookupdMapping.append("\t" + lookupd + "\n");
+                }
+                seed2LookupdMapping.append("}\n");
+            }
+            logger.debug(seed2LookupdMapping.toString());
         }
-        final List<String> newLookups = new ArrayList<>(nodes.size());
-        for (JsonNode node : nodes) {
-            final String host = node.get("NodeIP").asText();
-            final int port = node.get("HttpPort").asInt();
-            final String address = host + ":" + port;
-            newLookups.add(address);
-        }
-        if (!newLookups.isEmpty()) {
-            Collections.sort(newLookups);
-            this.addresses = newLookups;
-        }
-        logger.debug("Recently have got the lookup servers : {}", this.addresses);
     }
 
     /**
@@ -222,7 +227,7 @@ public class LookupServiceImpl implements LookupService {
         return treeNode;
     }
 
-    private void _handleConnectionTimeout(String lookup, ConnectException ce) throws IOException {
+    private void _handleConnectionTimeout(String lookup, Exception ce) throws IOException {
         String ip = "EMPTY", address = "EMPTY";
         try {
             InetAddress addr = InetAddress.getLocalHost();
@@ -250,40 +255,140 @@ public class LookupServiceImpl implements LookupService {
         }
     }
 
+    class AddressCompatibility implements Comparable<AddressCompatibility>{
+        private Address addr;
+
+        public AddressCompatibility(final Address addr) {
+            this.addr = addr;
+        }
+
+        @Override
+        public int compareTo(AddressCompatibility o2) {
+            if (null == o2) {
+                return 1;
+            }
+            final AddressCompatibility o1 = this;
+            final int hostComparator = o1.addr.getHost().compareTo(o2.addr.getHost());
+            return hostComparator == 0 ? o1.addr.getPort() - o2.addr.getPort() : hostComparator;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null) {
+                return false;
+            }
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+            AddressCompatibility other = (AddressCompatibility) obj;
+            if (addr.getHost() == null) {
+                if (other.addr.getHost() != null) {
+                    return false;
+                }
+            } else if (!addr.getHost().equals(other.addr.getHost())) {
+                return false;
+            }
+            return addr.getPort() == other.addr.getPort();
+        }
+
+        @Override
+        public int hashCode() {
+            final int prime = 31;
+            int result = 1;
+            result = prime * result + ((addr.getHost() == null) ? 0 : addr.getHost().hashCode());
+            result = prime * result + addr.getPort();
+            return result;
+        }
+    }
+
     @Override
     public SortedSet<Address> lookup(String topic, boolean writable) throws NSQLookupException {
         if (null == topic || topic.isEmpty()) {
             throw new NSQLookupException("Your input topic is blank!");
         }
         final SortedSet<Address> dataNodes = new TreeSet<>();
-        assert null != this.addresses;
+        Set<AddressCompatibility> dataNodeSetCheck = new HashSet<>();
+        assert null != this.seed2Addresses;
         /*
          * It is unnecessary to use Atomic/Lock for the variable
          */
-        final int index = ((offset++) & Integer.MAX_VALUE) % this.addresses.size();
-        final String lookup = this.addresses.get(index);
-        final String url = String.format("http://%s/lookup?topic=%s&access=%s", lookup, topic, writable ? "w" : "r"); // readable
-        logger.debug("Begin to lookup some DataNodes from URL {}", url);
-        try {
-            final JsonNode rootNode = readFromUrl(new URL(url));
-            final JsonNode producers = rootNode.get("producers");
-            for (JsonNode node : producers) {
-                final String host = node.get("broadcast_address").asText();
-                final int port = node.get("tcp_port").asInt();
-                final Address address = new Address(host, port);
-                dataNodes.add(address);
+        for(List<String> lookupds : seed2Addresses.values()) {
+            final int index = ((offset++) & Integer.MAX_VALUE) % lookupds.size();
+            final String lookup = lookupds.get(index);
+            final String url = String.format("http://%s/lookup?topic=%s&access=%s", lookup, topic, writable ? "w" : "r"); // readable
+            logger.debug("Begin to lookup some DataNodes from URL {}", url);
+            try {
+                final JsonNode rootNode = readFromUrl(new URL(url));
+                dataNodeSetCheck.clear();
+                //check if producers exists, if not, it could be a no channel exception
+                final JsonNode producers = rootNode.get("producers");
+                if(null == producers || producers.size() == 0){
+                    logger.error("No NSQd producer node return in lookup response. NSQd may not ready at this moment. {}", topic.toString());
+                    continue;
+                }
+                final JsonNode partitions = rootNode.get("partitions");
+
+                if (null != partitions) {
+                    Iterator<String> irt = partitions.fieldNames();
+                    while (irt.hasNext()) {
+                        String parId = irt.next();
+                        int parIdInt = Integer.valueOf(parId);
+                        JsonNode partition = partitions.get(parId);
+                        final Address address = createAddress(topic, parIdInt, partition);
+                        if(parIdInt >= 0) {
+                            dataNodeSetCheck.add(new AddressCompatibility(address));
+                            dataNodes.add(address);
+                        }
+                    }
+                }
+
+                //producers part in json
+                for (JsonNode node : producers) {
+                    //for old NSQd partition, we set partition as -1
+                    final Address address = createAddress(topic, -1, node);
+                    if(!dataNodeSetCheck.contains(new AddressCompatibility(address))) {
+                        dataNodes.add(address);
+                    }
+                }
+                logger.debug("The server response info after looking up some DataNodes: {}", rootNode.toString());
+            } catch (Exception e) {
+                logger.error("NSQd producer fail to fetch from lookupd address {}.", lookup);
             }
-            logger.debug("The server response info after looking up some DataNodes: {}", rootNode.toString());
-            return dataNodes; // maybe it is empty
-        } catch (Exception e) {
-            final String tip = "SDK can't get the right lookup info. " + url;
-            throw new NSQLookupException(tip, e);
         }
+        //check if a NSQLookupException should throw
+        if(seed2Addresses.size() > 0 && dataNodes.size() == 0) {
+            StringBuilder lookupExpMsg = new StringBuilder();
+            for(String seed : seed2Addresses.keySet()) {
+                lookupExpMsg.append(seed + " => {\n");
+                for(String lookupd : seed2Addresses.get(seed)) {
+                    lookupExpMsg.append("\t" + lookupd + "\n");
+                }
+                lookupExpMsg.append("}\n");
+            }
+            throw new NSQLookupException("Fail to find any NSQd node from lookupd address mapping: " + lookupExpMsg.toString());
+        }
+        return dataNodes;
     }
 
     @Override
     public void close() {
         closing = true;
         scheduler.shutdownNow();
+    }
+
+    /**
+     * create nsq broker Address, using pass in JsonNode,
+     * specidied key in function will be used to extract
+     * field to construct Address
+     * @return Address nsq broker Address
+     */
+    private Address createAddress(final String topic, int partition, JsonNode node){
+        final String host = node.get("broadcast_address").asText();
+        final int port = node.get("tcp_port").asInt();
+        final String version = node.get("version").asText();
+        return new Address(host, port, version, topic, partition);
     }
 }

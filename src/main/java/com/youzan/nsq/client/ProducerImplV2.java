@@ -91,7 +91,12 @@ public class ProducerImplV2 implements Producer {
             // new instance without performing to connect
             this.bigPool = new GenericKeyedObjectPool<>(this.factory, this.poolConfig);
             //
-            this.simpleClient.start();
+            try {
+                this.simpleClient.start();
+            } catch (NSQClientInitializationException iniExp) {
+                this.started = false;
+                throw new NSQClientInitializationException("Fail to start Producer.", iniExp);
+            }
             scheduler.scheduleAtFixedRate(new Runnable() {
                 @Override
                 public void run() {

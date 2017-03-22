@@ -50,7 +50,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * It is also used for Netty.
      * </pre>
      */
-    private int threadPoolSize4IO = 1;
+    private int threadPoolSize4IO = Runtime.getRuntime().availableProcessors() * 2;
     private final String clientId;
     private final String hostname;
     private boolean featureNegotiation;

@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ITConsumer {
     private static final Logger logger = LoggerFactory.getLogger(ITConsumer.class);
 
-    private final int rdy = 2;
+    private final int rdy = 10;
     private final NSQConfig config = new NSQConfig();
     private Consumer consumer;
 

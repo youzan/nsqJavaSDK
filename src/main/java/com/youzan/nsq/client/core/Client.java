@@ -3,18 +3,16 @@
  */
 package com.youzan.nsq.client.core;
 
-import java.io.Closeable;
-import java.util.Random;
-import java.util.Set;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.network.frame.NSQFrame;
-
 import io.netty.util.AttributeKey;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.Closeable;
+import java.util.Random;
+import java.util.Set;
 
 /**
  * NSQ business processing.
