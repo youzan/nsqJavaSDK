@@ -761,19 +761,21 @@ public class ConsumerImplV2 implements Consumer {
             return;
         }
         final FixedPool pool = address_2_pool.get(message.getAddress());
-        final List<NSQConnection> connections = pool.getConnections();
-        if (connections != null) {
-            for (NSQConnection c : connections) {
-                if (c.getId() == message.getConnectionID().intValue()) {
-                    synchronized (c) {
-                        if (c.isConnected()) {
-                            c.command(new Finish(message.getMessageID()));
-                            finished.incrementAndGet();
-                            // It is OK.
-                            return;
+        if(null != pool) {
+            final List<NSQConnection> connections = pool.getConnections();
+            if (connections != null) {
+                for (NSQConnection c : connections) {
+                    if (c.getId() == message.getConnectionID().intValue()) {
+                        synchronized (c) {
+                            if (c.isConnected()) {
+                                c.command(new Finish(message.getMessageID()));
+                                finished.incrementAndGet();
+                                // It is OK.
+                                return;
+                            }
                         }
+                        break;
                     }
-                    break;
                 }
             }
         }
