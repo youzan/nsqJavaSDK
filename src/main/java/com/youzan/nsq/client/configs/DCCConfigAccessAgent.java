@@ -42,6 +42,12 @@ public class DCCConfigAccessAgent extends ConfigAccessAgent {
         initClientConfig();
         ClientConfig dccConfig = new ClientConfig();
         //setup client config
+        if(null == urls || null == env){
+            logger.info("ConfigAccessAgent is running in local mode.");
+            setConnected(false);
+            return;
+        }
+
         DCCConfigAccessAgent.dccClient = ConfigClientBuilder.create()
                 .setRemoteUrls(urls)
                 .setBackupFilePath(backupPath)
@@ -94,6 +100,9 @@ public class DCCConfigAccessAgent extends ConfigAccessAgent {
 
     @Override
     public SortedMap<String, String> handleSubscribe(AbstractConfigAccessDomain domain, AbstractConfigAccessKey[] keys, final IConfigAccessCallback callback) {
+        if(!isConnected())
+            logger.warn("DCCConfigAccessAgent is not connected. Subscribe returns.");
+
         if (keys.length > 1)
             throw new IllegalArgumentException("DCCConfigAccessAgent does not accept more than one key(consumer or producer).");
         if (null == domain || keys.length == 0)
@@ -145,7 +154,8 @@ public class DCCConfigAccessAgent extends ConfigAccessAgent {
 
     @Override
     public void close() {
-        this.dccClient.release();
+        if(this.isConnected())
+            this.dccClient.release();
     }
 
     @Override
@@ -180,39 +190,48 @@ public class DCCConfigAccessAgent extends ConfigAccessAgent {
 
         String customizedBackup = ConfigAccessAgent.getConfigAccessAgentBackupPath();
         if(null != customizedBackup && !customizedBackup.isEmpty()){
-            logger.info("initialize backupPath with user specified value {}.", customizedBackup);
+            logger.info("Initialize backupPath with user specified value {}.", customizedBackup);
             backupPath = customizedBackup;
         }
         assert null != backupPath;
         logger.info("configs backup path: {}", backupPath);
 
-        String[] configAccessURLs = NSQConfig.getConfigAccessURLs();
-        String configAccessEnv = NSQConfig.getConfigAccessEnv();
-        if(null != configAccessURLs && configAccessURLs.length > 0 && null != configAccessEnv){
-            logger.info("initialize config access remote urls & env with user specified lookup address API {}, env: {}.",configAccessURLs, configAccessEnv);
-            urls = configAccessURLs;
-            env = configAccessEnv;
-        } else {
-            //1.3 nsq sdk env, which is also the env of nsq sdk
-            env = props.getProperty(NSQ_DCCCONFIG_ENV);
-            String sysEnv = System.getProperty(NSQ_DCCCONFIG_ENV);
-            if(null != sysEnv && !sysEnv.isEmpty()){
-                logger.info("initialize config access remote urls with system property value {}.", sysEnv);
-                env = sysEnv;
+        //1.3 nsq sdk env, which is also the env of nsq sdk
+        env = props.getProperty(NSQ_DCCCONFIG_ENV);
+        String sysEnv = System.getProperty(NSQ_DCCCONFIG_ENV);
+        if(null != sysEnv && !sysEnv.isEmpty()){
+            logger.info("Initialize config access Env with system property value {}.", sysEnv);
+            env = sysEnv;
+        }
+        String customizedEnv = ConfigAccessAgent.getEnv();
+        if(null != customizedEnv && !customizedEnv.isEmpty()){
+            logger.info("Initialize config access Env with user specified value {}.",customizedEnv);
+            env = customizedEnv;
+        }
+
+        //pick env from NSQConfig
+        String configEnv = NSQConfig.getConfigAccessEnv();
+        if(null != configEnv && !configEnv.isEmpty()){
+            logger.info("Initialize config access Env with NSQConfig setting value {}.", configEnv);
+            env = configEnv;
+        }
+
+        urls = ConfigAccessAgent.getConfigAccessRemotes();
+        //1.4 config server urls, initialized based on sdk env
+        String urlsKey = String.format(NSQ_DCCCONFIG_URLS, env);
+        String urlsStr = props.getProperty(urlsKey);
+        if(null != urlsStr) {
+            String[] configUrls = urlsStr.split(",");
+            if(null != configUrls && configUrls.length > 0) {
+                logger.info("Initialize config access remote URLs with config properties {}.", configUrls);
+                urls = configUrls;
             }
-            String customizedEnv = ConfigAccessAgent.getEnv();
-            if(null != customizedEnv && !customizedEnv.isEmpty()){
-                logger.info("initialize config access remote urls with user specified value {}.",customizedEnv);
-                env = customizedEnv;
-            }
-            assert null != env;
-            urls = ConfigAccessAgent.getConfigAccessRemotes();
-            if(null == urls || urls.length == 0) {
-                //1.4 config server urls, initialized based on sdk env
-                String urlsKey = String.format(NSQ_DCCCONFIG_URLS, env);
-                urls = props.getProperty(urlsKey)
-                        .split(",");
-            }
+        }
+
+        String[] configUrls = NSQConfig.getConfigAccessURLs();
+        if(null != configUrls && configUrls.length > 0){
+            logger.info("Initialize config access remote URLs with NSQConfig setting value {}.", configUrls);
+            urls = configUrls;
         }
     }
 }

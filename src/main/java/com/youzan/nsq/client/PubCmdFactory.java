@@ -26,7 +26,7 @@ public class PubCmdFactory implements IConfigAccessSubscriber{
     private final static DCCTraceConfigAccessKey KEY = new DCCTraceConfigAccessKey();
     private final static DCCTraceConfigAccessDomain DOMAIN = new DCCTraceConfigAccessDomain();
 
-    //topic trace map, for example: JavaTesting-Producer-Base -> true, means trace is on for topic "JavaTesting-Producer-Base"
+    //topic trace map, for example: JavaTesting-Producer-Base -> 1, means trace is on for topic "JavaTesting-Producer-Base"
     private volatile Map<String, String> topicTrace = new TreeMap<>();
     private ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
@@ -66,8 +66,12 @@ public class PubCmdFactory implements IConfigAccessSubscriber{
             synchronized(LOCK){
                 if(null == _INSTANCE){
                     try {
+                        ConfigAccessAgent caa = ConfigAccessAgent.getInstance();
                         _INSTANCE = new PubCmdFactory();
-                        _INSTANCE.subscribe(ConfigAccessAgent.getInstance(), DOMAIN, new AbstractConfigAccessKey[]{KEY}, _INSTANCE.getCallback());
+                        if(caa.isConnected()) {
+                            _INSTANCE.subscribe(caa, DOMAIN, new AbstractConfigAccessKey[]{KEY}, _INSTANCE.getCallback());
+                            logger.info("TraceLogger subscribes to {}", caa);
+                        }else logger.info("TraceLogger is running in local mode.");
                     }catch(ConfigAccessAgentException e){
                         _INSTANCE = null;
                         throw new NSQPubFactoryInitializeException("Fail to subscribe PubCmdFactory to ConfigAccessAgent.");
@@ -84,7 +88,7 @@ public class PubCmdFactory implements IConfigAccessSubscriber{
      * @return Pub command instance
      */
     public Pub create(final Message msg, final NSQConfig config){
-        if(isTracedMessage(msg)){
+        if(isTracedMessage(config, msg)){
             return new PubTrace(msg);
         }else{
             return new Pub(msg);
@@ -98,15 +102,27 @@ public class PubCmdFactory implements IConfigAccessSubscriber{
      * @param msg message to check if trace is ON.
      * @return {@link Boolean#TRUE} if pass in message is traced, otherwise {@link Boolean#FALSE}.
      */
-    private boolean isTracedMessage(final Message msg){
-        String flag = null;
-        try{
-            Topic topic = msg.getTopic();
-            lock.readLock().lock();
-            //check trace map
-            flag = this.topicTrace.get(topic.getTopicText());
-        }finally {
-            lock.readLock().unlock();
+    private boolean isTracedMessage(final NSQConfig config, final Message msg) {
+        String flag;
+        Topic topic = msg.getTopic();
+        ConfigAccessAgent caa;
+        try {
+            caa = ConfigAccessAgent.getInstance();
+        } catch(ConfigAccessAgentException e) {
+            logger.error("Error fetching config access.", e);
+            return false;
+        }
+
+        if(caa.isConnected()) {
+            flag = config.getLocalTraceMap().get(topic.getTopicText());
+        } else {
+            try {
+                lock.readLock().lock();
+                //check trace map
+                flag = this.topicTrace.get(topic.getTopicText());
+            } finally {
+                lock.readLock().unlock();
+            }
         }
 
         if(null == flag || Integer.valueOf(flag) == 0)

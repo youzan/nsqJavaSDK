@@ -28,6 +28,17 @@ public class SeedLookupdConfigTest {
             "}" +
             "}";
 
+    protected final static String controlCnfStr = "{" +
+            "\"previous\":[\"nsq-dev.s.qima-inc.com:4161\"]," +
+            "\"current\":[\"nsq-dev.s.qima-inc.com:4161\", \"nsq-dev.s.qima-inc.com:4161\"]," +
+            "\"gradation\":{" +
+            "\"*\":{\"percent\":10.0}," +
+            "\"bc-pifa0\":{\"percent\":10.0}," +
+            "\"bc-pifa1\":{\"percent\":20.0}," +
+            "\"bc-pifa2\":{\"percent\":30.0}" +
+            "}" +
+            "}";
+
     @Test
     public void testLookupdConfigCreate() {
         try{
@@ -63,7 +74,7 @@ public class SeedLookupdConfigTest {
             String categorization = category.category(aTopic);
             AbstractSeedLookupdConfig lookupdConfig = AbstractSeedLookupdConfig.create(categorization);
 
-            AbstractControlConfig ctrlCnf = AbstractControlConfig.create(invalidControlCnfStr);
+            AbstractControlConfig ctrlCnf = AbstractControlConfig.create(controlCnfStr);
             lookupdConfig.putTopicCtrlCnf(LookupAddressUpdate.formatCategorizationTopic(categorization, aTopic.getTopicText()), ctrlCnf);
 
             NSQLookupdAddresses aNsqLookupd = lookupdConfig.punchLookupdAddress(categorization, aTopic, false);

@@ -33,6 +33,7 @@ public abstract class ConfigAccessAgent implements Closeable {
     private static String backupFilePath;
     //config access agent properties
     protected static Properties props = null;
+    private volatile boolean connected = false;
 
     //configs config file path for nsq sdk
     private static final String NSQDCCCONFIGPRO = "nsq.sdk.configFilePath";
@@ -72,15 +73,16 @@ public abstract class ConfigAccessAgent implements Closeable {
                         //if we hit this line, it means SDK used to initialze ConfigAccessAgent, but failed.
                         throw new ConfigAccessAgentInitializeException("Fail to initialize ConfigAccessAgent: " + CAA_CLAZZ);
                     }
+                    //properties read from SDK, could be null, since we need to remove clientConfig.properties out of SDK.
                     initConfigAccessAgentProperties();
                     initConfigAccessAgentClass();
-                    //initConfigAccessAgentFrom NSQConfig which has dcc applied.
                     //read config client from static client config in NSQConfig, if either config or urls is specified, throws an exception
                     //create config request
                     try {
                         TRIEDINITIALIZE = true;
                         //As NSQConfig is invoked here, which means static variables like properties will be initialized before trace agent is invoked
                         Constructor<? extends ConfigAccessAgent> constructor = CAA_CLAZZ.getConstructor();
+                        //invoke constructor of config access agent.
                         INSTANCE = constructor.newInstance();
                         INSTANCE.kickoff();
                     } catch (Exception e) {
@@ -91,6 +93,14 @@ public abstract class ConfigAccessAgent implements Closeable {
             }
         }
         return INSTANCE;
+    }
+
+    public boolean isConnected() {
+        return this.connected;
+    }
+
+    public void setConnected(boolean connected) {
+        this.connected = connected;
     }
 
     /**
@@ -143,8 +153,10 @@ public abstract class ConfigAccessAgent implements Closeable {
         InputStream is = null;
         try {
             is = loadClientConfigInputStream();
-            props = new Properties();
-            props.load(is);
+            if(null != is) {
+                props = new Properties();
+                props.load(is);
+            }
         } catch (FileNotFoundException configNotFoundE) {
             logger.error("Config properties for nsq sdk to configs not found. Make sure properties file located under {} system property", NSQDCCCONFIGPRO);
             throw new RuntimeException(configNotFoundE);
@@ -153,7 +165,8 @@ public abstract class ConfigAccessAgent implements Closeable {
             throw new RuntimeException(IOE);
         } finally {
             try {
-                is.close();
+                if(null != is)
+                    is.close();
             } catch (Exception e) {
                 //swallow it
                 logger.warn("Exception in closing client config input stream.", e.getLocalizedMessage());
@@ -204,8 +217,7 @@ public abstract class ConfigAccessAgent implements Closeable {
                     .getResourceAsStream(dccConfigFile);
         }
         if(null == is) {
-            logger.error("Could not load config access properties from client config properties file.");
-            throw new RuntimeException("Could not load config access properties from client config properties file.");
+            logger.info("Config access properties from SDK config properties file not found.");
         }
         return is;
     }
@@ -247,4 +259,3 @@ public abstract class ConfigAccessAgent implements Closeable {
      */
     abstract public String metadata();
 }
-

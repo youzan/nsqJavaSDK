@@ -54,6 +54,7 @@ public class ConsumerImplV2 implements Consumer {
     private final AtomicInteger re = new AtomicInteger(0); // have done reQueue
     private final AtomicInteger queue4Consume = new AtomicInteger(0); // have done reQueue
 
+    Producer compensateProducer;
 
     /*-
      * =========================================================================
@@ -655,16 +656,12 @@ public class ConsumerImplV2 implements Consumer {
                     // Post
                     if (!this.config.isOrdered() && message.getReadableAttempts() > this.config.getMaxRequeueTimes()) {
                         logger.warn("Message {} has reached max retry limitation: {}. it will be published to NSQ again for consume.", message, this.config.getMaxRequeueTimes());
-                        //TODO: set up temporary publish
                         Producer producer = null;
                         try {
-                            producer = compensationPublish(connection.getTopic(), message);
+                            compensationPublish(connection.getTopic(), message);
                             cmd = new Finish(message.getMessageID());
                         } catch (NSQException e) {
                             logger.error("Fail to publish compensation message for incoming message {}. Retry in next round.");
-                        } finally {
-                            if(null != producer)
-                                producer.close();
                         }
                     }else {
                         // ReQueue
@@ -732,12 +729,18 @@ public class ConsumerImplV2 implements Consumer {
             return null;
         }
         logger.info("Compensation publish to {}", topic);
-        Producer producer = new ProducerImplV2(this.config);
-        producer.start();
+        if(null == this.compensateProducer){
+            synchronized (this) {
+                if(null == this.compensateProducer){
+                    this.compensateProducer = new ProducerImplV2(this.config);
+                    this.compensateProducer.start();
+                }
+            }
+        }
         Message newMsg = Message.create(topic, msg.getTraceID(), msg.getReadableContent());
-        producer.publish(newMsg);
+        this.compensateProducer.publish(newMsg);
         logger.info("Compensation publish finished.");
-        return producer;
+        return this.compensateProducer;
     }
 
     @Override
@@ -773,6 +776,8 @@ public class ConsumerImplV2 implements Consumer {
                 Thread.currentThread().interrupt();
             }
             close(connections);
+            if(null != this.compensateProducer)
+                this.compensateProducer.close();
         }
         logger.info("The consumer has been closed.");
         LookupAddressUpdate.getInstance().closed();

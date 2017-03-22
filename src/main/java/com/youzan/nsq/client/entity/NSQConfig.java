@@ -11,6 +11,9 @@ import org.slf4j.LoggerFactory;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * It is used for Producer or Consumer, and not both two.
@@ -55,6 +58,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private boolean featureNegotiation;
     private boolean slowStart = true;
     private boolean userSpecifiedLookupd = false;
+    private Map<String, String> localTraceMap = new ConcurrentHashMap<>();
     /*-
      * =========================================================================
      *                             All of Timeout
@@ -147,6 +151,35 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         this();
         //and channel name
         setConsumerName(consumerName);
+    }
+
+    /**
+     * Turn on passin topic for Pub/Sub Trace. Local trace works when {@link com.youzan.nsq.client.configs.ConfigAccessAgent}
+     * running in local mode.
+     * @param topics topics whose trace to turn on.
+     */
+    public void turnOnLocalTrace(String... topics) {
+        for(String aTopic:topics)
+            this.localTraceMap.put(aTopic, "1");
+    }
+
+
+    /**
+     * Remove pass in topics from local topic trace mapping. Local trace works when {@link com.youzan.nsq.client.configs.ConfigAccessAgent}
+     * running in local mode.
+     * @param topics topic to remove from local trace map
+     */
+    public void turnOffLocalTrace(String... topics) {
+        for(String aTopic:topics)
+            this.localTraceMap.remove(aTopic);
+    }
+
+    /**
+     * get local trace mapping.
+     * @return local trace mapping.
+     */
+    public Map<String, String> getLocalTraceMap() {
+        return this.localTraceMap;
     }
 
     public boolean getUserSpecifiedLookupAddress() {
