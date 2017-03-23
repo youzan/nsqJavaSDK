@@ -158,9 +158,14 @@ public class ProducerTest extends AbstractNSQClientTestcase {
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testStartFailWNoLookupSource() throws NSQException {
-        NSQConfig invalidCnf = new NSQConfig();
-        Producer prod = new ProducerImplV2(invalidCnf);
-        prod.start();
+        try {
+            logger.info("[testStartFailWNoLookupSource] starts");
+            NSQConfig invalidCnf = new NSQConfig();
+            Producer prod = new ProducerImplV2(invalidCnf);
+            prod.start();
+        } finally {
+            logger.info("[testStartFailWNoLookupSource] ends");
+        }
     }
 
     @Test
