@@ -18,6 +18,16 @@ public final class IOUtil {
     public static final Charset ASCII = StandardCharsets.US_ASCII;
     public static final Charset UTF8 = StandardCharsets.UTF_8;
     public static final Charset DEFAULT_CHARSET = UTF8;
+    private volatile static int HTTP_IO_CONN_TIMEOUT = 5 * 1000;
+    private volatile static int HTTP_IO_READ_TIMEOUT = 10 * 1000;
+
+    public static void setHTTPConnectionTimeout(int newTimeout) {
+        HTTP_IO_CONN_TIMEOUT = newTimeout;
+    }
+
+    public static void setHTTPReadTimeout(int newTimeout) {
+        HTTP_IO_READ_TIMEOUT = newTimeout;
+    }
 
     public static void closeQuietly(Closeable... closeables) {
         for (Closeable closeable : closeables) {
@@ -55,8 +65,8 @@ public final class IOUtil {
     public static JsonNode readFromUrl(final URL url) throws IOException {
         logger.debug("Prepare to open HTTP Connection...");
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
-        con.setConnectTimeout(5 * 1000);
-        con.setReadTimeout(10 * 1000);
+        con.setConnectTimeout(HTTP_IO_CONN_TIMEOUT);
+        con.setReadTimeout(HTTP_IO_READ_TIMEOUT);
         //skip that, as GET is default operation
         //add request header, to support nsq of new version
         con.setRequestProperty("Accept", "application/vnd.nsq; version=1.0");
@@ -66,4 +76,6 @@ public final class IOUtil {
         //jackson handles InputStream close operation
         return SystemUtil.getObjectMapper().readTree(con.getInputStream());
     }
+
+
 }

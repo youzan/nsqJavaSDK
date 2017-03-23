@@ -117,7 +117,9 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /*-
      * ==========================configs agent for lookup discovery=================
      */
-    private Integer heartbeatIntervalInMillisecond = null;
+    //default heartbeat value, also the max value NSQd allow
+    private final Integer MAX_HEARTBEAT_INTERVAL_IN_MILLISEC = 60 * 1000;
+    private Integer heartbeatIntervalInMillisecond = MAX_HEARTBEAT_INTERVAL_IN_MILLISEC;
 
     private Integer outputBufferSize = null;
 
@@ -187,6 +189,9 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
+     * Note: Function is deprecated since 2.3.20170309-RELEASE, In succeed release, when NSQ seed lookupd address pass into
+     * {@link NSQConfig#setLookupAddresses(String)}, that means user specified lookupd address is set {@link Boolean#TRUE}
+     *
      * Switch on/off (default is OFF) config access agent to remote for NSQ Seed lookup discovery.
      * Once it is set to {@link Boolean#TRUE}, {@link NSQConfig#setLookupAddresses(String)} need to be invoked to pass
      * in seed lookup address.
@@ -195,16 +200,26 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      *      user specified lookup address.
      * @return current NSQConfig
      */
+    @Deprecated
     public NSQConfig setUserSpecifiedLookupAddress(boolean userLookupd) {
         this.userSpecifiedLookupd = userLookupd;
         return this;
     }
 
     /**
-     * Specified backup lookup address for user. By default, user specified lookup address is used when access to lookup
-     * info from remote config server is invalid at the very beginning. If access to lookup break down in the middle of
-     * nsq sdk process, cached lookup address takes precedence of backup lookup address.
-     * @param lookupAddresses the lookupAddresses to set
+     * Note: This function is changed since 2.3.20170309-RELEASE.
+     * Specify NSQ seed lookupd address for client which current NSQConfig applied to, and remote config access for global.
+     * if passin parameter is NSQ seed lookupd address, this function acts as what it does in SDK 2.2.
+     *
+     * In succeed release, current function accepts remote config access URLs for global seed lookupd address config. DCC
+     * remote config access URLs accepted in format as dcc://{host}:{port}?env={env}, example: dcc://127.0.0.1:8089?env=prod
+     *
+     * When function has DCC config access URLs passed in, it configures global config access. That means one can use any
+     * NSQConfig object to configure global config access. If function has seed lookupd address passed in, that only applies
+     * to client(producer&consumer) which has current NSQConfig applied. If one client has seed lookupd address URLs configured
+     * global config access URLs will be override.
+     *
+     * @param lookupAddresses the lookupAddresses to set for producer&consumer, and remote config access URL(DCC) for global.
      * @throws IllegalArgumentException exception raised when lookup address and config access URLs are mixed.
      */
     public NSQConfig setLookupAddresses(final String lookupAddresses) {
@@ -249,7 +264,8 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
         if(lookupaddress) {
             this.lookupAddresses = newLookupAddresses;
-            this.setUserSpecifiedLookupAddress(true);
+            this.userSpecifiedLookupd = true;
+            logger.info("Setup seed lookupd address URLs with: {}", newLookupAddresses);
         } else {
             //replace static config access URLs with new one.
             configAccessURLs = newLookupAddressesParsed;
@@ -401,18 +417,17 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * @return the heartbeatIntervalInMillisecond
      */
     public Integer getHeartbeatIntervalInMillisecond() {
-        final int max = 50 * 1000;
-        if (heartbeatIntervalInMillisecond == null) {
-            return Math.min(Integer.valueOf(getMsgTimeoutInMillisecond() / 3), max);
-        }
-        return Math.min(heartbeatIntervalInMillisecond, max);
+        return heartbeatIntervalInMillisecond;
     }
 
     /**
-     * @param heartbeatIntervalInMillisecond the heartbeatIntervalInMillisecond to set
+     * @param heartbeatIntervalInMillisecond the heartbeatIntervalInMillisecond to set,
+     *                                       which could not exceed max value allowed in NSQd, which is 60000 milliSec.
      * @return {@link NSQConfig}
      */
     public NSQConfig setHeartbeatIntervalInMillisecond(Integer heartbeatIntervalInMillisecond) {
+        if(heartbeatIntervalInMillisecond > MAX_HEARTBEAT_INTERVAL_IN_MILLISEC)
+            throw new IllegalArgumentException("heartbeat could not exceed max value " + MAX_HEARTBEAT_INTERVAL_IN_MILLISEC);
         this.heartbeatIntervalInMillisecond = heartbeatIntervalInMillisecond;
         return this;
     }
