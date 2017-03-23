@@ -175,6 +175,23 @@ public class ProducerTest extends AbstractNSQClientTestcase {
         }
     }
 
+    /**
+     * what if there is a dummy lookup source
+     */
+    @Test(expectedExceptions = Exception.class)
+    public void testLookupSourceIsDeceived() throws NSQException {
+        NSQConfig cnf = new NSQConfig();
+        String dummyDCCURL = "dcc://123.123.123.123:8089?env=dummy";
+        cnf.setLookupAddresses(dummyDCCURL);
+        Producer prod = new ProducerImplV2(cnf);
+        try {
+            prod.start();
+            prod.publish(Message.create(new Topic("aTopic"), "should not be sent."));
+        }finally {
+            prod.close();
+        }
+    }
+
 //    @Test
 //    public void testMultiProducer() throws NSQException, InterruptedException {
 //        int producerNum = 3;
