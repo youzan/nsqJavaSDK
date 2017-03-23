@@ -188,6 +188,8 @@ public class ProducerImplV2 implements Producer {
             if (conn == null) {
                 continue;
             }
+            //flag indicate if connection should be returned
+            boolean returnConn = true;
             try {
                 final NSQFrame frame = conn.commandAndGetResponse(pub);
                 handleResponse(topic, frame, conn);
@@ -195,6 +197,7 @@ public class ProducerImplV2 implements Producer {
                 return; // OK
             } catch (Exception e) {
                 IOUtil.closeQuietly(conn);
+                returnConn = false;
                 if (c < maxRetries) {
                     logger.warn("MaxRetries: {}, CurrentRetries: {}, Address: {},  Topic: {}", maxRetries, c,
                             conn.getAddress(), topic);
@@ -204,18 +207,21 @@ public class ProducerImplV2 implements Producer {
                     throw new NSQDataNodesDownException(e);
                 }
             } finally {
-                bigPool.returnObject(conn.getAddress(), conn);
+                if(returnConn)
+                    bigPool.returnObject(conn.getAddress(), conn);
+                else {
+                    try {
+                        bigPool.invalidateObject(conn.getAddress(), conn);
+                    } catch (Exception e) {
+                        logger.error("Fail to invalidate closed connection {}.", conn);
+                    }
+                }
             }
         } // end loop
         if (c >= maxRetries) {
             throw new NSQDataNodesDownException(new NSQNoConnectionException("The topic is " + topic));
         }
     }
-
-//        final List<List<byte[]>> batches = Lists.partition(messages, 30);
-//        for (List<byte[]> batch : batches) {
-//            publishSmallBatch(batch);
-//        }
 
     private void handleResponse(String topic, NSQFrame frame, NSQConnection conn) throws NSQException {
         if (frame == null) {

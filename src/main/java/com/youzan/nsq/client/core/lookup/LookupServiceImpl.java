@@ -149,7 +149,7 @@ public class LookupServiceImpl implements LookupService {
                     this.seedLookupds.size(), url);
             final JsonNode rootNode;
             JsonNode tmpRootNode = null;
-            URL lookupUrl = null;
+            URL lookupUrl;
             try {
                 lookupUrl = new URL(url);
                 tmpRootNode = readFromUrl(lookupUrl);
