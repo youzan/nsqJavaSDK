@@ -299,7 +299,7 @@ public class ProducerImplV2 implements Producer {
      * @return Pub command
      */
     private Pub createPubCmd(final Message msg) throws NSQPubFactoryInitializeException {
-       return PubCmdFactory.getInstance().create(msg, this.config);
+       return PubCmdFactory.getInstance(this.config.getUserSpecifiedLookupAddress()).create(msg, this.config);
     }
 
     private void handleResponse(final Topic topic, NSQFrame frame, NSQConnection conn) throws NSQException {

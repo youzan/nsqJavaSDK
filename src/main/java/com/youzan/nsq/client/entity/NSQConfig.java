@@ -271,6 +271,8 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
             configAccessURLs = newLookupAddressesParsed;
             configAccessEnv = conversalEnv;
             logger.info("Setup config access URLs with: {}, env: {}", newLookupAddresses, conversalEnv);
+            if(this.userSpecifiedLookupd == true)
+                logger.info("NSQ lookupd address discovery for Consumer&Producer has current NSQConfig applied is still running under local mode.");
         }
         return this;
     }

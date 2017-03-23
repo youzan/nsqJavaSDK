@@ -2,6 +2,10 @@ package com.youzan.nsq.client.configs;
 
 import com.youzan.nsq.client.PubCmdFactory;
 import com.youzan.nsq.client.core.LookupAddressUpdate;
+import com.youzan.nsq.client.core.command.Pub;
+import com.youzan.nsq.client.core.command.PubTrace;
+import com.youzan.nsq.client.entity.Message;
+import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.Role;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.ConfigAccessAgentException;
@@ -229,7 +233,7 @@ public class ConfigAccessAgentTestcase {
     public void testGetConfigKeysFromPubCmdFactory() throws NSQPubFactoryInitializeException {
         try {
             logger.info("[testGetConfigKeysFromPubCmdFactory] starts.");
-            PubCmdFactory pubFactory = PubCmdFactory.getInstance();
+            PubCmdFactory pubFactory = PubCmdFactory.getInstance(true);
             String pubFactoryDomain = new DCCTraceConfigAccessDomain().toDomain();
             Assert.assertEquals(pubFactoryDomain, props.getProperty("nsq.app.val"));
             String aPubFactoryKey = new DCCTraceConfigAccessKey().toKey();
@@ -240,30 +244,38 @@ public class ConfigAccessAgentTestcase {
         }
     }
 
-//    @Test
-//    public void testConfigs() throws ConfigAccessAgentException {
-//        //property of environment
-//        //system properties, "nsq.sdk.env" for sdk environment
-//        //使用系统变量重载sdk环境变量
-//        String sysEnv = "nsq.sdk.env";
-//        System.setProperty(sysEnv, "qaTest");
-//
-//        //system properties, "nsq.sdk.configFilePath" for sdk config file path
-//        //使用系统变量重载sdk 配置文件路径
-//        String systemConfigFile = "./configFilePath/some/place/configFilePath.properties";
-//        System.setProperty("nsq.sdk.configFilePath", systemConfigFile);
-//
-//        //override predefined properties in config file path
-//        //使用接口重载sdk环境变量,优先级最高
-//        ConfigAccessAgent.setEnv("qa");
-//        ConfigAccessAgent.setConfigAccessRemotes("http://dcc.test.com");
-//        ConfigAccessAgent.setConfigAccessAgentBackupPath("./dcc.backup");
-//
-//        //do your business with nsq client and nsq config
-//        ConfigAccessAgent agent = ConfigAccessAgent.getInstance();
-//        System.clearProperty("nsq.sdk.configFilePath");
-//        System.clearProperty("nsq.sdk.env");
-//    }
+    @Test
+    public void testPubCmdFactoryInLocalThenConnectRemote() throws NSQPubFactoryInitializeException, ConfigAccessAgentException {
+        try{
+            logger.info("[testPubCmdFactoryInLocalThenConnectRemote] starts.");
+            ConfigAccessAgent.getInstance();
+            //set up test config access agent
+            final SortedMap<String, String> valueMap = new TreeMap<>();
+            valueMap.put("JavaTesting-Trace1", "1");
+            DCCTraceConfigAccessKey KEY = new DCCTraceConfigAccessKey();
+            DCCTraceConfigAccessDomain DOMAIN = new DCCTraceConfigAccessDomain();
+            TestConfigAccessAgent.updateValue(DOMAIN, new AbstractConfigAccessKey[]{KEY}, valueMap, true);
+
+            //create a pubcmd factory in "local mode"
+            NSQConfig config = new NSQConfig();
+            config.setLookupAddresses("dummy-lookupd-address");
+            config.turnOnLocalTrace("JavaTesting-Trace2");
+            PubCmdFactory pubFactory = PubCmdFactory.getInstance(false);
+            Pub pubCmd =  pubFactory.create(Message.create(new Topic("JavaTesting-Trace2"), "msg"), config);
+            Assert.assertTrue(pubCmd instanceof PubTrace);
+
+            PubCmdFactory pubFactorySame = PubCmdFactory.getInstance(true);
+            Assert.assertTrue(pubFactorySame == pubFactory);
+
+            config = new NSQConfig();
+            //dummy dcc url, but valid in format
+            config.setLookupAddresses("dcc://localhost:8089?env=qa");
+            pubCmd =  pubFactory.create(Message.create(new Topic("JavaTesting-Trace1"), "msg"), config);
+            Assert.assertTrue(pubCmd instanceof PubTrace);
+        }finally {
+            logger.info("[testPubCmdFactoryInLocalThenConnectRemote] ends.");
+        }
+    }
 
     @AfterMethod
     public void release() throws InvocationTargetException, IllegalAccessException, NoSuchMethodException {

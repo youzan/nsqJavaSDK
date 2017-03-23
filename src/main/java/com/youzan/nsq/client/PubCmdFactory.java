@@ -29,6 +29,7 @@ public class PubCmdFactory implements IConfigAccessSubscriber{
     //topic trace map, for example: JavaTesting-Producer-Base -> 1, means trace is on for topic "JavaTesting-Producer-Base"
     private volatile Map<String, String> topicTrace = new TreeMap<>();
     private ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+    private static volatile boolean accessRemote = false;
 
     private final ConfigAccessAgent.IConfigAccessCallback topicTraceUpdateHandler = new ConfigAccessAgent.IConfigAccessCallback() {
         @Override
@@ -56,30 +57,45 @@ public class PubCmdFactory implements IConfigAccessSubscriber{
         }
     };
 
-    private static Object LOCK = new Object();
+    private static ReentrantReadWriteLock LOCK = new ReentrantReadWriteLock();
     private static PubCmdFactory _INSTANCE = null;
 
-    private PubCmdFactory(){}
-
-    public static PubCmdFactory getInstance() throws NSQPubFactoryInitializeException {
+    public static PubCmdFactory getInstance(boolean accessRemote) throws NSQPubFactoryInitializeException {
         if(null ==_INSTANCE){
-            synchronized(LOCK){
+            try{
+                LOCK.writeLock().lock();
                 if(null == _INSTANCE){
-                    try {
-                        ConfigAccessAgent caa = ConfigAccessAgent.getInstance();
-                        _INSTANCE = new PubCmdFactory();
-                        if(caa.isConnected()) {
-                            _INSTANCE.subscribe(caa, DOMAIN, new AbstractConfigAccessKey[]{KEY}, _INSTANCE.getCallback());
-                            logger.info("TraceLogger subscribes to {}", caa);
-                        }else logger.info("TraceLogger is running in local mode.");
-                    }catch(ConfigAccessAgentException e){
-                        _INSTANCE = null;
-                        throw new NSQPubFactoryInitializeException("Fail to subscribe PubCmdFactory to ConfigAccessAgent.");
-                    }
+                    _INSTANCE = new PubCmdFactory();
                 }
+            }finally {
+                LOCK.writeLock().unlock();
             }
         }
+
+        if(accessRemote && !PubCmdFactory.accessRemote) {
+            try {
+                LOCK.writeLock().lock();
+                if(!PubCmdFactory.accessRemote) {
+                    trySubscribe();
+                }
+            }finally {
+                LOCK.writeLock().unlock();
+            }
+        }
+
         return _INSTANCE;
+    }
+
+    private static void trySubscribe() throws NSQPubFactoryInitializeException {
+        try {
+            ConfigAccessAgent caa = ConfigAccessAgent.getInstance();
+            _INSTANCE.subscribe(caa, DOMAIN, new AbstractConfigAccessKey[]{KEY}, _INSTANCE.getCallback());
+            logger.info("TraceLogger subscribes to {}", caa);
+            PubCmdFactory.accessRemote = true;
+        }catch(ConfigAccessAgentException e){
+            _INSTANCE = null;
+            throw new NSQPubFactoryInitializeException("Fail to subscribe PubCmdFactory to ConfigAccessAgent.");
+        }
     }
 
     /**
@@ -105,15 +121,7 @@ public class PubCmdFactory implements IConfigAccessSubscriber{
     private boolean isTracedMessage(final NSQConfig config, final Message msg) {
         String flag;
         Topic topic = msg.getTopic();
-        ConfigAccessAgent caa;
-        try {
-            caa = ConfigAccessAgent.getInstance();
-        } catch(ConfigAccessAgentException e) {
-            logger.error("Error fetching config access.", e);
-            return false;
-        }
-
-        if(caa.isConnected()) {
+        if(config.getUserSpecifiedLookupAddress()) {
             flag = config.getLocalTraceMap().get(topic.getTopicText());
         } else {
             try {
