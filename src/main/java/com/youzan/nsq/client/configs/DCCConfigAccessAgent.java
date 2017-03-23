@@ -100,8 +100,10 @@ public class DCCConfigAccessAgent extends ConfigAccessAgent {
 
     @Override
     public SortedMap<String, String> handleSubscribe(AbstractConfigAccessDomain domain, AbstractConfigAccessKey[] keys, final IConfigAccessCallback callback) {
-        if(!isConnected())
-            logger.warn("DCCConfigAccessAgent is not connected. Subscribe returns.");
+        if(!isConnected()) {
+            logger.warn("DCCConfigAccessAgent is not connected. Subscribe returns null.");
+            return null;
+        }
 
         if (keys.length > 1)
             throw new IllegalArgumentException("DCCConfigAccessAgent does not accept more than one key(consumer or producer).");

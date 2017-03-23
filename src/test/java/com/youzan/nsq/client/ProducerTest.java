@@ -156,6 +156,25 @@ public class ProducerTest extends AbstractNSQClientTestcase {
         }
     }
 
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testStartFailWNoLookupSource() throws NSQException {
+        NSQConfig invalidCnf = new NSQConfig();
+        Producer prod = new ProducerImplV2(invalidCnf);
+        prod.start();
+    }
+
+    @Test
+    public void testStartWDCCLookupSource() throws NSQException {
+        NSQConfig cnf = new NSQConfig();
+        cnf.setLookupAddresses(props.getProperty("dcc-lookup"));
+        Producer prod = new ProducerImplV2(cnf);
+        try {
+            prod.start();
+        }finally {
+            prod.close();
+        }
+    }
+
 //    @Test
 //    public void testMultiProducer() throws NSQException, InterruptedException {
 //        int producerNum = 3;
@@ -208,37 +227,4 @@ public class ProducerTest extends AbstractNSQClientTestcase {
         }
     }
 
-//    @Test
-//    public void testCreateChannel4binlog() throws IOException {
-//        //1. fetch topic from admin
-//        URL topicURL = new URL("http://sqs-qa.s.qima-inc.com:4171/api/topics");
-//        JsonNode node = IOUtil.readFromUrl(topicURL);
-//        JsonNode topicNodes = node.get("topics");
-//        List<String> binlog_topics = new ArrayList<>();
-//        for(JsonNode topicName : topicNodes){
-//            String topicNameStr = topicName.asText();
-//            if(topicNameStr.startsWith("binlog_")) {
-//                binlog_topics.add(topicNameStr);
-//            }
-//        }
-//
-//        //2. create channel
-//        String channelName = "default";
-//        String channelURlStr = "http://sqs-qa.s.qima-inc.com:4171/api/topics/%s/%s";
-//        for(String aBinlogTopic : binlog_topics){
-//            String topicChannelURLStr = String.format(channelURlStr, aBinlogTopic, channelName);
-//            URL channelUrl = new URL(topicChannelURLStr);
-//
-//            HttpURLConnection con = (HttpURLConnection) channelUrl.openConnection();
-//            con.setRequestMethod("POST");
-//            con.setRequestProperty("Accept", "application/vnd.nsq; version=1.0");
-//            con.setDoOutput(true);
-//            con.setConnectTimeout(5 * 1000);
-//            con.setReadTimeout(10 * 1000);
-//
-//            con.getOutputStream().write("{\"action\":\"create\"}".getBytes());
-//            InputStream inStream=con.getInputStream();
-//            inStream.close();
-//        }
-//    }
 }

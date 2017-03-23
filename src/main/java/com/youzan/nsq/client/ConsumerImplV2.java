@@ -145,6 +145,24 @@ public class ConsumerImplV2 implements Consumer {
         }
     }
 
+    private boolean validateLookupdSource() {
+        if(this.config.getUserSpecifiedLookupAddress()) {
+            String[] lookupdAddresses = this.config.getLookupAddresses();
+            if(null == lookupdAddresses || lookupdAddresses.length == 0) {
+                logger.error("Seed lookupd addresses is not specified in NSQConfig. Seed lookupd addresses: {}", lookupdAddresses);
+                return false;
+            }
+        } else {
+            String[] configRemoteURLS = NSQConfig.getConfigAccessURLs();
+            String configRemoteEnv = NSQConfig.getConfigAccessEnv();
+            if(null == configRemoteURLS || configRemoteURLS.length == 0 || null == configRemoteEnv) {
+                logger.error("Config remote URLs or env is not specified in NSQConfig. URLs: {}, env: {}", configRemoteURLS, configRemoteEnv);
+                return false;
+            }
+        }
+        return true;
+    }
+
     @Override
     public void start() throws NSQException {
         if (this.config.getConsumerName() == null || this.config.getConsumerName().isEmpty()) {
@@ -158,6 +176,10 @@ public class ConsumerImplV2 implements Consumer {
                 //set subscribe status
                 // create the pools
                 //simple client starts and LookupAddressUpdate instance initialized there.
+                //validate that consumer have right lookup address source
+                if(!validateLookupdSource()) {
+                    throw new IllegalArgumentException("Consumer could not start with invalid lookupd address sources.");
+                }
                 this.simpleClient.start();
                 if(this.config.getUserSpecifiedLookupAddress()) {
                     LookupAddressUpdate.getInstance().setUpDefaultSeedLookupConfig(this.simpleClient.getLookupLocalID(), this.config.getLookupAddresses());
@@ -760,27 +782,31 @@ public class ConsumerImplV2 implements Consumer {
         // Application will close the worker executor of the consumer
         // Application will all of the TCP-Connections
         // ===================================================================
-        synchronized (lock) {
-            started = false;
-            closing = true;
-            final Set<NSQConnection> connections = cleanClose();
-            IOUtil.closeQuietly(simpleClient);
-            scheduler.shutdownNow();
-            executor.shutdown();
-            try {
-                if (!executor.awaitTermination(10, TimeUnit.SECONDS)) {
-                    logger.warn("Client handles a message over 10 sec.");
-                    executor.shutdownNow();
+        if(this.started) {
+            synchronized (lock) {
+                if(!this.started)
+                    return;
+                started = false;
+                closing = true;
+                final Set<NSQConnection> connections = cleanClose();
+                IOUtil.closeQuietly(simpleClient);
+                scheduler.shutdownNow();
+                executor.shutdown();
+                try {
+                    if (!executor.awaitTermination(10, TimeUnit.SECONDS)) {
+                        logger.warn("Client handles a message over 10 sec.");
+                        executor.shutdownNow();
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                 }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+                close(connections);
+                if (null != this.compensateProducer)
+                    this.compensateProducer.close();
+                logger.info("The consumer has been closed.");
+                LookupAddressUpdate.getInstance().closed();
             }
-            close(connections);
-            if(null != this.compensateProducer)
-                this.compensateProducer.close();
         }
-        logger.info("The consumer has been closed.");
-        LookupAddressUpdate.getInstance().closed();
     }
 
 

@@ -39,6 +39,7 @@ public class ProducerImplV2 implements Producer {
     private static final Logger PERF_LOG = LoggerFactory.getLogger(ProducerImplV2.class.getName() + ".perf");
 
     private static final int MAX_PUBLISH_RETRY = 6;
+    private final Object lock = new Object();
 
     private static final int MAX_MSG_OUTPUT_LEN = 100;
     private volatile boolean started = false;
@@ -66,60 +67,86 @@ public class ProducerImplV2 implements Producer {
         this.factory = new KeyedPooledConnectionFactory(this.config, this);
     }
 
+    private boolean validateLookupdSource() {
+        if(this.config.getUserSpecifiedLookupAddress()) {
+            String[] lookupdAddresses = this.config.getLookupAddresses();
+            if(null == lookupdAddresses || lookupdAddresses.length == 0) {
+                logger.error("Seed lookupd addresses is not specified in NSQConfig. Seed lookupd addresses: {}", lookupdAddresses);
+                return false;
+            }
+        } else {
+            String[] configRemoteURLS = NSQConfig.getConfigAccessURLs();
+            String configRemoteEnv = NSQConfig.getConfigAccessEnv();
+            if(null == configRemoteURLS || configRemoteURLS.length == 0 || null == configRemoteEnv) {
+                logger.error("Config remote URLs or env is not specified in NSQConfig. URLs: {}, env: {}", configRemoteURLS, configRemoteEnv);
+                return false;
+            }
+        }
+        return true;
+    }
+
     @Override
     public void start() throws NSQException {
         if (!this.started) {
-            this.started = true;
-            // setting all of the configs
-            this.offset = _r.nextInt(100);
-            this.poolConfig.setLifo(true);
-            this.poolConfig.setFairness(false);
-            this.poolConfig.setTestOnBorrow(false);
-            this.poolConfig.setTestOnReturn(false);
-            this.poolConfig.setTestWhileIdle(true);
-            this.poolConfig.setJmxEnabled(true);
-            this.poolConfig.setMinEvictableIdleTimeMillis(5 * 60 * 1000);
-            this.poolConfig.setSoftMinEvictableIdleTimeMillis(5 * 60 * 1000);
-            //1 * 60 * 1000
-            this.poolConfig.setTimeBetweenEvictionRunsMillis(60 * 1000);
-            this.poolConfig.setMinIdlePerKey(1);
-            this.poolConfig.setMaxIdlePerKey(this.config.getConnectionSize());
-            this.poolConfig.setMaxTotalPerKey(this.config.getConnectionSize());
-            // acquire connection waiting time
-            this.poolConfig.setMaxWaitMillis(this.config.getQueryTimeoutInMillisecond());
-            this.poolConfig.setBlockWhenExhausted(false);
-            // new instance without performing to connect
-            this.bigPool = new GenericKeyedObjectPool<>(this.factory, this.poolConfig);
-            //simple client starts and LookupAddressUpdate instance initialized there.
-            this.simpleClient.start();
-            if(this.config.getUserSpecifiedLookupAddress()) {
-                LookupAddressUpdate.getInstance().setUpDefaultSeedLookupConfig(this.simpleClient.getLookupLocalID(), this.config.getLookupAddresses());
-            }
-            scheduler.scheduleAtFixedRate(new Runnable() {
-                @Override
-                public void run() {
-                    // We make a decision that the resources life time should be less than 2 hours
-                    // Normal max lifetime is 1 hour
-                    // Extreme max lifetime is 1.5 hours
-                    final long allow = System.currentTimeMillis() - 3600 * 1000L;
-                    final Set<Topic> expiredTopics = new HashSet<>();
-                    for (Map.Entry<Topic, Long> pair : topic_2_lastActiveTime.entrySet()) {
-                        if (pair.getValue() < allow) {
-                            expiredTopics.add(pair.getKey());
-                        }
-                    }
-                    for (Topic topic : expiredTopics) {
-                        topic_2_lastActiveTime.remove(topic);
-                        try {
-                            simpleClient.removeTopic(topic);
-                        } catch (Exception e) {
-                            logger.error("Exception", e);
-                        }
-                    }
-                    expiredTopics.clear();
-                    logger.info("Publish. Total: {} , Success: {} . Two values do not use a lock action.", total.get(), success.get());
+            synchronized (lock) {
+                if(this.started)
+                    return;
+                if (!validateLookupdSource()) {
+                    throw new IllegalArgumentException("Producer could not start with invalid lookupd address sources.");
                 }
-            }, 30, 30, TimeUnit.MINUTES);
+
+                this.started = true;
+                // setting all of the configs
+                this.offset = _r.nextInt(100);
+                this.poolConfig.setLifo(true);
+                this.poolConfig.setFairness(false);
+                this.poolConfig.setTestOnBorrow(false);
+                this.poolConfig.setTestOnReturn(false);
+                this.poolConfig.setTestWhileIdle(true);
+                this.poolConfig.setJmxEnabled(true);
+                this.poolConfig.setMinEvictableIdleTimeMillis(5 * 60 * 1000);
+                this.poolConfig.setSoftMinEvictableIdleTimeMillis(5 * 60 * 1000);
+                //1 * 60 * 1000
+                this.poolConfig.setTimeBetweenEvictionRunsMillis(60 * 1000);
+                this.poolConfig.setMinIdlePerKey(1);
+                this.poolConfig.setMaxIdlePerKey(this.config.getConnectionSize());
+                this.poolConfig.setMaxTotalPerKey(this.config.getConnectionSize());
+                // acquire connection waiting time
+                this.poolConfig.setMaxWaitMillis(this.config.getQueryTimeoutInMillisecond());
+                this.poolConfig.setBlockWhenExhausted(false);
+                // new instance without performing to connect
+                this.bigPool = new GenericKeyedObjectPool<>(this.factory, this.poolConfig);
+                //simple client starts and LookupAddressUpdate instance initialized there.
+                this.simpleClient.start();
+                if (this.config.getUserSpecifiedLookupAddress()) {
+                    LookupAddressUpdate.getInstance().setUpDefaultSeedLookupConfig(this.simpleClient.getLookupLocalID(), this.config.getLookupAddresses());
+                }
+                scheduler.scheduleAtFixedRate(new Runnable() {
+                    @Override
+                    public void run() {
+                        // We make a decision that the resources life time should be less than 2 hours
+                        // Normal max lifetime is 1 hour
+                        // Extreme max lifetime is 1.5 hours
+                        final long allow = System.currentTimeMillis() - 3600 * 1000L;
+                        final Set<Topic> expiredTopics = new HashSet<>();
+                        for (Map.Entry<Topic, Long> pair : topic_2_lastActiveTime.entrySet()) {
+                            if (pair.getValue() < allow) {
+                                expiredTopics.add(pair.getKey());
+                            }
+                        }
+                        for (Topic topic : expiredTopics) {
+                            topic_2_lastActiveTime.remove(topic);
+                            try {
+                                simpleClient.removeTopic(topic);
+                            } catch (Exception e) {
+                                logger.error("Exception", e);
+                            }
+                        }
+                        expiredTopics.clear();
+                        logger.info("Publish. Total: {} , Success: {} . Two values do not use a lock action.", total.get(), success.get());
+                    }
+                }, 30, 30, TimeUnit.MINUTES);
+            }
         }
         logger.info("The producer has been started.");
     }
@@ -369,16 +396,22 @@ public class ProducerImplV2 implements Producer {
 
     @Override
     public void close() {
-        IOUtil.closeQuietly(simpleClient);
-        if (factory != null) {
-            factory.close();
+        if(this.started) {
+            synchronized (lock) {
+                if(!this.started)
+                    return;
+                IOUtil.closeQuietly(simpleClient);
+                if (factory != null) {
+                    factory.close();
+                }
+                if (bigPool != null) {
+                    bigPool.close();
+                }
+                scheduler.shutdownNow();
+                logger.info("The producer has been closed.");
+                LookupAddressUpdate.getInstance().closed();
+            }
         }
-        if (bigPool != null) {
-            bigPool.close();
-        }
-        scheduler.shutdownNow();
-        logger.info("The producer has been closed.");
-        LookupAddressUpdate.getInstance().closed();
     }
 
     public void close(NSQConnection conn) {
