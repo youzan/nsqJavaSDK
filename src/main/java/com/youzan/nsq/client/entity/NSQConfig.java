@@ -738,6 +738,12 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         return buffer.toString();
     }
 
+    public static void resetConfigAccessConfigs() {
+        NSQConfig.configAccessEnv = null;
+        NSQConfig.configAccessURLs = null;
+        logger.info("Global config access configs cleared.");
+    }
+
     @Override
     public Object clone() {
         NSQConfig newCfg = null;

@@ -194,6 +194,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
             prod.publish(Message.create(new Topic("aTopic"), "should not be sent."));
         }finally {
             prod.close();
+            NSQConfig.resetConfigAccessConfigs();
         }
     }
 
