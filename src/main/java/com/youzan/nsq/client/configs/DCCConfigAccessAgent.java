@@ -197,6 +197,8 @@ public class DCCConfigAccessAgent extends ConfigAccessAgent {
         }
         assert null != backupPath;
         logger.info("configs backup path: {}", backupPath);
+        //write back to config access API
+        ConfigAccessAgent.setConfigAccessAgentBackupPath(backupPath);
 
         //1.3 nsq sdk env, which is also the env of nsq sdk
         env = props.getProperty(NSQ_DCCCONFIG_ENV);
@@ -217,6 +219,8 @@ public class DCCConfigAccessAgent extends ConfigAccessAgent {
             logger.info("Initialize config access Env with NSQConfig setting value {}.", configEnv);
             env = configEnv;
         }
+        //write back to config access API
+        ConfigAccessAgent.setEnv(env);
 
         urls = ConfigAccessAgent.getConfigAccessRemotes();
         //1.4 config server urls, initialized based on sdk env
@@ -235,5 +239,7 @@ public class DCCConfigAccessAgent extends ConfigAccessAgent {
             logger.info("Initialize config access remote URLs with NSQConfig setting value {}.", configUrls);
             urls = configUrls;
         }
+        //write back to config access API
+        ConfigAccessAgent.setConfigAccessRemotes(urls);
     }
 }

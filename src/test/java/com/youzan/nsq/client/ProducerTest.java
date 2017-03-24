@@ -1,5 +1,6 @@
 package com.youzan.nsq.client;
 
+import com.youzan.nsq.client.configs.ConfigAccessAgent;
 import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
@@ -170,13 +171,18 @@ public class ProducerTest extends AbstractNSQClientTestcase {
 
     @Test
     public void testStartWDCCLookupSource() throws NSQException {
-        NSQConfig cnf = new NSQConfig();
-        cnf.setLookupAddresses(props.getProperty("dcc-lookup"));
-        Producer prod = new ProducerImplV2(cnf);
         try {
-            prod.start();
-        }finally {
-            prod.close();
+            System.clearProperty("nsq.sdk.configFilePath");
+            NSQConfig cnf = new NSQConfig();
+            cnf.setLookupAddresses(props.getProperty("dcc-lookup"));
+            Producer prod = new ProducerImplV2(cnf);
+            try {
+                prod.start();
+            } finally {
+                prod.close();
+            }
+        }finally{
+            System.setProperty("nsq.sdk.configFilePath", "src/test/resources/configClientTest.properties");
         }
     }
 

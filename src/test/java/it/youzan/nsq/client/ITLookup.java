@@ -111,8 +111,8 @@ public class ITLookup extends EasyMockSupport {
         replayAll();
 
 
-        NSQConfig configPro = new NSQConfig("sqs-qa.s.qima-inc.com:4161");
-        configPro.setUserSpecifiedLookupAddress(true);
+        NSQConfig configPro = new NSQConfig();
+        configPro.setLookupAddresses("sqs-qa.s.qima-inc.com:4161");
         Producer producer = new ProducerImplV2(configPro);
         producer.start();
         for(int i = 0; i < 10; i++){
@@ -124,7 +124,6 @@ public class ITLookup extends EasyMockSupport {
         final CountDownLatch latch = new CountDownLatch(10);
         NSQConfig config = new NSQConfig("BaseConsumer");
         config.setLookupAddresses("sqs-qa.s.qima-inc.com:4161");
-        config.setUserSpecifiedLookupAddress(true);
         Consumer consumer = new ConsumerImplV2(config, new MessageHandler() {
             @Override
             public void process(NSQMessage message) {

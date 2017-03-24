@@ -1,5 +1,6 @@
 package com.youzan.nsq.client;
 
+import com.youzan.nsq.client.configs.ConfigAccessAgent;
 import com.youzan.nsq.client.core.LookupAddressUpdate;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.NSQSimpleClient;
@@ -75,8 +76,14 @@ public class ProducerImplV2 implements Producer {
                 return false;
             }
         } else {
-            String[] configRemoteURLS = NSQConfig.getConfigAccessURLs();
-            String configRemoteEnv = NSQConfig.getConfigAccessEnv();
+            try {
+                ConfigAccessAgent.getInstance();
+            } catch (ConfigAccessAgentException e) {
+                logger.error("ConfigAccessAgent fail to initialize.");
+                return false;
+            }
+            String[] configRemoteURLS = ConfigAccessAgent.getConfigAccessRemotes();
+            String configRemoteEnv = ConfigAccessAgent.getEnv();
             if(null == configRemoteURLS || configRemoteURLS.length == 0 || null == configRemoteEnv) {
                 logger.error("Config remote URLs or env is not specified in NSQConfig. URLs: {}, env: {}", configRemoteURLS, configRemoteEnv);
                 return false;

@@ -29,11 +29,11 @@ public abstract class ConfigAccessAgent implements Closeable {
 
     private static Class<? extends ConfigAccessAgent> CAA_CLAZZ;
     private static String env;
-    private static String configAccessRemotes;
+    private static String[] configAccessRemotes;
     private static String backupFilePath;
     //config access agent properties
     protected static Properties props = null;
-    private volatile boolean connected = false;
+    private volatile boolean connected = true;
 
     //configs config file path for nsq sdk
     private static final String NSQDCCCONFIGPRO = "nsq.sdk.configFilePath";
@@ -46,6 +46,9 @@ public abstract class ConfigAccessAgent implements Closeable {
     private static final String dccConfigFile = "configClient.properties";
 
     public static void setConfigAccessAgentBackupPath(String path) {
+        if(null != ConfigAccessAgent.backupFilePath){
+            logger.info("Override backupPath {} to {}", ConfigAccessAgent.backupFilePath, path);
+        }
         ConfigAccessAgent.backupFilePath = path;
     }
 
@@ -58,6 +61,9 @@ public abstract class ConfigAccessAgent implements Closeable {
      * @param env environment value of config access remote, which config access agent talks to.
      */
     public static void setEnv(String env){
+        if(null != ConfigAccessAgent.env) {
+            logger.info("Override env {} to {}", ConfigAccessAgent.env, env);
+        }
         ConfigAccessAgent.env = env;
     }
 
@@ -87,7 +93,7 @@ public abstract class ConfigAccessAgent implements Closeable {
                         INSTANCE.kickoff();
                     } catch (Exception e) {
                         logger.error("Fail to start config access agent {}. ", CAA_CLAZZ);
-                        throw new RuntimeException(e);
+                        throw new ConfigAccessAgentInitializeException("Fail to initialize ConfigAccessAgent: " + CAA_CLAZZ);
                     }
                 }
             }
@@ -111,13 +117,24 @@ public abstract class ConfigAccessAgent implements Closeable {
      * @param configAccessRemotes config access remotes, separated by comma.
      */
     public static void setConfigAccessRemotes(String configAccessRemotes){
-        ConfigAccessAgent.configAccessRemotes = configAccessRemotes;
+        if(null != configAccessRemotes) {
+            String[] newConfigAccessRemotes = configAccessRemotes.split(",");
+            if(null != ConfigAccessAgent.configAccessRemotes)
+                logger.info("Override Config Access Remote URLs {} to {}", ConfigAccessAgent.configAccessRemotes, newConfigAccessRemotes);
+            ConfigAccessAgent.configAccessRemotes = newConfigAccessRemotes;
+        }
+    }
+
+    public static void setConfigAccessRemotes(String[] configAccessRemotes){
+        if(null != configAccessRemotes && configAccessRemotes.length > 0) {
+            if(null != ConfigAccessAgent.configAccessRemotes)
+                logger.info("Override Config Access Remote URLs {} to {}", ConfigAccessAgent.configAccessRemotes, configAccessRemotes);
+            ConfigAccessAgent.configAccessRemotes = configAccessRemotes;
+        }
     }
 
     public static String[] getConfigAccessRemotes() {
-        if(null != ConfigAccessAgent.configAccessRemotes)
-            return ConfigAccessAgent.configAccessRemotes.split(",");
-        return null;
+        return ConfigAccessAgent.configAccessRemotes;
     }
 
 //    /**
