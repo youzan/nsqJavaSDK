@@ -109,6 +109,12 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      */
     private int maxRequeueTimes = 30;
 
+    // 1 seconds
+    public static final int _MIN_NEXT_CONSUMING_IN_SECOND = 1;
+    // 180 days ?why 180
+    public static final int _MAX_NEXT_CONSUMING_IN_SECOND = 180 * 24 * 3600;
+    private int nextConsumingInSecond = 5;
+
     /*-
      *                             All of Timeout
      * =========================================================================
@@ -361,7 +367,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * Specify connection pool size for producer, or default value(10) applies.
+     * Specify connection pool size for producer, or default value(30) applies.
      * @param connectionPoolSize
      *      connection pool size for producer connection pool.
      * @return current NSQConfig
@@ -742,6 +748,34 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         NSQConfig.configAccessEnv = null;
         NSQConfig.configAccessURLs = null;
         logger.info("Global config access configs cleared.");
+    }
+
+
+    /**
+     * specify time elapse before a requeued message sent from NSQd. Next consuming timeout in current NSQConfig could
+     * be override by {@link NSQMessage#setNextConsumingInSecond(Integer)}
+     * @param timeout timeout in seconds
+     * @return {@link NSQConfig} this NSQConfig
+     */
+    public NSQConfig setNextConsumingInSeconds(int timeout) {
+        if (timeout < NSQConfig._MIN_NEXT_CONSUMING_IN_SECOND) {
+            throw new IllegalArgumentException(
+                    "Message.nextConsumingInSecond is illegal. It is too small." + NSQConfig._MIN_NEXT_CONSUMING_IN_SECOND);
+        }
+        if (timeout > NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND) {
+            throw new IllegalArgumentException(
+                    "Message.nextConsumingInSecond is illegal. It is too big." + NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND);
+        }
+        this.nextConsumingInSecond = timeout;
+        return this;
+    }
+
+    /**
+     * get time elapse for a requeued message in current NSQConfig.
+     * @return
+     */
+    public int getNextConsumingInSecond() {
+        return this.nextConsumingInSecond;
     }
 
     @Override

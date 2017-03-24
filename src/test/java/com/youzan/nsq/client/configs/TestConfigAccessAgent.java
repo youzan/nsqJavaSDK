@@ -29,6 +29,11 @@ public class TestConfigAccessAgent extends ConfigAccessAgent {
 
     private static final ExecutorService exec = Executors.newFixedThreadPool(2, new NamedThreadFactory("TestConfigAccessAgentCallbackInvoker", Thread.MAX_PRIORITY));
 
+    public TestConfigAccessAgent() {
+        ConfigAccessAgent.setConfigAccessRemotes(new String[]{"http://localhost:1234"});
+        ConfigAccessAgent.setEnv("qa");
+    }
+
     public static SortedMap<String, String> updateValue(AbstractConfigAccessDomain domain, AbstractConfigAccessKey[] keys, final SortedMap<String, String> newValueMap, boolean invokeOnProcess){
         assert null != newValueMap;
         final String key = generateSubscribeKey(domain, keys);

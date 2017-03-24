@@ -36,9 +36,10 @@ public class NSQMessage implements MessageMetadata{
      * @param messageBody  the raw bytes from the data-node
      * @param address      the address of the message
      * @param connectionID the primary key of the connection
+     * @param nextConsumingInSecond time elapse for requeued message to send
      */
     public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
-                     byte[] messageBody, Address address, Integer connectionID) {
+                     byte[] messageBody, Address address, Integer connectionID, int nextConsumingInSecond) {
         this.timestamp = timestamp;
         this.attempts = attempts;
         this.messageID = messageID;
@@ -58,6 +59,7 @@ public class NSQMessage implements MessageMetadata{
         this.readableAttempts = toUnsignedShort(attempts);
         this.readableMsgID = newHexString(this.messageID);
 
+        this.nextConsumingInSecond = nextConsumingInSecond;
     }
 
     /**
@@ -70,11 +72,12 @@ public class NSQMessage implements MessageMetadata{
      * @param messageBody  the raw bytes from the data-node
      * @param address      the address of the message
      * @param connectionID the primary key of the connection
+     * @param nextConsumingInSecond time elapse for requeued message to send
      */
     public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
                       final byte[] diskQueueOffset, final byte[] diskQueueDataSize, byte[] messageBody, Address address,
-                      Integer connectionID) {
-        this(timestamp, attempts, messageID, internalID, traceID, messageBody, address, connectionID);
+                      Integer connectionID, int nextConsumingInSecond) {
+        this(timestamp, attempts, messageID, internalID, traceID, messageBody, address, connectionID, nextConsumingInSecond);
 
         ByteBuffer buf = ByteBuffer.wrap(diskQueueOffset);
         this.diskQueueOffset = buf.getLong();
@@ -127,15 +130,9 @@ public class NSQMessage implements MessageMetadata{
     final int readableAttempts;
     final String readableMsgID;
     protected String readableContent = null;
-    private Integer nextConsumingInSecond = Integer.valueOf(60); // recommend the value is 60 sec
+    private Integer nextConsumingInSecond; // recommend the value is 60 sec
     final long internalID;
     final long traceID;
-    // 1 seconds
-    private static final int _MIN_NEXT_CONSUMING_IN_SECOND = 1;
-    // 180 days ?why 180
-    private static final int _MAX_NEXT_CONSUMING_IN_SECOND = 180 * 24 * 3600;
-    // 3 minutes
-    private static final int _DEFAULT_NEXT_CONSUMING_IN_SECOND = 3 * 60;
 
     /**
      * Default UTF-8 Decoding
@@ -217,13 +214,13 @@ public class NSQMessage implements MessageMetadata{
     public void setNextConsumingInSecond(Integer nextConsumingInSecond) throws NSQException {
         if (nextConsumingInSecond != null) {
             final int timeout = nextConsumingInSecond.intValue();
-            if (timeout < _MIN_NEXT_CONSUMING_IN_SECOND) {
+            if (timeout < NSQConfig._MIN_NEXT_CONSUMING_IN_SECOND) {
                 throw new IllegalArgumentException(
-                        "Message.nextConsumingInSecond is illegal. It is too small." + _MIN_NEXT_CONSUMING_IN_SECOND);
+                        "Message.nextConsumingInSecond is illegal. It is too small." + NSQConfig._MIN_NEXT_CONSUMING_IN_SECOND);
             }
-            if (timeout > _MAX_NEXT_CONSUMING_IN_SECOND) {
+            if (timeout > NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND) {
                 throw new IllegalArgumentException(
-                        "Message.nextConsumingInSecond is illegal. It is too big." + _MAX_NEXT_CONSUMING_IN_SECOND);
+                        "Message.nextConsumingInSecond is illegal. It is too big." + NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND);
             }
         }
         this.nextConsumingInSecond = nextConsumingInSecond;
