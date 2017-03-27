@@ -143,7 +143,6 @@ public class ConsumerImplV2 implements Consumer {
                 // -----------------------------------------------------------------
                 //                       First, async keep
                 keepConnecting();
-                connect();
                 // -----------------------------------------------------------------
             }
             this.started = true;
@@ -155,7 +154,6 @@ public class ConsumerImplV2 implements Consumer {
      * schedule action
      */
     private void keepConnecting() {
-        final int delay = _r.nextInt(60); // seconds
         scheduler.scheduleWithFixedDelay(new Runnable() {
             @Override
             public void run() {
@@ -169,7 +167,7 @@ public class ConsumerImplV2 implements Consumer {
                 }
                 logger.info("Client received {} messages , success {} , finished {}, queue4Consume {} , reQueue explicitly {}. The values do not use a lock action.", received, success, finished, queue4Consume, re);
             }
-        }, delay, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
+        }, 0, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
     }
 
     /**

@@ -6,20 +6,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.Role;
 import com.youzan.nsq.client.exception.NSQLookupException;
-import com.youzan.nsq.client.exception.NSQProducerNotFoundException;
 import com.youzan.util.NamedThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.lang.ref.SoftReference;
 import java.net.*;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 /**
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
@@ -49,8 +44,9 @@ public class LookupServiceImpl implements LookupService {
     private volatile int offset = 0;
     private boolean started = false;
     private boolean closing = false;
-    private volatile long lastConnecting = 0L;
     private final int _INTERVAL_IN_SECOND = 60;
+    private volatile boolean touched = false;
+    private final CountDownLatch latch = new CountDownLatch(1);
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory("LookupChecker", Thread.MAX_PRIORITY));
 
@@ -97,7 +93,6 @@ public class LookupServiceImpl implements LookupService {
             started = true;
             offset = _r.nextInt(100);
             keepLookupServers();
-            newLookupServers();
         }
     }
 
@@ -112,7 +107,6 @@ public class LookupServiceImpl implements LookupService {
      * Asynchronized processing
      */
     private void keepLookupServers() {
-        final int delay = _r.nextInt(60); // seconds
         scheduler.scheduleWithFixedDelay(new Runnable() {
             @Override
             public void run() {
@@ -124,24 +118,20 @@ public class LookupServiceImpl implements LookupService {
                     logger.error("Exception", e);
                 }
             }
-        }, delay, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
+        }, 0, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
     }
 
     public void newLookupServers() throws IOException {
         if (this.seedLookupds == null || this.seedLookupds.isEmpty()) {
             return;
         }
-        if (System.currentTimeMillis() < lastConnecting + TimeUnit.SECONDS.toMillis(_INTERVAL_IN_SECOND)) {
-            return;
-        }
-        lastConnecting = System.currentTimeMillis();
         if (!this.started) {
             if (closing) {
                 logger.warn("Having closed the lookup service.");
             }
             return;
         }
-        for(String seed:seedLookupds) {
+        for(String seed : seedLookupds) {
             List<String> newLookupdAdrress = new ArrayList<>();
             final String url = String.format("http://%s/listlookup", seed);
             if(logger.isDebugEnabled())
@@ -188,6 +178,21 @@ public class LookupServiceImpl implements LookupService {
             //update seed2lookupdaddress map
             seed2Addresses.put(seed, newLookupdAdrress);
         }
+
+        if(!this.touched) {
+            if(!seed2Addresses.isEmpty())
+                synchronized(this) {
+                    if(!this.touched) {
+                        latch.countDown();
+                        this.touched = true;
+                        logger.info("LookupSrv is ready.");
+                    }
+                }
+            else {
+                logger.error("No lookupd address found after first list lookup request, make sure valid seed lookup address(es) offered.");
+            }
+        }
+
         if(logger.isDebugEnabled()) {
             logger.debug("Seed lookup addresses mapping:");
             StringBuilder seed2LookupdMapping = new StringBuilder();
@@ -310,6 +315,20 @@ public class LookupServiceImpl implements LookupService {
             throw new NSQLookupException("Your input topic is blank!");
         }
         final SortedSet<Address> dataNodes = new TreeSet<>();
+        if(!this.touched){
+            try {
+                if(!this.latch.await(30, TimeUnit.SECONDS)) {
+                    logger.warn("Timeout waiting for new lookup addresses incoming.");
+                    return dataNodes;
+                } else {
+                    logger.info("New lookup addresses flows in.");
+                }
+            }catch(InterruptedException e){
+                logger.error("Lookup call interrupted while waiting for lookup addresses incoming.");
+                return dataNodes;
+            }
+        }
+
         Set<AddressCompatibility> dataNodeSetCheck = new HashSet<>();
         assert null != this.seed2Addresses;
         /*

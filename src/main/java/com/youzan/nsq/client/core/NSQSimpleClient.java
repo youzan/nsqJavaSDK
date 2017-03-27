@@ -76,7 +76,6 @@ public class NSQSimpleClient implements Client, Closeable {
     }
 
     private void keepDataNodes() {
-        final int delay = _r.nextInt(60); // seconds
         scheduler.scheduleWithFixedDelay(new Runnable() {
             @Override
             public void run() {
@@ -86,7 +85,7 @@ public class NSQSimpleClient implements Client, Closeable {
                     logger.error("Exception", e);
                 }
             }
-        }, delay, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
+        }, 0, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
     }
 
     private void newDataNodes() throws NSQLookupException {
