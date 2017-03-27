@@ -279,24 +279,33 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
         return this.refCounter.get();
     }
 
+    public static int seedLookupMapSize() {
+        return seedLookupMap.size();
+    }
+
     void clean() {
         this.removeAllLookupdAddress();
     }
 
-    public static void listAllLookup() {
+    public static int listAllLookup() {
         long start = 0L;
+        int success = 0;
         if(logger.isDebugEnabled()) {
             start = System.currentTimeMillis();
         }
         for (SeedLookupdAddress aSeed : seedLookupMap.values()) {
             try {
                 aSeed.listLookup(false);
+                success ++;
             } catch (IOException e) {
                 logger.error("Fail to get lookup address for seed lookup address: {}.", aSeed.getAddress());
             }
         }
+
         if(logger.isDebugEnabled()) {
             logger.debug("Time eclapse: {} millsec for all seed lookup addresses to listLookup, size {}", System.currentTimeMillis() - start, seedLookupMap.size());
         }
+
+        return success;
     }
 }

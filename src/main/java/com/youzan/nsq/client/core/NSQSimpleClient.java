@@ -111,7 +111,7 @@ public class NSQSimpleClient implements Client, Closeable {
 
     private void keepDataNodes() {
         //delay in data node loop, 1 is a minimum for {@link LookupAddressUpdate} to kickoff
-        final int delay = _r.nextInt(3) + 1; // seconds
+//        final int delay = _r.nextInt(3) + 1; // seconds
         scheduler.scheduleWithFixedDelay(new Runnable() {
             @Override
             public void run() {
@@ -121,8 +121,8 @@ public class NSQSimpleClient implements Client, Closeable {
                     logger.error("Error fetching data node. Process restarts in another round...", e);
                 }
             }
-        }, delay, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
-        logger.info("Data node maintain loop starts in {} seconds.", delay);
+        }, 0, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
+//        logger.info("Data node maintain loop starts in {} seconds.", delay);
     }
 
     private void newDataNodes() throws NSQException {

@@ -187,15 +187,14 @@ public class ConsumerImplV2 implements Consumer {
                 if(!validateLookupdSource()) {
                     throw new IllegalArgumentException("Consumer could not start with invalid lookupd address sources.");
                 }
-                this.simpleClient.start();
                 if(this.config.getUserSpecifiedLookupAddress()) {
                     LookupAddressUpdate.getInstance().setUpDefaultSeedLookupConfig(this.simpleClient.getLookupLocalID(), this.config.getLookupAddresses());
                 }
+                this.simpleClient.start();
 
                 // -----------------------------------------------------------------
                 //                       First, async keep
                 keepConnecting();
-                connect();
                 // -----------------------------------------------------------------
             }
             this.started = true;
@@ -207,7 +206,6 @@ public class ConsumerImplV2 implements Consumer {
      * schedule action
      */
     private void keepConnecting() {
-        final int delay = _r.nextInt(60); // seconds
         scheduler.scheduleWithFixedDelay(new Runnable() {
             @Override
             public void run() {
@@ -221,7 +219,7 @@ public class ConsumerImplV2 implements Consumer {
                 }
                 logger.info("Client received {} messages , success {} , finished {} , queue4Consume {}, reQueue explicitly {}. The values do not use a lock action.", received, success, finished, queue4Consume, re);
             }
-        }, delay, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
+        }, 0, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
     }
 
     /**
@@ -289,7 +287,12 @@ public class ConsumerImplV2 implements Consumer {
             Address[] partitionDataNodes = null;
             while(null == partitionDataNodes) {
                 try {
-                    partitionDataNodes = simpleClient.getPartitionNodes(topic, Message.NO_SHARDING, false);
+                    Object shardingID;
+                    if(topic.hasPartition())
+                        //convert partition ID to long type directly.
+                        shardingID = (long)topic.getPartitionId();
+                    else shardingID = Message.NO_SHARDING;
+                    partitionDataNodes = simpleClient.getPartitionNodes(topic, shardingID, false);
                 } catch (NSQLookupException lookupe) {
                     logger.warn("Hit a invalid lookup address, retry another. Has retried: {}", idx);
                     if(idx++ >= MAX_CONSUME_RETRY){

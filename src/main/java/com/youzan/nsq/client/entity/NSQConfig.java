@@ -84,7 +84,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * interval between two list lookup operation for all seed lookups
      */
-    private static int listLookupIntervalInSecond = 120;
+    private static int listLookupIntervalInSecond = 60;
 
     private static String[] configAccessURLs;
 

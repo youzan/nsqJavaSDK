@@ -123,11 +123,11 @@ public class ProducerImplV2 implements Producer {
                 this.poolConfig.setBlockWhenExhausted(false);
                 // new instance without performing to connect
                 this.bigPool = new GenericKeyedObjectPool<>(this.factory, this.poolConfig);
-                //simple client starts and LookupAddressUpdate instance initialized there.
-                this.simpleClient.start();
                 if (this.config.getUserSpecifiedLookupAddress()) {
                     LookupAddressUpdate.getInstance().setUpDefaultSeedLookupConfig(this.simpleClient.getLookupLocalID(), this.config.getLookupAddresses());
                 }
+                //simple client starts and LookupAddressUpdate instance initialized there.
+                this.simpleClient.start();
                 scheduler.scheduleAtFixedRate(new Runnable() {
                     @Override
                     public void run() {
