@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * LookupAddressUpdate
@@ -41,19 +42,31 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
 
     class LookupAddressUpdateHandler implements ConfigAccessAgent.IConfigAccessCallback<TreeMap<String, String>> {
         private String categorization;
+        private CountDownLatch latch;
 
-        public LookupAddressUpdateHandler(String categorization) {
+        public LookupAddressUpdateHandler(String categorization, CountDownLatch latch) {
             this.categorization = categorization;
+            this.latch = latch;
         }
 
         @Override
         public void process(TreeMap<String, String> newItems) {
-            updateLookupAddresses(newItems);
+            try {
+                updateLookupAddresses(newItems);
+                tryListLookupRightNow();
+            }finally {
+                latch.countDown();
+            }
         }
 
         @Override
         public void fallback(TreeMap<String, String> itemsInCache, Object... objs) {
-            updateLookupAddresses(itemsInCache);
+            try {
+                updateLookupAddresses(itemsInCache);
+                tryListLookupRightNow();
+            }finally {
+                latch.countDown();
+            }
         }
 
         private void updateLookupAddresses(final SortedMap<String, String> newLookupAddress){
@@ -70,9 +83,7 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
                 String controlCnfStr = newLookupAddress.get(topicKey);
                 AbstractControlConfig ctrlCnf = AbstractControlConfig.create(controlCnfStr);
                 aSeedLookUpConfig.putTopicCtrlCnf(formatCategorizationTopic(categorization, topicKey), ctrlCnf);
-                if(logger.isDebugEnabled()){
-                    logger.debug("Control config updated for topic: {} in categorization: {}", topicKey, categorization);
-                }
+                logger.info("Control config updated for topic: {} in categorization: {}", topicKey, categorization);
             }
 
             if(!aSeedLookUpConfig.containsControlConfig()) {
@@ -192,6 +203,9 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
             throw new NSQConfigAccessException("Subscribe to " + subscribeTo + " returns no result. ConfigAccessAgent metas:" + subscribeTo.metadata());
         }
 
+        //count down latch need counted down here
+        callback.process(firstSeedLookupAddress);
+
         AbstractSeedLookupdConfig aSeedLookUpConfig = AbstractSeedLookupdConfig.create(categorization);
         for(String topicKey : firstSeedLookupAddress.keySet()) {
             //skip default cluster seed lookup info
@@ -206,16 +220,15 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
             logger.warn("No control config is picked from updated config, categorization: {}. Null result returns.", categorization);
             return null;
         }
-        updateCat2SeedLookupCnfMap(categorization, aSeedLookUpConfig);
         //update categorization 2 topics categorization
 
         return aSeedLookUpConfig;
     }
 
-    public LookupAddressUpdateHandler createCallbackHandler(String categorization) {
+    public LookupAddressUpdateHandler createCallbackHandler(String categorization, CountDownLatch latch) {
         if(logger.isDebugEnabled())
             logger.debug("call back handler created for Categorization: {}.", categorization);
-        return new LookupAddressUpdateHandler(categorization);
+        return new LookupAddressUpdateHandler(categorization, latch);
     }
 
     private boolean checkinCategorization(String categorization){
@@ -279,14 +292,13 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
                 String categorization = category.category(topic);
                 try {
                     //subscribes categorization to config access and returns
-                    subscribe(ConfigAccessAgent.getInstance(), DCCMigrationConfigAccessDomain.getInstance(topic), new AbstractConfigAccessKey[]{DCCMigrationConfigAccessKey.getInstance(category.getRole())}, createCallbackHandler(categorization));
+                    subscribe(ConfigAccessAgent.getInstance(), DCCMigrationConfigAccessDomain.getInstance(topic), new AbstractConfigAccessKey[]{DCCMigrationConfigAccessKey.getInstance(category.getRole())}, createCallbackHandler(categorization, latch));
                 }catch(NSQConfigAccessException caE){
                     logger.error("Error in checking seed lookup address config for categorization {}, topic {}.", categorization, topic.getTopicText(), caE);
                 }catch(Exception exp) {
                     logger.error("Unexpected error in checking seed lookup address config for categorization {}, topic {}.", categorization, topic.getTopicText(), exp);
                     checkoutCategorization(categorization);
                 }finally {
-                    latch.countDown();
                 }
                 }
             });
@@ -295,6 +307,7 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
         boolean timeout;
         if(topics4Subscribe.size() > 0)
             try {
+            long start = System.currentTimeMillis();
                 timeout = latch.await(NSQConfig.getQueryTimeout4TopicSeedInMillisecond() * topics4Subscribe.size(), TimeUnit.MILLISECONDS);
                 if(!timeout) {
                     logger.error("Timeout waiting for querying {} topic seed lookup address. Current query timeout for topic seed lookup is {}.", topics.length, NSQConfig.getQueryTimeout4TopicSeedInMillisecond());
@@ -303,11 +316,15 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
                         logger.warn("Topics subscribe returns partially response.");
                     }
                 }
+                if(logger.isDebugEnabled()) {
+                    logger.debug("Tooks {} millSec to wait for subscribe response from config remote.", System.currentTimeMillis() - start);
+                }
             } catch (InterruptedException e) {
                 logger.error("Thread interrupted waiting for seed lookup address update.");
             }
     }
 
+    private volatile long listlookupLastRun;
     /**
      * invoke listlookup API for ALL cached {@link SeedLookupdAddress}
      * leave client(consumer&producer) to kick off listlookup
@@ -326,7 +343,14 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
                                     logger.error("Interrupted while waiting for new seed lookupd address.");
                                 }
                             }
-                            int success = SeedLookupdAddress.listAllLookup();
+                            int success;
+                            try {
+                                lockListlookupProcess();
+                                success = SeedLookupdAddress.listAllLookup();
+                            }finally {
+                                unlockListlookupProcess();
+                            }
+                            listlookupLastRun = System.currentTimeMillis();
                             if(!isTouched()) {
                                 if(success > 0) {
                                     logger.info("New lookupd addresses are ready.");
@@ -346,6 +370,37 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
         }
     }
 
+    private ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+
+    private void lockListlookupProcess() {
+        lock.writeLock().lock();
+    }
+
+    private boolean tryLockListlookupProcess() {
+        return lock.writeLock().tryLock();
+    }
+
+    private void unlockListlookupProcess() {
+        lock.writeLock().unlock();
+    }
+
+    private void tryListLookupRightNow() {
+        if(listlookupLastRun + NSQConfig.getListLookupIntervalInSecond()*1000 - System.currentTimeMillis() < 5000) {
+            logger.info("listlookup routine will start soon, tryListlookupRightNow exits.");
+            return;
+        }
+
+        if(tryLockListlookupProcess())
+            try {
+                logger.info("List lookup start refresh...");
+                SeedLookupdAddress.listAllLookup();
+                logger.info("List lookup refresh ends.");
+            } finally {
+                unlockListlookupProcess();
+            }
+        //fail to lock, that is fine.
+    }
+
     /**
      * Get one lookup address with given {@link Topic} and {@link TopicRuleCategory} (has role info)
      * @param topic topic
@@ -359,24 +414,32 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
      * @throws NSQLookupException {@link NSQLookupException} exception during lookup process.
      */
     public NSQLookupdAddresses getLookup(final Topic topic, TopicRuleCategory category, boolean localLookupd, boolean force, int lookupLocalID) throws NSQLookupException {
-
-        String categorization;
-        AbstractSeedLookupdConfig aSeedLookupCnf;
-        Topic topicInner;
-        if(localLookupd && lookupLocalID > 0) {
-            categorization = TopicRuleCategory.TOPIC_CATEGORIZATION_USER_SPECIFIED + '_' +lookupLocalID;
-            aSeedLookupCnf = cat2SeedLookupCnfMap.get(categorization);
-            topicInner = Topic.TOPIC_DEFAULT;
+        int retry = 3;
+        String categorization = null;
+        AbstractSeedLookupdConfig aSeedLookupCnf = null;
+        Topic topicInner = null;
+        while(null == aSeedLookupCnf && retry-- > 0) {
+            if (localLookupd && lookupLocalID > 0) {
+                categorization = TopicRuleCategory.TOPIC_CATEGORIZATION_USER_SPECIFIED + '_' + lookupLocalID;
+                aSeedLookupCnf = cat2SeedLookupCnfMap.get(categorization);
+                topicInner = Topic.TOPIC_DEFAULT;
+            } else {
+                categorization = category.category(topic);
+                this.subscribe(category, topic);
+                aSeedLookupCnf = cat2SeedLookupCnfMap.get(categorization);
+                topicInner = topic;
+            }
             if(null == aSeedLookupCnf)
-                throw new NSQLookupException("Local Seed Lookup config not found for Topic: " + topic.getTopicText() + " Categorization: " + categorization);
-        } else {
-            categorization = category.category(topic);
-            this.subscribe(category, topic);
-            aSeedLookupCnf =  cat2SeedLookupCnfMap.get(categorization);
-            topicInner = topic;
-            if(null == aSeedLookupCnf)
-                throw new NSQLookupException("Seed Lookup config not found for Topic: " + topic.getTopicText() + " Categorization: " + categorization);
+                //backoff a while
+                try {
+                    Thread.sleep(NSQConfig.getQueryTimeout4TopicSeedInMillisecond());
+                } catch (InterruptedException e) {
+                    logger.error("Interrupted while waiting for another lookup process for categorization {}", categorization);
+                }
         }
+
+        if (null == aSeedLookupCnf)
+            throw new NSQLookupException("Seed Lookup config not found for Topic: " + topic.getTopicText() + " Categorization: " + categorization);
 
         //await for list lookup address to signal first success
         if(!this.touched) {
