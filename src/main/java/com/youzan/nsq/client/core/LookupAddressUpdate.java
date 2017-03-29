@@ -51,21 +51,25 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
 
         @Override
         public void process(TreeMap<String, String> newItems) {
+            long start = System.currentTimeMillis();
             try {
                 updateLookupAddresses(newItems);
                 tryListLookupRightNow();
             }finally {
                 latch.countDown();
+                logger.info("New config update ends in {} millSec", System.currentTimeMillis() - start);
             }
         }
 
         @Override
         public void fallback(TreeMap<String, String> itemsInCache, Object... objs) {
+            long start = System.currentTimeMillis();
             try {
                 updateLookupAddresses(itemsInCache);
                 tryListLookupRightNow();
             }finally {
                 latch.countDown();
+                logger.info("New config fallback ends in {} millSec", System.currentTimeMillis() - start);
             }
         }
 
@@ -75,7 +79,13 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
                 return;
             }
 
-            AbstractSeedLookupdConfig aSeedLookUpConfig = AbstractSeedLookupdConfig.create(categorization);
+            AbstractSeedLookupdConfig aSeedLookUpConfig;
+            boolean seedLookupCnfExisted = cat2SeedLookupCnfMap.containsKey(categorization);
+            if(!seedLookupCnfExisted)
+                aSeedLookUpConfig = AbstractSeedLookupdConfig.create(categorization);
+            else
+                aSeedLookUpConfig = cat2SeedLookupCnfMap.get(categorization);
+
             for(String topicKey : newLookupAddress.keySet()) {
                 //skip default cluster seed lookup info
                 if(topicKey.startsWith("##_default"))
@@ -90,7 +100,8 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
                 logger.warn("No control config is picked from updated config, categorization: {}.", this.categorization);
                 return;
             }
-            updateCat2SeedLookupCnfMap(categorization, aSeedLookUpConfig);
+            if(!seedLookupCnfExisted)
+                updateCat2SeedLookupCnfMap(categorization, aSeedLookUpConfig);
         }
 
         public int hashCode() {
@@ -194,7 +205,7 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
         TopicRuleCategory topicRoleCat = TopicRuleCategory.getInstance(roleKey.getInnerKey());
         String categorization = topicRoleCat.category(topic);
 
-        logger.info("LookupAddressUpdate Instance subscribe to {}.", subscribeTo);
+        logger.info("LookupAddressUpdate Instance subscribe to {}, for {}.", subscribeTo, roleKey.toKey());
         SortedMap<String, String> firstSeedLookupAddress = subscribeTo.handleSubscribe(domain, keys, callback);
 
         //handle first subscribe
@@ -206,23 +217,8 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
         //count down latch need counted down here
         callback.process(firstSeedLookupAddress);
 
-        AbstractSeedLookupdConfig aSeedLookUpConfig = AbstractSeedLookupdConfig.create(categorization);
-        for(String topicKey : firstSeedLookupAddress.keySet()) {
-            //skip default cluster seed lookup info
-            if(topicKey.startsWith("##_default"))
-                continue;
-            String controlCnfStr = firstSeedLookupAddress.get(topicKey);
-            AbstractControlConfig ctrlCnf = AbstractControlConfig.create(controlCnfStr);
-            aSeedLookUpConfig.putTopicCtrlCnf(formatCategorizationTopic(categorization, topicKey), ctrlCnf);
-        }
-
-        if(!aSeedLookUpConfig.containsControlConfig()) {
-            logger.warn("No control config is picked from updated config, categorization: {}. Null result returns.", categorization);
-            return null;
-        }
-        //update categorization 2 topics categorization
-
-        return aSeedLookUpConfig;
+        //as there is no function invoke current function for return value, just return null no
+        return null;
     }
 
     public LookupAddressUpdateHandler createCallbackHandler(String categorization, CountDownLatch latch) {
@@ -265,8 +261,10 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
 
     private void updateCat2SeedLookupCnfMap(String categorization, AbstractSeedLookupdConfig newCnf) {
         AbstractSeedLookupdConfig oldCnf = cat2SeedLookupCnfMap.put(categorization, newCnf);
-        if(null != oldCnf)
-            oldCnf.clean();
+        if(null != oldCnf) {
+            //there should be no be any old could enter this line
+            logger.error("Old SeedLookupdConfig should not exist for categorization {}.", categorization);
+        }
     }
 
     /**
@@ -472,11 +470,14 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
     }
 
     private void close() {
-        this.listLookupExec.shutdownNow();
-        for(AbstractSeedLookupdConfig seedCnf:this.cat2SeedLookupCnfMap.values())
-            seedCnf.clean();
-        this.cat2SeedLookupCnfMap.clear();
-        this.categorizationsInUsed.clear();
+        synchronized (LOCK){
+            this.listLookupExec.shutdownNow();
+            for(AbstractSeedLookupdConfig seedCnf:this.cat2SeedLookupCnfMap.values())
+                seedCnf.clean();
+            this.cat2SeedLookupCnfMap.clear();
+            this.categorizationsInUsed.clear();
+            _INSTANCE = null;
+        }
         logger.info("LookupAddressUpdate instance closed.");
     }
 }

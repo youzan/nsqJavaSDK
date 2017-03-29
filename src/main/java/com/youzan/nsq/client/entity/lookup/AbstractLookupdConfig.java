@@ -24,7 +24,11 @@ public abstract class AbstractLookupdConfig {
             return;
         try{
             topicLock.writeLock().lock();
-            topicnfMap.put(categorizationTopic, cc);
+            AbstractControlConfig oldCtrlConf = topicnfMap.put(categorizationTopic, cc);
+            //if old control conf is not null, need to remove reference from SeedLookupAddress map
+            if(null != oldCtrlConf) {
+                oldCtrlConf.clean();
+            }
         }finally {
             topicLock.writeLock().unlock();
         }
