@@ -137,29 +137,21 @@ public abstract class ConfigAccessAgent implements Closeable {
         return ConfigAccessAgent.configAccessRemotes;
     }
 
-//    /**
-//     * finalize function for GC.
-//     */
-//    public void finalize() throws Throwable {
-//        super.finalize();
-//        ConfigAccessAgent.release();
-//    }
-
     /**
      * release resources allocated by ConfigAccessAgent
      */
-    private static void release() {
+    public static void release() {
         if (null != INSTANCE) {
             synchronized (LOCK) {
                 if (null != INSTANCE) {
                     INSTANCE.close();
                     TRIEDINITIALIZE = false;
-                    INSTANCE = null;
                     CAA_CLAZZ = null;
                     props = null;
                     env = null;
                     configAccessRemotes = null;
                     backupFilePath = null;
+                    INSTANCE = null;
                     logger.info("Config access agent released.");
                 }
             }

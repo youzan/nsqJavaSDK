@@ -63,7 +63,7 @@ public class ConsumerImplV2 implements Consumer {
      *
      * =========================================================================
      */
-    private final SortedSet<Topic> topics = new TreeSet<>();
+    private final HashMap<Topic, SortedSet<Long>> topics2Partitions = new HashMap<>();
 
     // client subscribes
     /*-
@@ -130,8 +130,16 @@ public class ConsumerImplV2 implements Consumer {
             //copy a new topic in consumer, as address 2 partition mapping need maintained in topic, and we do not
             //expect to expose that to user.
             Topic topicCopy = Topic.newInstacne(topic);
-            this.topics.add(topicCopy);
-            simpleClient.putTopic(topicCopy);
+            SortedSet<Long> partitionsSet;
+            if(topics2Partitions.containsKey(topicCopy)) {
+                partitionsSet = topics2Partitions.get(topicCopy);
+            } else {
+                partitionsSet = new TreeSet<>();
+                topics2Partitions.put(topicCopy, partitionsSet);
+                simpleClient.putTopic(topicCopy);
+            }
+            //add partition id to sorted set
+            partitionsSet.add((long) topicCopy.getPartitionId());
         }
     }
 
@@ -141,8 +149,7 @@ public class ConsumerImplV2 implements Consumer {
         }
         for (String topicStr : topics) {
             Topic topic = new Topic(topicStr);
-            this.topics.add(topic);
-            simpleClient.putTopic(topic);
+            subscribe(topic);
         }
     }
 
@@ -175,7 +182,7 @@ public class ConsumerImplV2 implements Consumer {
         if (this.config.getConsumerName() == null || this.config.getConsumerName().isEmpty()) {
             throw new IllegalArgumentException("Consumer Name is blank! Please check it!");
         }
-        if (this.topics.isEmpty()) {
+        if (this.topics2Partitions.isEmpty()) {
             logger.warn("No topic subscribed.");
         }
         synchronized (lock) {
@@ -235,12 +242,12 @@ public class ConsumerImplV2 implements Consumer {
         lastConnecting = System.currentTimeMillis();
         if (!this.started) {
             if (closing) {
-                logger.info("You have closed the consumer sometimes ago!");
+                logger.info("Consumer has been closed sometimes ago!");
             }
             return;
         }
-        if (this.topics.isEmpty()) {
-            logger.error("Are you kidding me? You did not subscribe any topic. Please check it right now!");
+        if (this.topics2Partitions.isEmpty()) {
+            logger.error("No topic subscribed. Please check it right now!");
             // Still check the resources , do not return right now
         }
 
@@ -280,19 +287,19 @@ public class ConsumerImplV2 implements Consumer {
          *                            Get the relationship
          * =====================================================================
          */
-        for (Topic topic : topics) {
-            // maybe a exception occurs
-            int maxRetry = MAX_CONSUME_RETRY;
+        for (Topic topic : topics2Partitions.keySet()) {
             int idx = 0;
             Address[] partitionDataNodes = null;
             while(null == partitionDataNodes) {
                 try {
-                    Object shardingID;
-                    if(topic.hasPartition())
+                    Object[] shardingIDs;
+                    SortedSet<Long> partitionSet = topics2Partitions.get(topic);
+                    long top = partitionSet.first();
+                    if(top >= 0)
+                        shardingIDs = partitionSet.toArray(new Long[0]);
                         //convert partition ID to long type directly.
-                        shardingID = (long)topic.getPartitionId();
-                    else shardingID = Message.NO_SHARDING;
-                    partitionDataNodes = simpleClient.getPartitionNodes(topic, shardingID, false);
+                    else shardingIDs = new Object[]{Message.NO_SHARDING};
+                    partitionDataNodes = simpleClient.getPartitionNodes(topic, shardingIDs, false);
                 } catch (NSQLookupException lookupe) {
                     logger.warn("Hit a invalid lookup address, retry another. Has retried: {}", idx);
                     if(idx++ >= MAX_CONSUME_RETRY){
@@ -688,7 +695,6 @@ public class ConsumerImplV2 implements Consumer {
                     // Post
                     if (!this.config.isOrdered() && message.getReadableAttempts() > this.config.getMaxRequeueTimes()) {
                         logger.warn("Message {} has reached max retry limitation: {}. it will be published to NSQ again for consume.", message, this.config.getMaxRequeueTimes());
-                        Producer producer = null;
                         try {
                             compensationPublish(connection.getTopic(), message);
                             cmd = new Finish(message.getMessageID());
@@ -876,7 +882,7 @@ public class ConsumerImplV2 implements Consumer {
             }
         }
         address_2_pool.clear();
-        topics.clear();
+        topics2Partitions.clear();
         return connections;
     }
 
@@ -908,7 +914,7 @@ public class ConsumerImplV2 implements Consumer {
                 }
                 case E_TOPIC_NOT_EXIST: {
                     Address address = connection.getAddress();
-                    for(Topic aTopic : this.topics) {
+                    for(Topic aTopic : this.topics2Partitions.keySet()) {
                         this.simpleClient.invalidatePartitionsSelector(aTopic);
                         logger.info("Partitions info for {} invalidated and related lookupd address force updated.");
                     }
@@ -987,15 +993,6 @@ public class ConsumerImplV2 implements Consumer {
         } else
             return new NSQMessage(msgFrame.getTimestamp(), msgFrame.getAttempts(), msgFrame.getMessageID(),
                     msgFrame.getInternalID(), msgFrame.getTractID(), msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond());
-    }
-
-    /**
-     * fetch topics set, for test purpose.
-     *
-     * @return topics set
-     */
-    private SortedSet<Topic> getTopics() {
-        return this.topics;
     }
 
     public String toString() {

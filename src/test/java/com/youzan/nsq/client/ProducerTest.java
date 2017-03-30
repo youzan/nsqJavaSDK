@@ -1,6 +1,5 @@
 package com.youzan.nsq.client;
 
-import com.youzan.nsq.client.configs.ConfigAccessAgent;
 import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
@@ -10,6 +9,7 @@ import com.youzan.nsq.client.exception.NSQInvalidMessageException;
 import com.youzan.nsq.client.exception.NSQTopicNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -47,7 +47,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     }
 
     @Test(expectedExceptions = {NSQTopicNotFoundException.class})
-    public void testPubException2InvalidChannel() throws NSQException, IOException {
+    public void testPubException2InvalidChannel() throws NSQException, IOException, InterruptedException {
         String adminUrlStr = "http://" + props.getProperty("admin-address");
         String topicName = "topicHasNoChannel_" + System.currentTimeMillis();
         //create topic
@@ -102,7 +102,6 @@ public class ProducerTest extends AbstractNSQClientTestcase {
             createTopic(adminUrlStr, topicName);
 
             NSQConfig config = this.getNSQConfig();
-            config.setUserSpecifiedLookupAddress(true);
             config.setLookupAddresses(props.getProperty("lookup-addresses"));
             config.setMaxRequeueTimes(0);
             config.setConsumerName("BaseConsumer");
@@ -131,14 +130,14 @@ public class ProducerTest extends AbstractNSQClientTestcase {
             //publish one message
             producer.publish(Message.create(topic, "message"));
 
-            latch.await(3, TimeUnit.MINUTES);
+            Assert.assertTrue(latch.await(3, TimeUnit.MINUTES));
         }finally {
             deleteTopic(adminUrlStr, topicName);
         }
     }
 
     //POST /api/topics
-    private void createTopic(String adminUrl, String topicName) throws IOException {
+    private void createTopic(String adminUrl, String topicName) throws IOException, InterruptedException {
         String urlStr = String.format("%s/api/topics", adminUrl);
         URL url = new URL(urlStr);
         String contentStr = String.format("{\"topic\":\"%s\",\"partition_num\":\"2\", \"replicator\":\"1\", \"retention_days\":\"\", \"syncdisk\":\"\"}", topicName);
@@ -155,6 +154,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
         if (logger.isDebugEnabled()) {
             logger.debug("Request to {} responses {}:{}.", url.toString(), con.getResponseCode(), con.getResponseMessage());
         }
+        Thread.sleep(1000);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)

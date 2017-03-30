@@ -170,7 +170,7 @@ public class ProducerImplV2 implements Producer {
         final Long now = System.currentTimeMillis();
         topic_2_lastActiveTime.put(topic, now);
         //data nodes matches topic sharding returns
-        Address[] partitonAddrs = simpleClient.getPartitionNodes(topic, topicShardingID, true);
+        Address[] partitonAddrs = simpleClient.getPartitionNodes(topic, new Object[]{topicShardingID}, true);
         final int size = partitonAddrs.length;
         int c = 0, index = (this.offset++);
         while (c++ < size) {

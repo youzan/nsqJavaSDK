@@ -3,11 +3,11 @@ package com.youzan.nsq.client.entity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.SortedMap;
 import java.util.SortedSet;
 
 /**
- * Topic class with partition id
+ * Topic class with partition id, however, containers like {@link SortedSet} or {@link java.util.HashMap} is NOT aware of
+ * partition information
  * Created by lin on 16/8/18.
  */
 public class Topic implements Comparable<Topic> {
@@ -106,7 +106,7 @@ public class Topic implements Comparable<Topic> {
                 return false;
             }
         }
-        return this.partitionID == ((Topic) obj).partitionID;
+        return this.topic == ((Topic) obj).topic;
     }
 
     public int compareTo(Topic other) {
