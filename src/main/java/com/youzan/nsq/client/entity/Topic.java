@@ -86,7 +86,7 @@ public class Topic implements Comparable<Topic> {
 
     @Override
     public int hashCode() {
-        return this.topic.hashCode();
+        return this.topic.hashCode() * 31 + this.partitionID;
     }
 
     @Override
@@ -106,7 +106,7 @@ public class Topic implements Comparable<Topic> {
                 return false;
             }
         }
-        return this.topic.equals(other.getTopicText());
+        return this.partitionID == ((Topic) obj).partitionID;
     }
 
     public int compareTo(Topic other) {

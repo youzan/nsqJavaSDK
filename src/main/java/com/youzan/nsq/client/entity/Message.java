@@ -40,9 +40,9 @@ public class Message {
         return new Message(topic, messageBody);
     }
 
-    Message(long traceID, Topic topic, String messageBody) {
+    Message(long traceID, final Topic topic, String messageBody) {
         this.traceID = traceID;
-        this.topic = topic;
+        this.topic = Topic.newInstacne(topic);
         this.messageBody = messageBody;
     }
 
