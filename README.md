@@ -1,5 +1,7 @@
 # NSQ-Client-Java
 
+[![GitHub release](https://img.shields.io/github/release/youzan/nsqJavaSDK.svg)](https://github.com/youzan/nsqJavaSDK/releases/latest)
+
 ## Server
 * https://github.com/absolute8511/nsq
 * Feature: strong consistent replication
