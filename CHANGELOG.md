@@ -64,7 +64,7 @@ Bug fix in SDK consumer. When consumer subscribes:
 ### Fixes:
 + SDK connection NOT recover when leader NSQd node switch.[#64](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/64)
 
-##2.3.20170331-RELEASE
+##2.3.20170406-RELEASE
 Note worthy:
 Through it is a minor version release, a change is applied in the initialization of NSQ Client. That means if user upgrades from previous 2.3 release directly,
 client fails at startup. In this release, lookupd address source(DCC or lookupd addresses) specification by user is required. One uses NSQConfig.setLookupAddresses()
@@ -75,4 +75,4 @@ to specify lookupd address source, or specify config properties which contains k
 + read dcc url&env from lookup address API.[#63](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/63)
 
 ### Fixes:
-+ existing SeedLookupConfig is always replaced by new.[#69](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/69)
++ Existing SeedLookupConfig is always replaced by new.[#69](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/69)

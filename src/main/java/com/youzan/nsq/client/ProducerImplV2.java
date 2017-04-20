@@ -273,7 +273,7 @@ public class ProducerImplV2 implements Producer {
                     continue;
                 }
             }
-            catch (NSQTopicNotFoundException exp) {
+            catch (NSQTopicNotFoundException | NSQSeedLookupConfigNotFoundException exp) {
                 //throw it directly
                 throw exp;
             }

@@ -11,6 +11,7 @@ import com.youzan.nsq.client.entity.lookup.NSQLookupdAddresses;
 import com.youzan.nsq.client.entity.lookup.SeedLookupdAddress;
 import com.youzan.nsq.client.exception.NSQConfigAccessException;
 import com.youzan.nsq.client.exception.NSQLookupException;
+import com.youzan.nsq.client.exception.NSQSeedLookupConfigNotFoundException;
 import com.youzan.util.NamedThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -145,7 +146,7 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
 
     public static String formatCategorizationTopic(String categorization, final String topicName) {
         if(null == categorization || null == topicName)
-            throw new RuntimeException("Neither categorization nor topic is null.");
+            throw new IllegalArgumentException("Neither categorization nor topic is null.");
         return String.format(CATE_TOPIC_FORMAT, categorization, topicName);
     }
 
@@ -410,8 +411,9 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
      * @param lookupLocalID int value to form lookup categorization key for client
      * @return {@link NSQLookupdAddresses} lookupd address.
      * @throws NSQLookupException {@link NSQLookupException} exception during lookup process.
+     * @throws NSQSeedLookupConfigNotFoundException raised when seed lookup control config in remote not found.
      */
-    public NSQLookupdAddresses getLookup(final Topic topic, TopicRuleCategory category, boolean localLookupd, boolean force, int lookupLocalID) throws NSQLookupException {
+    public NSQLookupdAddresses getLookup(final Topic topic, TopicRuleCategory category, boolean localLookupd, boolean force, int lookupLocalID) throws NSQLookupException, NSQSeedLookupConfigNotFoundException {
         int retry = 3;
         String categorization = null;
         AbstractSeedLookupdConfig aSeedLookupCnf = null;
@@ -437,7 +439,7 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
         }
 
         if (null == aSeedLookupCnf)
-            throw new NSQLookupException("Seed Lookup config not found for Topic: " + topic.getTopicText() + " Categorization: " + categorization);
+            throw new NSQSeedLookupConfigNotFoundException("Seed Lookup config not found for Topic: " + topic.getTopicText() + " Categorization: " + categorization);
 
         //await for list lookup address to signal first success
         if(!this.touched) {
