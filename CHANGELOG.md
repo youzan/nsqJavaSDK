@@ -76,3 +76,12 @@ to specify lookupd address source, or specify config properties which contains k
 
 ### Fixes:
 + Existing SeedLookupConfig is always replaced by new.[#69](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/69)
+
+##2.3.20170424-RELEASE
+Note worthy:
+jackson within NSQ SDK upgrade to 2.7.9.1. due to [deserializer security vulnerability](https://github.com/FasterXML/jackson-databind/issues/1599)
+, also exception raised by missed topic control congfig needs to be thrown directly, without retry in producer end.
+
+### Fixes:
++ Uncaught exceptions in producer publish.[#70](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/70)
++ Upgrade jackson to 2.7.9.1.[#71](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/71)
