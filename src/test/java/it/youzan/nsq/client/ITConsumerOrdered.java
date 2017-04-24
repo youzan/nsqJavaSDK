@@ -38,6 +38,10 @@ public class ITConsumerOrdered extends AbstractITConsumer {
             @Override
             public void process(NSQMessage message) {
                 String msgStr = message.getReadableContent();
+                if (!msgStr.contains("#")) {
+                    logger.warn("receive one message has not valid separator: {}. discard.", msgStr);
+                    return;
+                }
                 int num = Integer.valueOf(msgStr.split("#")[1]);
                 logger.info("Message received: " + msgStr);
                 received.incrementAndGet();

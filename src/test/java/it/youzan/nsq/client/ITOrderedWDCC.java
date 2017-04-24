@@ -80,6 +80,8 @@ public class ITOrderedWDCC {
         consumer.subscribe(aTopic);
         consumer.start();
         Assert.assertTrue(consumeLatch.await(3, TimeUnit.MINUTES));
+        //sleep 1 sec to wait for auto ACK
+        Thread.sleep(1000L);
         consumer.close();
     }
 
