@@ -161,7 +161,7 @@ public class TestNSQLookupService {
         lookupSrv.newLookupServers();
         SortedSet<Address> dataNodes =  lookupSrv.lookup("JavaTesting-Producer-Base", true);
         //assert
-        assert dataNodes.size() == 2;
+        Assert.assertEquals(dataNodes.size(), 2);
     }
 
     @BeforeClass
