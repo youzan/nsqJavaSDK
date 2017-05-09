@@ -403,25 +403,6 @@ public class ConsumerImplV2 implements Consumer {
             //one topic may has more than one partition, they are managed
             //calculate connection size
             int connectionSizeCal = topics.size();
-//            try {
-//                for (Topic aTopic : topics) {
-//                    //what happen if there is no mapping 2 partition(when connect to old nsqd)
-//                    SortedMap<Address, SortedSet<Integer>> addr2Partitions = aTopic.getNsqdAddr2Partition();
-//                    Set<Integer> partitionSet = null;
-//                    if(null != addr2Partitions)
-//                        partitionSet = addr2Partitions.get(address);
-//                    //if address is a old nsqd, should not return any partition info
-//                    if (null != partitionSet)
-//                        connectionSizeCal += partitionSet.size();
-//                    else {
-//                        //for old nsqd
-//                        connectionSizeCal += 1;
-//                    }
-//                }
-//            } catch (NullPointerException npe) {
-//                logger.warn("Address to partition mapping is updated in topics. Connect process will try later.");
-//                return;
-//            }
             final int connectionSize = connectionSizeCal;
             if (connectionSize <= 0) {
                 return;
@@ -677,6 +658,8 @@ public class ConsumerImplV2 implements Consumer {
         long end = System.currentTimeMillis() - start;
         if(PERF_LOG.isDebugEnabled())
             PERF_LOG.debug("Message handler took {} milliSec to finish consuming message for connection {}. Success:{}, Retry:{}", end, connection.getAddress(), ok, retry);
+        if(end > this.config.getMsgTimeoutInMillisecond())
+            PERF_LOG.warn("Message handler took {} milliSec to finish consuming message. Limitation is {}", end, this.config.getMsgTimeoutInMillisecond());
 
         // The client commands ReQueue into NSQd.
         final Integer nextConsumingWaiting = message.getNextConsumingInSecond();
@@ -757,7 +740,7 @@ public class ConsumerImplV2 implements Consumer {
         // Post
         //log warn
         if (!ok) {
-            logger.warn("Exception occurs but you don't catch it! Please check it right now!!! {} , Original message: {}.", message, message.getReadableContent());
+            logger.warn("Exception occurs in message handler. Please check it right now {} , Original message: {}.", message, message.getReadableContent());
         }
     }
 
@@ -921,9 +904,14 @@ public class ConsumerImplV2 implements Consumer {
                     this.simpleClient.clearDataNode(address);
                     clearDataNode(address);
                     logger.info("NSQInvalidDataNode. {}", frame);
+                    break;
+                }
+                //for error case which nsqd nodes does not invalidation
+                case E_SUB_ORDER_IS_MUST: {
+                    logger.error("SubOrder is needed for topic(s) consuming.");
                 }
                 default: {
-                    logger.info("Unknown error type in ERROR_FRAME! {}", frame);
+                    logger.error("Unknown error type in ERROR_FRAME! {}", frame);
                 }
             }
         }
