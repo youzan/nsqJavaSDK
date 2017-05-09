@@ -85,3 +85,6 @@ jackson within NSQ SDK upgrade to 2.7.9.1. due to [deserializer security vulnera
 ### Fixes:
 + Uncaught exceptions in producer publish.[#70](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/70)
 + Upgrade jackson to 2.7.9.1.[#71](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/71)
+
+#### fix patch 20170509
++ regression in trace log.[#73](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/73)
