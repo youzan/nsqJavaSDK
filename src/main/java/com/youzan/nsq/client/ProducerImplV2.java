@@ -383,7 +383,7 @@ public class ProducerImplV2 implements Producer {
                         logger.error("Address: {} , Frame: {}", conn.getAddress(), frame);
                         //clean topic 2 partitions selector and force a lookup for topic
                         this.simpleClient.invalidatePartitionsSelector(topic, conn.getAddress());
-                        logger.info("Partitions info for {} invalidated and related lookup force updated.");
+                        logger.info("Partitions info for {} invalidated and related lookup force updated.", topic);
                         throw new NSQInvalidDataNodeException(topic.getTopicText());
                     }
                     default: {
