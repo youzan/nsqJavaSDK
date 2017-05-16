@@ -36,7 +36,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<Address, NSQConnection> {
 
     private static final Logger logger = LoggerFactory.getLogger(KeyedPooledConnectionFactory.class);
-
+    private static final Logger PERF_LOG = LoggerFactory.getLogger(KeyedPooledConnectionFactory.class.getName() + ".perf");
     private final AtomicInteger connectionIDGenerator = new AtomicInteger(0);
     private final EventLoopGroup eventLoopGroup;
     private final ConcurrentHashMap<Address, Bootstrap> bootstraps = new ConcurrentHashMap<>();
@@ -62,27 +62,6 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
 //        keep();
     }
 
-//    private void keep() {
-//        scheduler.scheduleAtFixedRate(new Runnable() {
-//            @Override
-//            public void run() {
-//                // We make a decision that the resources life time should be less than 2 hours
-//                // Normal max lifetime is 1 hour
-//                // Extreme max lifetime is 1.5 hours
-//                final long allow = System.currentTimeMillis() - 3600 * 1000L;
-//                final Set<Address> expired = new HashSet<>();
-//                for (Map.Entry<Address, Long> pair : address_2_bootedTime.entrySet()) {
-//                    if (pair.getValue().longValue() < allow) {
-//                        expired.add(pair.getKey());
-//                    }
-//                }
-//                for (Address a : expired) {
-//                    clearDataNode(a);
-//                }
-//            }
-//        }, 30, 30, TimeUnit.MINUTES);
-//    }
-
     @Override
     public NSQConnection create(Address address) throws Exception {
         logger.debug("Begin to create a connection, the address is {}", address);
@@ -101,12 +80,19 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
                 bootstrap.handler(new NSQClientInitializer());
             }
         }
-        final ChannelFuture future = bootstrap.connect(address.getHost(), address.getPort());
 
+        long connStart = 0;
+        if(PERF_LOG.isDebugEnabled())
+            connStart = System.currentTimeMillis();
+        final ChannelFuture future = bootstrap.connect(address.getHost(), address.getPort());
         // Wait until the connection attempt succeeds or fails.
         if (!future.awaitUninterruptibly(config.getConnectTimeoutInMillisecond(), TimeUnit.MILLISECONDS)) {
             throw new NSQNoConnectionException(future.cause());
         }
+        if(PERF_LOG.isDebugEnabled()) {
+            PERF_LOG.debug("Producer pool wait {} milliSec for connection.", System.currentTimeMillis() - connStart);
+        }
+
         final Channel channel = future.channel();
         if (!future.isSuccess()) {
             if (channel != null) {
@@ -115,6 +101,9 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
             throw new NSQNoConnectionException("Connect " + address + " is wrong.", future.cause());
         }
 
+        long initStart = 0;
+        if(PERF_LOG.isDebugEnabled())
+            initStart = System.currentTimeMillis();
         final NSQConnection conn = new NSQConnectionImpl(connectionIDGenerator.incrementAndGet(), address, channel,
                 config);
         // Netty async+sync programming
@@ -125,6 +114,9 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
         } catch (Exception e) {
             IOUtil.closeQuietly(conn);
             throw new NSQNoConnectionException("Creating a connection and having a negotiation fails!", e);
+        }
+        if(PERF_LOG.isDebugEnabled()) {
+            PERF_LOG.debug("Producer pool initialize connection in {} milliSec.", System.currentTimeMillis() - initStart);
         }
 
         if (!conn.isConnected()) {

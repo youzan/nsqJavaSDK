@@ -19,11 +19,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -109,17 +111,20 @@ public class ProducerImplV2 implements Producer {
                 this.poolConfig.setFairness(false);
                 this.poolConfig.setTestOnBorrow(false);
                 this.poolConfig.setTestOnReturn(false);
+                //If testWhileIdle is true, examined objects are validated when visited (and removed if invalid);
+                //otherwise only objects that have been idle for more than minEvicableIdleTimeMillis are removed.
                 this.poolConfig.setTestWhileIdle(true);
                 this.poolConfig.setJmxEnabled(true);
-                this.poolConfig.setMinEvictableIdleTimeMillis(5 * 60 * 1000);
+                //connection need being validated after idle time
                 this.poolConfig.setSoftMinEvictableIdleTimeMillis(5 * 60 * 1000);
-                //1 * 60 * 1000
+                //this need to be negative, otherwise min idle per key setting won't work
+                this.poolConfig.setMinEvictableIdleTimeMillis(-1);
                 this.poolConfig.setTimeBetweenEvictionRunsMillis(60 * 1000);
-                this.poolConfig.setMinIdlePerKey(1);
+                this.poolConfig.setMinIdlePerKey(this.config.getMinIdleConnectionForProducer());
                 this.poolConfig.setMaxIdlePerKey(this.config.getConnectionSize());
                 this.poolConfig.setMaxTotalPerKey(this.config.getConnectionSize());
                 // acquire connection waiting time
-                this.poolConfig.setMaxWaitMillis(this.config.getQueryTimeoutInMillisecond());
+                this.poolConfig.setMaxWaitMillis(this.config.getMaxConnWaitForProducerInMilliSec());
                 this.poolConfig.setBlockWhenExhausted(false);
                 // new instance without performing to connect
                 this.bigPool = new GenericKeyedObjectPool<>(this.factory, this.poolConfig);
@@ -128,31 +133,6 @@ public class ProducerImplV2 implements Producer {
                 }
                 //simple client starts and LookupAddressUpdate instance initialized there.
                 this.simpleClient.start();
-                scheduler.scheduleAtFixedRate(new Runnable() {
-                    @Override
-                    public void run() {
-                        // We make a decision that the resources life time should be less than 2 hours
-                        // Normal max lifetime is 1 hour
-                        // Extreme max lifetime is 1.5 hours
-                        final long allow = System.currentTimeMillis() - 3600 * 1000L;
-                        final Set<Topic> expiredTopics = new HashSet<>();
-                        for (Map.Entry<Topic, Long> pair : topic_2_lastActiveTime.entrySet()) {
-                            if (pair.getValue() < allow) {
-                                expiredTopics.add(pair.getKey());
-                            }
-                        }
-                        for (Topic topic : expiredTopics) {
-                            topic_2_lastActiveTime.remove(topic);
-                            try {
-                                simpleClient.removeTopic(topic);
-                            } catch (Exception e) {
-                                logger.error("Exception", e);
-                            }
-                        }
-                        expiredTopics.clear();
-                        logger.info("Publish. Total: {} , Success: {} . Two values do not use a lock action.", total.get(), success.get());
-                    }
-                }, 30, 30, TimeUnit.MINUTES);
             }
         }
         logger.info("The producer has been started.");
@@ -163,25 +143,37 @@ public class ProducerImplV2 implements Producer {
      * that every broker is down or every pool is busy.
      *
      * @param topic a topic name
+     * @param topicShardingID topic sharding ID
+     * @param cxt   context
      * @return a validated {@link NSQConnection}
      * @throws NSQException that is having done a negotiation
      */
-    private NSQConnection getNSQConnection(Topic topic, Object topicShardingID) throws NSQException {
+    private NSQConnection getNSQConnection(Topic topic, Object topicShardingID, final Context cxt) throws NSQException {
         final Long now = System.currentTimeMillis();
         topic_2_lastActiveTime.put(topic, now);
         //data nodes matches topic sharding returns
         Address[] partitonAddrs = simpleClient.getPartitionNodes(topic, new Object[]{topicShardingID}, true);
         final int size = partitonAddrs.length;
         int c = 0, index = (this.offset++);
-        while (c++ < size) {
+        while (c < size) {
             // current broker | next broker when have a try again
             final int effectedIndex = (index++ & Integer.MAX_VALUE) % size;
             final Address address = partitonAddrs[effectedIndex];
+            long borrowConnStart = System.currentTimeMillis();
             try {
                 return bigPool.borrowObject(address);
             } catch (Exception e) {
                 logger.error("Fail to fetch connection for publish. DataNode Size: {} , CurrentRetries: {} , Address: {} , Exception:", size, c, address, e);
+            } finally {
+                long borrowConnEnd = System.currentTimeMillis() - borrowConnStart;
+                if(PERF_LOG.isDebugEnabled()) {
+                    PERF_LOG.debug("{}: took {} milliSec to borrow connection from producer pool. CurrentRetries is {}", cxt.getTraceID(), borrowConnEnd, c);
+                }
+                if(borrowConnEnd > PerfTune.getInstance().getNSQConnBorrowLimit()) {
+                    PERF_LOG.warn("{}: took {} milliSec to borrow connection from producer pool. Limitation is {}. CurrentRetries is {}", cxt.getTraceID(), borrowConnEnd, PerfTune.getInstance().getNSQConnBorrowLimit(), c);
+                }
             }
+            c++;
         }
         // no available {@link NSQConnection}
         return null;
@@ -207,6 +199,8 @@ public class ProducerImplV2 implements Producer {
 
     @Override
     public void publish(Message message) throws NSQException {
+        Context cxt = new Context();
+        cxt.setTraceID(UUID.randomUUID());
         if (message == null || message.getMessageBody().isEmpty()) {
             throw new IllegalArgumentException("Your input message is blank! Please check it!");
         }
@@ -219,7 +213,7 @@ public class ProducerImplV2 implements Producer {
         }
         total.incrementAndGet();
         try{
-            sendPUB(message);
+            sendPUB(message, cxt);
         }catch (NSQPubException pubE){
             logger.error(pubE.getLocalizedMessage());
             pubE.punchExceptions(logger);
@@ -255,7 +249,7 @@ public class ProducerImplV2 implements Producer {
         publish(msg);
     }
 
-    private void sendPUB(final Message msg) throws NSQException {
+    private void sendPUB(final Message msg, Context cxt) throws NSQException {
         int c = 0; // be continuous
         boolean returnCon = true;
         NSQConnection conn = null;
@@ -267,7 +261,17 @@ public class ProducerImplV2 implements Producer {
                 sleep((1 << (c - 1)) * this.config.getProducerRetryIntervalBaseInMilliSeconds());
             }
             try {
-                conn = getNSQConnection(msg.getTopic(), msg.getTopicShardingId());
+                //performance logging
+                long getConnStart = System.currentTimeMillis();
+                conn = getNSQConnection(msg.getTopic(), msg.getTopicShardingId(), cxt);
+                long getConnEnd = System.currentTimeMillis() - getConnStart;
+                if(PERF_LOG.isDebugEnabled()){
+                    PERF_LOG.debug("{}: took {} milliSec to get nsq connection.", cxt.getTraceID(), getConnEnd);
+                }
+                if(getConnEnd > PerfTune.getInstance().getNSQConnElapseLimit()) {
+                    PERF_LOG.warn("{}: took {} milliSec to get nsq connection. Limitation is {}", cxt.getTraceID(), getConnEnd, PerfTune.getInstance().getNSQConnElapseLimit());
+                }
+
                 if (conn == null) {
                     exceptions.add(new NSQDataNodesDownException("Could not get NSQd connection for " + msg.getTopic().toString() + ", topic may does not exist, or connection pool resource exhausted."));
                     continue;
@@ -284,7 +288,16 @@ public class ProducerImplV2 implements Producer {
             //create PUB command
             try {
                 final Pub pub = createPubCmd(msg);
+                long pubAndWaitStart = System.currentTimeMillis();
                 final NSQFrame frame = conn.commandAndGetResponse(pub);
+                long pubAndWaitEnd = System.currentTimeMillis() - pubAndWaitStart;
+                if(PERF_LOG.isDebugEnabled()){
+                    PERF_LOG.debug("{}: took {} milliSec to send msg to and hear response from nsqd.", cxt.getTraceID(), pubAndWaitEnd);
+                }
+                if(pubAndWaitEnd > PerfTune.getInstance().getNSQConnElapseLimit()) {
+                    PERF_LOG.warn("{}: took {} milliSec to send message. Limitation is {}", cxt.getTraceID(), PerfTune.getInstance().getSendMSGLimit());
+                }
+
                 handleResponse(msg.getTopic(), frame, conn);
                 success.incrementAndGet();
                 if(msg.isTraced() && frame instanceof MessageMetadata && TraceLogger.isTraceLoggerEnabled() && conn.getAddress().isHA())
@@ -307,7 +320,7 @@ public class ProducerImplV2 implements Producer {
                 int maxlen = msgStr.length() > MAX_MSG_OUTPUT_LEN ? MAX_MSG_OUTPUT_LEN : msgStr.length();
                 logger.error("MaxRetries: {} , CurrentRetries: {} , Address: {} , Topic: {}, MessageLength: {}, RawMessage: {}, Exception:", MAX_PUBLISH_RETRY, c,
                         conn.getAddress(), msg.getTopic(), msgStr.length(), msgStr.substring(0, maxlen), e);
-                //as to NSQInvalidMessaegException throw it out after conenction close.
+                //as to NSQInvalidMessageException throw it out after connection close.
                 if(e instanceof NSQInvalidMessageException)
                     throw (NSQInvalidMessageException)e;
                 NSQException nsqE = new NSQException(e);
@@ -316,15 +329,23 @@ public class ProducerImplV2 implements Producer {
                     throw new NSQPubException(exceptions);
                 }
             } finally {
-                if(returnCon)
+                if(returnCon) {
+                    long returnConnStart = System.currentTimeMillis();
                     bigPool.returnObject(conn.getAddress(), conn);
+                    long returnConnEnd = System.currentTimeMillis() - returnConnStart;
+                    if(PERF_LOG.isDebugEnabled())
+                        PERF_LOG.debug("{}: took {} milliSec to return NSQ connection.", cxt.getTraceID(), returnConnEnd);
+                    if(returnConnEnd > PerfTune.getInstance().getNSQConnReturnLimit()) {
+                        PERF_LOG.warn("{}: took {} milliSec to return NSQ connection. Limitation is {}", cxt.getTraceID(), returnConnEnd, PerfTune.getInstance().getNSQConnReturnLimit());
+                    }
+                }
             }
         } // end loop
         if (c >= MAX_PUBLISH_RETRY) {
             throw new NSQPubException(exceptions);
         }
         if(PERF_LOG.isDebugEnabled()){
-            PERF_LOG.debug("Producer took {} milliSec to send message to {}", System.currentTimeMillis() - start, conn.getAddress());
+            PERF_LOG.debug("{}: Producer took {} milliSec to send message to {}", cxt.getTraceID(), System.currentTimeMillis() - start, conn.getAddress());
         }
     }
 
@@ -362,7 +383,7 @@ public class ProducerImplV2 implements Producer {
                         logger.error("Address: {} , Frame: {}", conn.getAddress(), frame);
                         //clean topic 2 partitions selector and force a lookup for topic
                         this.simpleClient.invalidatePartitionsSelector(topic, conn.getAddress());
-                        logger.info("Partitions info for {} invalidated and related lookup force updated.");
+                        logger.info("Partitions info for {} invalidated and related lookup force updated.", topic);
                         throw new NSQInvalidDataNodeException(topic.getTopicText());
                     }
                     default: {

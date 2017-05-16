@@ -70,7 +70,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * Perform a TCP connecting action
      */
-    private int connectTimeoutInMillisecond = 2500;
+    private int connectTimeoutInMillisecond = 500;
     /**
      * Perform one interactive action between request and response underlying
      * Netty handling TCP
@@ -114,6 +114,8 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     // 180 days ?why 180
     public static final int _MAX_NEXT_CONSUMING_IN_SECOND = 180 * 24 * 3600;
     private int nextConsumingInSecond = 5;
+    private long maxConnWait = 10L;
+    private int minIdleConn = 1;
 
     /*-
      *                             All of Timeout
@@ -137,6 +139,10 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     // ...
     private SslContext sslContext = null;
     private int rdy = 3;
+
+    static {
+        PerfTune.getInstance();
+    }
 
     /**
      * NSQConfig constructor for {@link com.youzan.nsq.client.Producer}.
@@ -776,6 +782,23 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      */
     public int getNextConsumingInSecond() {
         return this.nextConsumingInSecond;
+    }
+
+    public void setMaxConnWaitForProducerInMilliSec(long timeout) {
+        this.maxConnWait = timeout;
+    }
+
+    public long getMaxConnWaitForProducerInMilliSec() {
+        return this.maxConnWait;
+    }
+
+    public void setMinIdleConnectionForProducer(int min) {
+        if(min > 0)
+            this.minIdleConn = min;
+    }
+
+    public int getMinIdleConnectionForProducer() {
+        return this.minIdleConn;
     }
 
     @Override

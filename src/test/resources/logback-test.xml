@@ -28,7 +28,22 @@
             <charset>UTF-8</charset>
         </encoder>
     </appender>
-    
+
+    <appender name="PERF" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>DEBUG</level>
+        </filter>
+        <file>${LOG_HOME}/nsq_sdk_perf.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_HOME}/nsq_sdk_perf.%d{yyyyMMdd}.log</fileNamePattern>
+            <maxHistory>3</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${CONSOLE_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
     <appender name="DCCSDKDEBUG" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>DEBUG</level>
@@ -94,6 +109,12 @@
     </appender>
 
     <!-- For debug , developers. begin -->
+    <logger name="com.youzan.nsq.client.ProducerImplV2.perf" additivity="false">
+        <appender-ref ref="PERF"/>
+    </logger>
+    <logger name="com.youzan.nsq.client.ConsumerImplV2.perf" additivity="false">
+        <appender-ref ref="PERF"/>
+    </logger>
     <logger name="org" additivity="false">
         <appender-ref ref="DCCSDKDEBUG"/>
     </logger>

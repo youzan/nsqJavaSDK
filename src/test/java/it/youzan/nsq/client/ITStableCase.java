@@ -69,6 +69,7 @@ public class ITStableCase {
 
         final String lookups = props.getProperty("lookup-addresses");
         final String connTimeout = props.getProperty("connectTimeoutInMillisecond");
+        config.getLocalTraceMap().put("JavaTesting-Stable", "1");
         config.setLookupAddresses(lookups);
         config.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
         config.setThreadPoolSize4IO(1);

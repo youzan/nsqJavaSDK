@@ -317,6 +317,14 @@ public class NSQSimpleClient implements Client, Closeable {
         conn.command(new Rdy(0));
     }
 
+    /**
+     * function try fetch nsqd tcp addresses for pass in topic, sharding ID, and access(r/w)
+     * @param topic             topic
+     * @param topicShardingIDs  shartdingID, default value is {@link Message#NO_SHARDING}
+     * @param write             access control(r/w)
+     * @return array of nsqd
+     * @throws NSQException
+     */
     public Address[] getPartitionNodes(Topic topic, Object[] topicShardingIDs, boolean write) throws NSQException {
         IPartitionsSelector aPs;
         List<Address> nodes = new ArrayList<>();
