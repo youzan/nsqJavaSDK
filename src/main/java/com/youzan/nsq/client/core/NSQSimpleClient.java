@@ -323,7 +323,7 @@ public class NSQSimpleClient implements Client, Closeable {
      * @param topicShardingIDs  shartdingID, default value is {@link Message#NO_SHARDING}
      * @param write             access control(r/w)
      * @return array of nsqd
-     * @throws NSQException
+     * @throws NSQException exception raised in get nsqd node from lookup or nsqd partition node not found
      */
     public Address[] getPartitionNodes(Topic topic, Object[] topicShardingIDs, boolean write) throws NSQException {
         IPartitionsSelector aPs;
@@ -451,7 +451,7 @@ public class NSQSimpleClient implements Client, Closeable {
     @Override
     public boolean validateHeartbeat(NSQConnection conn) {
         final ChannelFuture future = conn.command(Nop.getInstance());
-        return future.awaitUninterruptibly(2500, TimeUnit.MILLISECONDS) && future.isSuccess();
+        return future.awaitUninterruptibly(2000, TimeUnit.MILLISECONDS) && future.isSuccess();
     }
 
     @Override

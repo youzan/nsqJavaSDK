@@ -115,7 +115,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     public static final int _MAX_NEXT_CONSUMING_IN_SECOND = 180 * 24 * 3600;
     private int nextConsumingInSecond = 5;
     private long maxConnWait = 10L;
-    private int minIdleConn = 1;
+    private int minIdleConn = 2;
 
     /*-
      *                             All of Timeout

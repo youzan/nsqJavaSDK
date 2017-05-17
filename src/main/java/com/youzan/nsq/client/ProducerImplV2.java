@@ -139,6 +139,35 @@ public class ProducerImplV2 implements Producer {
     }
 
     /**
+     * pre allocate connNumPerPartition nsqd connection for passin topic
+     * @param topic topic for pre allocate
+     * @param connNumPerPartition   connection number per partition
+     * @throws NSQException exception raised when address for topic fail to return
+     */
+    public void preAllocateNSQConnection(Topic topic, int connNumPerPartition) throws NSQException {
+        final Long now = System.currentTimeMillis();
+        Address[] partitonAddrs = simpleClient.getPartitionNodes(topic, new Object[]{Message.NO_SHARDING}, true);
+        for(Address addr : partitonAddrs) {
+            List<NSQConnection> preAllocateList = new ArrayList<>(connNumPerPartition);
+            int allocateSucceed = 0;
+            for(int i = 0; i < connNumPerPartition; i++) {
+                try {
+                    preAllocateList.add(bigPool.borrowObject(addr));
+                    allocateSucceed++;
+                } catch (Exception e) {
+                    logger.error("Fail to allocate connection to {}.", addr, e);
+                }
+            }
+            logger.info("{} connections allocated for {}", allocateSucceed, addr);
+            //release all in list
+            for(NSQConnection conn:preAllocateList) {
+                bigPool.returnObject(addr, conn);
+            }
+            preAllocateList.clear();
+        }
+    }
+
+    /**
      * Get a connection foreach every broker in one loop till get one available because I don't believe
      * that every broker is down or every pool is busy.
      *

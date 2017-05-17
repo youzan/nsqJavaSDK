@@ -88,3 +88,10 @@ jackson within NSQ SDK upgrade to 2.7.9.1. due to [deserializer security vulnera
 
 #### fix patch 20170509
 + regression in trace log.[#73](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/73)
+
+## 2.4
+Note worthy:
+
+### Features:
++ performance log in consumer&producer.[#72](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/72)
++ min idle nsqd connection for producer[#74](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/74)
