@@ -11,7 +11,6 @@ import org.slf4j.LoggerFactory;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -327,6 +326,22 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         return consumerName;
     }
 
+
+    private DesiredTag desiredTag;
+    /**
+     * set desired tag for consumer would like to subscribe, a valid tag filter is:
+     * smaller than 100 bytes in length and it is th combination of alphabet[a-zA-Z] and number[0-9]
+     * @param desiredTag tag filter string
+     * @return {@link NSQConfig}
+     */
+    public NSQConfig setConsumerDesiredTag(final DesiredTag desiredTag) {
+        this.desiredTag = desiredTag;
+        return this;
+    }
+
+    public DesiredTag getConsumerDesiredTag() {
+        return desiredTag;
+    }
     /**
      * @param consumerName the consumerName to set
      * @return {@link NSQConfig}
@@ -746,6 +761,9 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
             buffer.append("\"heartbeat_interval\":" + String.valueOf(getHeartbeatIntervalInMillisecond()) + ", ");
         }
         buffer.append("\"msg_timeout\":" + String.valueOf(msgTimeoutInMillisecond) + ",");
+        if (null != getConsumerDesiredTag()) {
+            buffer.append("\"desired_tag\":\"" + getConsumerDesiredTag().toString() + "\",");
+        }
         buffer.append("\"user_agent\": \"" + userAgent + "\"}");
         return buffer.toString();
     }

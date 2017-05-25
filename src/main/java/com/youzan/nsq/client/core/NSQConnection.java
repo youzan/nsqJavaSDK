@@ -80,6 +80,12 @@ public interface NSQConnection extends Closeable {
 
     void addErrorFrame(ErrorFrame frame);
 
+    /**
+     * Tell if connection to nsqd receive message with extendable content.
+     * @return {@link Boolean#TRUE} if message from current connection does not meant to be extendable, otherwise {@link Boolean#FALSE}
+     */
+    boolean isExtend();
+
     void setTopic(Topic topic);
 
     Topic getTopic();

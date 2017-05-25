@@ -23,9 +23,11 @@ public class Pub implements NSQCommand, PartitionEnable {
     public final static int TRACE_ID_SIZE = 8;
 
     protected final Topic topic;
-
     private final List<byte[]> body = new ArrayList<>(1);
-    byte[] bytes = null;
+    protected byte[] bytes = null;
+    protected String desiredTag = null;
+    protected int partitionOverride = -1;
+
     /**
      * @param msg
      *            message object
@@ -33,6 +35,7 @@ public class Pub implements NSQCommand, PartitionEnable {
     public Pub(Message msg) {
         this.topic = msg.getTopic();
         this.body.add(msg.getMessageBodyInByte());
+        this.desiredTag = msg.getDesiredTag();
     }
 
     @Override
@@ -57,9 +60,39 @@ public class Pub implements NSQCommand, PartitionEnable {
         return bytes;
     }
 
+    /**
+     * override default partition, by default, it should be used to override default partition(-1)
+     * @param newPartition  new partition#
+     */
+    public void overrideDefaultPartition(int newPartition) {
+        assert newPartition > -1;
+        this.partitionOverride = newPartition;
+    }
+
+    protected String getPartitionAndTagStr() {
+        String partitionStr;
+        if(partitionOverride > -1)
+            partitionStr = SPACE_STR + partitionOverride;
+        else if(topic.hasPartition())
+            partitionStr = SPACE_STR + topic.getPartitionId();
+        else
+            partitionStr = "";
+
+        String tagFilterStr;
+        if(!partitionStr.isEmpty()) {
+            if(null != this.desiredTag &&  !this.desiredTag.isEmpty())
+                tagFilterStr = SPACE_STR + this.desiredTag;
+            else
+                tagFilterStr = "";
+        } else {
+            tagFilterStr = "";
+        }
+        return partitionStr + tagFilterStr;
+    }
+
     @Override
     public String getHeader() {
-        return String.format("PUB %s%s\n", topic.getTopicText(), topic.hasPartition() ? SPACE_STR + topic.getPartitionId() : "");
+        return String.format("PUB %s%s\n", topic.getTopicText(), this.getPartitionAndTagStr());
     }
 
     @Override

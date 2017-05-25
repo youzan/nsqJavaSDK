@@ -12,18 +12,20 @@ public class Address implements java.io.Serializable, Comparable<Address> {
 
     private final String topic;
     private final int partition;
+    private final boolean extend;
 
     /**
      * @param host a {@link String} to presenting
      * @param port a integer number
      * @param version NSQd version
      */
-    public Address(String host, String port, String version, String topic, int partition) {
+    public Address(String host, String port, String version, String topic, int partition, boolean extend) {
         this.host = host;
         this.port = Integer.valueOf(port);
         this.topic = topic;
         this.partition = partition;
         this.version = version;
+        this.extend = extend;
     }
 
     /**
@@ -31,12 +33,17 @@ public class Address implements java.io.Serializable, Comparable<Address> {
      * @param port a integer number
      * @param version NSQd version
      */
-    public Address(String host, int port, String version, String topic, int partition) {
+    public Address(String host, int port, String version, String topic, int partition, boolean extend) {
         this.host = host;
         this.port = port;
         this.topic = topic;
         this.partition = partition;
         this.version = version;
+        this.extend = extend;
+    }
+
+    public boolean hasPartition() {
+        return this.partition > -1;
     }
 
     public String getHost() {
@@ -59,6 +66,10 @@ public class Address implements java.io.Serializable, Comparable<Address> {
         return this.topic;
     }
 
+    public boolean isTopicExtend() {
+        return this.extend;
+    }
+
     /**
      * check if version # ends with HA.*
      * @return {@link Boolean#TRUE} if NSQd has HA capability within.
@@ -74,7 +85,7 @@ public class Address implements java.io.Serializable, Comparable<Address> {
 
     @Override
     public String toString() {
-        return host + ":" + port + ", " + topic + ", " + partition;
+        return host + ":" + port + ", " + topic + ", " + partition + ", " + extend;
     }
 
     @Override

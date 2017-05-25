@@ -1,7 +1,9 @@
 package com.youzan.nsq.client.network.netty;
 
 import com.youzan.nsq.client.core.Client;
+import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.exception.NSQException;
+import com.youzan.nsq.client.network.frame.MessageFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
@@ -18,6 +20,8 @@ public class NSQDecoder extends MessageToMessageDecoder<ByteBuf> {
         final int frameType = in.readInt();
         Attribute<Boolean> att =  ctx.channel().attr(Client.ORDERED);
         Boolean isOrdered = null == att.get() ? false : att.get();
+        boolean ext = ctx.channel().attr(NSQConnection.STATE).get().isExtend();
+
         final NSQFrame frame = NSQFrame.newInstance(frameType, isOrdered);
         if (frame == null) {
             // uhh, bad response from server.. what should we do?
@@ -27,7 +31,10 @@ public class NSQDecoder extends MessageToMessageDecoder<ByteBuf> {
         frame.setSize(size);
         final byte[] body = new byte[size - 4];
         in.readBytes(body);
-        frame.setData(body);
+        if (frame instanceof MessageFrame)
+            ((MessageFrame) frame).setData(body, ext);
+        else
+            frame.setData(body);
         out.add(frame);
     }
 }

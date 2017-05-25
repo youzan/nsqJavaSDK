@@ -24,6 +24,7 @@ public interface Client extends Closeable {
     Logger logger = LoggerFactory.getLogger(Client.class);
 
     AttributeKey<Client> STATE = AttributeKey.valueOf("Client.State");
+    //ordered attribute not specified in nsq connection for producer.
     AttributeKey<Boolean> ORDERED = AttributeKey.valueOf("Ordered");
 
     Random _r = new Random(10000);

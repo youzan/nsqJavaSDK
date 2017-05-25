@@ -22,6 +22,8 @@ public class NSQMessage implements MessageMetadata{
     final Address address;
     final Integer connectionID; // be sure that is not null
 
+    private IExtContent extContent;
+
     private long diskQueueOffset = -1L;
     private int diskQueueDataSize = -1;
 
@@ -37,9 +39,11 @@ public class NSQMessage implements MessageMetadata{
      * @param address      the address of the message
      * @param connectionID the primary key of the connection
      * @param nextConsumingInSecond time elapse for requeued message to send
+     * @param extVerBytes extendable version in bytes
+     * @param extBytes    extendable content in bytes
      */
     public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
-                     byte[] messageBody, Address address, Integer connectionID, int nextConsumingInSecond) {
+                     byte[] messageBody, Address address, Integer connectionID, int nextConsumingInSecond, byte[] extVerBytes, byte[] extBytes) {
         this.timestamp = timestamp;
         this.attempts = attempts;
         this.messageID = messageID;
@@ -60,6 +64,9 @@ public class NSQMessage implements MessageMetadata{
         this.readableMsgID = newHexString(this.messageID);
 
         this.nextConsumingInSecond = nextConsumingInSecond;
+
+        ExtVer extVer = ExtVer.getExtVersion(extVerBytes);
+        extContent = parseExtContent(extVer, extBytes);
     }
 
     /**
@@ -76,13 +83,37 @@ public class NSQMessage implements MessageMetadata{
      */
     public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
                       final byte[] diskQueueOffset, final byte[] diskQueueDataSize, byte[] messageBody, Address address,
-                      Integer connectionID, int nextConsumingInSecond) {
-        this(timestamp, attempts, messageID, internalID, traceID, messageBody, address, connectionID, nextConsumingInSecond);
+                      Integer connectionID, int nextConsumingInSecond, final byte[] extVerBytes, final byte[] extBytes) {
+        this(timestamp, attempts, messageID, internalID, traceID, messageBody, address, connectionID, nextConsumingInSecond, extVerBytes, extBytes);
 
         ByteBuffer buf = ByteBuffer.wrap(diskQueueOffset);
         this.diskQueueOffset = buf.getLong();
         buf = ByteBuffer.wrap(diskQueueDataSize);
         this.diskQueueDataSize = buf.getInt();
+    }
+
+    IExtContent parseExtContent(ExtVer extVer, byte[] extBytes) throws IllegalArgumentException {
+        switch(extVer) {
+            case Ver0x2: {
+                String tagFilterStr = new String(extBytes);
+                return new DesiredTag(tagFilterStr);
+            }
+            default: {
+                if(extBytes != null) {
+                    logger.error("Ext bytes should be empty.");
+                    throw new IllegalArgumentException("Ext bytes should be empty.");
+                }
+                return new NoExtContent();
+            }
+        }
+    }
+
+    IExtContent getExtContent() {
+        return this.extContent;
+    }
+
+    public DesiredTag getTag() {
+        return (DesiredTag)this.extContent;
     }
 
     /**

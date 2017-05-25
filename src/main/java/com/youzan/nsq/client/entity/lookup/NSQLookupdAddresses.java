@@ -22,7 +22,7 @@ public class NSQLookupdAddresses extends AbstractLookupdAddresses {
     private static final Logger logger = LoggerFactory.getLogger(NSQLookupdAddresses.class);
     private static final String HTTP_PRO_HEAD = "http://";
     private static final String BROKER_QUERY_URL_WRITE = "%s/lookup?topic=%s&access=%s&metainfo=true";
-    private static final String BROKER_QUERY_URL_READ = "%s/lookup?topic=%s&access=%s";
+    private static final String BROKER_QUERY_URL_READ = "%s/lookup?topic=%s&access=%s&metainfo=true";
 
     protected int prefactor = 0;
 
@@ -160,25 +160,33 @@ public class NSQLookupdAddresses extends AbstractLookupdAddresses {
         List<Address> partitionedDataNodes;
         Set<AddressCompatibility> partitionNodeSet = new HashSet<>();
 
+        boolean isExtendable = false;
+        int partitionCount = 0;
+
+        JsonNode metaInfo = rootNode.get("meta");
+        if (null != metaInfo) {
+            JsonNode isExtendableJson = metaInfo.get("extend_support");
+            if (null != isExtendableJson)
+                isExtendable = isExtendableJson.asBoolean();
+
+            //fetch meta info if it is writable
+            if (writable) {
+                partitionCount = metaInfo.get("partition_num").asInt();
+            }
+        }
+
         List<Address> unPartitionedDataNodes = null;
         if (null != partitions) {
 
             partitionId2Ref = new HashMap<>();
             partitionedDataNodes = new ArrayList<>();
 
-            int partitionCount = 0;
-            //fetch meta info if it is writable
-            if(writable) {
-                JsonNode metaInfo = rootNode.get("meta");
-                partitionCount = metaInfo.get("partition_num").asInt();
-            }
-
             Iterator<String> irt = partitions.fieldNames();
             while (irt.hasNext()) {
                 String parId = irt.next();
                 int parIdInt = Integer.valueOf(parId);
                 JsonNode partition = partitions.get(parId);
-                final Address address = createAddress(topic.getTopicText(), parIdInt, partition);
+                final Address address = createAddress(topic.getTopicText(), parIdInt, partition, isExtendable);
                 if(parIdInt >= 0) {
                     partitionedDataNodes.add(address);
                     partitionNodeSet.add(new AddressCompatibility(address));
@@ -196,7 +204,7 @@ public class NSQLookupdAddresses extends AbstractLookupdAddresses {
         //producers part in json
         for (JsonNode node : producers) {
             //for old NSQd partition, we set partition as -1
-            final Address address = createAddress(topic.getTopicText(), -1, node);
+            final Address address = createAddress(topic.getTopicText(), -1, node, isExtendable);
             if(!partitionNodeSet.contains(new AddressCompatibility(address))) {
                 if(null == unPartitionedDataNodes)
                     unPartitionedDataNodes = new ArrayList<>();
@@ -223,11 +231,11 @@ public class NSQLookupdAddresses extends AbstractLookupdAddresses {
      * field to construct Address
      * @return Address nsq broker Address
      */
-    private Address createAddress(final String topic, int partition, JsonNode node){
+    private Address createAddress(final String topic, int partition, JsonNode node, boolean extend){
         final String host = node.get("broadcast_address").asText();
         final int port = node.get("tcp_port").asInt();
         final String version = node.get("version").asText();
-        return new Address(host, port, version, topic, partition);
+        return new Address(host, port, version, topic, partition, extend);
     }
 }
 

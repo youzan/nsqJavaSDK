@@ -28,6 +28,8 @@ public class Message {
     //common part, message body
     private final String messageBody;
 
+    private String desiredTag = null;
+
     public String toString() {
         return String.format(MSG_FORMAT, this.traceID, this.topicSharding, this.topic.getTopicText());
     }
@@ -83,6 +85,23 @@ public class Message {
     public Message setTopicShardingIDObject(Object shardingIDObj){
         this.topicSharding = shardingIDObj;
         return this;
+    }
+
+    public Message setDesiredTag(final DesiredTag desiredTag) {
+        this.desiredTag = desiredTag.toString();
+        return this;
+    }
+
+    public String getDesiredTag() {
+        return this.desiredTag;
+    }
+
+    public byte[] getDesiredTagInByte() {
+        if(null == this.desiredTag)
+                return null;
+        else {
+           return this.desiredTag.getBytes(Charset.defaultCharset());
+        }
     }
 
     /**

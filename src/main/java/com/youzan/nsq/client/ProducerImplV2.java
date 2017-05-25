@@ -317,6 +317,17 @@ public class ProducerImplV2 implements Producer {
             //create PUB command
             try {
                 final Pub pub = createPubCmd(msg);
+
+                //check if address has partition info, if it does, update pub's partition
+                if(conn.getAddress().hasPartition()) {
+                    pub.overrideDefaultPartition(conn.getAddress().getPartition());
+                }
+
+                //check desired tag
+                if (null != msg.getDesiredTag() && !msg.getDesiredTag().isEmpty() && !conn.isExtend()) {
+                    throw new NSQTopicNotExtendableException("Topic " + msg.getTopic().getTopicText() + " is not extendable. Address: " + conn.getAddress());
+                }
+
                 long pubAndWaitStart = System.currentTimeMillis();
                 final NSQFrame frame = conn.commandAndGetResponse(pub);
                 long pubAndWaitEnd = System.currentTimeMillis() - pubAndWaitStart;
@@ -333,7 +344,7 @@ public class ProducerImplV2 implements Producer {
                     TraceLogger.trace(this, conn, (MessageMetadata) frame);
                 break;
             }
-            catch(NSQPubFactoryInitializeException expShouldFail) {
+            catch(NSQPubFactoryInitializeException | NSQTagException | NSQTopicNotExtendableException expShouldFail) {
                 throw expShouldFail;
             }
             catch (Exception e) {
@@ -379,7 +390,7 @@ public class ProducerImplV2 implements Producer {
     }
 
     /**
-     * function to create publish command based on traceability
+     * function to create publish command based on traceability, get header() in command is not invoked here
      * @return Pub command
      */
     private Pub createPubCmd(final Message msg) throws NSQPubFactoryInitializeException {
@@ -414,6 +425,10 @@ public class ProducerImplV2 implements Producer {
                         this.simpleClient.invalidatePartitionsSelector(topic, conn.getAddress());
                         logger.info("Partitions info for {} invalidated and related lookup force updated.", topic);
                         throw new NSQInvalidDataNodeException(topic.getTopicText());
+                    }
+                    case E_TAG_NOT_SUPPORT: {
+                        logger.error("Tag not support in target topic.", err.getMessage());
+                        throw new NSCTagNotSupportedException(topic.getTopicText() + " Error:" + err.getMessage());
                     }
                     default: {
                         throw new NSQException("Unknown response error! The topic is " + topic + " . The error frame is " + err);

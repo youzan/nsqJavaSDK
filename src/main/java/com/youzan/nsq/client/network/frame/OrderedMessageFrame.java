@@ -1,5 +1,7 @@
 package com.youzan.nsq.client.network.frame;
 
+import java.nio.ByteBuffer;
+
 /**
  * Created by lin on 16/9/26.
  */
@@ -12,6 +14,44 @@ public class OrderedMessageFrame extends MessageFrame{
      * 4-byte : disk queue data size
      */
     final private byte[] diskQueueDataSize = new byte[4];
+
+    @Override
+    public void setData(byte[] bytes, boolean shouldExt) {
+        System.arraycopy(bytes, 0, timestamp, 0, 8);
+        System.arraycopy(bytes, 8, attempts, 0, 2);
+
+        //Sub Ordered incoming extra info, disk queue offset & disk queue data size
+        System.arraycopy(bytes, 10, messageID, 0, 16);
+        System.arraycopy(bytes, 10, internalID, 0, 8);
+        System.arraycopy(bytes, 18, traceID, 0, 8);
+
+        int messageBodyStart;
+        int messageBodySize;
+        if(!shouldExt) {
+            messageBodyStart = 8 + 2 + 16;
+        } else {
+            byte[] extBytesLenBytes = new byte[2];
+            //read ext content & length here
+            //version
+            System.arraycopy(bytes, 26, extVerBytes, 0, 1);
+            //ext content length
+            System.arraycopy(bytes, 27, extBytesLenBytes, 0, 2);
+            int extBytesLen = ByteBuffer.wrap(extBytesLenBytes).getShort();
+            //allocate
+            extBytes = new byte[extBytesLen];
+            System.arraycopy(bytes, 29, extBytes, 0, extBytesLen);
+
+            messageBodyStart = 8 + 2 + 16 + 1 + 2 + extBytesLen;
+        }
+
+        System.arraycopy(bytes, messageBodyStart, diskQueueOffset, 0, 8);
+        messageBodyStart += 8;
+        System.arraycopy(bytes, messageBodyStart, diskQueueDataSize, 0, 4);
+        messageBodyStart += 4;
+        messageBodySize = bytes.length - (messageBodyStart);
+        messageBody = new byte[messageBodySize];
+        System.arraycopy(bytes, messageBodyStart, messageBody, 0, messageBodySize);
+    }
 
     @Override
     public void setData(byte[] bytes) {

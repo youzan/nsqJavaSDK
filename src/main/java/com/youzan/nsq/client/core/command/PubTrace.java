@@ -24,13 +24,13 @@ public class PubTrace extends Pub{
             buf.putLong(msg.getTraceID());
             byte[] newTraceID = buf.array();
             System.arraycopy(newTraceID, 0, this.traceId, 0, TRACE_ID_SIZE);
+            this.desiredTag = msg.getDesiredTag();
         }
     }
 
     @Override
     public String getHeader() {
-        return String.format("PUB_TRACE %s%s\n", topic.getTopicText(), topic.hasPartition() ?
-                SPACE_STR + topic.getPartitionId() : "");
+        return String.format("PUB_TRACE %s%s\n", topic.getTopicText(), this.getPartitionAndTagStr());
     }
 
     @Override

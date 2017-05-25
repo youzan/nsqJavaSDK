@@ -2,6 +2,7 @@ package it.youzan.nsq.client;
 
 import com.youzan.nsq.client.Producer;
 import com.youzan.nsq.client.ProducerImplV2;
+import com.youzan.nsq.client.entity.DesiredTag;
 import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.Topic;
@@ -15,16 +16,13 @@ import org.testng.annotations.Test;
 
 import java.io.InputStream;
 import java.util.Properties;
-import java.util.Random;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
-@Test(groups = {"ITProducer-Base"}, priority = 3)
-public class ITProducer {
+/**
+ * Created by lin on 17/6/12.
+ */
+public class ITTagProducer {
+    private static final Logger logger = LoggerFactory.getLogger(ITTagProducer.class);
 
-    private static final Logger logger = LoggerFactory.getLogger(ITProducer.class);
-
-    final Random random = new Random();
     protected final NSQConfig config = new NSQConfig();
     protected Producer producer;
 
@@ -40,43 +38,31 @@ public class ITProducer {
         final String msgTimeoutInMillisecond = props.getProperty("msgTimeoutInMillisecond");
         final String threadPoolSize4IO = props.getProperty("threadPoolSize4IO");
 
-//        config.setUserSpecifiedLookupAddress(true);
-        config.setLookupAddresses(lookups);
+//        config.setLookupAddresses(lookups);
+        config.setLookupAddresses("qabb-qa-nsqtest0:4161");
         config.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
         config.setMsgTimeoutInMillisecond(Integer.valueOf(msgTimeoutInMillisecond));
         config.setThreadPoolSize4IO(Integer.valueOf(threadPoolSize4IO));
-//        NSQConfig.setSDKEnvironment("qa");
-//        NSQConfig.turnOnConfigAccess();
 
         producer = new ProducerImplV2(config);
         producer.start();
     }
 
-    public void publish() throws NSQException {
-        for (int i = 0; i < 10; i++) {
-            final byte[] message = ("Message #"+ i).getBytes();
-            producer.publish(message, "JavaTesting-Producer-Base");
+    @Test
+    public void publishWTag() throws NSQException {
+        Topic topic = new Topic("tag2Par2Rep");
+        DesiredTag tag = new DesiredTag("TAG1");
+        for (int i = 0; i < 100; i++) {
+            Message msg = Message.create(topic, "message");
+            msg.setDesiredTag(tag);
+            producer.publish(msg);
         }
-    }
 
-    public void concurrentPublish() throws NSQException, InterruptedException {
-        final ExecutorService exec = Executors.newFixedThreadPool(100);
-        final Producer proCon = new ProducerImplV2(config);
-        proCon.start();
-        final Topic topic = new Topic("JavaTesting-Producer-Base");
-        while(true) {
-            exec.submit(new Runnable() {
-                @Override
-                public void run() {
-                    Message msg = Message.create(topic, "message");
-                    try {
-                        proCon.publish(msg);
-                    } catch (NSQException e) {
-                        logger.error("publish fail.", e);
-                    }
-                }
-            });
-            Thread.sleep(500L);
+        tag = new DesiredTag("TAG2");
+        for (int i = 0; i < 100; i++) {
+            Message msg = Message.create(topic, "message");
+            msg.setDesiredTag(tag);
+            producer.publish(msg);
         }
     }
 

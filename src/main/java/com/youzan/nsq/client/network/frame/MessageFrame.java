@@ -1,8 +1,14 @@
 package com.youzan.nsq.client.network.frame;
 
+import com.youzan.nsq.client.entity.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 public class MessageFrame extends NSQFrame {
+    private static final Logger logger = LoggerFactory.getLogger(Message.class);
     /*-
      * =========================================================================
      *                       NSQ the message format
@@ -28,6 +34,9 @@ public class MessageFrame extends NSQFrame {
      * N-byte : (binary)
      */
     byte[] messageBody;
+
+    byte[] extBytes;
+    byte[] extVerBytes = new byte[1];
 
 
     /*-
@@ -71,6 +80,15 @@ public class MessageFrame extends NSQFrame {
     public byte[] getInternalID() {
         return this.internalID;
     }
+
+    public byte[] getExtVerBytes() {
+        return this.extVerBytes;
+    }
+
+    public byte[] getExtBytes() {
+        return this.extBytes;
+    }
+
     /**
      * @param messageBody the messageBody to set
      */
@@ -78,7 +96,43 @@ public class MessageFrame extends NSQFrame {
         this.messageBody = messageBody;
     }
 
+    public void setData(byte[] bytes, boolean shouldExt) {
+        System.arraycopy(bytes, 0, timestamp, 0, 8);
+        System.arraycopy(bytes, 8, attempts, 0, 2);
+
+        System.arraycopy(bytes, 10, messageID, 0, 16);
+        System.arraycopy(bytes, 10, internalID, 0, 8);
+        System.arraycopy(bytes, 18, traceID, 0, 8);
+
+        int messageBodyStart;
+        int messageBodySize;
+        if(!shouldExt) {
+            messageBodyStart = 8 + 2 + 16;
+        } else {
+            byte[] extBytesLenBytes = new byte[2];
+            //read ext content & length here
+            //version
+            System.arraycopy(bytes, 26, extVerBytes, 0, 1);
+            //ext content length
+            System.arraycopy(bytes, 27, extBytesLenBytes, 0, 2);
+            int extBytesLen = ByteBuffer.wrap(extBytesLenBytes).getShort();
+            //allocate
+            extBytes = new byte[extBytesLen];
+            System.arraycopy(bytes, 29, extBytes, 0, extBytesLen);
+            //leave them to message consume
+//            ExtVer extVer = ExtVer.getExtVersion(extVerBytes);
+//            IExtContent extContent = parseExtContent(extVer, extBytes);
+
+            messageBodyStart = 8 + 2 + 16 + 1 + 2 + extBytesLen;
+        }
+        messageBodySize = bytes.length - (messageBodyStart);
+        messageBody = new byte[messageBodySize];
+
+        System.arraycopy(bytes, messageBodyStart, messageBody, 0, messageBodySize);
+    }
+
     @Override
+    @Deprecated
     public void setData(byte[] bytes) {
         final int messageBodySize = bytes.length - (8 + 2 + 16);
         messageBody = new byte[messageBodySize];

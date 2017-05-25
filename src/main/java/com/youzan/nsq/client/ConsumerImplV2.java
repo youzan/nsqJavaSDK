@@ -524,8 +524,14 @@ public class ConsumerImplV2 implements Consumer {
             received.incrementAndGet();
             final MessageFrame msg = (MessageFrame) frame;
             final NSQMessage message = createNSQMessage(msg, conn);
-            //gather trace info
-            //this.trace.handleMessage(message);
+
+            //check desired tag
+            DesiredTag tag = this.config.getConsumerDesiredTag();
+            if (null != tag && !tag.toString().equals("") && !tag.match(message.getTag())) {
+                logger.warn("Skip message {} has tag {} not desired. Consumer desired tag: {}, Address: {}", message.getInternalID(), message.getTag(), this.config.getConsumerDesiredTag(), conn.getAddress());
+                return;
+            }
+
             if (TraceLogger.isTraceLoggerEnabled() && conn.getAddress().isHA())
                 TraceLogger.trace(this, conn, message);
             if (this.config.isOrdered()
@@ -631,6 +637,8 @@ public class ConsumerImplV2 implements Consumer {
     private void consume(final NSQMessage message, final NSQConnection connection) {
         boolean ok;
         boolean retry;
+        //TODO: do tag filter here
+
         long start = System.currentTimeMillis();
         try {
             handler.process(message);
@@ -909,6 +917,7 @@ public class ConsumerImplV2 implements Consumer {
                 //for error case which nsqd nodes does not invalidation
                 case E_SUB_ORDER_IS_MUST: {
                     logger.error("SubOrder is needed for topic(s) consuming.");
+                    break;
                 }
                 default: {
                     logger.error("Unknown error type in ERROR_FRAME! {}", frame);
@@ -977,10 +986,10 @@ public class ConsumerImplV2 implements Consumer {
             return new NSQMessage(orderedMsgFrame.getTimestamp(), orderedMsgFrame.getAttempts(), orderedMsgFrame.getMessageID(),
                     orderedMsgFrame.getInternalID(), orderedMsgFrame.getTractID(),
                     orderedMsgFrame.getDiskQueueOffset(), orderedMsgFrame.getDiskQueueDataSize(),
-                    msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond());
+                    msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond(), msgFrame.getExtVerBytes(), msgFrame.getExtBytes());
         } else
             return new NSQMessage(msgFrame.getTimestamp(), msgFrame.getAttempts(), msgFrame.getMessageID(),
-                    msgFrame.getInternalID(), msgFrame.getTractID(), msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond());
+                    msgFrame.getInternalID(), msgFrame.getTractID(), msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond(), msgFrame.getExtVerBytes(), msgFrame.getExtBytes());
     }
 
     public String toString() {

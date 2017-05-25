@@ -44,6 +44,10 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     //topic for subscribe
     private Topic topic;
     private final NSQConfig config;
+
+    //indicate if current should be extendable, if it is true, message received from nsqd should be extended.
+    private final boolean isExtend;
+
     //start ready cnt for current count
     private volatile int currentRdy;
 
@@ -60,7 +64,18 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         else
             this.currentRdy = 1;
         this.queryTimeoutInMillisecond = config.getQueryTimeoutInMillisecond();
+        if(address.isTopicExtend()) {
+            isExtend = Boolean.TRUE;
+        } else {
+            isExtend = Boolean.FALSE;
+        }
+        if(logger.isDebugEnabled())
+            logger.debug("extend marked as {} for connection to {}", this.isExtend, address);
+    }
 
+    @Override
+    public boolean isExtend() {
+        return this.isExtend;
     }
 
     @Override
@@ -219,7 +234,8 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
                 havingNegotiation = false;
                 channel.attr(NSQConnection.STATE).remove();
                 channel.attr(Client.STATE).remove();
-                channel.attr(Client.ORDERED).remove();
+                if(channel.hasAttr(Client.ORDERED))
+                    channel.attr(Client.ORDERED).remove();
                 if (channel.isActive()) {
                     channel.close();
                     channel.deregister();

@@ -24,6 +24,8 @@ public enum Response {
     E_FAILED_ON_NOT_WRITABLE("E_FAILED_ON_NOT_WRITABLE"), //
     E_FIN_FAILED("E_FIN_FAILED"), //
     E_SUB_ORDER_IS_MUST("E_SUB_ORDER_IS_MUST"), //
+    E_BAD_TAG("E_BAD_TAG"),
+    E_TAG_NOT_SUPPORT ("E_TAG_NOT_SUPPORT"),
     ;
 
     private final String content;
