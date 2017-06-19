@@ -1,23 +1,22 @@
 package com.youzan.nsq.client.exception;
 
-import com.youzan.nsq.client.entity.Topic;
 
 /**
  * Created by lin on 17/1/12.
  */
 public class NSQTopicNotFoundException extends NSQException {
-    private Topic topic;
+    private String topic;
 
     public NSQTopicNotFoundException(String message) {
         super(message);
     }
 
-    public NSQTopicNotFoundException(String message, Topic topic, Throwable cause) {
+    public NSQTopicNotFoundException(String message, String topic, Throwable cause) {
         super(message, cause);
         this.topic = topic;
     }
 
-    public Topic getTopic(){
+    public String getTopic(){
         return this.topic;
     }
 }

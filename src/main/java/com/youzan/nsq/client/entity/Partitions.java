@@ -11,7 +11,7 @@ import java.util.Map;
  * Created by lin on 16/11/7.
  */
 public class Partitions {
-    private final Topic topic;
+    private final String topic;
     //view of partition dataNode, length of dataNodes equals to size of Partitions.partitionNum;
     private Map<Integer, SoftReference<Address>> partitionId2Addr = null;
     private List<Address> dataNodes = null;
@@ -22,7 +22,7 @@ public class Partitions {
     //total partion number of topic
     private int partitionNum = 0;
 
-    public Partitions(final Topic topic){
+    public Partitions(final String topic){
         this.topic = topic;
     }
 

@@ -305,6 +305,9 @@ public class ConsumerImplV2 implements Consumer {
                     if(idx++ >= MAX_CONSUME_RETRY){
                         throw lookupe;
                     }
+                } catch (InterruptedException e) {
+                    logger.warn("Thread interrupted waiting for partition selector update, Topic {}. Ignore if SDK is shutting down.", topic.getTopicText());
+                    //TODO: retry?
                 }
             }
             final List<Address> dataNodeLst = Arrays.asList(partitionDataNodes);
@@ -905,6 +908,7 @@ public class ConsumerImplV2 implements Consumer {
                 }
                 case E_TOPIC_NOT_EXIST: {
                     Address address = connection.getAddress();
+                    //TODO:
                     for(Topic aTopic : this.topics2Partitions.keySet()) {
                         this.simpleClient.invalidatePartitionsSelector(aTopic);
                         logger.info("Partitions info for {} invalidated and related lookupd address force updated.");

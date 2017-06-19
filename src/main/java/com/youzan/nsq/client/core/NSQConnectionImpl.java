@@ -149,7 +149,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
             long timeout = queryTimeoutInMillisecond - (System.currentTimeMillis() - start);
             if (!requests.offer(command, timeout, TimeUnit.MILLISECONDS)) {
                 throw new TimeoutException(
-                        "The command is timeout. The command name is : " + command.getClass().getName());
+                        "The command timeout in " + timeout + " milliSec. The command name is : " + command.getClass().getName());
             }
 
             responses.clear(); // clear
@@ -160,13 +160,13 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
             timeout = queryTimeoutInMillisecond - (System.currentTimeMillis() - start);
             if (!future.await(timeout, TimeUnit.MILLISECONDS)) {
                 throw new TimeoutException(
-                        "The command is timeout. The command name is : " + command.getClass().getName());
+                        "The command timeout in " + timeout + "milliSec. The command name is : " + command.getClass().getName());
             }
             timeout = queryTimeoutInMillisecond - (System.currentTimeMillis() - start);
             final NSQFrame frame = responses.poll(timeout, TimeUnit.MILLISECONDS);
             if (frame == null) {
                 throw new TimeoutException(
-                        "The command is timeout. The command name is : " + command.getClass().getName());
+                        "The command timeout in " + timeout + " milliSec. The command name is : " + command.getClass().getName());
             }
 
             requests.poll(); // clear

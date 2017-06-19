@@ -105,7 +105,7 @@ public class ConfigAccessAgentTestcase {
             logger.info("[testGetMigrationConfigAccessProperties] starts.");
             agent = ConfigAccessAgent.getInstance();
             Topic topic = new Topic("migrationConfigAccessTopic");
-            DCCMigrationConfigAccessDomain domain = (DCCMigrationConfigAccessDomain) DCCMigrationConfigAccessDomain.getInstance(topic);
+            DCCMigrationConfigAccessDomain domain = (DCCMigrationConfigAccessDomain) DCCMigrationConfigAccessDomain.getInstance(topic.getTopicText());
             String expectedDomain = "migrationConfigAccessTopic.nsq.lookupd.addr";
             Assert.assertEquals(domain.toDomain(), expectedDomain);
 
@@ -157,7 +157,7 @@ public class ConfigAccessAgentTestcase {
             expectedKeySet.add("addr1");
 
             Topic topic = new Topic("subscribeLookupAddressUpdate.Topic");
-            DCCMigrationConfigAccessDomain domain = (DCCMigrationConfigAccessDomain) DCCMigrationConfigAccessDomain.getInstance(topic);
+            DCCMigrationConfigAccessDomain domain = (DCCMigrationConfigAccessDomain) DCCMigrationConfigAccessDomain.getInstance(topic.getTopicText());
             Role aRole = Role.getInstance("producer");
             DCCMigrationConfigAccessKey key = (DCCMigrationConfigAccessKey) DCCMigrationConfigAccessKey.getInstance(aRole);
             TestConfigAccessAgent.updateValue(domain, new AbstractConfigAccessKey[]{key}, valueMap, true);

@@ -53,7 +53,7 @@ public class PartitionTestcase extends EasyMockSupport{
             List<String> clusters = new ArrayList<>();
             clusters.add(cluster);
             NSQLookupdAddresses lookupd = createNSQLookupdAddr(clusters, clusters);
-            IPartitionsSelector ps = lookupd.lookup(mockTopic, true);
+            IPartitionsSelector ps = lookupd.lookup("java_test_ordered_multi_topic", true);
             Partitions[] par = ps.choosePartitions();
             //hack partition number
             par[0].updatePartitionNum(10);

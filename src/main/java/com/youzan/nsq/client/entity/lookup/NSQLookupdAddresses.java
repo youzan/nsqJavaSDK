@@ -59,8 +59,8 @@ public class NSQLookupdAddresses extends AbstractLookupdAddresses {
      * @throws NSQTopicNotFoundException
      *      exception when target topic not found
      */
-    public IPartitionsSelector lookup(final Topic topic, boolean writable) throws NSQLookupException, NSQProducerNotFoundException, NSQTopicNotFoundException {
-        if (null == topic || null == topic.getTopicText() || topic.getTopicText().isEmpty()) {
+    public IPartitionsSelector lookup(final String topic, boolean writable) throws NSQLookupException, NSQProducerNotFoundException, NSQTopicNotFoundException {
+        if (null == topic || topic.isEmpty()) {
             throw new NSQLookupException("Your input topic is blank!");
         }
         /*
@@ -133,18 +133,18 @@ public class NSQLookupdAddresses extends AbstractLookupdAddresses {
         }
     }
 
-    protected Partitions lookup(String lookupdAddress, final Topic topic, boolean writable) throws IOException, NSQProducerNotFoundException, NSQTopicNotFoundException {
+    protected Partitions lookup(String lookupdAddress, final String topic, boolean writable) throws IOException, NSQProducerNotFoundException, NSQTopicNotFoundException {
         if(!lookupdAddress.startsWith(HTTP_PRO_HEAD))
             lookupdAddress = HTTP_PRO_HEAD + lookupdAddress;
         String urlFormat = writable ? BROKER_QUERY_URL_WRITE : BROKER_QUERY_URL_READ ;
-        final String url = String.format(urlFormat, lookupdAddress, topic.getTopicText(), writable ? "w" : "r");
+        final String url = String.format(urlFormat, lookupdAddress, topic, writable ? "w" : "r");
         logger.debug("Begin to lookup some DataNodes from URL {}", url);
         Partitions aPartitions = new Partitions(topic);
         JsonNode rootNode;
         try {
             rootNode = IOUtil.readFromUrl(new URL(url));
         }catch(FileNotFoundException topicNotFoundExp) {
-            throw new NSQTopicNotFoundException("Topic not found for " + topic.toString() + ", with query: " + url + ". topic or channel within may NOT exist", topic, topicNotFoundExp);
+            throw new NSQTopicNotFoundException("Topic not found for " + topic + ", with query: " + url + ". topic or channel within may NOT exist", topic, topicNotFoundExp);
         }
         long start = 0L;
         if(logger.isDebugEnabled())
@@ -153,7 +153,7 @@ public class NSQLookupdAddresses extends AbstractLookupdAddresses {
         //check if producers exists, if not, it could be a no channel exception
         final JsonNode producers = rootNode.get("producers");
         if(null == producers || producers.size() == 0){
-            throw new NSQProducerNotFoundException("No NSQd producer node return in lookup response. NSQd may not ready at this moment. " + topic.toString());
+            throw new NSQProducerNotFoundException("No NSQd producer node return in lookup response. NSQd may not ready at this moment. " + topic);
         }
         final JsonNode partitions = rootNode.get("partitions");
         Map<Integer, SoftReference<Address>> partitionId2Ref;
@@ -186,7 +186,7 @@ public class NSQLookupdAddresses extends AbstractLookupdAddresses {
                 String parId = irt.next();
                 int parIdInt = Integer.valueOf(parId);
                 JsonNode partition = partitions.get(parId);
-                final Address address = createAddress(topic.getTopicText(), parIdInt, partition, isExtendable);
+                final Address address = createAddress(topic, parIdInt, partition, isExtendable);
                 if(parIdInt >= 0) {
                     partitionedDataNodes.add(address);
                     partitionNodeSet.add(new AddressCompatibility(address));
@@ -204,7 +204,7 @@ public class NSQLookupdAddresses extends AbstractLookupdAddresses {
         //producers part in json
         for (JsonNode node : producers) {
             //for old NSQd partition, we set partition as -1
-            final Address address = createAddress(topic.getTopicText(), -1, node, isExtendable);
+            final Address address = createAddress(topic, -1, node, isExtendable);
             if(!partitionNodeSet.contains(new AddressCompatibility(address))) {
                 if(null == unPartitionedDataNodes)
                     unPartitionedDataNodes = new ArrayList<>();

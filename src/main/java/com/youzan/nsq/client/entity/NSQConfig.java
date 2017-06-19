@@ -113,7 +113,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     // 180 days ?why 180
     public static final int _MAX_NEXT_CONSUMING_IN_SECOND = 180 * 24 * 3600;
     private int nextConsumingInSecond = 5;
-    private long maxConnWait = 10L;
+    private long maxConnWait = 100L;
     private int minIdleConn = 2;
 
     /*-
@@ -802,11 +802,11 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         return this.nextConsumingInSecond;
     }
 
-    public void setMaxConnWaitForProducerInMilliSec(long timeout) {
+    public void setConnWaitTimeoutForProducerInMilliSec(long timeout) {
         this.maxConnWait = timeout;
     }
 
-    public long getMaxConnWaitForProducerInMilliSec() {
+    public long getConnWaitTimeoutForProducerInMilliSec() {
         return this.maxConnWait;
     }
 

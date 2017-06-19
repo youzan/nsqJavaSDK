@@ -33,7 +33,6 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     @Test(expectedExceptions = {NSQTopicNotFoundException.class})
     public void testPubException2InvalidTopic() throws NSQException {
         NSQConfig config = this.getNSQConfig();
-        config.setUserSpecifiedLookupAddress(true);
         config.setLookupAddresses(props.getProperty("old-lookup-addresses"));
         Producer producer = this.createProducer(config);
         try{
@@ -56,7 +55,6 @@ public class ProducerTest extends AbstractNSQClientTestcase {
         createTopic(adminUrlStr, topicName);
 
         NSQConfig config = this.getNSQConfig();
-        config.setUserSpecifiedLookupAddress(true);
         Producer producer = this.createProducer(config);
         try{
             //a topic is invalid enough
