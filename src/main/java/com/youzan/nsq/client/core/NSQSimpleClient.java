@@ -47,7 +47,8 @@ public class NSQSimpleClient implements Client, Closeable {
     private final Map<String, TopicSync> topicSynMap = new ConcurrentHashMap<>();
     private final Map<String, IPartitionsSelector> topic_2_partitionsSelector = new ConcurrentHashMap<>();
     private final long TOPIC_PARTITION_TIMEOUT = 500L;
-    private final ConcurrentSortedSet<Address> dataNodes = new ConcurrentSortedSet<>();
+
+    private final Map<String, Long> ps_lastInvalidated = new ConcurrentHashMap<>();
 
     private volatile boolean started;
     private final ScheduledExecutorService scheduler = Executors
@@ -89,18 +90,13 @@ public class NSQSimpleClient implements Client, Closeable {
     }
 
     @Override
-    public void start() {
-        lock.writeLock().lock();
-        try {
-            if (!started) {
-                started = true;
-                LookupAddressUpdate.getInstance(true).keepListLookup();
-                keepDataNodes();
-            }
+    public synchronized void start() {
+        if (!started) {
             started = true;
-        } finally {
-            lock.writeLock().unlock();
+            LookupAddressUpdate.getInstance(true).keepListLookup();
+            keepDataNodes();
         }
+        started = true;
     }
 
     /**
@@ -166,9 +162,13 @@ public class NSQSimpleClient implements Client, Closeable {
         //lookup gatheres topics
         for (String topic : topics) {
             TopicSync ts = topicSynMap.get(topic);
+            if (null == ts) {
+                logger.info("Partitions selector lock for {} do not exist", topic);
+                continue;
+            }
             //another process, producer or consumer is updating this partitions slelector, ok to skip
             if (!ts.tryLock()) {
-                logger.info("skip partitions selector for {} as it is hold by client", topic);
+                logger.info("Skip partitions selector for {} as it is hold by client", topic);
                 continue;
             }
 
@@ -221,44 +221,51 @@ public class NSQSimpleClient implements Client, Closeable {
         }
     }
 
-    public void removeTopic(Topic topic) {
-        if (topic == null || null == topic.getTopicText() || topic.getTopicText().isEmpty()) {
-            return;
-        }
+    /**
+     * remove topic resources in topic partitions selector map, topic synchronization map and topic subscribed.
+     * during remove topics, put topic should be blocked.
+     * @param expiredTopics
+     */
+    public void removeTopics(Set<String> expiredTopics) {
         lock.writeLock().lock();
-        try {
-            topic_2_partitionsSelector.remove(topic);
-            topicSubscribed.remove(topic);
-            //TODO: need verification
-            topicSynMap.remove(topic.getTopicText());
-            logger.info("{} removed from consumer subscribe.", topic);
-        } finally {
+        try{
+            for(String topic : expiredTopics) {
+                _removeTopic(topic);
+            }
+        }finally {
             lock.writeLock().unlock();
         }
     }
 
-    /**
-     * remove multiple topics from simple client, invoker of this function needs to make sure pass in topics are valid.
-     *
-     * @param topics {@link Collection} of {@link Topic} to be removed.
-     */
-    public void removeTopics(final Collection<Topic> topics) {
-        assert null != topics;
-        lock.writeLock().lock();
-        try {
-            for (Topic topic : topics) {
-                topic_2_partitionsSelector.remove(topic);
-                topicSubscribed.remove(topic);
-                //TODO: need verification
-                topicSynMap.remove(topic.getTopicText());
-                logger.info("{} removed from consumer subscribe.", topic);
+    private void _removeTopic(String topic) {
+        int retry = 3;
+        TopicSync ts = topicSynMap.get(topic);
+        while (!ts.tryLock()) {
+            if (retry-- > 0) {
+                try {
+                    Thread.sleep(TOPIC_PARTITION_TIMEOUT);
+                } catch (InterruptedException e) {
+                    logger.error("interrupted while waiting for removing partitions selector for {}.", topic);
+                }
+            } else {
+                logger.info("Remove partitions selector for {} out of retry.", topic);
+                return;
             }
-        } finally {
-            lock.writeLock().unlock();
+            //partitions selector is being updated
+        }
+        try {
+            topicSubscribed.remove(topic);
+            topic_2_partitionsSelector.remove(topic);
+            logger.info("{} removed from consumer subscribe.", topic);
+        }finally {
+            //place it in finally block
+            topicSynMap.remove(topic);
+            ts.unlock();
         }
     }
 
     @Override
+    @Deprecated
     public void incoming(final NSQFrame frame, final NSQConnection conn) throws NSQException {
         if (frame == null) {
             logger.info("The frame is null because of SDK's bug in the {}", this.getClass().getName());
@@ -347,7 +354,7 @@ public class NSQSimpleClient implements Client, Closeable {
                         if (write) {
                             if (aPartitions.hasPartitionDataNodes() && topicShardingIDs[0] != Message.NO_SHARDING) {
                                 int partitionNum = aPartitions.getPartitionNum();
-                                int partitionId = topic.updatePartitionIndex(topicShardingIDs[0], partitionNum);
+                                int partitionId = topic.calculatePartitionIndex(topicShardingIDs[0], partitionNum);
                                 //index out of boundry
                                 Address addr = aPartitions.getPartitionAddress(partitionId);
                                 nodes.add(addr);
@@ -374,7 +381,12 @@ public class NSQSimpleClient implements Client, Closeable {
                 return nodes.toArray(new Address[0]);
             } else {
                 TopicSync ts = this.topicSynMap.get(topic.getTopicText());
+
                 assert null != ts;
+                if (null == ts) {
+                    logger.error("topic partitions selector synchronization for {} is null.", topic.getTopicText());
+                }
+
                 if (!ts.tryLock()) {
                     Thread.sleep(TOPIC_PARTITION_TIMEOUT);
                     //access to topic 2 partition map
@@ -396,7 +408,7 @@ public class NSQSimpleClient implements Client, Closeable {
                                 int partitionNum = aPartitions.getPartitionNum();
 
                                 if (write) {
-                                    int partitionId = topic.updatePartitionIndex(topicShardingIDs[0], partitionNum);
+                                    int partitionId = topic.calculatePartitionIndex(topicShardingIDs[0], partitionNum);
                                     //index out of boundry
                                     Address addr = aPartitions.getPartitionAddress(partitionId);
                                     nodes.add(addr);
@@ -433,6 +445,14 @@ public class NSQSimpleClient implements Client, Closeable {
     public void invalidatePartitionsSelector(final String topic) {
         if(null == topic)
             return;
+        long now = System.currentTimeMillis();
+        Long lastInvalidated = ps_lastInvalidated.get(topic);
+        if (now - lastInvalidated <= _INTERVAL_IN_SECOND * 2) {
+            logger.info("Partition selector for {} has been invalidated in last {} seconds", topic, _INTERVAL_IN_SECOND * 2);
+            return;
+        } else {
+            ps_lastInvalidated.put(topic, now);
+        }
 
         TopicSync ts = topicSynMap.get(topic);
         //ts is updating, invalidate is ok to exit
@@ -440,6 +460,7 @@ public class NSQSimpleClient implements Client, Closeable {
             logger.info("partitions selector for topic {} is updating, invalidation exit.");
             return;
         }
+
         try {
             //force lookup here, and leaving update mapping from topic to partition to newDataNodes process.
             IPartitionsSelector aPs = lookup.lookup(topic, this.useLocalLookupd, false);
@@ -460,7 +481,6 @@ public class NSQSimpleClient implements Client, Closeable {
 
     @Override
     public Set<NSQConnection> clearDataNode(Address address) {
-        dataNodes.remove(address);
         return null;
     }
 
@@ -469,8 +489,8 @@ public class NSQSimpleClient implements Client, Closeable {
         lock.writeLock().lock();
         try {
             lookup.close();
-            dataNodes.clear();
             topic_2_partitionsSelector.clear();
+            ps_lastInvalidated.clear();
             topicSubscribed.clear();
             topicSynMap.clear();
             scheduler.shutdownNow();

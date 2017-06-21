@@ -23,6 +23,10 @@ public class TopicSync {
         return this.topic;
     }
 
+    public void lock() {
+        this.lock.writeLock().lock();
+    }
+
     public void unlock() {
         this.lock.writeLock().unlock();
     }
@@ -36,21 +40,6 @@ public class TopicSync {
      */
     public boolean tryLock() {
         return this.lock.writeLock().tryLock();
-    }
-
-    /**
-     * await for milliSec timeout
-     * @param milliSec the time unit of the {@code time} argument
-     * @return {@code false} if the waiting time detectably elapsed
-     *         before return from the method, else {@code true}
-     * @throws InterruptedException
-     */
-    public boolean await(long milliSec) throws InterruptedException {
-        return this.waitOnLock.await(milliSec, TimeUnit.MILLISECONDS);
-    }
-
-    public void signalAll() {
-        this.waitOnLock.signalAll();
     }
 
     public int hashCode() {

@@ -17,10 +17,7 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.ByteBuffer;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -140,7 +137,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     private void createTopic(String adminUrl, String topicName) throws IOException, InterruptedException {
         String urlStr = String.format("%s/api/topics", adminUrl);
         URL url = new URL(urlStr);
-        String contentStr = String.format("{\"topic\":\"%s\",\"partition_num\":\"2\", \"replicator\":\"1\", \"retention_days\":\"\", \"syncdisk\":\"\"}", topicName);
+        String contentStr = String.format("{\"topic\":\"%s\",\"partition_num\":\"2\", \"replicator\":\"1\", \"retention_days\":\"\", \"syncdisk\":\"\", \"channel\":\"default\"}", topicName);
         logger.debug("Prepare to open HTTP Connection...");
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
         con.setDoOutput(true);
@@ -154,7 +151,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
         if (logger.isDebugEnabled()) {
             logger.debug("Request to {} responses {}:{}.", url.toString(), con.getResponseCode(), con.getResponseMessage());
         }
-        Thread.sleep(1000);
+        Thread.sleep(10000);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
@@ -201,6 +198,37 @@ public class ProducerTest extends AbstractNSQClientTestcase {
         }finally {
             prod.close();
             NSQConfig.resetConfigAccessConfigs();
+        }
+    }
+
+    @Test
+    public void testSurviveTopicExpirationCleaner() throws IOException, InterruptedException, NSQException {
+        String adminUrlStr = "http://" + props.getProperty("admin-address");
+        String topicName = "topicExpired_" + System.currentTimeMillis();
+        //create topic
+        createTopic(adminUrlStr, topicName);
+
+        NSQConfig config = this.getNSQConfig();
+        Producer producer = this.createProducer(config);
+        ScheduledExecutorService exec = Executors.newSingleThreadScheduledExecutor();
+        ((ProducerImplV2) producer).getTopicExpirationCleaner().setExpiration(0L);
+        exec.scheduleAtFixedRate(((ProducerImplV2) producer).getTopicExpirationCleaner(), 0, 1, TimeUnit.SECONDS);
+
+        try{
+            //a topic is invalid enough
+            Topic topic = new Topic(topicName);
+            producer.start();
+            Message msg = Message.create(topic, "message to send");
+            int cnt = 1000;
+            while(cnt-- > 0) {
+                producer.publish(msg);
+                Thread.sleep(500L);
+            }
+            Assert.assertTrue(cnt <= 0);
+        }finally {
+            producer.close();
+            logger.info("Producer closed");
+            deleteTopic(adminUrlStr, topicName);
         }
     }
 

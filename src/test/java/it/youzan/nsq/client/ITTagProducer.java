@@ -50,7 +50,7 @@ public class ITTagProducer {
 
     @Test
     public void publishWTag() throws NSQException {
-        Topic topic = new Topic("tag2Par2Rep");
+        Topic topic = new Topic("tag_java_2par_2rep");
         DesiredTag tag = new DesiredTag("TAG1");
         for (int i = 0; i < 100; i++) {
             Message msg = Message.create(topic, "message");

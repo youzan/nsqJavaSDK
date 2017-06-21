@@ -31,7 +31,6 @@ public class Topic implements Comparable<Topic> {
 
     private final String topic;
     private int partitionID = -1;
-    private String toString = null;
     private TopicSharding sharding = TOPIC_SHARDING;
 
 
@@ -49,9 +48,10 @@ public class Topic implements Comparable<Topic> {
         this.partitionID =  partitionID;
     }
 
-    public static Topic newInstacne(final Topic topic) {
+    public static Topic newInstacne(final Topic topic, boolean copyPar) {
         Topic copy = new Topic(topic.getTopicText());
-        copy.setPartitionID(topic.getPartitionId());
+        if(copyPar)
+            copy.setPartitionID(topic.getPartitionId());
         copy.setTopicSharding(topic.getTopicSharding());
         return copy;
     }
@@ -76,17 +76,14 @@ public class Topic implements Comparable<Topic> {
         this.partitionID = partitionID;
     }
 
-    public void setToString(String toString) {
-        this.toString = toString;
-    }
-
     /**
      * Set partition Id for {@link com.youzan.nsq.client.Consumer} to pick partition in SUB ORDER mode.
      *
      * @param partitionID partition Id to subscribe to of current topic
      */
     public void setPartitionID(int partitionID) {
-        this.partitionID = partitionID;
+        if (partitionID != this.partitionID)
+            this.partitionID = partitionID;
     }
 
     @Override
@@ -119,9 +116,7 @@ public class Topic implements Comparable<Topic> {
     }
 
     public String toString() {
-        if (null == toString)
-            toString = String.format("topic: %s, %d.", this.topic, this.partitionID);
-        return toString;
+        return String.format("topic: %s, %d.", this.topic, this.partitionID);
     }
 
     public Topic setTopicSharding(TopicSharding topicSharding) {
@@ -140,13 +135,12 @@ public class Topic implements Comparable<Topic> {
      * @param partitionNum  partition number
      * @return partitionID  generated partition ID
      */
-    public int updatePartitionIndex(Object seed, int partitionNum) {
+    public int calculatePartitionIndex(Object seed, int partitionNum) {
         if (partitionNum <= 0) {
             //for partition Num < 0, treat it as sharding is no needed here
             return -1;
         }
         //update partitionID
-        this.partitionID = this.sharding.toPartitionID(seed, partitionNum);
-        return this.partitionID;
+        return this.sharding.toPartitionID(seed, partitionNum);
     }
 }

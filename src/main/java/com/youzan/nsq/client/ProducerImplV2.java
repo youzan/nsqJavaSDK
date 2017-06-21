@@ -19,14 +19,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeoutException;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * <pre>
@@ -43,7 +39,6 @@ public class ProducerImplV2 implements Producer {
 
     private static final int MAX_PUBLISH_RETRY = 6;
     private final Object lock = new Object();
-
     private static final int MAX_MSG_OUTPUT_LEN = 100;
     private volatile boolean started = false;
     private volatile int offset = 0;
@@ -52,6 +47,8 @@ public class ProducerImplV2 implements Producer {
     private GenericKeyedObjectPool<Address, NSQConnection> bigPool = null;
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
+    private final ConcurrentHashMap<String, Long> topic_2_lastActiveTime = new ConcurrentHashMap<>();
+    private ReentrantLock expiredTopicResLock = new ReentrantLock();
 
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger total = new AtomicInteger(0);
@@ -93,6 +90,64 @@ public class ProducerImplV2 implements Producer {
         return true;
     }
 
+    class ExpiredTopicCleaner implements Runnable {
+        final private int MAX_RETRY = 10;
+        private Long expiration = 3600 * 1000L;
+
+        public void setExpiration(long expration) {
+            this.expiration = expration;
+        }
+
+        public long getExpiration() {
+            return this.expiration;
+        }
+
+        @Override
+        public void run() {
+            // We make a decision that the resources life time should be less than 2 hours
+            // Normal max lifetime is 1 hour
+            // Extreme max lifetime is 1.5 hours
+            final long allow = System.currentTimeMillis() - this.expiration;
+            final Set<String> expiredTopics = new HashSet<>();
+            for (Map.Entry<String, Long> pair : topic_2_lastActiveTime.entrySet()) {
+                if (pair.getValue() < allow) {
+                    expiredTopics.add(pair.getKey());
+                }
+            }
+            int retry = 1;
+            if(expiredTopics.size() > 0) {
+                while (!expiredTopicResLock.tryLock()) {
+                    //TODO: backoff
+                    if (retry++ <= MAX_RETRY) {
+                        try {
+                            Thread.sleep(500L);
+                        } catch (InterruptedException e) {
+                            logger.warn("Expired topic resource cleaner thread interrupted while acquiring lock.");
+                        }
+                    } else {
+                        logger.info("Expired topic resource cleaner exits as publish process is busy.");
+                        return;
+                    }
+                }
+                try {
+                    long now = System.currentTimeMillis();
+                    simpleClient.removeTopics(expiredTopics);
+                    logger.info("Expired topic resource cleaner exits in {} milliSec.", System.currentTimeMillis() - now);
+                    expiredTopics.clear();
+                    logger.info("Publish. Total: {} , Success: {} . Two values do not use a lock action.", total.get(), success.get());
+                } finally {
+                    expiredTopicResLock.unlock();
+                }
+            }
+        }
+    }
+
+    private final ExpiredTopicCleaner EXPIRED_TOPIC_CLEANER = new ExpiredTopicCleaner();
+
+    public ExpiredTopicCleaner getTopicExpirationCleaner() {
+        return this.EXPIRED_TOPIC_CLEANER;
+    }
+
     @Override
     public void start() throws NSQException {
         if (!this.started) {
@@ -132,6 +187,7 @@ public class ProducerImplV2 implements Producer {
                 }
                 //simple client starts and LookupAddressUpdate instance initialized there.
                 this.simpleClient.start();
+                scheduler.scheduleAtFixedRate(EXPIRED_TOPIC_CLEANER, 30, 30, TimeUnit.MINUTES);
             }
         }
         logger.info("The producer has been started.");
@@ -185,6 +241,7 @@ public class ProducerImplV2 implements Producer {
      */
     private NSQConnection getNSQConnection(Topic topic, Object topicShardingID, final Context cxt) throws NSQException {
         final Long now = System.currentTimeMillis();
+        topic_2_lastActiveTime.put(topic.getTopicText(), now);
         //data nodes matches topic sharding returns
         Address[] partitonAddrs;
         try {
@@ -202,6 +259,12 @@ public class ProducerImplV2 implements Producer {
             long borrowConnStart = System.currentTimeMillis();
             try {
                 return bigPool.borrowObject(address);
+            } catch (NSQNoConnectionException badConn){
+                logger.error("Fail to create connection. DataNode Size: {} , CurrentRetries: {} , Address: {} , Exception:", size, c, address, badConn);
+                if (c >= size) {
+                    logger.info("Connection pool tries out of nsqd addresses.");
+                    throw badConn;
+                }
             } catch (Exception e) {
                 logger.error("Fail to fetch connection for publish. DataNode Size: {} , CurrentRetries: {} , Address: {} , Exception:", size, c, address, e);
             } finally {
@@ -252,7 +315,15 @@ public class ProducerImplV2 implements Producer {
             throw new IllegalStateException("Producer must be started before producing messages!");
         }
         total.incrementAndGet();
-        this.simpleClient.putTopic(message.getTopic().getTopicText());
+
+        topic_2_lastActiveTime.put(topic.getTopicText(), System.currentTimeMillis());
+        expiredTopicResLock.lock();
+        //while put topic, topic expiration is not allowed
+        try {
+            this.simpleClient.putTopic(message.getTopic().getTopicText());
+        }finally {
+            expiredTopicResLock.unlock();
+        }
 
         try{
             sendPUB(message, cxt);
@@ -293,11 +364,12 @@ public class ProducerImplV2 implements Producer {
 
     private void sendPUB(final Message msg, Context cxt) throws NSQException {
         int c = 0; // be continuous
-        boolean returnCon = true;
+        boolean returnCon;
         NSQConnection conn = null;
         List<NSQException> exceptions = new ArrayList<>();
         long start = System.currentTimeMillis();
         while (c++ < MAX_PUBLISH_RETRY) {
+            returnCon = true;
             if (c > 1) {
                 logger.debug("Sleep. CurrentRetries: {}", c);
                 sleep((1 << (c - 1)) * this.config.getProducerRetryIntervalBaseInMilliSeconds());
@@ -318,10 +390,20 @@ public class ProducerImplV2 implements Producer {
                     exceptions.add(new NSQDataNodesDownException("Could not get NSQd connection for " + msg.getTopic().toString() + ", topic may does not exist, or connection pool resource exhausted."));
                     continue;
                 }
+                //update msg partition with connection address partition
+                msg.getTopic().setPartitionID(conn.getAddress().getPartition());
             }
             catch (NSQTopicNotFoundException | NSQSeedLookupConfigNotFoundException exp) {
                 //throw it directly
                 throw exp;
+            }
+            //bad connection to node. nsqd may down and need to invalidated
+            //TODO: review
+            catch (NSQNoConnectionException badConnExp) {
+                logger.info("Try invalidating partition selectors for {}, due to NSQNoConnectionException.");
+                this.simpleClient.invalidatePartitionsSelector(msg.getTopic().getTopicText());
+                exceptions.add(badConnExp);
+                continue;
             }
             catch(NSQException lookupE) {
                 exceptions.add(lookupE);
@@ -450,6 +532,10 @@ public class ProducerImplV2 implements Producer {
                     case E_TAG_NOT_SUPPORT: {
                         logger.error("Tag not support in target topic.", err.getMessage());
                         throw new NSQTagNotSupportedException(topic.getTopicText() + " Error:" + err.getMessage());
+                    }
+                    case E_PUB_FAILED: {
+                        logger.error("Address: {} , Frame: {}", conn.getAddress(), frame);
+                        throw new NSQPubFailedException("publish to " + topic.getTopicText() + " failed. Address " + conn.getAddress() + ", Error Frame: " + frame);
                     }
                     default: {
                         throw new NSQException("Unknown response error! The topic is " + topic + " . The error frame is " + err);

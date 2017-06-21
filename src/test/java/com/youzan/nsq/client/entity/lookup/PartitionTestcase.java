@@ -46,7 +46,7 @@ public class PartitionTestcase extends EasyMockSupport{
         try {
             Topic mockTopic = partialMockBuilder(Topic.class).withConstructor("java_test_ordered_multi_topic")
                     .addMockedMethod("updatePartitionIndex").createMock();
-            expect(mockTopic.updatePartitionIndex(9L, 10)).andStubReturn(9);
+            expect(mockTopic.calculatePartitionIndex(9L, 10)).andStubReturn(9);
             replayAll();
             //and hack partition num
             String cluster = props.getProperty("lookup-addresses");

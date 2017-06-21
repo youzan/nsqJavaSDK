@@ -59,7 +59,7 @@ public class ConsumerImplV2 implements Consumer {
 
     /*-
      * =========================================================================
-     * Topic set for containing topics user subscribes.
+     * Topic set for containing topics user subscribes. keys are topic without partition
      *
      * =========================================================================
      */
@@ -129,7 +129,8 @@ public class ConsumerImplV2 implements Consumer {
         for (Topic topic : topics) {
             //copy a new topic in consumer, as address 2 partition mapping need maintained in topic, and we do not
             //expect to expose that to user.
-            Topic topicCopy = Topic.newInstacne(topic);
+            //set copy partition true here, as consumer may need to connect to specified partition
+            Topic topicCopy = Topic.newInstacne(topic, true);
             SortedSet<Long> partitionsSet;
             if(topics2Partitions.containsKey(topicCopy.getTopicText())) {
                 partitionsSet = topics2Partitions.get(topicCopy);
@@ -307,7 +308,7 @@ public class ConsumerImplV2 implements Consumer {
                     }
                 } catch (InterruptedException e) {
                     logger.warn("Thread interrupted waiting for partition selector update, Topic {}. Ignore if SDK is shutting down.", topic);
-                    //TODO: retry?
+                    //retry for now
                 }
             }
             final List<Address> dataNodeLst = Arrays.asList(partitionDataNodes);
@@ -898,10 +899,12 @@ public class ConsumerImplV2 implements Consumer {
                 }
                 case E_TOPIC_NOT_EXIST: {
                     Address address = connection.getAddress();
-                    //TODO:
-                    for(String aTopic : this.topics2Partitions.keySet()) {
-                        this.simpleClient.invalidatePartitionsSelector(aTopic);
-                        logger.info("Partitions info for {} invalidated and related lookupd address force updated.");
+                    Topic topic = connection.getTopic();
+                    if(null != topic) {
+                        this.simpleClient.invalidatePartitionsSelector(topic.getTopicText());
+                        logger.info("Partitions info for {} invalidated and related lookupd address force updated.", topic.getTopicText());
+                    } else {
+                        logger.error("topic from connection {} is empty.", connection);
                     }
                     this.simpleClient.clearDataNode(address);
                     clearDataNode(address);
