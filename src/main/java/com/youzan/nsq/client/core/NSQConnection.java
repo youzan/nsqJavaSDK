@@ -86,8 +86,6 @@ public interface NSQConnection extends Closeable {
      */
     boolean isExtend();
 
-    void setTopic(Topic topic);
-
     Topic getTopic();
 
     /**

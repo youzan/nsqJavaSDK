@@ -147,7 +147,7 @@ public class ProducerImplV2 implements Producer {
         final Long now = System.currentTimeMillis();
         Address[] partitonAddrs = new Address[0];
         try {
-            this.simpleClient.putTopic(topic);
+            this.simpleClient.putTopic(topic.getTopicText());
             partitonAddrs = simpleClient.getPartitionNodes(topic, new Object[]{Message.NO_SHARDING}, true);
         } catch (InterruptedException e) {
             logger.warn("Pre-allocate connection to topic {} failed. Thread interrupted waiting for partition selector update, Topic {}. Ignore if SDK is shutting down.", topic, topic.getTopicText());
@@ -252,7 +252,7 @@ public class ProducerImplV2 implements Producer {
             throw new IllegalStateException("Producer must be started before producing messages!");
         }
         total.incrementAndGet();
-        this.simpleClient.putTopic(message.getTopic());
+        this.simpleClient.putTopic(message.getTopic().getTopicText());
 
         try{
             sendPUB(message, cxt);
@@ -443,7 +443,7 @@ public class ProducerImplV2 implements Producer {
                     case E_TOPIC_NOT_EXIST: {
                         logger.error("Address: {} , Frame: {}", conn.getAddress(), frame);
                         //clean topic 2 partitions selector and force a lookup for topic
-                        this.simpleClient.invalidatePartitionsSelector(topic);
+                        this.simpleClient.invalidatePartitionsSelector(topic.getTopicText());
                         logger.info("Partitions info for {} invalidated and related lookup force updated.", topic);
                         throw new NSQInvalidDataNodeException(topic.getTopicText());
                     }

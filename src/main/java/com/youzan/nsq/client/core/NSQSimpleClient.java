@@ -190,14 +190,14 @@ public class NSQSimpleClient implements Client, Closeable {
         }
     }
 
-    public void putTopic(Topic topic) {
+    public void putTopic(String topic) {
         if (topic == null) {
             throw new IllegalArgumentException("Topic is not allowed to be empty.");
         }
 
         lock.readLock().lock();
         try{
-            if (topicSubscribed.contains(topic.getTopicText())) {
+            if (topicSubscribed.contains(topic)) {
                 return;
             }
         }finally {
@@ -207,13 +207,13 @@ public class NSQSimpleClient implements Client, Closeable {
         lock.writeLock().lock();
         try {
             if(!topicSubscribed.contains(topic)) {
-                topicSubscribed.add(topic.getTopicText());
-                if (!topicSynMap.containsKey(topic.getTopicText())) {
-                    topicSynMap.put(topic.getTopicText(), new TopicSync(topic));
+                topicSubscribed.add(topic);
+                if (!topicSynMap.containsKey(topic)) {
+                    topicSynMap.put(topic, new TopicSync(topic));
                 }
 
-                if (!topic_2_partitionsSelector.containsKey(topic.getTopicText())) {
-                    topic_2_partitionsSelector.put(topic.getTopicText(), EMPTY);
+                if (!topic_2_partitionsSelector.containsKey(topic)) {
+                    topic_2_partitionsSelector.put(topic, EMPTY);
                 }
             }
         } finally {
@@ -430,11 +430,11 @@ public class NSQSimpleClient implements Client, Closeable {
      * Invalidate pass in topic related partitions selector, in {@link com.youzan.nsq.client.Producer} side.
      * @param topic topic
      */
-    public void invalidatePartitionsSelector(final Topic topic) {
+    public void invalidatePartitionsSelector(final String topic) {
         if(null == topic)
             return;
 
-        TopicSync ts = topicSynMap.get(topic.getTopicText());
+        TopicSync ts = topicSynMap.get(topic);
         //ts is updating, invalidate is ok to exit
         if(!ts.tryLock()) {
             logger.info("partitions selector for topic {} is updating, invalidation exit.");
@@ -442,9 +442,9 @@ public class NSQSimpleClient implements Client, Closeable {
         }
         try {
             //force lookup here, and leaving update mapping from topic to partition to newDataNodes process.
-            IPartitionsSelector aPs = lookup.lookup(topic.getTopicText(), this.useLocalLookupd, false);
+            IPartitionsSelector aPs = lookup.lookup(topic, this.useLocalLookupd, false);
             if (null != aPs)
-                topic_2_partitionsSelector.put(topic.getTopicText(), aPs);
+                topic_2_partitionsSelector.put(topic, aPs);
         } catch (NSQException e){
             logger.warn("Could not fetch lookup info for topic: {} at this moment, lookup info may not be ready.", topic);
         } finally {

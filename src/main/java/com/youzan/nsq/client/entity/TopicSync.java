@@ -13,8 +13,8 @@ public class TopicSync {
     private final ReentrantReadWriteLock lock;
     private final Condition waitOnLock;
 
-    public TopicSync(final Topic topic) {
-        this.topic = topic.getTopicText();
+    public TopicSync(final String topic) {
+        this.topic = topic;
         this.lock = new ReentrantReadWriteLock();
         this.waitOnLock = this.lock.writeLock().newCondition();
     }

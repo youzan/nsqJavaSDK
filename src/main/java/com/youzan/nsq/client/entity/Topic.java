@@ -44,6 +44,11 @@ public class Topic implements Comparable<Topic> {
         this.topic = topic;
     }
 
+    public Topic(String topic, int partitionID) {
+        this.topic = topic;
+        this.partitionID =  partitionID;
+    }
+
     public static Topic newInstacne(final Topic topic) {
         Topic copy = new Topic(topic.getTopicText());
         copy.setPartitionID(topic.getPartitionId());

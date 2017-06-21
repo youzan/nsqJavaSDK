@@ -23,6 +23,7 @@ public class ITConsumer extends AbstractITConsumer{
             @Override
             public void process(NSQMessage message) {
                 logger.info("Message received: " + message.getReadableContent());
+                logger.info("From topic {}", message.getTopicInfo());
                 received.incrementAndGet();
                 latch.countDown();
             }

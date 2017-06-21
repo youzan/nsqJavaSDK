@@ -122,7 +122,9 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     @Override
     public void init(final Topic topic) throws TimeoutException {
         this.init();
-        setTopic(topic);
+        Topic topicCon = new Topic(topic.getTopicText());
+        topicCon.setPartitionID(this.address.getPartition());
+        setTopic(topicCon);
     }
 
     @Override
@@ -204,8 +206,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         }
     }
 
-    @Override
-    public void setTopic(final Topic topic) {
+    void setTopic(final Topic topic) {
         this.topic = topic;
     }
 

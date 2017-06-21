@@ -27,6 +27,30 @@ public class NSQMessage implements MessageMetadata{
     private long diskQueueOffset = -1L;
     private int diskQueueDataSize = -1;
 
+    private TopicInfo ti;
+
+    class TopicInfo {
+        private String topicName;
+        private int partition;
+
+        public TopicInfo(String topicName, int partition) {
+            this.topicName = topicName;
+            this.partition = partition;
+        }
+
+        public String getTopicName() {
+            return this.topicName;
+        }
+
+        public int getTopicPartition() {
+            return this.partition;
+        }
+
+        public String toString() {
+            return this.topicName + ", " + this.partition;
+        }
+    }
+
     /**
      * all the parameters is the NSQ message format!
      *
@@ -43,7 +67,7 @@ public class NSQMessage implements MessageMetadata{
      * @param extBytes    extendable content in bytes
      */
     public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
-                     byte[] messageBody, Address address, Integer connectionID, int nextConsumingInSecond, byte[] extVerBytes, byte[] extBytes) {
+                     byte[] messageBody, Address address, Integer connectionID, int nextConsumingInSecond, final Topic topic, byte[] extVerBytes, byte[] extBytes) {
         this.timestamp = timestamp;
         this.attempts = attempts;
         this.messageID = messageID;
@@ -64,9 +88,10 @@ public class NSQMessage implements MessageMetadata{
         this.readableMsgID = newHexString(this.messageID);
 
         this.nextConsumingInSecond = nextConsumingInSecond;
-
         ExtVer extVer = ExtVer.getExtVersion(extVerBytes);
         extContent = parseExtContent(extVer, extBytes);
+
+        this.ti = new TopicInfo(topic.getTopicText(), address.getPartition());
     }
 
     /**
@@ -83,8 +108,8 @@ public class NSQMessage implements MessageMetadata{
      */
     public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
                       final byte[] diskQueueOffset, final byte[] diskQueueDataSize, byte[] messageBody, Address address,
-                      Integer connectionID, int nextConsumingInSecond, final byte[] extVerBytes, final byte[] extBytes) {
-        this(timestamp, attempts, messageID, internalID, traceID, messageBody, address, connectionID, nextConsumingInSecond, extVerBytes, extBytes);
+                      Integer connectionID, int nextConsumingInSecond, final Topic topic, final byte[] extVerBytes, final byte[] extBytes) {
+        this(timestamp, attempts, messageID, internalID, traceID, messageBody, address, connectionID, nextConsumingInSecond, topic, extVerBytes, extBytes);
 
         ByteBuffer buf = ByteBuffer.wrap(diskQueueOffset);
         this.diskQueueOffset = buf.getLong();
@@ -113,7 +138,11 @@ public class NSQMessage implements MessageMetadata{
     }
 
     public DesiredTag getTag() {
-        return (DesiredTag)this.extContent;
+        return (DesiredTag) this.extContent;
+    }
+
+    public TopicInfo getTopicInfo() {
+        return this.ti;
     }
 
     /**
