@@ -9,12 +9,6 @@ import java.nio.ByteBuffer;
  */
 public class SubOrdered extends Sub{
 
-    private int partitionOverride = -1;
-    public SubOrdered(Topic topic, String channel, int partitionOverride) {
-        super(topic, channel);
-        this.partitionOverride = partitionOverride;
-    }
-
     public SubOrdered(Topic topic, String channel) {
         super(topic, channel);
     }
@@ -26,10 +20,7 @@ public class SubOrdered extends Sub{
             final byte[] topicBytes = topic.getTopicText().getBytes(DEFAULT_CHARSET);
             final byte[] channelBytes = channel.getBytes(DEFAULT_CHARSET);
             byte[] partitionBytes = null;
-            if(partitionOverride >= 0)
-                partitionBytes = (SPACE_STR + String.valueOf(partitionOverride)).getBytes(DEFAULT_CHARSET);
-            else
-                partitionBytes = getPartitionIdByte(topic);
+            partitionBytes = getPartitionIdByte(topic);
             //fixed buffer
             final ByteBuffer bb = ByteBuffer.allocate(cmd.length + topicBytes.length + 1 + channelBytes.length + 1 + partitionBytes.length);
             // SUB <topic_name> <channel_name> <partition id>\n

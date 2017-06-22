@@ -64,7 +64,7 @@ public class ITConsumerOrderPartition {
         valueMap.put("java_test_ordered_multi_topic", controlCnfStr);
         Topic topic = new Topic("java_test_ordered_multi_topic");
 
-        DCCMigrationConfigAccessDomain domain = (DCCMigrationConfigAccessDomain) DCCMigrationConfigAccessDomain.getInstance(topic);
+        DCCMigrationConfigAccessDomain domain = (DCCMigrationConfigAccessDomain) DCCMigrationConfigAccessDomain.getInstance(topic.getTopicText());
         Role aRole = Role.getInstance("producer");
         DCCMigrationConfigAccessKey keyProducer = (DCCMigrationConfigAccessKey) DCCMigrationConfigAccessKey.getInstance(aRole);
         TestConfigAccessAgent.updateValue(domain, new AbstractConfigAccessKey[]{keyProducer}, valueMap, true);
@@ -143,7 +143,7 @@ public class ITConsumerOrderPartition {
         valueMap.put("java_test_ordered_multi_topic", controlCnfStr);
         final Topic topic = new Topic("java_test_ordered_multi_topic");
 
-        DCCMigrationConfigAccessDomain domain = (DCCMigrationConfigAccessDomain) DCCMigrationConfigAccessDomain.getInstance(topic);
+        DCCMigrationConfigAccessDomain domain = (DCCMigrationConfigAccessDomain) DCCMigrationConfigAccessDomain.getInstance(topic.getTopicText());
         Role aRole = Role.getInstance("producer");
         DCCMigrationConfigAccessKey keyProducer = (DCCMigrationConfigAccessKey) DCCMigrationConfigAccessKey.getInstance(aRole);
         TestConfigAccessAgent.updateValue(domain, new AbstractConfigAccessKey[]{keyProducer}, valueMap, true);

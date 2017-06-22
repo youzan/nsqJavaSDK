@@ -39,7 +39,6 @@ public class ITProducer {
         final String connTimeout = props.getProperty("connectTimeoutInMillisecond");
         final String msgTimeoutInMillisecond = props.getProperty("msgTimeoutInMillisecond");
         final String threadPoolSize4IO = props.getProperty("threadPoolSize4IO");
-
 //        config.setUserSpecifiedLookupAddress(true);
         config.setLookupAddresses(lookups);
         config.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
@@ -61,9 +60,12 @@ public class ITProducer {
 
     public void concurrentPublish() throws NSQException, InterruptedException {
         final ExecutorService exec = Executors.newFixedThreadPool(100);
+        config.setConnectionPoolSize(200);
+        config.setThreadPoolSize4IO(Runtime.getRuntime().availableProcessors() * 2);
         final Producer proCon = new ProducerImplV2(config);
         proCon.start();
         final Topic topic = new Topic("JavaTesting-Producer-Base");
+        ((ProducerImplV2) proCon).preAllocateNSQConnection(topic, 100);
         while(true) {
             exec.submit(new Runnable() {
                 @Override
@@ -76,7 +78,7 @@ public class ITProducer {
                     }
                 }
             });
-            Thread.sleep(500L);
+            Thread.sleep(100L);
         }
     }
 

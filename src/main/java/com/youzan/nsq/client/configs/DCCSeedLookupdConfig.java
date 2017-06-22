@@ -1,7 +1,6 @@
 package com.youzan.nsq.client.configs;
 
 import com.youzan.nsq.client.core.LookupAddressUpdate;
-import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.entity.lookup.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -94,8 +93,8 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
     }
 
     @Override
-    public List<SoftReference<SeedLookupdAddress>> getSeedLookupAddress(String categorization, final Topic topic) {
-        AbstractControlConfig ctrlCnf = getTopicCtrlCnf(LookupAddressUpdate.formatCategorizationTopic(categorization, topic.getTopicText()));
+    public List<SoftReference<SeedLookupdAddress>> getSeedLookupAddress(String categorization, final String topic) {
+        AbstractControlConfig ctrlCnf = getTopicCtrlCnf(LookupAddressUpdate.formatCategorizationTopic(categorization, topic));
         if (null == ctrlCnf)
             return null;
         return ctrlCnf.getSeeds();
@@ -110,8 +109,8 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
      * @return NSQ lookup address if there is any in cache, otherwise null.
      */
     @Override
-    public NSQLookupdAddresses punchLookupdAddress(String categorization, final Topic topic, boolean force) {
-        AbstractControlConfig ctrlCnf = getTopicCtrlCnf(LookupAddressUpdate.formatCategorizationTopic(categorization, topic.getTopicText()));
+    public NSQLookupdAddresses punchLookupdAddress(String categorization, final String topic, boolean force) {
+        AbstractControlConfig ctrlCnf = getTopicCtrlCnf(LookupAddressUpdate.formatCategorizationTopic(categorization, topic));
         if (null == ctrlCnf)
             return null;
         List<SoftReference<SeedLookupdAddress>> curRefs = ctrlCnf.getCurrentReferences();
@@ -175,7 +174,7 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
         else if (curLookupds.size() > 0)
             aLookupAddress = NSQLookupdAddresses.create(curClusterIds, curLookupds);
         else {
-            logger.warn("No lookup address found for passin topic {}, categorization {}.", topic.getTopicText(), categorization);
+            logger.warn("No lookup address found for passin topic {}, categorization {}.", topic, categorization);
         }
         return aLookupAddress;
     }

@@ -202,7 +202,7 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
         }
 
         AbstractConfigAccessKey<Role> roleKey = keys[0];
-        final Topic topic = (Topic) domain.getInnerDomain();
+        final String topic = (String) domain.getInnerDomain();
         TopicRuleCategory topicRoleCat = TopicRuleCategory.getInstance(roleKey.getInnerKey());
         String categorization = topicRoleCat.category(topic);
 
@@ -273,17 +273,17 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
      * @param category category pass in topics belong to.
      * @param topics topics to subscribe
      */
-    public void subscribe(final TopicRuleCategory category, Topic... topics) {
+    public void subscribe(final TopicRuleCategory category, String... topics) {
         if(null == topics || topics.length == 0)
             return;
-        List<Topic> topics4Subscribe = new ArrayList<>();
-        for(final Topic topic : topics) {
+        List<String> topics4Subscribe = new ArrayList<>();
+        for(final String topic : topics) {
             final String categorization = category.category(topic);
             if (checkinCategorization(categorization))
                 topics4Subscribe.add(topic);
         }
         final CountDownLatch latch = new CountDownLatch(topics4Subscribe.size());
-        for(final Topic topic: topics4Subscribe){
+        for(final String topic: topics4Subscribe){
             subscribeExec.submit(new Runnable(){
                 public void run() {
                 //return a cached value or subscribe new and return cached value
@@ -293,9 +293,9 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
                     //subscribes categorization to config access and returns
                     subscribe(ConfigAccessAgent.getInstance(), DCCMigrationConfigAccessDomain.getInstance(topic), new AbstractConfigAccessKey[]{DCCMigrationConfigAccessKey.getInstance(category.getRole())}, createCallbackHandler(categorization, latch));
                 }catch(NSQConfigAccessException caE){
-                    logger.error("Error in checking seed lookup address config for categorization {}, topic {}.", categorization, topic.getTopicText(), caE);
+                    logger.error("Error in checking seed lookup address config for categorization {}, topic {}.", categorization, topic, caE);
                 }catch(Exception exp) {
-                    logger.error("Unexpected error in checking seed lookup address config for categorization {}, topic {}.", categorization, topic.getTopicText(), exp);
+                    logger.error("Unexpected error in checking seed lookup address config for categorization {}, topic {}.", categorization, topic, exp);
                     checkoutCategorization(categorization);
                 }finally {
                 }
@@ -413,16 +413,16 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
      * @throws NSQLookupException {@link NSQLookupException} exception during lookup process.
      * @throws NSQSeedLookupConfigNotFoundException raised when seed lookup control config in remote not found.
      */
-    public NSQLookupdAddresses getLookup(final Topic topic, TopicRuleCategory category, boolean localLookupd, boolean force, int lookupLocalID) throws NSQLookupException, NSQSeedLookupConfigNotFoundException {
+    public NSQLookupdAddresses getLookup(final String topic, TopicRuleCategory category, boolean localLookupd, boolean force, int lookupLocalID) throws NSQLookupException, NSQSeedLookupConfigNotFoundException {
         int retry = 3;
         String categorization = null;
         AbstractSeedLookupdConfig aSeedLookupCnf = null;
-        Topic topicInner = null;
+        String topicInner = null;
         while(null == aSeedLookupCnf && retry-- > 0) {
             if (localLookupd && lookupLocalID > 0) {
                 categorization = TopicRuleCategory.TOPIC_CATEGORIZATION_USER_SPECIFIED + '_' + lookupLocalID;
                 aSeedLookupCnf = cat2SeedLookupCnfMap.get(categorization);
-                topicInner = Topic.TOPIC_DEFAULT;
+                topicInner = Topic.TOPIC_DEFAULT.getTopicText();
             } else {
                 categorization = category.category(topic);
                 this.subscribe(category, topic);
@@ -439,7 +439,7 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
         }
 
         if (null == aSeedLookupCnf)
-            throw new NSQSeedLookupConfigNotFoundException("Seed Lookup config not found for Topic: " + topic.getTopicText() + " Categorization: " + categorization);
+            throw new NSQSeedLookupConfigNotFoundException("Seed Lookup config not found for Topic: " + topic + " Categorization: " + categorization);
 
         //await for list lookup address to signal first success
         if(!this.touched) {

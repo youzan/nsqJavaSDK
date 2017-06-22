@@ -46,14 +46,14 @@ public class PartitionTestcase extends EasyMockSupport{
         try {
             Topic mockTopic = partialMockBuilder(Topic.class).withConstructor("java_test_ordered_multi_topic")
                     .addMockedMethod("updatePartitionIndex").createMock();
-            expect(mockTopic.updatePartitionIndex(9L, 10)).andStubReturn(9);
+            expect(mockTopic.calculatePartitionIndex(9L, 10)).andStubReturn(9);
             replayAll();
             //and hack partition num
             String cluster = props.getProperty("lookup-addresses");
             List<String> clusters = new ArrayList<>();
             clusters.add(cluster);
             NSQLookupdAddresses lookupd = createNSQLookupdAddr(clusters, clusters);
-            IPartitionsSelector ps = lookupd.lookup(mockTopic, true);
+            IPartitionsSelector ps = lookupd.lookup("java_test_ordered_multi_topic", true);
             Partitions[] par = ps.choosePartitions();
             //hack partition number
             par[0].updatePartitionNum(10);

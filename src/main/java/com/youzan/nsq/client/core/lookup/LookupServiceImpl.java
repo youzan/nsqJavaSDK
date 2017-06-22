@@ -4,7 +4,6 @@ import com.youzan.nsq.client.configs.TopicRuleCategory;
 import com.youzan.nsq.client.core.LookupAddressUpdate;
 import com.youzan.nsq.client.entity.IPartitionsSelector;
 import com.youzan.nsq.client.entity.Role;
-import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.entity.lookup.NSQLookupdAddresses;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQLookupException;
@@ -38,7 +37,7 @@ public class LookupServiceImpl implements LookupService {
     }
 
     @Override
-    public IPartitionsSelector lookup(Topic topic, boolean localLookupd, boolean force) throws NSQException {
+    public IPartitionsSelector lookup(String topic, boolean localLookupd, boolean force) throws NSQException {
         TopicRuleCategory category = TopicRuleCategory.getInstance(this.role);
         switch (this.role) {
             case Consumer: {
@@ -54,9 +53,9 @@ public class LookupServiceImpl implements LookupService {
     }
 
     @Override
-    public IPartitionsSelector lookup(final Topic topic, boolean writable, final TopicRuleCategory category, boolean localLookupd, boolean force) throws NSQException {
-        if (null == topic || null == topic.getTopicText() || topic.getTopicText().isEmpty()) {
-            throw new NSQLookupException("Your input topic is blank!");
+    public IPartitionsSelector lookup(final String topic, boolean writable, final TopicRuleCategory category, boolean localLookupd, boolean force) throws NSQException {
+        if (null == topic || topic.isEmpty()) {
+            throw new NSQLookupException("Input topic is blank!");
         }
         /*
          * It is unnecessary to use Atomic/Lock for the variable

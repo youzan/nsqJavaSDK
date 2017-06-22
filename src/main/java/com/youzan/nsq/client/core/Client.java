@@ -32,7 +32,7 @@ public interface Client extends Closeable {
     /**
      * For NSQd(data-node).
      */
-    int _INTERVAL_IN_SECOND = 30;
+    int _INTERVAL_IN_SECOND = 20;
 
     void start() throws NSQException;
 

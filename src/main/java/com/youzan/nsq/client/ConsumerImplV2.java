@@ -59,11 +59,11 @@ public class ConsumerImplV2 implements Consumer {
 
     /*-
      * =========================================================================
-     * Topic set for containing topics user subscribes.
+     * Topic set for containing topics user subscribes. keys are topic without partition
      *
      * =========================================================================
      */
-    private final HashMap<Topic, SortedSet<Long>> topics2Partitions = new HashMap<>();
+    private final HashMap<String, SortedSet<Long>> topics2Partitions = new HashMap<>();
 
     // client subscribes
     /*-
@@ -129,14 +129,15 @@ public class ConsumerImplV2 implements Consumer {
         for (Topic topic : topics) {
             //copy a new topic in consumer, as address 2 partition mapping need maintained in topic, and we do not
             //expect to expose that to user.
-            Topic topicCopy = Topic.newInstacne(topic);
+            //set copy partition true here, as consumer may need to connect to specified partition
+            Topic topicCopy = Topic.newInstacne(topic, true);
             SortedSet<Long> partitionsSet;
-            if(topics2Partitions.containsKey(topicCopy)) {
+            if(topics2Partitions.containsKey(topicCopy.getTopicText())) {
                 partitionsSet = topics2Partitions.get(topicCopy);
             } else {
                 partitionsSet = new TreeSet<>();
-                topics2Partitions.put(topicCopy, partitionsSet);
-                simpleClient.putTopic(topicCopy);
+                topics2Partitions.put(topicCopy.getTopicText(), partitionsSet);
+                simpleClient.putTopic(topicCopy.getTopicText());
             }
             //add partition id to sorted set
             partitionsSet.add((long) topicCopy.getPartitionId());
@@ -253,7 +254,7 @@ public class ConsumerImplV2 implements Consumer {
 
         //broken set to collect Address of connection which is not connected
         final Set<Address> broken = new HashSet<>();
-        final ConcurrentHashMap<Address, Set<Topic>> address_2_topics = new ConcurrentHashMap<>();
+        final ConcurrentHashMap<Address, Set<String>> address_2_topics = new ConcurrentHashMap<>();
         final Set<Address> targetAddresses = new TreeSet<>();
         /*-
          * =====================================================================
@@ -287,7 +288,7 @@ public class ConsumerImplV2 implements Consumer {
          *                            Get the relationship
          * =====================================================================
          */
-        for (Topic topic : topics2Partitions.keySet()) {
+        for (String topic : topics2Partitions.keySet()) {
             int idx = 0;
             Address[] partitionDataNodes = null;
             while(null == partitionDataNodes) {
@@ -299,17 +300,20 @@ public class ConsumerImplV2 implements Consumer {
                         shardingIDs = partitionSet.toArray(new Long[0]);
                         //convert partition ID to long type directly.
                     else shardingIDs = new Object[]{Message.NO_SHARDING};
-                    partitionDataNodes = simpleClient.getPartitionNodes(topic, shardingIDs, false);
+                    partitionDataNodes = simpleClient.getPartitionNodes(new Topic(topic), shardingIDs, false);
                 } catch (NSQLookupException lookupe) {
                     logger.warn("Hit a invalid lookup address, retry another. Has retried: {}", idx);
                     if(idx++ >= MAX_CONSUME_RETRY){
                         throw lookupe;
                     }
+                } catch (InterruptedException e) {
+                    logger.warn("Thread interrupted waiting for partition selector update, Topic {}. Ignore if SDK is shutting down.", topic);
+                    //retry for now
                 }
             }
             final List<Address> dataNodeLst = Arrays.asList(partitionDataNodes);
             for (Address a : dataNodeLst) {
-                final Set<Topic> tmpTopics;
+                final Set<String> tmpTopics;
                 if (address_2_topics.containsKey(a)) {
                     tmpTopics = address_2_topics.get(a);
                 } else {
@@ -359,7 +363,7 @@ public class ConsumerImplV2 implements Consumer {
             logger.info("Get new data-nodes: {}", except1);
             for (Address address : except1) {
                 try {
-                    final Set<Topic> topics = address_2_topics.get(address);
+                    final Set<String> topics = address_2_topics.get(address);
                     connect(address, topics);
                 } catch (Exception e) {
                     logger.error("Exception", e);
@@ -390,7 +394,7 @@ public class ConsumerImplV2 implements Consumer {
      * @param address data-node(NSQd)
      * @param topics  client cares about the specified topics
      */
-    private void connect(Address address, Set<Topic> topics) throws Exception {
+    private void connect(Address address, Set<String> topics) throws Exception {
         if (topics == null || topics.isEmpty()) {
             return;
         }
@@ -408,7 +412,7 @@ public class ConsumerImplV2 implements Consumer {
                 return;
             }
 
-            final Topic[] topicArray = new Topic[topicSize];
+            final String[] topicArray = new String[topicSize];
             topics.toArray(topicArray);
             if (topics.size() != topicArray.length) {
                 // concurrent problem
@@ -427,10 +431,11 @@ public class ConsumerImplV2 implements Consumer {
             int connectionIdx = 0;
             try {
                 for (int i = 0; i < topicSize; i++) {
-                    final Topic topic = topicArray[i];
+                    final String topicTxt = topicArray[i];
 
                     // init( connection, topic ) , let it be a consumer connection
                     final NSQConnection connection = connections.get(connectionIdx++);
+                    Topic topic = new Topic(topicTxt, address.getPartition());
                     try {
                         connection.init(topic);
                     } catch (Exception e) {
@@ -445,11 +450,7 @@ public class ConsumerImplV2 implements Consumer {
                             throw new NSQNoConnectionException("Pool failed in connecting to NSQd! Closing: !" + closing);
                         }
                     } else {
-                        Sub command;
-                        if (address.getPartition() > -1)
-                            command = createSubCmd(address.getPartition(), topic, this.config.getConsumerName());
-                        else
-                            command = createSubCmd(topic, this.config.getConsumerName());
+                        Sub command = createSubCmd(topic, this.config.getConsumerName());
                         final NSQFrame frame = connection.commandAndGetResponse(command);
                         handleResponse(frame, connection);
                         //as there is no success response from nsq, command is enough here
@@ -467,13 +468,6 @@ public class ConsumerImplV2 implements Consumer {
     private Sub createSubCmd(final Topic topic, String channel) {
         if (this.config.isOrdered())
             return new SubOrdered(topic, channel);
-        else
-            return new Sub(topic, channel);
-    }
-
-    private Sub createSubCmd(int partitionIdOverride, final Topic topic, String channel) {
-        if (this.config.isOrdered())
-            return new SubOrdered(topic, channel, partitionIdOverride);
         else
             return new Sub(topic, channel);
     }
@@ -905,9 +899,12 @@ public class ConsumerImplV2 implements Consumer {
                 }
                 case E_TOPIC_NOT_EXIST: {
                     Address address = connection.getAddress();
-                    for(Topic aTopic : this.topics2Partitions.keySet()) {
-                        this.simpleClient.invalidatePartitionsSelector(aTopic);
-                        logger.info("Partitions info for {} invalidated and related lookupd address force updated.");
+                    Topic topic = connection.getTopic();
+                    if(null != topic) {
+                        this.simpleClient.invalidatePartitionsSelector(topic.getTopicText());
+                        logger.info("Partitions info for {} invalidated and related lookupd address force updated.", topic.getTopicText());
+                    } else {
+                        logger.error("topic from connection {} is empty.", connection);
                     }
                     this.simpleClient.clearDataNode(address);
                     clearDataNode(address);
@@ -986,10 +983,10 @@ public class ConsumerImplV2 implements Consumer {
             return new NSQMessage(orderedMsgFrame.getTimestamp(), orderedMsgFrame.getAttempts(), orderedMsgFrame.getMessageID(),
                     orderedMsgFrame.getInternalID(), orderedMsgFrame.getTractID(),
                     orderedMsgFrame.getDiskQueueOffset(), orderedMsgFrame.getDiskQueueDataSize(),
-                    msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond(), msgFrame.getExtVerBytes(), msgFrame.getExtBytes());
+                    msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond(), conn.getTopic(), msgFrame.getExtVerBytes(), msgFrame.getExtBytes());
         } else
             return new NSQMessage(msgFrame.getTimestamp(), msgFrame.getAttempts(), msgFrame.getMessageID(),
-                    msgFrame.getInternalID(), msgFrame.getTractID(), msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond(), msgFrame.getExtVerBytes(), msgFrame.getExtBytes());
+                    msgFrame.getInternalID(), msgFrame.getTractID(), msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond(), conn.getTopic(), msgFrame.getExtVerBytes(), msgFrame.getExtBytes());
     }
 
     public String toString() {

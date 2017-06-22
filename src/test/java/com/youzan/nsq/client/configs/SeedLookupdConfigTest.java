@@ -77,7 +77,7 @@ public class SeedLookupdConfigTest {
             AbstractControlConfig ctrlCnf = AbstractControlConfig.create(controlCnfStr);
             lookupdConfig.putTopicCtrlCnf(LookupAddressUpdate.formatCategorizationTopic(categorization, aTopic.getTopicText()), ctrlCnf);
 
-            NSQLookupdAddresses aNsqLookupd = lookupdConfig.punchLookupdAddress(categorization, aTopic, false);
+            NSQLookupdAddresses aNsqLookupd = lookupdConfig.punchLookupdAddress(categorization, aTopic.getTopicText(), false);
             Assert.assertNotNull(aNsqLookupd);
 
         }finally {
@@ -99,7 +99,7 @@ public class SeedLookupdConfigTest {
             lookupdConfig.putTopicCtrlCnf(LookupAddressUpdate.formatCategorizationTopic(categorization, aTopic.getTopicText()), ctrlCnf);
             Topic anotherTopic = new Topic("topicNotConfiged");
             categorization = category.category(anotherTopic);
-            Assert.assertNull(lookupdConfig.punchLookupdAddress(categorization, anotherTopic, false));
+            Assert.assertNull(lookupdConfig.punchLookupdAddress(categorization, anotherTopic.getTopicText(), false));
 
         }finally {
             logger.info("[testQueryTopicWhichNotConfigedInConfigAccess] ends.");

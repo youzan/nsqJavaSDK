@@ -89,9 +89,23 @@ jackson within NSQ SDK upgrade to 2.7.9.1. due to [deserializer security vulnera
 #### fix patch 20170509
 + regression in trace log.[#73](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/73)
 
+##2.3.20170606-RELEASE
+Note worthy:
+Fix connection leak in producer in ordered message production scenario. Performance debug log in producer and message handle.
+
+### Feature:
++ performance log in producer&consumer[#72](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/72)
+
+### Fixes:
++ connection leak in producer in ordered topic production[#76](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/76)
+
 ## 2.4
 Note worthy:
 
 ### Features:
 + performance log in consumer&producer.[#72](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/72)
-+ min idle nsqd connection for producer[#74](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/74)
++ min idle nsqd connection for producer.[#74](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/74)
++ condition lock in getPartitionNodes.[#79](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/79)
+
+# Fixes:
++ connection leak in producer in ordered topic production.[#76](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/76)

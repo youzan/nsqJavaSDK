@@ -41,11 +41,14 @@ public class NSQSimpleClient implements Client, Closeable {
     private final static AtomicInteger CLIENT_ID = new AtomicInteger(0);
     private int lookupLocalID = -1;
     private static final IPartitionsSelector EMPTY = new SimplePartitionsSelector(null);
-    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
     //maintain a mapping from topic to producer broadcast addresses
-    private final Set<Topic> topicSubscribed = new HashSet<>();
-    private final Map<Topic, IPartitionsSelector> topic_2_partitionsSelector = new ConcurrentHashMap<>();
-    private final ConcurrentSortedSet<Address> dataNodes = new ConcurrentSortedSet<>();
+    private final Set<String> topicSubscribed = new HashSet<>();
+    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+    private final Map<String, TopicSync> topicSynMap = new ConcurrentHashMap<>();
+    private final Map<String, IPartitionsSelector> topic_2_partitionsSelector = new ConcurrentHashMap<>();
+    private final long TOPIC_PARTITION_TIMEOUT = 500L;
+
+    private final Map<String, Long> ps_lastInvalidated = new ConcurrentHashMap<>();
 
     private volatile boolean started;
     private final ScheduledExecutorService scheduler = Executors
@@ -87,18 +90,13 @@ public class NSQSimpleClient implements Client, Closeable {
     }
 
     @Override
-    public void start() {
-        lock.writeLock().lock();
-        try {
-            if (!started) {
-                started = true;
-                LookupAddressUpdate.getInstance(true).keepListLookup();
-                keepDataNodes();
-            }
+    public synchronized void start() {
+        if (!started) {
             started = true;
-        } finally {
-            lock.writeLock().unlock();
+            LookupAddressUpdate.getInstance(true).keepListLookup();
+            keepDataNodes();
         }
+        started = true;
     }
 
     /**
@@ -127,33 +125,34 @@ public class NSQSimpleClient implements Client, Closeable {
 
     private void newDataNodes() throws NSQException {
         //clear partitions does not valid(topic has no partition attached)
-        lock.writeLock().lock();
-        try {
-            Set<Topic> brokenTopic = new HashSet<>();
-            for (Map.Entry<Topic, IPartitionsSelector> pair : topic_2_partitionsSelector.entrySet()) {
-                if (pair.getValue() == null) {
-                    brokenTopic.add(pair.getKey());
-                }
-            }
-            for (Topic topic : brokenTopic) {
-                topic_2_partitionsSelector.remove(topic);
-                logger.info("{} removed from topic to partitions selector mapping.");
-            }
-        } finally {
-            lock.writeLock().unlock();
-        }
+        //only newDataNodes could remove
+//        lock.writeLock().lock();
+//        try {
+//            Set<Topic> brokenTopic = new HashSet<>();
+//            for (Map.Entry<Topic, IPartitionsSelector> pair : topic_2_partitionsSelector.entrySet()) {
+//                if (pair.getValue() == null) {
+//                    brokenTopic.add(pair.getKey());
+//                }
+//            }
+//            for (Topic topic : brokenTopic) {
+//                topic_2_partitionsSelector.remove(topic);
+//                logger.info("{} removed from topic to partitions selector mapping.");
+//            }
+//        } finally {
+//            lock.writeLock().unlock();
+//        }
 
         //gather topics from topic_2_partitions
-        final Set<Topic> topics = new HashSet<>();
+        final Set<String> topics = new HashSet<>();
+        lock.readLock().lock();
         try {
-            lock.readLock().lock();
             //not ant topic is subscribed. process ends
             if(this.role == Role.Consumer && topicSubscribed.size() == 0) {
                 logger.warn("No any subscribed topic is found, Consumer may not subscribe any topic. Data node updating process ends.");
                 return;
             }
 
-            for (Topic topic : topic_2_partitionsSelector.keySet()) {
+            for (String topic : topicSubscribed) {
                 topics.add(topic);
             }
         } finally {
@@ -161,60 +160,58 @@ public class NSQSimpleClient implements Client, Closeable {
         }
 
         //lookup gatheres topics
-        final Set<Address> newDataNodes = new HashSet<>();
-        for (Topic topic : topics) {
+        for (String topic : topics) {
+            TopicSync ts = topicSynMap.get(topic);
+            if (null == ts) {
+                logger.info("Partitions selector lock for {} do not exist", topic);
+                continue;
+            }
+            //another process, producer or consumer is updating this partitions slelector, ok to skip
+            if (!ts.tryLock()) {
+                logger.info("Skip partitions selector for {} as it is hold by client", topic);
+                continue;
+            }
+
             try {
                 final IPartitionsSelector aPs = lookup.lookup(topic, this.useLocalLookupd, false);
                 if(null == aPs){
-                    logger.warn("No fit partition data found for topic: {}.", topic.getTopicText());
+                    logger.warn("No fit partition data found for topic: {}.", topic);
                     continue;
                 }
                 //dump all partitions in one partitions selector
-                Partitions[] allPartitions = aPs.dumpAllPartitions();
-                for(Partitions aPartitions:allPartitions) {
-                    //update partition mapping topic -> address
-                    if (null != aPartitions && aPartitions.hasAnyDataNodes()) {
-                        newDataNodes.addAll(aPartitions.getAllDataNodes());
-                        try {
-                            lock.writeLock().lock();
-                            //topic partition update
-                            topic_2_partitionsSelector.put(topic, aPs);
-                        } finally {
-                            lock.writeLock().unlock();
-                        }
-                    } else {
-                        logger.info("Having got an empty data nodes from topic: {}", topic);
-                    }
-                }
+                topic_2_partitionsSelector.put(topic, aPs);
             } catch(NSQLookupException e){
                 logger.warn("Could not fetch lookup info for topic: {} at this moment, lookup info may not be ready.", topic);
             } catch (Exception e) {
                 logger.error("Exception", e);
+            }finally {
+                ts.unlock();
             }
-        }
-
-        if (0 == newDataNodes.size() && this.role == Role.Consumer) {
-            logger.warn("No any data node found for NSQ client {} in this try.", this.toString());
-            return;
-        }
-
-        try {
-            lock.writeLock().lock();
-            dataNodes.clear();
-            dataNodes.addAll(newDataNodes);
-        } finally {
-            lock.writeLock().unlock();
         }
     }
 
-    public void putTopic(Topic topic) {
+    public void putTopic(String topic) {
         if (topic == null) {
-            return;
+            throw new IllegalArgumentException("Topic is not allowed to be empty.");
         }
+
+        lock.readLock().lock();
+        try{
+            if (topicSubscribed.contains(topic)) {
+                return;
+            }
+        }finally {
+            lock.readLock().unlock();
+        }
+
+        lock.writeLock().lock();
         try {
-            lock.writeLock().lock();
             if(!topicSubscribed.contains(topic)) {
                 topicSubscribed.add(topic);
+                if (!topicSynMap.containsKey(topic)) {
+                    topicSynMap.put(topic, new TopicSync(topic));
+                }
+
                 if (!topic_2_partitionsSelector.containsKey(topic)) {
                     topic_2_partitionsSelector.put(topic, EMPTY);
                 }
@@ -224,40 +221,51 @@ public class NSQSimpleClient implements Client, Closeable {
         }
     }
 
-    public void removeTopic(Topic topic) {
-        if (topic == null || null == topic.getTopicText() || topic.getTopicText().isEmpty()) {
-            return;
-        }
+    /**
+     * remove topic resources in topic partitions selector map, topic synchronization map and topic subscribed.
+     * during remove topics, put topic should be blocked.
+     * @param expiredTopics
+     */
+    public void removeTopics(Set<String> expiredTopics) {
         lock.writeLock().lock();
-        try {
-            topic_2_partitionsSelector.remove(topic);
-            topicSubscribed.remove(topic);
-            logger.info("{} removed from consumer subscribe.", topic);
-        } finally {
+        try{
+            for(String topic : expiredTopics) {
+                _removeTopic(topic);
+            }
+        }finally {
             lock.writeLock().unlock();
         }
     }
 
-    /**
-     * remove multiple topics from simple client, invoker of this function needs to make sure pass in topics are valid.
-     *
-     * @param topics {@link Collection} of {@link Topic} to be removed.
-     */
-    public void removeTopics(final Collection<Topic> topics) {
-        assert null != topics;
-        lock.writeLock().lock();
-        try {
-            for (Topic topic : topics) {
-                topic_2_partitionsSelector.remove(topic);
-                topicSubscribed.remove(topic);
-                logger.info("{} removed from consumer subscribe.", topic);
+    private void _removeTopic(String topic) {
+        int retry = 3;
+        TopicSync ts = topicSynMap.get(topic);
+        while (!ts.tryLock()) {
+            if (retry-- > 0) {
+                try {
+                    Thread.sleep(TOPIC_PARTITION_TIMEOUT);
+                } catch (InterruptedException e) {
+                    logger.error("interrupted while waiting for removing partitions selector for {}.", topic);
+                }
+            } else {
+                logger.info("Remove partitions selector for {} out of retry.", topic);
+                return;
             }
-        } finally {
-            lock.writeLock().unlock();
+            //partitions selector is being updated
+        }
+        try {
+            topicSubscribed.remove(topic);
+            topic_2_partitionsSelector.remove(topic);
+            logger.info("{} removed from consumer subscribe.", topic);
+        }finally {
+            //place it in finally block
+            topicSynMap.remove(topic);
+            ts.unlock();
         }
     }
 
     @Override
+    @Deprecated
     public void incoming(final NSQFrame frame, final NSQConnection conn) throws NSQException {
         if (frame == null) {
             logger.info("The frame is null because of SDK's bug in the {}", this.getClass().getName());
@@ -325,27 +333,28 @@ public class NSQSimpleClient implements Client, Closeable {
      * @return array of nsqd
      * @throws NSQException exception raised in get nsqd node from lookup or nsqd partition node not found
      */
-    public Address[] getPartitionNodes(Topic topic, Object[] topicShardingIDs, boolean write) throws NSQException {
+    public Address[] getPartitionNodes(Topic topic, Object[] topicShardingIDs, boolean write) throws NSQException, InterruptedException {
         IPartitionsSelector aPs;
         List<Address> nodes = new ArrayList<>();
-        lock.readLock().lock();
-        try {
-            aPs = topic_2_partitionsSelector.get(topic);
-            if(aPs != EMPTY && null != aPs) {
+
+        QueryPS:
+        while (true) {
+            aPs = topic_2_partitionsSelector.get(topic.getTopicText());
+            if (aPs != EMPTY && null != aPs) {
                 Partitions[] partitions;
-                if(write)
+                if (write)
                     partitions = aPs.choosePartitions();
                 else
                     partitions = aPs.dumpAllPartitions();
                 //if partitions returned from choose partitions, means there is only one Partitions
-                for(Partitions aPartitions : partitions) {
+                for (Partitions aPartitions : partitions) {
                     //what is a valid Partitions
                     if (null != aPartitions && aPartitions.hasAnyDataNodes()) {
                         //for partitions
                         if (write) {
                             if (aPartitions.hasPartitionDataNodes() && topicShardingIDs[0] != Message.NO_SHARDING) {
                                 int partitionNum = aPartitions.getPartitionNum();
-                                int partitionId = topic.updatePartitionIndex(topicShardingIDs[0], partitionNum);
+                                int partitionId = topic.calculatePartitionIndex(topicShardingIDs[0], partitionNum);
                                 //index out of boundry
                                 Address addr = aPartitions.getPartitionAddress(partitionId);
                                 nodes.add(addr);
@@ -356,8 +365,8 @@ public class NSQSimpleClient implements Client, Closeable {
                             }
                         } else {
                             if (aPartitions.hasPartitionDataNodes() && topicShardingIDs[0] != Message.NO_SHARDING) {
-                                for(Object partitionId : topicShardingIDs) {
-                                    long partIdLong = (long)partitionId;
+                                for (Object partitionId : topicShardingIDs) {
+                                    long partIdLong = (long) partitionId;
                                     Address addr = aPartitions.getPartitionAddress((int) partIdLong);
                                     nodes.add(addr);
                                 }
@@ -370,82 +379,98 @@ public class NSQSimpleClient implements Client, Closeable {
                     }
                 }
                 return nodes.toArray(new Address[0]);
-            }
-            aPs = lookup.lookup(topic, this.useLocalLookupd, false);
-        } finally {
-            lock.readLock().unlock();
-        }
-        //uses first to update existing Partitions
-        if (null != aPs) {
-            try {
-                lock.writeLock().lock();
-                topic_2_partitionsSelector.put(topic, aPs);
-                for (Partitions aPartitions : aPs.dumpAllPartitions()) {
-                    //for partitions
-                    if (aPartitions.hasPartitionDataNodes() && topicShardingIDs[0] != Message.NO_SHARDING) {
-                        int partitionNum = aPartitions.getPartitionNum();
+            } else {
+                TopicSync ts = this.topicSynMap.get(topic.getTopicText());
 
-                        if(write) {
-                            int partitionId = topic.updatePartitionIndex(topicShardingIDs[0], partitionNum);
-                            //index out of boundry
-                            Address addr = aPartitions.getPartitionAddress(partitionId);
-                            nodes.add(addr);
-                        }else if((long)topicShardingIDs[0] >= 0){
-                            for(Object partitionId : topicShardingIDs) {
-                                long partIdLong = (long)partitionId;
-                                Address addr = aPartitions.getPartitionAddress((int)partIdLong);
-                                nodes.add(addr);
+                assert null != ts;
+                if (null == ts) {
+                    logger.error("topic partitions selector synchronization for {} is null.", topic.getTopicText());
+                }
+
+                if (!ts.tryLock()) {
+                    Thread.sleep(TOPIC_PARTITION_TIMEOUT);
+                    //access to topic 2 partition map
+                    logger.info("Try again for partition selector for topic {}", topic.getTopicText());
+                    continue QueryPS;
+                }
+
+                //update topic 2 partition map
+                long start = 0L;
+                try {
+                    if(PERF_LOG.isDebugEnabled())
+                        start = System.currentTimeMillis();
+                    aPs = lookup.lookup(topic.getTopicText(), this.useLocalLookupd, false);
+                    if (null != aPs) {
+                        topic_2_partitionsSelector.put(topic.getTopicText(), aPs);
+                        for (Partitions aPartitions : aPs.dumpAllPartitions()) {
+                            //for partitions
+                            if (aPartitions.hasPartitionDataNodes() && topicShardingIDs[0] != Message.NO_SHARDING) {
+                                int partitionNum = aPartitions.getPartitionNum();
+
+                                if (write) {
+                                    int partitionId = topic.calculatePartitionIndex(topicShardingIDs[0], partitionNum);
+                                    //index out of boundry
+                                    Address addr = aPartitions.getPartitionAddress(partitionId);
+                                    nodes.add(addr);
+                                } else if ((long) topicShardingIDs[0] >= 0) {
+                                    for (Object partitionId : topicShardingIDs) {
+                                        long partIdLong = (long) partitionId;
+                                        Address addr = aPartitions.getPartitionAddress((int) partIdLong);
+                                        nodes.add(addr);
+                                    }
+                                }
+                                //all data nodes
+                            } else {
+                                List<Address> address = aPartitions.getAllDataNodes();
+                                nodes.addAll(address);
                             }
                         }
-                        //all data nodes
-                    } else {
-                        List<Address> address = aPartitions.getAllDataNodes();
-                        nodes.addAll(address);
+                        return nodes.toArray(new Address[0]);
+                    }
+                    throw new NSQInvalidTopicException(topic.getTopicText());
+                } finally {
+                    ts.unlock();
+                    if(PERF_LOG.isDebugEnabled()) {
+                        PERF_LOG.debug("Partition selector update for topic {} ends in {} milliSec.", topic.getTopicText(), System.currentTimeMillis() - start);
                     }
                 }
-            } finally {
-                lock.writeLock().unlock();
             }
-            return nodes.toArray(new Address[0]);
         }
-        throw new NSQInvalidTopicException(topic.getTopicText());
     }
 
     /**
      * Invalidate pass in topic related partitions selector, in {@link com.youzan.nsq.client.Producer} side.
      * @param topic topic
-     * @param address address to remove from dataNodes
      */
-    public void invalidatePartitionsSelector(final Topic topic, final Address address) {
-        if(null == topic || null == address)
-            return;
-        try {
-            //force lookup here, and leaving update mapping from topic to partition to newDataNodes process.
-            lookup.lookup(topic, this.useLocalLookupd, true);
-        }catch (NSQException e){
-            logger.warn("Could not fetch lookup info for topic: {} at this moment, lookup info may not be ready.", topic);
-        }
-
-        //remove directly, as getPartitionNode will add topic back.
-        topic_2_partitionsSelector.put(topic, EMPTY);
-        dataNodes.remove(address);
-    }
-
-    /**
-     * Invalidate pass in topic related partitions selector, in {@link com.youzan.nsq.client.Consumer} side.
-     * @param topic topic
-     */
-    public void invalidatePartitionsSelector(final Topic topic) {
+    public void invalidatePartitionsSelector(final String topic) {
         if(null == topic)
             return;
-        try {
-            //force lookup here, and leaving update mapping from topic to partition to newDataNodes process.
-            lookup.lookup(topic, this.useLocalLookupd, true);
-        }catch (NSQException e){
-            logger.warn("Could not fetch lookup info for topic: {} at this moment, lookup info may not be ready.", topic);
+        long now = System.currentTimeMillis();
+        Long lastInvalidated = ps_lastInvalidated.get(topic);
+        if (now - lastInvalidated <= _INTERVAL_IN_SECOND * 2) {
+            logger.info("Partition selector for {} has been invalidated in last {} seconds", topic, _INTERVAL_IN_SECOND * 2);
+            return;
+        } else {
+            ps_lastInvalidated.put(topic, now);
         }
 
-        topic_2_partitionsSelector.put(topic, EMPTY);
+        TopicSync ts = topicSynMap.get(topic);
+        //ts is updating, invalidate is ok to exit
+        if(!ts.tryLock()) {
+            logger.info("partitions selector for topic {} is updating, invalidation exit.");
+            return;
+        }
+
+        try {
+            //force lookup here, and leaving update mapping from topic to partition to newDataNodes process.
+            IPartitionsSelector aPs = lookup.lookup(topic, this.useLocalLookupd, false);
+            if (null != aPs)
+                topic_2_partitionsSelector.put(topic, aPs);
+        } catch (NSQException e){
+            logger.warn("Could not fetch lookup info for topic: {} at this moment, lookup info may not be ready.", topic);
+        } finally {
+            ts.unlock();
+        }
     }
 
     @Override
@@ -456,7 +481,6 @@ public class NSQSimpleClient implements Client, Closeable {
 
     @Override
     public Set<NSQConnection> clearDataNode(Address address) {
-        dataNodes.remove(address);
         return null;
     }
 
@@ -465,9 +489,10 @@ public class NSQSimpleClient implements Client, Closeable {
         lock.writeLock().lock();
         try {
             lookup.close();
-            dataNodes.clear();
             topic_2_partitionsSelector.clear();
+            ps_lastInvalidated.clear();
             topicSubscribed.clear();
+            topicSynMap.clear();
             scheduler.shutdownNow();
         } finally {
             lock.writeLock().unlock();

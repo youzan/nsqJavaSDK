@@ -44,7 +44,7 @@ public class Message {
 
     Message(long traceID, final Topic topic, String messageBody) {
         this.traceID = traceID;
-        this.topic = Topic.newInstacne(topic);
+        this.topic = Topic.newInstacne(topic, false);
         this.messageBody = messageBody;
     }
 

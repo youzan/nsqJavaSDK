@@ -3,7 +3,6 @@ package com.youzan.nsq.client.entity.lookup;
 import com.youzan.nsq.client.entity.IPartitionsSelector;
 import com.youzan.nsq.client.entity.MigrationPartitionsSelector;
 import com.youzan.nsq.client.entity.Partitions;
-import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQLookupException;
 import com.youzan.nsq.client.exception.NSQProducerNotFoundException;
 import com.youzan.nsq.client.exception.NSQTopicNotFoundException;
@@ -28,8 +27,8 @@ public class NSQLookupdAddressesPair extends NSQLookupdAddresses {
     }
 
     @Override
-    public IPartitionsSelector lookup(final Topic topic, boolean writable) throws NSQLookupException, NSQProducerNotFoundException, NSQTopicNotFoundException {
-        if (null == topic || null == topic.getTopicText() || topic.getTopicText().isEmpty()) {
+    public IPartitionsSelector lookup(final String topic, boolean writable) throws NSQLookupException, NSQProducerNotFoundException, NSQTopicNotFoundException {
+        if (null == topic || topic.isEmpty()) {
             throw new NSQLookupException("Your input topic is blank!");
         }
 
