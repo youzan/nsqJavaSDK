@@ -138,7 +138,10 @@ public class NSQMessage implements MessageMetadata{
     }
 
     public DesiredTag getTag() {
-        return (DesiredTag) this.extContent;
+        if (this.extContent instanceof DesiredTag)
+            return (DesiredTag) this.extContent;
+        else
+            return null;
     }
 
     public TopicInfo getTopicInfo() {
