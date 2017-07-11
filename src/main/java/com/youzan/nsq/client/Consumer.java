@@ -42,4 +42,18 @@ public interface Consumer extends Client, Closeable {
      */
     @Override
     void close();
+
+    /**
+     * Backoff consumption of specified topic. Client indicates nsq server not sending message.
+     * Message consumption continues until nsq server hold message flow. Partial partitions backoff is not allowed.
+     * @param topic topic consumption to backoff
+     */
+    void backoff(Topic topic);
+
+    /**
+     * Resume message consumption of specified backed off topic, with last RDY before topic consumption is backed off.
+     *
+     * @param topic topic to resume consumption
+     */
+    void resume(Topic topic);
 }

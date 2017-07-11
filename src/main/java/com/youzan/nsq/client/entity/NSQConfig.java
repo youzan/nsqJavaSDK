@@ -55,7 +55,6 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private final String clientId;
     private final String hostname;
     private boolean featureNegotiation;
-    private boolean slowStart = true;
     private boolean userSpecifiedLookupd = false;
     private Map<String, String> localTraceMap = new ConcurrentHashMap<>();
     /*-
@@ -673,20 +672,6 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     private static Logger getLogger() {
         return logger;
-    }
-
-    public boolean isConsumerSlowStart() {
-        return this.slowStart;
-    }
-
-    /**
-     * Turn on/off consumer slow start with {@link Boolean#TRUE} or {@link Boolean#FALSE}
-     * @param allowSlowStart switch to turn on/off consumer slow start
-     * @return {@link NSQConfig} this NSQConfig
-     */
-    public NSQConfig setConsumerSlowStart(boolean allowSlowStart) {
-        this.slowStart = allowSlowStart;
-        return this;
     }
 
     /**

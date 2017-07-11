@@ -45,7 +45,7 @@ public class ITTagConsumer {
 
         NSQConfig configTag = new NSQConfig("default");
         configTag.setLookupAddresses("qabb-qa-nsqtest0:4161");
-        configTag.setConsumerDesiredTag(new DesiredTag("TAG1"));
+        configTag.setConsumerDesiredTag(new DesiredTag("TAG3"));
         Consumer consumerTag = new ConsumerImplV2(configTag, new MessageHandler() {
             @Override
             public void process(NSQMessage message) {

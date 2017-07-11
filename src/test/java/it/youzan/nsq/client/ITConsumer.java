@@ -4,10 +4,12 @@ import com.youzan.nsq.client.ConsumerImplV2;
 import com.youzan.nsq.client.MessageHandler;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.exception.NSQException;
+import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
 
+import java.util.Calendar;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -31,8 +33,13 @@ public class ITConsumer extends AbstractITConsumer{
         consumer.setAutoFinish(true);
         consumer.subscribe("JavaTesting-Producer-Base");
         consumer.start();
-        latch.await(1, TimeUnit.MINUTES);
-        logger.info("Consumer received {} messages.", received.get());
+        try {
+            Assert.assertTrue(latch.await(1, TimeUnit.MINUTES));
+            Thread.sleep(100);
+        }finally {
+            consumer.close();
+            logger.info("Consumer received {} messages.", received.get());
+        }
     }
 
 }

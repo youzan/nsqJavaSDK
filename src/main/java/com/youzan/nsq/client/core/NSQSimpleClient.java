@@ -265,10 +265,9 @@ public class NSQSimpleClient implements Client, Closeable {
     }
 
     @Override
-    @Deprecated
     public void incoming(final NSQFrame frame, final NSQConnection conn) throws NSQException {
         if (frame == null) {
-            logger.info("The frame is null because of SDK's bug in the {}", this.getClass().getName());
+            logger.error("The frame is null because of SDK's bug in the {}", this.getClass().getName());
             return;
         }
         switch (frame.getType()) {
@@ -303,9 +302,8 @@ public class NSQSimpleClient implements Client, Closeable {
                     logger.error("Address: {}, Exception:", conn.getAddress(), e);
                 }
                 logger.warn("Error-Frame from {} , frame: {}", conn.getAddress(), frame);
-                if (Role.Consumer == this.role && !conn.getConfig().isOrdered() && conn.getConfig().isConsumerSlowStart()) {
-                    int currentRdyCnt = RdySpectrum.decrease(conn, conn.getCurrentRdyCount(), conn.getCurrentRdyCount() - 1);
-                    conn.setCurrentRdyCount(currentRdyCnt);
+                if (Role.Consumer == this.role && !conn.getConfig().isOrdered()) {
+                    conn.declineExpectedRdy();
                 }
                 break;
             }

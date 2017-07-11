@@ -14,6 +14,15 @@ public class Address implements java.io.Serializable, Comparable<Address> {
     private final int partition;
     private final boolean extend;
 
+    public Address(final Address address) {
+        this.host = address.host;
+        this.port = address.port;
+        this.topic = address.topic;
+        this.partition = address.partition;
+        this.version = address.version;
+        this.extend = address.extend;
+    }
+
     /**
      * @param host a {@link String} to presenting
      * @param port a integer number
@@ -119,7 +128,7 @@ public class Address implements java.io.Serializable, Comparable<Address> {
         if (obj == null) {
             return false;
         }
-        if (getClass() != obj.getClass()) {
+        if (!(obj instanceof Address)) {
             return false;
         }
         Address other = (Address) obj;

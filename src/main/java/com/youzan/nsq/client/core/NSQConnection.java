@@ -34,6 +34,8 @@ public interface NSQConnection extends Closeable {
 
     int getId();
 
+    int getExpectedRdy();
+
     int getCurrentRdyCount();
 
     void setCurrentRdyCount(int newRdyCnt);
@@ -93,4 +95,16 @@ public interface NSQConnection extends Closeable {
      */
     @Override
     void close();
+
+    void onRdy(int rdy, IRdyCallback callback);
+    void onResume(IRdyCallback callback);
+    void onBackoff(IRdyCallback callback);
+    boolean isBackoff();
+    int hashCode();
+    void setMessageReceived(long timeStamp);
+    long lastMessageReceived();
+    void setMessageConsumptionFailed(long timeStamp);
+    long lastMessageConsumptionFailed();
+    int declineExpectedRdy();
+    int increaseExpectedRdy();
 }
