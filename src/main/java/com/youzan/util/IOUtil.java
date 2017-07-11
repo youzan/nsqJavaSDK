@@ -4,12 +4,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.zip.GZIPOutputStream;
 
 public final class IOUtil {
 
@@ -77,5 +79,16 @@ public final class IOUtil {
         return SystemUtil.getObjectMapper().readTree(con.getInputStream());
     }
 
+    public static byte[] compress(String str) throws IOException {
+        if (str == null || str.length() == 0) {
+            return null;
+        }
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        GZIPOutputStream gzip = new GZIPOutputStream(out);
+        gzip.write(str.getBytes());
+        gzip.close();
+        return out.toByteArray();
+    }
 
 }
