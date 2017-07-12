@@ -92,7 +92,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         logger.info("[testRdyIncrease] starts.");
         final String topic = "test5Par1Rep";
         Random ran = new Random();
-        int expectRdy =9;// ran.nextInt(6) + 5;
+        int expectRdy = ran.nextInt(6) + 5;
         logger.info("ExpectedRdy: {}", expectRdy);
         final NSQConfig config = new NSQConfig("BaseConsumer");
         config.setLookupAddresses(props.getProperty("lookup-addresses"));
@@ -145,7 +145,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
 
     @Test
     public void testLoadFactor() throws NSQException, InterruptedException {
-        logger.info("[testRdyIncrease] starts.");
+        logger.info("[testLoadFactor] starts.");
         final String topic = "test5Par1Rep";
         int expectRdy = 10;
         logger.info("ExpectedRdy: {}", expectRdy);
@@ -191,7 +191,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
             logger.info("Wait for 10sec to clean mq channel.");
             Thread.sleep(10000L);
             consumer.close();
-            logger.info("[testRdyIncrease] ends.");
+            logger.info("[testLoadFactor] ends.");
         }
     }
 
