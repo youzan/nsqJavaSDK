@@ -2,12 +2,14 @@ package com.youzan.nsq.client.core;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.youzan.nsq.client.IConsumeInfo;
+import com.youzan.nsq.client.MockedConsumer;
 import com.youzan.nsq.client.MockedNSQConnectionImpl;
 import com.youzan.nsq.client.MockedNSQSimpleClient;
 import com.youzan.nsq.client.core.command.Identify;
 import com.youzan.nsq.client.core.command.Magic;
 import com.youzan.nsq.client.core.command.Rdy;
 import com.youzan.nsq.client.core.command.Sub;
+import com.youzan.nsq.client.core.pool.consumer.FixedPool;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.Role;
@@ -29,6 +31,8 @@ import java.io.InputStream;
 import java.net.URL;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -106,7 +110,7 @@ public class ConnectionManagerTest {
             }
         });
         conMgr.subscribe(topicName, con1);
-        conMgr.backoff(topicName);
+        conMgr.backoff(topicName, null);
         Thread.sleep(100);
 
         assert 0 == con1.getCurrentRdyCount();
@@ -116,7 +120,7 @@ public class ConnectionManagerTest {
     @Test
     public void testResume() throws IOException, InterruptedException {
         ConnectionManager conMgr = backoff();
-        conMgr.resume("JavaTesting-Producer-Base");
+        conMgr.resume("JavaTesting-Producer-Base", null);
         Thread.sleep(100);
 
         assert 1 == conMgr.getSubscribeConnections("JavaTesting-Producer-Base")
@@ -157,10 +161,11 @@ public class ConnectionManagerTest {
     @Test
     public void testRdyDecline() throws IOException, InterruptedException {
         logger.info("[testRdyDecline] starts.");
+        ConnectionManager conMgr = null;
         try {
             NSQConfig config = (NSQConfig) this.config.clone();
             config.setRdy(5);
-            ConnectionManager conMgr = new ConnectionManager(new IConsumeInfo() {
+            conMgr = new ConnectionManager(new IConsumeInfo() {
                 @Override
                 public float getLoadFactor() {
                     //water high
@@ -198,6 +203,7 @@ public class ConnectionManagerTest {
                 Assert.assertEquals(conn.getCurrentRdyCount(), 1);
             }
         } finally {
+            conMgr.close();
             logger.info("[testRdyDecline] ends.");
         }
     }
@@ -205,10 +211,11 @@ public class ConnectionManagerTest {
     @Test
     public void testRdyIncrease() throws IOException, InterruptedException {
         logger.info("[testRdyIncrease] starts.");
+        ConnectionManager conMgr = null;
         try {
             NSQConfig config = (NSQConfig) this.config.clone();
             config.setRdy(5);
-            ConnectionManager conMgr = new ConnectionManager(new IConsumeInfo() {
+            conMgr = new ConnectionManager(new IConsumeInfo() {
                 @Override
                 public float getLoadFactor() {
                     return 0.5f;
@@ -245,6 +252,7 @@ public class ConnectionManagerTest {
                 Assert.assertEquals(conn.getCurrentRdyCount(), 5);
             }
         } finally {
+            conMgr.close();
             logger.info("[testRdyIncrease] ends.");
         }
     }
@@ -252,10 +260,11 @@ public class ConnectionManagerTest {
     @Test
     public void testExpectedRdy() throws IOException, InterruptedException {
         logger.info("[testExpectedRdy] starts.");
+        ConnectionManager conMgr = null;
         try {
             NSQConfig config = (NSQConfig) this.config.clone();
             config.setRdy(6);
-            ConnectionManager conMgr = new ConnectionManager(new IConsumeInfo() {
+            conMgr = new ConnectionManager(new IConsumeInfo() {
                 @Override
                 public float getLoadFactor() {
                     return 0.5f;
@@ -294,11 +303,12 @@ public class ConnectionManagerTest {
             connList.get(1).declineExpectedRdy();
 
             conMgr.start(0);
-            Thread.sleep(60000);
+            Thread.sleep(30000);
 
             Assert.assertEquals(connList.get(0).getCurrentRdyCount(), 3);
             Assert.assertEquals(connList.get(1).getCurrentRdyCount(), 2);
         } finally {
+            conMgr.close();
             logger.info("[testExpectedRdy] ends.");
         }
     }
@@ -384,6 +394,140 @@ public class ConnectionManagerTest {
 
         } finally {
             logger.info("[testRemoveConnectionWrapper] ends.");
+        }
+    }
+
+    @Test
+    public void testSubscribeConnWhileBackoff() throws IOException, InterruptedException {
+        logger.info("[testSubscribeConnWhileBackoff] starts.");
+        try{
+            NSQConfig config = (NSQConfig) this.config.clone();
+            config.setRdy(6);
+            final ConnectionManager conMgr = new ConnectionManager(new IConsumeInfo() {
+                @Override
+                public float getLoadFactor() {
+                    return 0;
+                }
+
+                @Override
+                public int getRdyPerConnection() {
+                    return 6;
+                }
+
+                @Override
+                public boolean isConsumptionEstimateElapseTimeout() {
+                    return false;
+                }
+            });
+
+            int par = 5;
+            final String topic = "test5Par1Rep";
+            JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topic + "&access=r"));
+            final List<NSQConnection> connList = new ArrayList<>(par);
+            //subscribe 3 of 5 partitions
+            for (int i = 0; i < par; i++) {
+                JsonNode partition = lookupResp.get("partitions").get("" + i);
+                Address addr = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topic, i, false);
+                NSQConnection con = connect(addr, topic, i, "BaseConsumer", config);
+                connList.add(con);
+            }
+
+            //subscribe first
+            conMgr.subscribe(topic, connList.get(0));
+
+            //backoff & subscribe, backoff should always works
+            ExecutorService exec = Executors.newCachedThreadPool();
+            for(int i = 0; i < connList.size() - 1; i++ ) {
+                final int idx = i;
+                exec.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        conMgr.subscribe(topic, connList.get(idx));
+                    }
+                });
+            }
+
+            Thread.sleep(10);
+            CountDownLatch latch = new CountDownLatch(1);
+            conMgr.backoff(topic, latch);
+            Assert.assertTrue(latch.await(10, TimeUnit.SECONDS));
+            conMgr.subscribe(topic, connList.get(4));
+            Thread.sleep(100);
+
+            //assert all connections are backoff
+            Set<ConnectionManager.NSQConnectionWrapper> conns = conMgr.getSubscribeConnections(topic);
+            ConnectionManager.ConnectionWrapperSet ws = (ConnectionManager.ConnectionWrapperSet) conns;
+            Assert.assertTrue(ws.isBackoff());
+            for(ConnectionManager.NSQConnectionWrapper wrapper:conns) {
+                Assert.assertTrue(wrapper.getConn().isBackoff());
+            }
+
+            //resume consumption
+            CountDownLatch latchR = new CountDownLatch(1);
+            conMgr.resume(topic, latchR);
+            Assert.assertTrue(latchR.await(10, TimeUnit.SECONDS));
+            Assert.assertTrue(!ws.isBackoff());
+            for(ConnectionManager.NSQConnectionWrapper wrapper:conns) {
+                Assert.assertFalse(wrapper.getConn().isBackoff());
+            }
+        }finally {
+            logger.info("[testSubscribeConnWhileBackoff] ends");
+        }
+    }
+
+    @Test
+    public void testInvalidateConnection() throws Exception {
+        logger.info("[testInvalidateConnection] starts.");
+        NSQConfig localConfig = (NSQConfig) config.clone();
+        localConfig.setConsumerName("BaseConsumer");
+        final ConnectionManager conMgr = new ConnectionManager(new IConsumeInfo() {
+            @Override
+            public float getLoadFactor() {
+                return 0;
+            }
+
+            @Override
+            public int getRdyPerConnection() {
+                return 6;
+            }
+
+            @Override
+            public boolean isConsumptionEstimateElapseTimeout() {
+                return false;
+            }
+        });
+
+        try{
+            int par = 5;
+            final String topic = "test5Par1Rep";
+            JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topic + "&access=r"));
+            MockedConsumer consumer = new MockedConsumer(localConfig, null);
+            consumer.setConnectionManager(conMgr);
+            consumer.start();
+            Set<String> topics = new HashSet<>();
+            topics.add(topic);
+            for (int i = 0; i < par; i++) {
+                JsonNode partition = lookupResp.get("partitions").get("" + i);
+                Address addr = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topic, i, false);
+                consumer.connect(addr, topics);
+            }
+            Map<Address, FixedPool> addr2Pool = consumer.getAddress2Pool();
+            for(FixedPool pool : addr2Pool.values()) {
+               boolean invalidate = true;
+               for(NSQConnection con : pool.getConnections()) {
+                   if (invalidate){
+                       con.invalidate();
+                       invalidate = false;
+                   }
+                   conMgr.subscribe(topic, con);
+               }
+            }
+            //invalidate connection
+            consumer.connect();
+            addr2Pool = consumer.getAddress2Pool();
+            Assert.assertTrue(addr2Pool.keySet().size() == 0);
+        } finally {
+            logger.info("[testInvalidateConnection] ends.");
         }
     }
 }

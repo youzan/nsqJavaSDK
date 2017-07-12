@@ -20,16 +20,16 @@ public class ConnectionManager {
     private final static Logger logger = LoggerFactory.getLogger(ConnectionManager.class.getName());
     private Map<String, ConnectionWrapperSet> topic2Subs = new ConcurrentHashMap<>();
 
-    private ExecutorService exec = Executors.newCachedThreadPool();
+    private ExecutorService exec = Executors.newSingleThreadExecutor();
     //schedule executor for backoff resume
     private final ScheduledExecutorService delayExec = Executors.newSingleThreadScheduledExecutor();
 
     private final float THRESDHOLD = 1.5f;
     private final float WATER_HIGH = 1.75f;
-    private final float WATER_LOW = 0.001f;
     private final int INIT_DELAY = 20;
     private final int INTERVAL = 5;
     private final int INIT_RDY = 1;
+    private final int RDY_TIMEOUT = 100;
 
     private AtomicBoolean start = new AtomicBoolean(false);
     private final Runnable REDISTRIBUTE_RUNNABLE = new Runnable() {
@@ -108,7 +108,7 @@ public class ConnectionManager {
 
     //TODO: close
     public void close() {
-
+        delayExec.shutdownNow();
     }
 
     /**
@@ -198,43 +198,62 @@ public class ConnectionManager {
      * backoff connections to a topic.
      * @param topic topic to backoff.
      */
-    public void backoff(final String topic) {
+    public void backoff(final String topic, final CountDownLatch latch) {
         if (!topic2Subs.containsKey(topic)) {
             logger.info("Subscriber for topic {} does not exist.");
             return;
         }
 
-        //update lock
         final ConnectionWrapperSet subs = topic2Subs.get(topic);
         if(null != subs) {
             synchronized (subs) {
                 if (!subs.backoff()) {
-                    logger.info("topic {} is already backoff.");
+                    logger.info("topic {} already backoff.", topic);
+                    if(null != latch)
+                        latch.countDown();
                     return;
                 }
+                boolean invalidate = Boolean.FALSE;
+                final int latchCount = subs.size();
+                final CountDownLatch backoffLatch = new CountDownLatch(latchCount);
                 exec.submit(new Runnable() {
                     public void run() {
                         for (NSQConnectionWrapper sub : subs) {
-                            try {
-                                sub.getConn().onBackoff(new IRdyCallback() {
-                                    @Override
-                                    public void onUpdated(int newRdy, int lastRdy) {
-                                        subs.addTotalRdy(newRdy - lastRdy);
-                                    }
-                                });
-                            } catch (Exception e) {
-                                logger.error("Error on backing off connection {}", sub);
-                            }
+                            sub.getConn().onBackoff(new IRdyCallback() {
+                                @Override
+                                public void onUpdated(int newRdy, int lastRdy) {
+                                    subs.addTotalRdy(newRdy - lastRdy);
+                                    backoffLatch.countDown();
+                                }
+                            });
                         }
-                        logger.info("Backoff connection(s) notify send for topic {}", topic);
                     }
                 });
+
+                try{
+                    if (!backoffLatch.await(latchCount * RDY_TIMEOUT, TimeUnit.MILLISECONDS)) {
+                        logger.error("Timeout for backoff topic connections {}", topic);
+                        invalidate = Boolean.TRUE;
+                    } else if (null != latch) {
+                        latch.countDown();
+                        logger.info("Backoff connections for topic {}", topic);
+                    }
+                } catch (InterruptedException e) {
+                    logger.error("Interrupted while waiting for back off on all connections for {}", topic);
+                    invalidate = Boolean.TRUE;
+                } finally {
+                    if(invalidate) {
+                        for (NSQConnectionWrapper sub : subs) {
+                            sub.getConn().invalidate();
+                        }
+                    }
+                }
             }
         }
     }
 
 
-    public void resume(final String topic) {
+    public void resume(final String topic, final CountDownLatch latch) {
         if (!topic2Subs.containsKey(topic)) {
             logger.info("Subscriber for topic {} does not exist.");
             return;
@@ -244,9 +263,14 @@ public class ConnectionManager {
         if(null != subs) {
             synchronized (subs) {
                 if(!subs.resume()) {
-                    logger.info("topic {} is already in resumed.");
+                    logger.info("topic {} is already in resumed.", topic);
+                    if(null != latch)
+                        latch.countDown();
                     return;
                 }
+                boolean rollback = Boolean.FALSE;
+                int latchCount = subs.size();
+                final CountDownLatch resumeLatch = new CountDownLatch(latchCount);
                 exec.submit(new Runnable() {
                     @Override
                     public void run() {
@@ -255,12 +279,31 @@ public class ConnectionManager {
                                 @Override
                                 public void onUpdated(int newRdy, int lastRdy) {
                                     subs.addTotalRdy(newRdy - lastRdy);
+                                    resumeLatch.countDown();
                                 }
                             });
                         }
-                        logger.info("Resume connection(s) notify send for topic {}", topic);
                     }
                 });
+
+                try {
+                    if (!resumeLatch.await(latchCount * RDY_TIMEOUT, TimeUnit.MILLISECONDS)) {
+                        logger.error("Timeout for resume topic connections {}", topic);
+                        rollback = Boolean.TRUE;
+                    } else if (null != latch) {
+                        latch.countDown();
+                        logger.info("Resume connections for topic {}", topic);
+                    }
+                } catch (InterruptedException e) {
+                    logger.error("Interrupted while waiting for resume on all connections for {}", topic);
+                    rollback = Boolean.TRUE;
+                } finally {
+                    if(rollback) {
+                        for (NSQConnectionWrapper sub : subs) {
+                            sub.getConn().invalidate();
+                        }
+                    }
+                }
             }
         }
     }
@@ -270,7 +313,7 @@ public class ConnectionManager {
            final ConnectionWrapperSet subs = topic2Subs.get(topic);
            if(null != subs) {
                synchronized (subs) {
-                   if (!mayTimeout && scheduleLoad <= THRESDHOLD && scheduleLoad > WATER_LOW && !subs.isBackoff()) {
+                   if (!mayTimeout && scheduleLoad <= THRESDHOLD && !subs.isBackoff()) {
                        for (NSQConnectionWrapper sub : subs) {
                            final NSQConnection con = sub.getConn();
                            int currentRdy = con.getCurrentRdyCount();
@@ -296,7 +339,7 @@ public class ConnectionManager {
                                }
                            }
                        }
-                   } else if (((scheduleLoad >= WATER_HIGH && mayTimeout)|| scheduleLoad <= WATER_LOW) && !subs.isBackoff()) {
+                   } else if ((scheduleLoad >= WATER_HIGH && mayTimeout) && !subs.isBackoff()) {
                        //rdy decrease
                        for (NSQConnectionWrapper sub : subs) {
                            final NSQConnection con = sub.getConn();

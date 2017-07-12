@@ -41,8 +41,8 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
 
     private static final int MAX_CONSUME_RETRY = 3;
     private final Object lock = new Object();
-    private boolean started = false;
-    private boolean closing = false;
+    protected boolean started = false;
+    protected boolean closing = false;
     private volatile long lastConnecting = 0L;
 
 
@@ -53,7 +53,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     private final AtomicInteger finished = new AtomicInteger(0);
     private final AtomicInteger re = new AtomicInteger(0); // have done reQueue
     private final AtomicInteger queue4Consume = new AtomicInteger(0); // have done reQueue
-    private ConnectionManager conMgr;
+    protected ConnectionManager conMgr;
     Producer compensateProducer;
 
     /*-
@@ -70,7 +70,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
       Basically, consumer subscribe multi-topics to one NSQd, hence there is a mapping
       between NSQd address and connections to topics
      */
-    private final ConcurrentHashMap<Address, FixedPool> address_2_pool = new ConcurrentHashMap<>();
+    protected final ConcurrentHashMap<Address, FixedPool> address_2_pool = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getSimpleName(), Thread.NORM_PRIORITY));
     /*-
@@ -235,7 +235,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
      * Connect to all the brokers with the config, making sure the new is OK
      * and the old is clear.
      */
-    private void connect() throws NSQException {
+    protected void connect() throws NSQException {
         //which equals to: System.currentTimeMillis() - lastConnecting < TimeUnit.SECONDS.toMillis(_INTERVAL_IN_SECOND))
         //rest logic performs only when time elapse larger than _INTERNAL_IN_SECOND
         if (System.currentTimeMillis() < lastConnecting + TimeUnit.SECONDS.toMillis(_INTERVAL_IN_SECOND)) {
@@ -404,7 +404,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
      * @param address data-node(NSQd)
      * @param topics  client cares about the specified topics
      */
-    private void connect(Address address, Set<String> topics) throws Exception {
+    protected void connect(Address address, Set<String> topics) throws Exception {
         if (topics == null || topics.isEmpty()) {
             return;
         }
@@ -505,7 +505,6 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                     clearConnections.add(connection);
                     try {
                         cleanClose(connection);
-                        //TODO: remove from connection manager
                     } catch (Exception e) {
                         logger.error("It can not backoff the connection! Exception:", e);
                     }
@@ -801,6 +800,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                     return;
                 started = false;
                 closing = true;
+                this.conMgr.close();
                 final Set<NSQConnection> connections = cleanClose();
                 IOUtil.closeQuietly(simpleClient);
                 scheduler.shutdownNow();
@@ -824,12 +824,22 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
 
     @Override
     public void backoff(Topic topic) {
-        this.conMgr.backoff(topic.getTopicText());
+        this.conMgr.backoff(topic.getTopicText(), null);
+    }
+
+    @Override
+    public void backoff(Topic topic, CountDownLatch latch) {
+        this.conMgr.backoff(topic.getTopicText(), latch);
     }
 
     @Override
     public void resume(Topic topic) {
-        this.conMgr.resume(topic.getTopicText());
+        this.conMgr.resume(topic.getTopicText(), null);
+    }
+
+    @Override
+    public void resume(Topic topic, CountDownLatch latch) {
+        this.conMgr.resume(topic.getTopicText(), latch);
     }
 
 

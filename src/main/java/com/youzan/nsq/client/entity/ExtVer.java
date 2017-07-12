@@ -7,6 +7,7 @@ import java.nio.ByteBuffer;
  */
 public enum ExtVer {
     Ver0x1(1),
+    //tag ext
     Ver0x2(2);
 
     private final int ver;

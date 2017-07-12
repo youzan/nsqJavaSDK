@@ -4,11 +4,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.ByteArrayOutputStream;
-import java.io.Closeable;
-import java.io.IOException;
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLConnection;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.zip.GZIPOutputStream;
@@ -77,6 +76,48 @@ public final class IOUtil {
         }
         //jackson handles InputStream close operation
         return SystemUtil.getObjectMapper().readTree(con.getInputStream());
+    }
+
+    public static void requestToUrl(String method, final URL url, String content) throws Exception {
+        logger.info("{}. Content {}", method, url.toString(), content);
+        URLConnection connection = url.openConnection();
+        HttpURLConnection httpURLConnection = (HttpURLConnection)connection;
+
+        httpURLConnection.setDoOutput(true);
+        httpURLConnection.setRequestMethod(method);
+        httpURLConnection.setRequestProperty("Accept-Charset", "utf-8");
+
+        OutputStream outputStream = null;
+        OutputStreamWriter outputStreamWriter = null;
+
+        try {
+            outputStream = httpURLConnection.getOutputStream();
+            outputStreamWriter = new OutputStreamWriter(outputStream);
+
+            outputStreamWriter.write(content);
+            outputStreamWriter.flush();
+
+            if (httpURLConnection.getResponseCode() >= 300) {
+                throw new Exception("HTTP Request failed, Response code is " + httpURLConnection.getResponseCode());
+            }
+        } finally {
+
+            if (outputStreamWriter != null) {
+                outputStreamWriter.close();
+            }
+
+            if (outputStream != null) {
+                outputStream.close();
+            }
+        }
+    }
+
+    public static void postToUrl(final URL url, String content) throws Exception {
+       requestToUrl("POST", url, content);
+    }
+
+    public static void deleteToUrl(final URL url, String content) throws Exception {
+        requestToUrl("DELETE", url, content);
     }
 
     public static byte[] compress(String str) throws IOException {

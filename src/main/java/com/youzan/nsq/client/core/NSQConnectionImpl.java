@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -222,6 +223,14 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     }
 
     @Override
+    public void invalidate() {
+        synchronized (lock) {
+            havingNegotiation = false;
+        }
+        logger.info("Invalidate nsq connection {}", this);
+    }
+
+    @Override
     public boolean isConnected() {
         synchronized (lock) {
             return channel.isActive() && havingNegotiation;
@@ -289,6 +298,8 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     public void onResume(final IRdyCallback callback) {
         if (!backoff.get()) {
             logger.info("Connection is not backed off. {}", this);
+            int currentRdy = getCurrentRdyCount();
+            callback.onUpdated(currentRdy, currentRdy);
             return;
         }
 
@@ -317,6 +328,8 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     public void onBackoff(final IRdyCallback callback) {
         if(backoff.get()) {
             logger.info("Connection is already backed off. {}", this);
+            //notify callback with new rdy and old rdy
+            callback.onUpdated(0, 0);
             return;
         }
 

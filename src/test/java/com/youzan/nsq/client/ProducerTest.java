@@ -7,6 +7,9 @@ import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQInvalidMessageException;
 import com.youzan.nsq.client.exception.NSQTopicNotFoundException;
+import com.youzan.nsq.client.utils.CompressUtil;
+import com.youzan.nsq.client.utils.TopicUtil;
+import com.youzan.util.IOUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -17,6 +20,10 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -46,15 +53,17 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     }
 
     @Test(expectedExceptions = {NSQTopicNotFoundException.class})
-    public void testPubException2InvalidChannel() throws NSQException, IOException, InterruptedException {
+    public void testPubException2InvalidChannel() throws Exception {
         String adminUrlStr = "http://" + props.getProperty("admin-address");
         String topicName = "topicHasNoChannel_" + System.currentTimeMillis();
+        String channel = "chanDel";
         //create topic
-        createTopic(adminUrlStr, topicName);
 
         NSQConfig config = this.getNSQConfig();
         Producer producer = this.createProducer(config);
         try{
+            createTopic(adminUrlStr, topicName, channel);
+            TopicUtil.deleteTopicChannel(adminUrlStr, topicName, channel);
             //a topic is invalid enough
             Topic topicInvalid = new Topic(topicName);
             producer.start();
@@ -97,7 +106,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
         String topicName = "topicCompensation_" + System.currentTimeMillis();
         //create topic
         try {
-            createTopic(adminUrlStr, topicName);
+            createTopic(adminUrlStr, topicName, "default");
 
             NSQConfig config = this.getNSQConfig();
             config.setLookupAddresses(props.getProperty("lookup-addresses"));
@@ -135,10 +144,10 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     }
 
     //POST /api/topics
-    private void createTopic(String adminUrl, String topicName) throws IOException, InterruptedException {
+    private void createTopic(String adminUrl, String topicName, String channel) throws IOException, InterruptedException {
         String urlStr = String.format("%s/api/topics", adminUrl);
         URL url = new URL(urlStr);
-        String contentStr = String.format("{\"topic\":\"%s\",\"partition_num\":\"2\", \"replicator\":\"1\", \"retention_days\":\"\", \"syncdisk\":\"\", \"channel\":\"default\"}", topicName);
+        String contentStr = String.format("{\"topic\":\"%s\",\"partition_num\":\"2\", \"replicator\":\"1\", \"retention_days\":\"\", \"syncdisk\":\"\", \"channel\":\"%s\"}", topicName, channel);
         logger.debug("Prepare to open HTTP Connection...");
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
         con.setDoOutput(true);
@@ -258,64 +267,75 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     }
 
     @Test
-    public void testCompressContent() throws NSQException, InterruptedException {
-        Map<String, List<String>> target = new HashMap<>();
-        List<String> aList = new ArrayList<>();
-        aList.add("A");
-        aList.add("A");
-        aList.add("A");
-        aList.add("A");
-        target.put("AKey", aList);
-        final byte[] compressed = CompressUtil.compress(target);
+    public void testCompressContent() throws Exception {
+        String adminHttp = "http://" + props.getProperty("admin-address");
+        logger.info("[testCompressContent] starts.");
+        try {
+            TopicUtil.emptyQueue(adminHttp, "JavaTesting-Producer-Base", "BaseConsumer");
+            Map<String, List<String>> target = new HashMap<>();
+            List<String> aList = new ArrayList<>();
+            aList.add("A");
+            aList.add("A");
+            aList.add("A");
+            aList.add("A");
+            target.put("AKey", aList);
+            final byte[] compressed = CompressUtil.compress(target);
 
-        final Topic topic = new Topic("JavaTesting-Producer-Base");
-        Message msg = Message.create(topic, compressed);
-        byte[] byteInMsg = msg.getMessageBodyInByte();
+            final Topic topic = new Topic("JavaTesting-Producer-Base");
+            Message msg = Message.create(topic, compressed);
+            byte[] byteInMsg = msg.getMessageBodyInByte();
 
-        Assert.assertEquals(compressed, byteInMsg);
+            Assert.assertEquals(compressed, byteInMsg);
 
-        NSQConfig config = this.getNSQConfig();
-        config.setConsumerName("BaseConsumer");
-        config.setLookupAddresses(props.getProperty("lookup-addresses"));
-        Producer producer = this.createProducer(config);
-        try{
-            //a topic is invalid enough
-            producer.start();
-            for(int i = 0; i < 100; i++)
-                producer.publish(compressed, topic);
-        }finally {
-            producer.close();
-            logger.info("Producer closed");
-        }
-
-
-        //consume
-        final List<NSQMessage> msgLst = new ArrayList<>();
-        final CountDownLatch latch = new CountDownLatch(100);
-        final Consumer consumer = new ConsumerImplV2(config, new MessageHandler() {
-            @Override
-            public void process(NSQMessage message) {
-                byte[] msgBytes = message.getMessageBody();
-                Assert.assertEquals(compressed, msgBytes, "Bytes returned from nsq does not match origin.");
-                msgLst.add(message);
-                latch.countDown();
+            NSQConfig config = this.getNSQConfig();
+            config.setConsumerName("BaseConsumer");
+            config.setLookupAddresses(props.getProperty("lookup-addresses"));
+            Producer producer = this.createProducer(config);
+            try {
+                //a topic is invalid enough
+                producer.start();
+                for (int i = 0; i < 100; i++)
+                    producer.publish(compressed, topic);
+            } finally {
+                producer.close();
+                logger.info("Producer closed");
             }
-        });
-        consumer.subscribe(topic);
-        consumer.start();
-        Assert.assertTrue(latch.await(60, TimeUnit.SECONDS));
-        consumer.close();
 
-        for(int i = 0; i < 100; i++) {
-            byte[] byteReceived = msgLst.get(i).getMessageBody();
-            Map<String, List<String>> targetReceived = CompressUtil.decompress(byteReceived, target.getClass());
-            List<String> aListRec = targetReceived.get("AKey");
-            Assert.assertEquals(aListRec.size(), 4);
+
+            //consume
+            final List<NSQMessage> msgLst = new ArrayList<>();
+            final CountDownLatch latch = new CountDownLatch(100);
+            final Consumer consumer = new ConsumerImplV2(config, new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    byte[] msgBytes = message.getMessageBody();
+                    Assert.assertEquals(compressed, msgBytes, "Bytes returned from nsq does not match origin.");
+                    msgLst.add(message);
+                    latch.countDown();
+                }
+            });
+            consumer.subscribe(topic);
+            consumer.start();
+            Assert.assertTrue(latch.await(60, TimeUnit.SECONDS));
+            consumer.close();
+
+            for (int i = 0; i < 100; i++) {
+                byte[] byteReceived = msgLst.get(i).getMessageBody();
+                Map<String, List<String>> targetReceived = CompressUtil.decompress(byteReceived, target.getClass());
+                List<String> aListRec = targetReceived.get("AKey");
+                Assert.assertEquals(aListRec.size(), 4);
+            }
+        }finally {
+            logger.info("[testCompressContent] ends");
+            TopicUtil.emptyQueue(adminHttp, "JavaTesting-Producer-Base", "BaseConsumer");
         }
     }
 
     @Test
-    public void testMessageWCompressedString() throws IOException, NSQException, InterruptedException {
+    public void testMessageWCompressedString() throws Exception {
+        logger.info("[testMessageWCompressedString] starts.");
+        String adminHttp = "http://" + props.getProperty("admin-address");
+        TopicUtil.emptyQueue(adminHttp, "JavaTesting-Producer-Base", "BaseConsumer");
         String raw  = "This is raw message for compress";
         final byte[] byteCompressed = IOUtil.compress(raw);
         final Topic topic = new Topic("JavaTesting-Producer-Base");
@@ -337,7 +357,6 @@ public class ProducerTest extends AbstractNSQClientTestcase {
             logger.info("Producer closed");
         }
 
-
         //consume
         final List<NSQMessage> msgLst = new ArrayList<>();
         final CountDownLatch latch = new CountDownLatch(1);
@@ -354,10 +373,12 @@ public class ProducerTest extends AbstractNSQClientTestcase {
         consumer.subscribe(topic);
         consumer.start();
         try {
-            Assert.assertTrue(latch.await(20, TimeUnit.SECONDS));
+            Assert.assertTrue(latch.await(30, TimeUnit.SECONDS));
             consumer.finish(msgLst.get(0));
         }finally {
             consumer.close();
+            TopicUtil.emptyQueue(adminHttp, "JavaTesting-Producer-Base", "BaseConsumer");
+            logger.info("[testMessageWCompressedString] ends.");
         }
     }
 
@@ -409,7 +430,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
         InputStream is = con.getInputStream();
         is.close();
         if (logger.isDebugEnabled()) {
-            logger.debug("Request to {} responses {}:{}.", url.toString(), con.getResponseCode(), con.getResponseMessage());
+            logger.debug("Request {} {} responses {}:{}.", con.getRequestMethod(), url.toString(), con.getResponseCode(), con.getResponseMessage());
         }
     }
 
