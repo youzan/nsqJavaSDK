@@ -56,10 +56,8 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
                         long ts = System.currentTimeMillis();
                         long elapse = ts - timestamp.get();
                         logger.info("time elapse between requeue {}", elapse);
-                            if (ts - timestamp.get() >= requeueTimeout * 1000) {
+                        if (elapse >= requeueTimeout * 1000) {
                             latch.countDown();
-                        } else {
-                            logger.error("invalid timeout.");
                         }
                     } else {
                         return;
@@ -79,8 +77,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
 
             consumer.subscribe(new Topic("JavaTesting-ReQueue"));
             consumer.start();
-            Assert.assertTrue(latch.await(1, TimeUnit.MINUTES));
-            Thread.sleep(1000L);
+            Assert.assertTrue(latch.await(2, TimeUnit.MINUTES));
         }finally {
             logger.info("[testNextConsumingTimeout] ends.");
             TopicUtil.emptyQueue(adminHttp, "JavaTesting-ReQueue", "BaseConsumer");

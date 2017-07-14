@@ -746,8 +746,9 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
             buffer.append("\"heartbeat_interval\":" + String.valueOf(getHeartbeatIntervalInMillisecond()) + ", ");
         }
         buffer.append("\"msg_timeout\":" + String.valueOf(msgTimeoutInMillisecond) + ",");
-        if (null != getConsumerDesiredTag()) {
-            buffer.append("\"desired_tag\":\"" + getConsumerDesiredTag().toString() + "\",");
+        DesiredTag tag = getConsumerDesiredTag();
+        if (null != tag) {
+            buffer.append("\"desired_tag\":\"" + tag.getTagName() + "\",");
         }
         buffer.append("\"user_agent\": \"" + userAgent + "\"}");
         return buffer.toString();

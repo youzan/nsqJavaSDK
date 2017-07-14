@@ -38,6 +38,6 @@ public class MockedConsumer extends ConsumerImplV2 {
     }
 
     public void start() {
-        super.started = true;
+        super.started.set(Boolean.TRUE);
     }
 }

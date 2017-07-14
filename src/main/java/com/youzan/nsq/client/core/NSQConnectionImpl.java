@@ -41,8 +41,8 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     private boolean closing = false;
     private boolean havingNegotiation = false;
 
-    private final LinkedBlockingQueue<NSQCommand> requests = new LinkedBlockingQueue<>(1);
-    private final LinkedBlockingQueue<NSQFrame> responses = new LinkedBlockingQueue<>(1);
+    protected final LinkedBlockingQueue<NSQCommand> requests = new LinkedBlockingQueue<>(1);
+    protected final LinkedBlockingQueue<NSQFrame> responses = new LinkedBlockingQueue<>(1);
 
     private final Address address;
     protected final Channel channel;

@@ -79,45 +79,52 @@ public final class IOUtil {
     }
 
     public static void requestToUrl(String method, final URL url, String content) throws Exception {
-        logger.info("{}. Content {}", method, url.toString(), content);
+        logger.info("{}: {}. Content {}", method, url.toString(), content);
         URLConnection connection = url.openConnection();
         HttpURLConnection httpURLConnection = (HttpURLConnection)connection;
 
-        httpURLConnection.setDoOutput(true);
+        if(null != content)
+            httpURLConnection.setDoOutput(true);
+        else
+            httpURLConnection.setDoOutput(false);
+
+        httpURLConnection.setDoInput(true);
         httpURLConnection.setRequestMethod(method);
         httpURLConnection.setRequestProperty("Accept-Charset", "utf-8");
 
         OutputStream outputStream = null;
         OutputStreamWriter outputStreamWriter = null;
+        httpURLConnection.connect();
+        if (null != content) {
+            try {
+                outputStream = httpURLConnection.getOutputStream();
+                outputStreamWriter = new OutputStreamWriter(outputStream);
 
-        try {
-            outputStream = httpURLConnection.getOutputStream();
-            outputStreamWriter = new OutputStreamWriter(outputStream);
+                outputStreamWriter.write(content);
+                outputStreamWriter.flush();
+            } finally {
+                if (outputStreamWriter != null) {
+                    outputStreamWriter.close();
+                }
 
-            outputStreamWriter.write(content);
-            outputStreamWriter.flush();
-
-            if (httpURLConnection.getResponseCode() >= 300) {
-                throw new Exception("HTTP Request failed, Response code is " + httpURLConnection.getResponseCode());
-            }
-        } finally {
-
-            if (outputStreamWriter != null) {
-                outputStreamWriter.close();
-            }
-
-            if (outputStream != null) {
-                outputStream.close();
+                if (outputStream != null) {
+                    outputStream.close();
+                }
             }
         }
+        if (httpURLConnection.getResponseCode() >= 300) {
+            throw new Exception("HTTP Request failed, Response code is " + httpURLConnection.getResponseCode());
+        }
+        httpURLConnection.disconnect();
+        Thread.sleep(1000);
     }
 
     public static void postToUrl(final URL url, String content) throws Exception {
        requestToUrl("POST", url, content);
     }
 
-    public static void deleteToUrl(final URL url, String content) throws Exception {
-        requestToUrl("DELETE", url, content);
+    public static void deleteToUrl(final URL url) throws Exception {
+        requestToUrl("DELETE", url, null);
     }
 
     public static byte[] compress(String str) throws IOException {

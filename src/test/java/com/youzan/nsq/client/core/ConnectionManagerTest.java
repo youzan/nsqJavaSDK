@@ -15,6 +15,7 @@ import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.Role;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.network.netty.NSQClientInitializer;
+import com.youzan.nsq.client.utils.TopicUtil;
 import com.youzan.util.IOUtil;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
@@ -159,9 +160,11 @@ public class ConnectionManagerTest {
     }
 
     @Test
-    public void testRdyDecline() throws IOException, InterruptedException {
+    public void testRdyDecline() throws Exception {
         logger.info("[testRdyDecline] starts.");
         ConnectionManager conMgr = null;
+        String topic = "test5Par1Rep";
+        String channel = "BaseConsumer";
         try {
             NSQConfig config = (NSQConfig) this.config.clone();
             config.setRdy(5);
@@ -184,13 +187,12 @@ public class ConnectionManagerTest {
             });
 
             int partitionNum = 5;
-            String topic = "test5Par1Rep";
             JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topic + "&access=r"));
             List<NSQConnection> connList = new ArrayList<>(partitionNum);
             for (int i = 0; i < partitionNum; i++) {
                 JsonNode partition = lookupResp.get("partitions").get("" + i);
                 Address addr1 = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topic, 0, false);
-                NSQConnection con = connect(addr1, topic, i, "BaseConsumer", config);
+                NSQConnection con = connect(addr1, topic, i, channel, config);
                 conMgr.subscribe(topic, con, 5);
                 connList.add(con);
             }
@@ -204,6 +206,8 @@ public class ConnectionManagerTest {
             }
         } finally {
             conMgr.close();
+            String adminHttp = "http://" + props.getProperty("admin-address");
+            TopicUtil.emptyQueue(adminHttp, topic, channel);
             logger.info("[testRdyDecline] ends.");
         }
     }

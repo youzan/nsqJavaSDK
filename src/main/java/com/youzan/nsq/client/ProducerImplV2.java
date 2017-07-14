@@ -67,6 +67,10 @@ public class ProducerImplV2 implements Producer {
         this.factory = new KeyedPooledConnectionFactory(this.config, this);
     }
 
+    public NSQConfig getConfig() {
+        return this.config;
+    }
+
     private boolean validateLookupdSource() {
         if(this.config.getUserSpecifiedLookupAddress()) {
             String[] lookupdAddresses = this.config.getLookupAddresses();

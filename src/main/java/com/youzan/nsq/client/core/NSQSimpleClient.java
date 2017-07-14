@@ -11,7 +11,6 @@ import com.youzan.nsq.client.exception.NSQLookupException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
-import com.youzan.util.ConcurrentSortedSet;
 import com.youzan.util.NamedThreadFactory;
 import com.youzan.util.ThreadSafe;
 import io.netty.channel.ChannelFuture;
@@ -108,8 +107,6 @@ public class NSQSimpleClient implements Client, Closeable {
     }
 
     private void keepDataNodes() {
-        //delay in data node loop, 1 is a minimum for {@link LookupAddressUpdate} to kickoff
-//        final int delay = _r.nextInt(3) + 1; // seconds
         scheduler.scheduleWithFixedDelay(new Runnable() {
             @Override
             public void run() {
@@ -120,28 +117,9 @@ public class NSQSimpleClient implements Client, Closeable {
                 }
             }
         }, 0, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
-//        logger.info("Data node maintain loop starts in {} seconds.", delay);
     }
 
     private void newDataNodes() throws NSQException {
-        //clear partitions does not valid(topic has no partition attached)
-        //only newDataNodes could remove
-//        lock.writeLock().lock();
-//        try {
-//            Set<Topic> brokenTopic = new HashSet<>();
-//            for (Map.Entry<Topic, IPartitionsSelector> pair : topic_2_partitionsSelector.entrySet()) {
-//                if (pair.getValue() == null) {
-//                    brokenTopic.add(pair.getKey());
-//                }
-//            }
-//            for (Topic topic : brokenTopic) {
-//                topic_2_partitionsSelector.remove(topic);
-//                logger.info("{} removed from topic to partitions selector mapping.");
-//            }
-//        } finally {
-//            lock.writeLock().unlock();
-//        }
-
         //gather topics from topic_2_partitions
         final Set<String> topics = new HashSet<>();
         lock.readLock().lock();
@@ -335,7 +313,6 @@ public class NSQSimpleClient implements Client, Closeable {
         IPartitionsSelector aPs;
         List<Address> nodes = new ArrayList<>();
 
-        QueryPS:
         while (true) {
             aPs = topic_2_partitionsSelector.get(topic.getTopicText());
             if (aPs != EMPTY && null != aPs) {
@@ -380,7 +357,6 @@ public class NSQSimpleClient implements Client, Closeable {
             } else {
                 TopicSync ts = this.topicSynMap.get(topic.getTopicText());
 
-                assert null != ts;
                 if (null == ts) {
                     logger.error("topic partitions selector synchronization for {} is null.", topic.getTopicText());
                 }
@@ -389,7 +365,7 @@ public class NSQSimpleClient implements Client, Closeable {
                     Thread.sleep(TOPIC_PARTITION_TIMEOUT);
                     //access to topic 2 partition map
                     logger.info("Try again for partition selector for topic {}", topic.getTopicText());
-                    continue QueryPS;
+                    continue;
                 }
 
                 //update topic 2 partition map

@@ -1,6 +1,7 @@
 package com.youzan.nsq.client;
 
 import com.youzan.nsq.client.core.Client;
+import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQException;
@@ -71,4 +72,10 @@ public interface Consumer extends Client, Closeable {
     void resume(Topic topic);
 
     void resume(Topic topic, CountDownLatch latch);
+
+    /**
+     * Return {@link NSQConfig} specified in Consumer
+     * @return {@link NSQConfig} config
+     */
+    NSQConfig getConfig();
 }

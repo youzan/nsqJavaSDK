@@ -23,6 +23,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -41,8 +42,8 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
 
     private static final int MAX_CONSUME_RETRY = 3;
     private final Object lock = new Object();
-    protected boolean started = false;
-    protected boolean closing = false;
+    protected AtomicBoolean started = new AtomicBoolean(Boolean.FALSE);
+    protected AtomicBoolean closing = new AtomicBoolean(Boolean.FALSE);
     private volatile long lastConnecting = 0L;
 
 
@@ -99,6 +100,11 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         this.config = config;
         this.handler = handler;
         this.simpleClient = new NSQSimpleClient(Role.Consumer, this.config.getUserSpecifiedLookupAddress());
+    }
+
+    @Override
+    public NSQConfig getConfig() {
+        return this.config;
     }
 
     @Override
@@ -172,7 +178,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             logger.warn("No topic subscribed.");
         }
         synchronized (lock) {
-            if (!this.started) {
+            if (!this.started.get()) {
                 //set subscribe status
                 // create the pools
                 //simple client starts and LookupAddressUpdate instance initialized there.
@@ -192,7 +198,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 conMgr = new ConnectionManager(this);
                 conMgr.start();
             }
-            this.started = true;
+            this.started.set(true);
         }
         logger.info("The consumer has been started.");
     }
@@ -217,7 +223,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         scheduler.scheduleWithFixedDelay(new Runnable() {
             @Override
             public void run() {
-                if (closing) {
+                if (closing.get()) {
                     return;
                 }
                 try {
@@ -242,8 +248,8 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             return;
         }
         lastConnecting = System.currentTimeMillis();
-        if (!this.started) {
-            if (closing) {
+        if (!this.started.get()) {
+            if (closing.get()) {
                 logger.info("Consumer has been closed sometimes ago!");
             }
             return;
@@ -409,7 +415,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             return;
         }
         synchronized (lock) {
-            if (closing) {
+            if (closing.get()) {
                 return;
             }
             final int topicSize = topics.size();
@@ -450,13 +456,13 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                         connection.init(topic);
                     } catch (Exception e) {
                         connection.close();
-                        if (!closing) {
+                        if (!closing.get()) {
                             throw new NSQNoConnectionException("Creating a connection and having a negotiation fails!", e);
                         }
                     }
                     if (!connection.isConnected()) {
                         connection.close();
-                        if (!closing) {
+                        if (!closing.get()) {
                             throw new NSQNoConnectionException("Pool failed in connecting to NSQd! Closing: !" + closing);
                         }
                     } else {
@@ -587,54 +593,10 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             }
         }
         //TODO: update rdy
-//        resumeRateLimiting(connection, 1000);
         if (!this.config.isOrdered()) {
             connection.increaseExpectedRdy();
         }
     }
-
-//    private void resumeRateLimiting(final NSQConnection conn, final int delayInMillisecond) {
-//        if (executor instanceof ThreadPoolExecutor) {
-//            final ThreadPoolExecutor pools = (ThreadPoolExecutor) executor;
-//            final double threshold = pools.getActiveCount() / (1.0D * pools.getPoolSize());
-//            if (delayInMillisecond <= 0) {
-//                logger.info("Current status is not good. threshold: {}", threshold);
-//                boolean willSleep = false; // too , too busy
-//                if (threshold >= 0.9D) {
-//                    if (currentRdy == LOW_RDY) {
-//                        willSleep = true;
-//                    }
-//                    currentRdy = LOW_RDY;
-//                } else if (threshold >= 0.5D) {
-//                    currentRdy = MEDIUM_RDY;
-//                } else {
-//                    currentRdy = DEFAULT_RDY;
-//                }
-//                // Ignore the data-race
-//                ChannelFuture future = conn.command(currentRdy);
-//                if (willSleep) {
-//                    sleep(100);
-//                }
-//            } else {
-//                if (currentRdy != DEFAULT_RDY) {
-//                    logger.info("Current threshold state: {}", threshold);
-//                    scheduler.schedule(new Runnable() {
-//                        @Override
-//                        public void run() {
-//                            // restore the state
-//                            if (threshold <= 0.3D) {
-//                                currentRdy = DEFAULT_RDY;
-//                                conn.command(currentRdy);
-//                            }
-//                        }
-//                    }, delayInMillisecond, TimeUnit.MILLISECONDS);
-//                }
-//            }
-//        } else {
-//            logger.error("Initializing the executor is wrong.");
-//        }
-//        assert currentRdy != null;
-//    }
 
     /**
      * @param message    a NSQMessage
@@ -732,21 +694,23 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         }
         if (cmd != null) {
             final String cmdStr = cmd.toString();
-            ChannelFuture future = connection.command(cmd);
-            future.addListener(new ChannelFutureListener() {
-                @Override
-                public void operationComplete(ChannelFuture future) throws Exception {
-                    if(!future.isSuccess()){
-                        logger.error("Fail to send {}. Message {} will be delivered to consumer in another round.", cmdStr, message.getMessageID());
-                    }else if(PERF_LOG.isDebugEnabled()) {
-                        PERF_LOG.debug("Command {} to {} for message {} sent.", cmdStr, connection.getAddress(), message.getMessageID());
+            if (!closing.get()) {
+                ChannelFuture future = connection.command(cmd);
+                future.addListener(new ChannelFutureListener() {
+                    @Override
+                    public void operationComplete(ChannelFuture future) throws Exception {
+                        if (!future.isSuccess()) {
+                            logger.error("Fail to send {}. Message {} will be delivered to consumer in another round.", cmdStr, message.getMessageID());
+                        } else if (PERF_LOG.isDebugEnabled()) {
+                            PERF_LOG.debug("Command {} to {} for message {} sent.", cmdStr, connection.getAddress(), message.getMessageID());
+                        }
                     }
+                });
+                if (cmd instanceof Finish) {
+                    finished.incrementAndGet();
+                } else {
+                    re.incrementAndGet();
                 }
-            });
-            if (cmd instanceof Finish) {
-                finished.incrementAndGet();
-            } else {
-                re.incrementAndGet();
             }
         }
         // Post
@@ -794,12 +758,12 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         // Application will close the worker executor of the consumer
         // Application will all of the TCP-Connections
         // ===================================================================
-        if(this.started) {
+        if(this.started.get()) {
             synchronized (lock) {
-                if(!this.started)
+                if(!this.started.get())
                     return;
-                started = false;
-                closing = true;
+                started.set(Boolean.FALSE);
+                closing.set(Boolean.TRUE);
                 this.conMgr.close();
                 final Set<NSQConnection> connections = cleanClose();
                 IOUtil.closeQuietly(simpleClient);

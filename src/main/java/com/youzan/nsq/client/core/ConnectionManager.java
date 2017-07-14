@@ -3,6 +3,7 @@ package com.youzan.nsq.client.core;
 import com.youzan.nsq.client.IConsumeInfo;
 import com.youzan.nsq.client.core.command.Rdy;
 import com.youzan.nsq.client.entity.Address;
+import com.youzan.util.NamedThreadFactory;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import org.slf4j.Logger;
@@ -20,7 +21,8 @@ public class ConnectionManager {
     private final static Logger logger = LoggerFactory.getLogger(ConnectionManager.class.getName());
     private Map<String, ConnectionWrapperSet> topic2Subs = new ConcurrentHashMap<>();
 
-    private ExecutorService exec = Executors.newSingleThreadExecutor();
+    //executor for backoff & resume
+    private final ExecutorService exec = Executors.newCachedThreadPool(new NamedThreadFactory("connMgr-job", Thread.NORM_PRIORITY));
     //schedule executor for backoff resume
     private final ScheduledExecutorService delayExec = Executors.newSingleThreadScheduledExecutor();
 
@@ -308,58 +310,97 @@ public class ConnectionManager {
         }
     }
 
-    private void redistributeRdy(float scheduleLoad, boolean mayTimeout, int rdyPerCon) {
+    private void mayIncreaseRdy(final NSQConnection con, int rdyPerCon, final ConnectionWrapperSet conSet, final CountDownLatch latch) {
+        int currentRdy = con.getCurrentRdyCount();
+        final int availableRdy = rdyPerCon * conSet.size() - conSet.getTotalRdy() + currentRdy;
+        final int expectedRdy = con.getExpectedRdy();
+        if (availableRdy > 0) {
+            int ceilingRdy = availableRdy > expectedRdy ? expectedRdy : availableRdy;
+//                                  TODO now we do not exceed expected per connection
+//                                  if(currentRdy >= expectedRdy && availableRdy > ceilingRdy)
+//                                  ceilingRdy = availableRdy;
+            final int newRdy = Math.min(ceilingRdy, currentRdy + 1);
+            if (newRdy > currentRdy) {
+                con.command(new Rdy(newRdy)).addListener(new ChannelFutureListener() {
+                    @Override
+                    public void operationComplete(ChannelFuture channelFuture) throws Exception {
+                        if (channelFuture.isSuccess()) {
+                            int lastRdy = con.getCurrentRdyCount();
+                            con.setCurrentRdyCount(newRdy);
+                            conSet.addTotalRdy(newRdy - lastRdy);
+                        }
+                        latch.countDown();
+                    }
+                });
+            } else {
+                latch.countDown();
+            }
+        } else {
+            latch.countDown();
+        }
+    }
+
+    private void mayDeclineRdy(final NSQConnection con, final ConnectionWrapperSet conSet, final CountDownLatch latch) {
+        int currentRdy = con.getCurrentRdyCount();
+        if (currentRdy > 1) {
+            //update rdy
+            final int expectedRdy = con.getExpectedRdy();
+            final int newRdy = Math.min(currentRdy - 1, expectedRdy);
+            con.command(new Rdy(newRdy)).addListener(new ChannelFutureListener() {
+                @Override
+                public void operationComplete(ChannelFuture channelFuture) throws Exception {
+                    if (channelFuture.isSuccess()) {
+                        int lastRdy = con.getCurrentRdyCount();
+                        con.setCurrentRdyCount(newRdy);
+                        conSet.addTotalRdy(newRdy - lastRdy);
+                    }
+                    //latch count down
+                    latch.countDown();
+                }
+            });
+        } else {
+            //latch count down
+            latch.countDown();
+        }
+    }
+
+    private void redistributeRdy(float scheduleLoad, boolean mayTimeout, final int rdyPerCon) {
        for(String topic:topic2Subs.keySet()) {
            final ConnectionWrapperSet subs = topic2Subs.get(topic);
            if(null != subs) {
                synchronized (subs) {
+                   final int latchCount = subs.size();
+                   final CountDownLatch latch = new CountDownLatch(latchCount);
                    if (!mayTimeout && scheduleLoad <= THRESDHOLD && !subs.isBackoff()) {
                        for (NSQConnectionWrapper sub : subs) {
                            final NSQConnection con = sub.getConn();
-                           int currentRdy = con.getCurrentRdyCount();
-                           final int availableRdy = rdyPerCon * subs.size() - subs.getTotalRdy() + currentRdy;
-                           final int expectedRdy = con.getExpectedRdy();
-                           if (availableRdy > 0) {
-                               int ceilingRdy = availableRdy > expectedRdy ? expectedRdy : availableRdy;
-//                                  TODO now we do not exceed expected per connection
-//                                  if(currentRdy >= expectedRdy && availableRdy > ceilingRdy)
-//                                  ceilingRdy = availableRdy;
-                               final int newRdy = Math.min(ceilingRdy, currentRdy + 1);
-                               if (newRdy > currentRdy) {
-                                   con.command(new Rdy(newRdy)).addListener(new ChannelFutureListener() {
-                                       @Override
-                                       public void operationComplete(ChannelFuture channelFuture) throws Exception {
-                                           if (channelFuture.isSuccess()) {
-                                               int lastRdy = con.getCurrentRdyCount();
-                                               con.setCurrentRdyCount(newRdy);
-                                               subs.addTotalRdy(newRdy - lastRdy);
-                                           }
-                                       }
-                                   });
+                           exec.submit(new Runnable() {
+                               @Override
+                               public void run() {
+                                   mayIncreaseRdy(con, rdyPerCon, subs, latch);
+
                                }
-                           }
+                           });
                        }
                    } else if ((scheduleLoad >= WATER_HIGH && mayTimeout) && !subs.isBackoff()) {
                        //rdy decrease
                        for (NSQConnectionWrapper sub : subs) {
                            final NSQConnection con = sub.getConn();
-                           int currentRdy = con.getCurrentRdyCount();
-                           if (currentRdy > 1) {
-                               //update rdy
-                               final int expectedRdy = con.getExpectedRdy();
-                               final int newRdy = Math.min(currentRdy - 1, expectedRdy);
-                               con.command(new Rdy(newRdy)).addListener(new ChannelFutureListener() {
-                                   @Override
-                                   public void operationComplete(ChannelFuture channelFuture) throws Exception {
-                                       if (channelFuture.isSuccess()) {
-                                           int lastRdy = con.getCurrentRdyCount();
-                                           con.setCurrentRdyCount(newRdy);
-                                           subs.addTotalRdy(newRdy - lastRdy);
-                                       }
-                                   }
-                               });
-                           }
+                           exec.submit(new Runnable() {
+                               @Override
+                               public void run() {
+                                   mayDeclineRdy(con, subs, latch);
+                               }
+                           });
                        }
+                   }
+                   //await for may rdy updates
+                   try {
+                       if (!latch.await(latchCount * RDY_TIMEOUT, TimeUnit.MILLISECONDS)) {
+                           logger.error("Timeout for redistribute connections rdy {}", topic);
+                       }
+                   } catch (InterruptedException e) {
+                       logger.error("Interrupted while waiting for resume on all connections for {}", topic);
                    }
                }
            }

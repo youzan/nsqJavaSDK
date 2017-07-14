@@ -6,7 +6,6 @@ import com.youzan.nsq.client.entity.DesiredTag;
 import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.Topic;
-import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.utils.TopicUtil;
 import com.youzan.util.IOUtil;
 import org.slf4j.Logger;
@@ -53,14 +52,14 @@ public class ITTagProducer {
         TopicUtil.emptyQueue("http://" + props.getProperty("admin-address"), "testExt2Par2Rep", "BaseConsumer");
         Topic topic = new Topic("testExt2Par2Rep");
         DesiredTag tag = new DesiredTag("TAG1");
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 10; i++) {
             Message msg = Message.create(topic, "message");
             msg.setDesiredTag(tag);
             producer.publish(msg);
         }
 
         tag = new DesiredTag("TAG2");
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 10; i++) {
             Message msg = Message.create(topic, "message");
             msg.setDesiredTag(tag);
             producer.publish(msg);
@@ -72,13 +71,13 @@ public class ITTagProducer {
         TopicUtil.emptyQueue("http://" + props.getProperty("admin-address"), "testExt2Par2Rep", "BaseConsumer");
         Topic topic = new Topic("testExt2Par2Rep");
         DesiredTag tag = new DesiredTag("TAG1");
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 10; i++) {
             Message msg = Message.create(topic, "message");
             msg.setDesiredTag(tag);
             producer.publish(msg);
         }
 
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 10; i++) {
             Message msg = Message.create(topic, "message");
             producer.publish(msg);
         }

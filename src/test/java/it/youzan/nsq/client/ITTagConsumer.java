@@ -38,7 +38,7 @@ public class ITTagConsumer {
     public void test() throws Exception {
         String topic = "testExt2Par2Rep";
         try {
-            final CountDownLatch latch = new CountDownLatch(200);
+            final CountDownLatch latch = new CountDownLatch(20);
             final AtomicInteger receivedTag1 = new AtomicInteger(0);
             final AtomicInteger receivedTag2 = new AtomicInteger(0);
             NSQConfig config = new NSQConfig("BaseConsumer");
@@ -73,9 +73,9 @@ public class ITTagConsumer {
             consumerTag.subscribe(topic);
             consumerTag.start();
 
-            Assert.assertTrue(latch.await(5, TimeUnit.MINUTES));
-            Assert.assertEquals(receivedTag1.get(), 100);
-            Assert.assertEquals(receivedTag2.get(), 100);
+            Assert.assertTrue(latch.await(1, TimeUnit.MINUTES));
+            Assert.assertEquals(receivedTag1.get(), 10);
+            Assert.assertEquals(receivedTag2.get(), 10);
 
             consumer.close();
             consumerTag.close();
@@ -88,7 +88,7 @@ public class ITTagConsumer {
     public void testConsumeTagMix() throws Exception {
         String topic = "testExt2Par2Rep";
         try {
-            final CountDownLatch latch = new CountDownLatch(200);
+            final CountDownLatch latch = new CountDownLatch(20);
             final AtomicInteger received = new AtomicInteger(0);
             final AtomicInteger receivedTag = new AtomicInteger(0);
             NSQConfig config = new NSQConfig("BaseConsumer");
@@ -109,9 +109,9 @@ public class ITTagConsumer {
             consumer.subscribe(topic);
             consumer.start();
 
-            Assert.assertTrue(latch.await(5, TimeUnit.MINUTES));
-            Assert.assertEquals(received.get(), 100);
-            Assert.assertEquals(receivedTag.get(), 100);
+            Assert.assertTrue(latch.await(1, TimeUnit.MINUTES));
+            Assert.assertEquals(received.get(), 10);
+            Assert.assertEquals(receivedTag.get(), 10);
 
             consumer.close();
         }finally {
