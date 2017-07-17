@@ -3,6 +3,7 @@ package com.youzan.nsq.client.core;
 import com.youzan.nsq.client.core.command.Identify;
 import com.youzan.nsq.client.core.command.Magic;
 import com.youzan.nsq.client.core.command.NSQCommand;
+import com.youzan.nsq.client.core.command.Rdy;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
@@ -12,13 +13,17 @@ import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -36,33 +41,36 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     private boolean closing = false;
     private boolean havingNegotiation = false;
 
-    private final LinkedBlockingQueue<NSQCommand> requests = new LinkedBlockingQueue<>(1);
-    private final LinkedBlockingQueue<NSQFrame> responses = new LinkedBlockingQueue<>(1);
+    protected final LinkedBlockingQueue<NSQCommand> requests = new LinkedBlockingQueue<>(1);
+    protected final LinkedBlockingQueue<NSQFrame> responses = new LinkedBlockingQueue<>(1);
 
     private final Address address;
-    private final Channel channel;
+    protected final Channel channel;
     //topic for subscribe
     private Topic topic;
     private final NSQConfig config;
 
-    //indicate if current should be extendable, if it is true, message received from nsqd should be extended.
+    //indicate if current should be extensible, if it is true, message received from nsqd should be extended.
     private final boolean isExtend;
 
     //start ready cnt for current count
-    private volatile int currentRdy;
+    private AtomicInteger currentRdy = new AtomicInteger(1);
+    private AtomicInteger lastRdy = new AtomicInteger(1);
+    private AtomicInteger expectedRdy = new AtomicInteger(1);
 
     private final AtomicLong latestInternalID = new AtomicLong(-1L);
     private final AtomicLong latestDiskQueueOffset = new AtomicLong(-1L);
+    private AtomicBoolean backoff = new AtomicBoolean(Boolean.FALSE);
+    private volatile long lastMsgReceived;
+    private volatile long lastMsgConsumptionFailed;
 
     public NSQConnectionImpl(int id, Address address, Channel channel, NSQConfig config) {
         this.id = id;
         this.address = address;
         this.channel = channel;
         this.config = config;
-        if(!this.config.isConsumerSlowStart())
-            this.currentRdy = this.config.getRdy();
-        else
-            this.currentRdy = 1;
+        this.currentRdy.set(1);
+        this.expectedRdy.set(this.config.getRdy());
         this.queryTimeoutInMillisecond = config.getQueryTimeoutInMillisecond();
         if(address.isTopicExtend()) {
             isExtend = Boolean.TRUE;
@@ -205,13 +213,21 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         }
     }
 
-    void setTopic(final Topic topic) {
+    protected void setTopic(final Topic topic) {
         this.topic = topic;
     }
 
     @Override
     public Topic getTopic() {
         return this.topic;
+    }
+
+    @Override
+    public void invalidate() {
+        synchronized (lock) {
+            havingNegotiation = false;
+        }
+        logger.info("Invalidate nsq connection {}", this);
     }
 
     @Override
@@ -249,14 +265,123 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         }
     }
 
-    public void setCurrentRdyCount(int newCount) {
-        if(newCount <= 0 || this.currentRdy == newCount)
+    @Override
+    public void onRdy(final int rdy, final IRdyCallback callback) {
+        if(backoff.get()) {
+            logger.info("Connection is already backed off. {}", this);
             return;
-        this.currentRdy = newCount;
+        }
+
+        if(!this.isConnected()) {
+            logger.info("Connection is closed. Resume quit. {}", this);
+        }
+
+        command(new Rdy(rdy)).addListener(new ChannelFutureListener() {
+            @Override
+            public void operationComplete(ChannelFuture channelFuture) throws Exception {
+                if(channelFuture.isSuccess()) {
+                    int lastRdy = getCurrentRdyCount();
+                    setCurrentRdyCount(rdy);
+                    callback.onUpdated(rdy, lastRdy);
+                } else {
+                    logger.warn("Fail to update Rdy for connection {}", this);
+                }
+            }
+        });
+    }
+
+    public boolean isBackoff() {
+        return this.backoff.get();
+    }
+
+    @Override
+    public void onResume(final IRdyCallback callback) {
+        if (!backoff.get()) {
+            logger.info("Connection is not backed off. {}", this);
+            int currentRdy = getCurrentRdyCount();
+            callback.onUpdated(currentRdy, currentRdy);
+            return;
+        }
+
+        if(!this.isConnected()) {
+            logger.info("Connection is closed. Resume quit. {}", this);
+        }
+
+        if(backoff.compareAndSet(true, false)) {
+            final int rdy = this.lastRdy.get();
+            command(new Rdy(rdy)).addListener(new ChannelFutureListener() {
+                @Override
+                public void operationComplete(ChannelFuture channelFuture) throws Exception {
+                    if(channelFuture.isSuccess()) {
+                        int lastRdy = getCurrentRdyCount();
+                        setCurrentRdyCount(rdy);
+                        callback.onUpdated(rdy, lastRdy);
+                    } else {
+                        logger.warn("Fail to resume consumption for connection {}", this);
+                    }
+                }
+            });
+        }
+    }
+
+    @Override
+    public void onBackoff(final IRdyCallback callback) {
+        if(backoff.get()) {
+            logger.info("Connection is already backed off. {}", this);
+            //notify callback with new rdy and old rdy
+            callback.onUpdated(0, 0);
+            return;
+        }
+
+        if(!this.isConnected()) {
+            logger.info("Connection is closed. Back off quit. {}", this);
+            return;
+        }
+        if(backoff.compareAndSet(false,true)) {
+            //update last rdy
+            command(Rdy.BACK_OFF).addListener(new ChannelFutureListener() {
+                @Override
+                public void operationComplete(ChannelFuture channelFuture) throws Exception {
+                    if (channelFuture.isSuccess()) {
+                        int lastRdy = getCurrentRdyCount();
+                        setCurrentRdyCount(0);
+                        callback.onUpdated(0, lastRdy);
+                    } else {
+                        logger.warn("Fail to backoff consumption for connection {}", this);
+                    }
+                }
+            });
+        }
+    }
+
+    public synchronized void setCurrentRdyCount(int newCount) {
+        if(newCount < 0 || this.currentRdy.get() == newCount) {
+            if(newCount == 0)
+                logger.info("Backoff connection {}", this);
+            return;
+        }
+        this.lastRdy.set(this.currentRdy.get());
+        this.currentRdy.set(newCount);
+    }
+
+    public synchronized int declineExpectedRdy() {
+        if(this.expectedRdy.get() - 1 >= 0)
+            return this.expectedRdy.decrementAndGet();
+        return this.expectedRdy.get();
+    }
+
+    public synchronized int increaseExpectedRdy() {
+        if(this.expectedRdy.get() + 1 <= this.config.getRdy())
+            return this.expectedRdy.incrementAndGet();
+        return this.expectedRdy.get();
+    }
+
+    public int getExpectedRdy() {
+        return this.expectedRdy.get();
     }
 
     public int getCurrentRdyCount() {
-        return this.currentRdy;
+        return this.currentRdy.get();
     }
     /**
      * @return the id , the primary key of the object
@@ -320,6 +445,26 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         result = 31 * result + (channel != null ? channel.hashCode() : 0);
         result = 31 * result + (config != null ? config.hashCode() : 0);
         return result;
+    }
+
+    @Override
+    public void setMessageReceived(long timeStamp) {
+        this.lastMsgReceived = timeStamp;
+    }
+
+    @Override
+    public long lastMessageReceived() {
+        return this.lastMsgReceived;
+    }
+
+    @Override
+    public void setMessageConsumptionFailed(long timeStamp) {
+        this.lastMsgConsumptionFailed = timeStamp;
+    }
+
+    @Override
+    public long lastMessageConsumptionFailed() {
+        return this.lastMsgConsumptionFailed;
     }
 
     @Override

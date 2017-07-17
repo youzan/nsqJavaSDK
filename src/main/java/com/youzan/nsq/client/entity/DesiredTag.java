@@ -49,6 +49,14 @@ public class DesiredTag implements IExtContent {
         return this.tag;
     }
 
+    /**
+     * get tag name
+     * @return tag name
+     */
+    public String getTagName() {
+        return this.tag;
+    }
+
     @Override
     public ExtVer version() {
         return ExtVer.Ver0x2;

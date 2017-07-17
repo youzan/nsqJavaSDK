@@ -19,6 +19,7 @@ public class Rdy implements NSQCommand {
 
     private final byte[] data;
     private final int count;
+    public static final Rdy BACK_OFF = new Rdy(0);
 
     public Rdy(final int count) {
         this.count = count;

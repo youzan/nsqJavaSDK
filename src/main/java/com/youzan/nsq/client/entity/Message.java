@@ -1,5 +1,6 @@
 package com.youzan.nsq.client.entity;
 
+import com.youzan.util.IOUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,7 +27,7 @@ public class Message {
     private final Topic topic;
 
     //common part, message body
-    private final String messageBody;
+    private final byte[] messageBody;
 
     private String desiredTag = null;
 
@@ -35,20 +36,24 @@ public class Message {
     }
 
     public static Message create(Topic topic, long traceID, String messageBody){
-        return new Message(traceID, topic, messageBody);
+        return new Message(traceID, topic, messageBody.getBytes(IOUtil.DEFAULT_CHARSET));
     }
 
-    public static Message create(Topic topic, String messageBody){
+    public static Message create(Topic topic, byte[] messageBody) {
         return new Message(topic, messageBody);
     }
 
-    Message(long traceID, final Topic topic, String messageBody) {
+    public static Message create(Topic topic, String messageBody){
+        return new Message(topic, messageBody.getBytes(IOUtil.DEFAULT_CHARSET));
+    }
+
+    Message(long traceID, final Topic topic, byte[] messageBody) {
         this.traceID = traceID;
         this.topic = Topic.newInstacne(topic, false);
         this.messageBody = messageBody;
     }
 
-    Message(Topic topic, String messageBody){
+    Message(Topic topic, byte[] messageBody){
         this(0L, topic, messageBody);
     }
 
@@ -57,11 +62,11 @@ public class Message {
     }
 
     public String getMessageBody(){
-        return this.messageBody;
+        return new String(this.messageBody, IOUtil.DEFAULT_CHARSET);
     }
 
     public byte[] getMessageBodyInByte(){
-        return this.messageBody.getBytes(Charset.defaultCharset());
+        return this.messageBody;
     }
 
     public Topic getTopic(){

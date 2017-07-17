@@ -55,7 +55,6 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private final String clientId;
     private final String hostname;
     private boolean featureNegotiation;
-    private boolean slowStart = true;
     private boolean userSpecifiedLookupd = false;
     private Map<String, String> localTraceMap = new ConcurrentHashMap<>();
     /*-
@@ -675,20 +674,6 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         return logger;
     }
 
-    public boolean isConsumerSlowStart() {
-        return this.slowStart;
-    }
-
-    /**
-     * Turn on/off consumer slow start with {@link Boolean#TRUE} or {@link Boolean#FALSE}
-     * @param allowSlowStart switch to turn on/off consumer slow start
-     * @return {@link NSQConfig} this NSQConfig
-     */
-    public NSQConfig setConsumerSlowStart(boolean allowSlowStart) {
-        this.slowStart = allowSlowStart;
-        return this;
-    }
-
     /**
      * Set producer retry interval base when exception raised in publish.
      * producer retry 6 times when exception which SDK does not know happen.
@@ -761,8 +746,9 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
             buffer.append("\"heartbeat_interval\":" + String.valueOf(getHeartbeatIntervalInMillisecond()) + ", ");
         }
         buffer.append("\"msg_timeout\":" + String.valueOf(msgTimeoutInMillisecond) + ",");
-        if (null != getConsumerDesiredTag()) {
-            buffer.append("\"desired_tag\":\"" + getConsumerDesiredTag().toString() + "\",");
+        DesiredTag tag = getConsumerDesiredTag();
+        if (null != tag) {
+            buffer.append("\"desired_tag\":\"" + tag.getTagName() + "\",");
         }
         buffer.append("\"user_agent\": \"" + userAgent + "\"}");
         return buffer.toString();

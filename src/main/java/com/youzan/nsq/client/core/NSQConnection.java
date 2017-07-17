@@ -12,6 +12,7 @@ import io.netty.channel.ChannelFuture;
 import io.netty.util.AttributeKey;
 
 import java.io.Closeable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
 
 /**
@@ -32,7 +33,11 @@ public interface NSQConnection extends Closeable {
 
     boolean isConnected();
 
+    void invalidate();
+
     int getId();
+
+    int getExpectedRdy();
 
     int getCurrentRdyCount();
 
@@ -93,4 +98,16 @@ public interface NSQConnection extends Closeable {
      */
     @Override
     void close();
+
+    void onRdy(int rdy, IRdyCallback callback);
+    void onResume(IRdyCallback callback);
+    void onBackoff(IRdyCallback callback);
+    boolean isBackoff();
+    int hashCode();
+    void setMessageReceived(long timeStamp);
+    long lastMessageReceived();
+    void setMessageConsumptionFailed(long timeStamp);
+    long lastMessageConsumptionFailed();
+    int declineExpectedRdy();
+    int increaseExpectedRdy();
 }

@@ -1,7 +1,9 @@
 package com.youzan.nsq.client;
 
 import com.youzan.nsq.client.core.Client;
+import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.entity.Message;
+import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.util.IOUtil;
@@ -74,4 +76,10 @@ public interface Producer extends Client, Closeable {
      */
     @Override
     void close();
+
+    /**
+     * Return {@link NSQConfig} specified in Producer
+     * @return {@link NSQConfig} config
+     */
+    NSQConfig getConfig();
 }

@@ -3,7 +3,6 @@ package com.youzan.nsq.client;
 import com.youzan.nsq.client.configs.*;
 import com.youzan.nsq.client.core.command.Pub;
 import com.youzan.nsq.client.core.command.PubTrace;
-import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.Topic;

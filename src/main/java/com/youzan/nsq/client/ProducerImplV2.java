@@ -39,6 +39,7 @@ public class ProducerImplV2 implements Producer {
 
     private static final int MAX_PUBLISH_RETRY = 6;
     private final Object lock = new Object();
+
     private static final int MAX_MSG_OUTPUT_LEN = 100;
     private volatile boolean started = false;
     private volatile int offset = 0;
@@ -64,6 +65,10 @@ public class ProducerImplV2 implements Producer {
 
         this.poolConfig = new GenericKeyedObjectPoolConfig();
         this.factory = new KeyedPooledConnectionFactory(this.config, this);
+    }
+
+    public NSQConfig getConfig() {
+        return this.config;
     }
 
     private boolean validateLookupdSource() {
@@ -358,7 +363,7 @@ public class ProducerImplV2 implements Producer {
      * @throws NSQException
      */
     public void publish(byte[] message, Topic topic) throws NSQException {
-        Message msg = Message.create(topic, new String(message));
+        Message msg = Message.create(topic, message);
         publish(msg);
     }
 

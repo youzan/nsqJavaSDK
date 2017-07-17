@@ -119,7 +119,6 @@ public class ITComplexConsumer {
         final NSQConfig config = (NSQConfig) this.config.clone();
         config.setMsgTimeoutInMillisecond(5 * 60 * 1000);
         config.setRdy(20);
-        config.setConsumerSlowStart(false);
         config.setConsumerName(consumerName);
         config.setThreadPoolSize4IO(1);
         consumer4Finish = new ConsumerImplV2(config, handler);

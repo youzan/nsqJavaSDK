@@ -16,7 +16,7 @@
         <slf4j.version>1.7.21</slf4j.version>
         <logback.version>1.1.7</logback.version>
         <jackson.version>2.7.9.1</jackson.version>
-        <dccClient.version>1.1.0424-RELEASE</dccClient.version>
+        <dccClient.version>1.1.0622-RELEASE</dccClient.version>
     </properties>
 
     <dependencies>
@@ -65,7 +65,7 @@
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-all</artifactId>
-            <version>4.1.9.Final</version>
+            <version>4.1.1.Final</version>
         </dependency>
         <dependency>
             <groupId>org.javassist</groupId>
@@ -78,14 +78,21 @@
             <version>2.4.2</version>
         </dependency>
         <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>fastjson</artifactId>
+            <version>1.2.33</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.jpountz.lz4</groupId>
+            <artifactId>lz4</artifactId>
+            <version>1.3</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
             <version>${jackson.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.youzan</groupId>
-            <artifactId>DCC-Client</artifactId>
-            <version>${dccClient.version}</version>
         </dependency>
         <dependency>
             <groupId>org.easymock</groupId>
@@ -126,11 +133,8 @@
                             <outputDirectory>target/test-classes</outputDirectory>
                             <resources>
                                 <resource>
-                                    <directory>src/main/resources</directory>
-                                    <includes>
-                                        <include>configClient.properties</include>
-                                    </includes>
-                                    <filtering>true</filtering>
+                                    <filtering>false</filtering>
+                                    <directory>src/test/resources/</directory>
                                 </resource>
                             </resources>
                         </configuration>
@@ -199,71 +203,122 @@
             </plugin>
         </plugins>
     </build>
+
     <profiles>
         <profile>
-            <id>dev</id>
+            <id>openSource</id>
             <activation>
                 <activeByDefault>true</activeByDefault>
             </activation>
             <build>
-                <defaultGoal>test</defaultGoal>
+                <resources>
+                    <resource>
+                        <directory>src/assembly/conf/openSource</directory>
+                    </resource>
+                </resources>
                 <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <version>3.5.1</version>
+                        <executions>
+                            <execution>
+                                <id>default-compile</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>compile</goal>
+                                </goals>
+                                <configuration>
+                                    <excludes>
+                                        <exclude>**/com/youzan/nsq/client/configs/DCCConfigAccessAgent.java</exclude>
+                                    </excludes>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>default-testCompile</id>
+                                <phase>test-compile</phase>
+                                <goals>
+                                    <goal>testCompile</goal>
+                                </goals>
+                                <configuration>
+                                    <testExcludes>
+                                        <exclude>**/com/youzan/nsq/client/entity/lookup/NSQConfigTestcase.java</exclude>
+                                    </testExcludes>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-resources-plugin</artifactId>
-                        <configuration>
-                            <resources>
-                                <resource>
-                                    <filtering>false</filtering>
-                                    <directory>src/test/resources/</directory>
-                                    <targetPath>${basedir}/target/test-classes</targetPath>
-                                </resource>
-                                <resource>
-                                    <filtering>false</filtering>
-                                    <directory>src/assembly/conf/dev/</directory>
-                                    <targetPath>${basedir}/target/test-classes</targetPath>
-                                </resource>
-                                <resource>
-                                    <filtering>false</filtering>
-                                    <directory>src/main/resources/</directory>
-                                    <targetPath>${basedir}/target/classes</targetPath>
-                                </resource>
-                            </resources>
-                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>default-resources</id>
+                                <goals>
+                                    <goal>copy-resources</goal>
+                                </goals>
+                                <configuration>
+                                    <resources>
+                                        <resource>
+                                            <filtering>false</filtering>
+                                            <directory>src/assembly/conf/openSource/</directory>
+                                        </resource>
+                                        <resource>
+                                            <filtering>false</filtering>
+                                            <directory>src/main/resources</directory>
+                                        </resource>
+                                    </resources>
+                                    <outputDirectory>target/test-classes</outputDirectory>
+                                </configuration>
+                            </execution>
+                        </executions>
                     </plugin>
                 </plugins>
             </build>
         </profile>
         <profile>
-            <id>QA</id>
+            <id>youzan</id>
+            <dependencies>
+                <dependency>
+                    <groupId>com.youzan</groupId>
+                    <artifactId>DCC-Client</artifactId>
+                    <version>${dccClient.version}</version>
+                </dependency>
+            </dependencies>
             <activation>
                 <activeByDefault>false</activeByDefault>
             </activation>
             <build>
-                <defaultGoal>verify</defaultGoal>
+                <resources>
+                    <resource>
+                        <directory>src/assembly/conf/youzan</directory>
+                    </resource>
+                </resources>
                 <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-resources-plugin</artifactId>
-                        <configuration>
-                            <resources>
-                                <resource>
-                                    <filtering>false</filtering>
-                                    <directory>src/test/resources/</directory>
-                                    <targetPath>${basedir}/target/test-classes</targetPath>
-                                </resource>
-                                <resource>
-                                    <filtering>false</filtering>
-                                    <directory>src/assembly/conf/QA/</directory>
-                                    <targetPath>${basedir}/target/test-classes</targetPath>
-                                </resource>
-                                <resource>
-                                    <filtering>false</filtering>
-                                    <directory>src/main/resources/</directory>
-                                    <targetPath>${basedir}/target/classes</targetPath>
-                                </resource>
-                            </resources>
-                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>default-resources</id>
+                                <goals>
+                                    <goal>copy-resources</goal>
+                                </goals>
+                                <configuration>
+                                    <resources>
+                                        <resource>
+                                            <filtering>false</filtering>
+                                            <directory>src/assembly/conf/youzan/</directory>
+                                        </resource>
+                                        <resource>
+                                            <filtering>false</filtering>
+                                            <directory>src/main/resources</directory>
+                                        </resource>
+                                    </resources>
+                                    <outputDirectory>target/test-classes</outputDirectory>
+                                </configuration>
+                            </execution>
+                        </executions>
                     </plugin>
                 </plugins>
             </build>

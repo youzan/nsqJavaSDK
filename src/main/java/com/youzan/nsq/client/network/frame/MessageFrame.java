@@ -107,23 +107,26 @@ public class MessageFrame extends NSQFrame {
         int messageBodyStart;
         int messageBodySize;
         if(!shouldExt) {
-            messageBodyStart = 8 + 2 + 16;
+            messageBodyStart = 26;//8 + 2 + 16;
         } else {
-            byte[] extBytesLenBytes = new byte[2];
             //read ext content & length here
             //version
             System.arraycopy(bytes, 26, extVerBytes, 0, 1);
-            //ext content length
-            System.arraycopy(bytes, 27, extBytesLenBytes, 0, 2);
-            int extBytesLen = ByteBuffer.wrap(extBytesLenBytes).getShort();
-            //allocate
-            extBytes = new byte[extBytesLen];
-            System.arraycopy(bytes, 29, extBytes, 0, extBytesLen);
-            //leave them to message consume
-//            ExtVer extVer = ExtVer.getExtVersion(extVerBytes);
-//            IExtContent extContent = parseExtContent(extVer, extBytes);
-
-            messageBodyStart = 8 + 2 + 16 + 1 + 2 + extBytesLen;
+            int extVer = (int)extVerBytes[0];
+            switch (extVer) {
+                case 2:
+                    byte[] extBytesLenBytes = new byte[2];
+                    //ext content length
+                    System.arraycopy(bytes, 27, extBytesLenBytes, 0, 2);
+                    int extBytesLen = ByteBuffer.wrap(extBytesLenBytes).getShort();
+                    //allocate
+                    extBytes = new byte[extBytesLen];
+                    System.arraycopy(bytes, 29, extBytes, 0, extBytesLen);
+                    messageBodyStart = 29 + extBytesLen;//8 + 2 + 16 + 1 + 2 + extBytesLen;
+                    break;
+                default:
+                    messageBodyStart = 27;//8+2+16+1
+            }
         }
         messageBodySize = bytes.length - (messageBodyStart);
         messageBody = new byte[messageBodySize];

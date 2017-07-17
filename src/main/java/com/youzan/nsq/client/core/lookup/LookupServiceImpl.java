@@ -21,14 +21,6 @@ public class LookupServiceImpl implements LookupService {
     private int lookupLocalId = -1;
 
     /**
-     * Load-Balancing Strategy: round-robin
-     */
-    private volatile int offset = 0;
-    private boolean started = false;
-    private boolean closing = false;
-    private volatile long lastConnecting = 0L;
-
-    /**
      * @param role  role for producer and consumer
      */
     public LookupServiceImpl(Role role, int lookupLocalId) {
@@ -69,6 +61,5 @@ public class LookupServiceImpl implements LookupService {
 
     @Override
     public void close() {
-        closing = true;
     }
 }

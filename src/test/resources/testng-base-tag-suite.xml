@@ -1,14 +1,33 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
 <suite name="NSQ-Client Tag Base Suite">
-    <test name="Combo Level" parallel="methods" thread-count="4">
+    <test name="tagTestBase" >
         <classes>
             <class name="it.youzan.nsq.client.ITTagProducer">
                 <methods>
                     <include name="publishWTag"/>
                 </methods>
             </class>
-            <class name="it.youzan.nsq.client.ITTagConsumer"/>
+            <class name="it.youzan.nsq.client.ITTagConsumer">
+                <methods>
+                    <include name="test"/>
+                </methods>
+            </class>
+        </classes>
+    </test>
+
+    <test name="tagTestMix" >
+        <classes>
+            <class name="it.youzan.nsq.client.ITTagProducer">
+                <methods>
+                    <include name="publishWTagMix"/>
+                </methods>
+            </class>
+            <class name="it.youzan.nsq.client.ITTagConsumer">
+                <methods>
+                    <include name="testConsumeTagMix"/>
+                </methods>
+            </class>
         </classes>
     </test>
 </suite>

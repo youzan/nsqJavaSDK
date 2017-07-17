@@ -178,14 +178,6 @@ public class DCCConfigAccessAgent extends ConfigAccessAgent {
      * @throws IOException
      */
     private static void initClientConfig() throws IOException {
-        //1.fixed properties initialization
-        //1.1 config app
-//        String app = props.getProperty(NSQ_APP_VAL_PRO);
-//        if (null != app)
-//            NSQ_APP_VAL = app;
-//        else
-//            NSQ_APP_VAL = DEFAULT_NSQ_APP_VAL;
-//        logger.info("{}:{}", NSQ_APP_VAL_PRO, NSQ_APP_VAL);
 
         //1.2 config client backup file
         backupPath = props.getProperty(NSQ_DCCCONFIG_BACKUP_PATH);

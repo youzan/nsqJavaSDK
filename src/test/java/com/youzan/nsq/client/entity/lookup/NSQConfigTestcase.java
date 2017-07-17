@@ -66,10 +66,6 @@ public class NSQConfigTestcase {
                  */
                 .setConnectionPoolSize(10)
                 /*
-                开启／关闭Rdy慢启动。默认值为{@Boolean#TRUE}
-                 */
-                .setConsumerSlowStart(false)
-                /*
                 NSQ消息超时配置, 默认值为60秒
                  */
                 .setMsgTimeoutInMillisecond(10000)

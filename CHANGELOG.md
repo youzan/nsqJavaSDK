@@ -106,6 +106,8 @@ Note worthy:
 + performance log in consumer&producer.[#72](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/72)
 + min idle nsqd connection for producer.[#74](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/74)
 + condition lock in getPartitionNodes.[#79](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/79)
++ rdy dynamic adjustment according to consumption status.[#80](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/80)
 
 # Fixes:
 + connection leak in producer in ordered topic production.[#76](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/76)
++ compressed message body should not treat as string.[#81](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/81)

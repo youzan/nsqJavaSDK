@@ -125,8 +125,8 @@ public class NSQMessage implements MessageMetadata{
             }
             default: {
                 if(extBytes != null) {
-                    logger.error("Ext bytes should be empty.");
-                    throw new IllegalArgumentException("Ext bytes should be empty.");
+                    logger.error("Ext content unrecognized. Extver {}, ExtBytes {}", extVer, extBytes);
+                    throw new IllegalArgumentException("Ext content unrecognized.");
                 }
                 return new NoExtContent();
             }
@@ -138,7 +138,10 @@ public class NSQMessage implements MessageMetadata{
     }
 
     public DesiredTag getTag() {
-        return (DesiredTag) this.extContent;
+        if (this.extContent instanceof DesiredTag)
+            return (DesiredTag) this.extContent;
+        else
+            return null;
     }
 
     public TopicInfo getTopicInfo() {

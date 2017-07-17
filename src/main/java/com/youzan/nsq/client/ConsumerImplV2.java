@@ -1,10 +1,7 @@
 package com.youzan.nsq.client;
 
 import com.youzan.nsq.client.configs.ConfigAccessAgent;
-import com.youzan.nsq.client.core.LookupAddressUpdate;
-import com.youzan.nsq.client.core.NSQConnection;
-import com.youzan.nsq.client.core.NSQSimpleClient;
-import com.youzan.nsq.client.core.RdySpectrum;
+import com.youzan.nsq.client.core.*;
 import com.youzan.nsq.client.core.command.*;
 import com.youzan.nsq.client.core.pool.consumer.FixedPool;
 import com.youzan.nsq.client.entity.*;
@@ -26,6 +23,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -38,23 +36,25 @@ import java.util.concurrent.atomic.AtomicInteger;
  *
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
-public class ConsumerImplV2 implements Consumer {
+public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     private static final Logger logger = LoggerFactory.getLogger(ConsumerImplV2.class);
     private static final Logger PERF_LOG = LoggerFactory.getLogger(ConsumerImplV2.class.getName() + ".perf");
 
     private static final int MAX_CONSUME_RETRY = 3;
     private final Object lock = new Object();
-    private boolean started = false;
-    private boolean closing = false;
+    protected AtomicBoolean started = new AtomicBoolean(Boolean.FALSE);
+    protected AtomicBoolean closing = new AtomicBoolean(Boolean.FALSE);
     private volatile long lastConnecting = 0L;
 
 
     private final AtomicInteger received = new AtomicInteger(0);
+    private volatile long lastSuccess = 0l;
+    private volatile float consumptionRate = 0f;
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger finished = new AtomicInteger(0);
     private final AtomicInteger re = new AtomicInteger(0); // have done reQueue
     private final AtomicInteger queue4Consume = new AtomicInteger(0); // have done reQueue
-
+    protected ConnectionManager conMgr;
     Producer compensateProducer;
 
     /*-
@@ -71,7 +71,7 @@ public class ConsumerImplV2 implements Consumer {
       Basically, consumer subscribe multi-topics to one NSQd, hence there is a mapping
       between NSQd address and connections to topics
      */
-    private final ConcurrentHashMap<Address, FixedPool> address_2_pool = new ConcurrentHashMap<>();
+    protected final ConcurrentHashMap<Address, FixedPool> address_2_pool = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getSimpleName(), Thread.NORM_PRIORITY));
     /*-
@@ -86,10 +86,6 @@ public class ConsumerImplV2 implements Consumer {
      *                           Client delegates to me
      * =========================================================================
      */
-    private final Rdy DEFAULT_RDY;
-    private final Rdy MEDIUM_RDY;
-    private final Rdy LOW_RDY = new Rdy(1);
-    private volatile Rdy currentRdy = LOW_RDY;
     private volatile boolean autoFinish = true;
 
 
@@ -104,16 +100,11 @@ public class ConsumerImplV2 implements Consumer {
         this.config = config;
         this.handler = handler;
         this.simpleClient = new NSQSimpleClient(Role.Consumer, this.config.getUserSpecifiedLookupAddress());
+    }
 
-        int messagesPerBatch;
-        if (!config.isConsumerSlowStart())
-            messagesPerBatch = config.getRdy();
-        else
-            messagesPerBatch = 1;
-        DEFAULT_RDY = new Rdy(Math.max(messagesPerBatch, 1));
-        MEDIUM_RDY = new Rdy(Math.max((int) (messagesPerBatch * 0.5D), 1));
-        currentRdy = DEFAULT_RDY;
-        logger.info("Initialize the Rdy, that is {}", currentRdy);
+    @Override
+    public NSQConfig getConfig() {
+        return this.config;
     }
 
     @Override
@@ -187,7 +178,7 @@ public class ConsumerImplV2 implements Consumer {
             logger.warn("No topic subscribed.");
         }
         synchronized (lock) {
-            if (!this.started) {
+            if (!this.started.get()) {
                 //set subscribe status
                 // create the pools
                 //simple client starts and LookupAddressUpdate instance initialized there.
@@ -204,10 +195,25 @@ public class ConsumerImplV2 implements Consumer {
                 //                       First, async keep
                 keepConnecting();
                 // -----------------------------------------------------------------
+                conMgr = new ConnectionManager(this);
+                conMgr.start();
             }
-            this.started = true;
+            this.started.set(true);
         }
         logger.info("The consumer has been started.");
+    }
+
+    /**
+     * update consumption rate according to message consumption last _INTERVAL_IN_SECOND
+     */
+    private void updateConsumptionRate() {
+        ThreadPoolExecutor pool = (ThreadPoolExecutor) executor;
+        consumptionRate = ((long)success.get() - lastSuccess) / _INTERVAL_IN_SECOND;
+        lastSuccess = success.get();
+    }
+
+    public boolean isConsumptionEstimateElapseTimeout() {
+        return consumptionRate * queue4Consume.get() *1000 >= this.config.getMsgTimeoutInMillisecond();
     }
 
     /**
@@ -217,11 +223,12 @@ public class ConsumerImplV2 implements Consumer {
         scheduler.scheduleWithFixedDelay(new Runnable() {
             @Override
             public void run() {
-                if (closing) {
+                if (closing.get()) {
                     return;
                 }
                 try {
                     connect();
+                    updateConsumptionRate();
                 } catch (Exception e) {
                     logger.error("Exception", e);
                 }
@@ -234,15 +241,15 @@ public class ConsumerImplV2 implements Consumer {
      * Connect to all the brokers with the config, making sure the new is OK
      * and the old is clear.
      */
-    private void connect() throws NSQException {
+    protected void connect() throws NSQException {
         //which equals to: System.currentTimeMillis() - lastConnecting < TimeUnit.SECONDS.toMillis(_INTERVAL_IN_SECOND))
         //rest logic performs only when time elapse larger than _INTERNAL_IN_SECOND
         if (System.currentTimeMillis() < lastConnecting + TimeUnit.SECONDS.toMillis(_INTERVAL_IN_SECOND)) {
             return;
         }
         lastConnecting = System.currentTimeMillis();
-        if (!this.started) {
-            if (closing) {
+        if (!this.started.get()) {
+            if (closing.get()) {
                 logger.info("Consumer has been closed sometimes ago!");
             }
             return;
@@ -280,8 +287,17 @@ public class ConsumerImplV2 implements Consumer {
          *                          干掉Broken Brokers.
          * =====================================================================
          */
-        for (Address address : broken) {
-            clearDataNode(address);
+        if(broken.size() > 0) {
+            Map<String, List<Address>> topic2Addrs = new HashMap<>();
+            for (Address address : broken) {
+                if (!topic2Addrs.containsKey(address.getTopic())) {
+                    topic2Addrs.put(address.getTopic(), new ArrayList<Address>());
+                }
+                List<Address> topics = topic2Addrs.get(address.getTopic());
+                topics.add(address);
+                clearDataNode(address);
+            }
+            conMgr.remove(topic2Addrs);
         }
         /*-
          * =====================================================================
@@ -394,12 +410,12 @@ public class ConsumerImplV2 implements Consumer {
      * @param address data-node(NSQd)
      * @param topics  client cares about the specified topics
      */
-    private void connect(Address address, Set<String> topics) throws Exception {
+    protected void connect(Address address, Set<String> topics) throws Exception {
         if (topics == null || topics.isEmpty()) {
             return;
         }
         synchronized (lock) {
-            if (closing) {
+            if (closing.get()) {
                 return;
             }
             final int topicSize = topics.size();
@@ -440,13 +456,13 @@ public class ConsumerImplV2 implements Consumer {
                         connection.init(topic);
                     } catch (Exception e) {
                         connection.close();
-                        if (!closing) {
+                        if (!closing.get()) {
                             throw new NSQNoConnectionException("Creating a connection and having a negotiation fails!", e);
                         }
                     }
                     if (!connection.isConnected()) {
                         connection.close();
-                        if (!closing) {
+                        if (!closing.get()) {
                             throw new NSQNoConnectionException("Pool failed in connecting to NSQd! Closing: !" + closing);
                         }
                     } else {
@@ -454,7 +470,7 @@ public class ConsumerImplV2 implements Consumer {
                         final NSQFrame frame = connection.commandAndGetResponse(command);
                         handleResponse(frame, connection);
                         //as there is no success response from nsq, command is enough here
-                        connection.command(currentRdy);
+                        this.conMgr.subscribe(topic.getTopicText(), connection);
                     }
                     logger.info("Done. Current connection index: {}", i);
                 }
@@ -533,6 +549,7 @@ public class ConsumerImplV2 implements Consumer {
                 //order problem
                 throw new NSQInvalidMessageException("Invalid internalID or diskQueueOffset in order mode.");
             }
+            conn.setMessageReceived(System.currentTimeMillis());
             processMessage(message, conn);
         } else {
             simpleClient.incoming(frame, conn);
@@ -566,62 +583,19 @@ public class ConsumerImplV2 implements Consumer {
             queue4Consume.incrementAndGet();
         } catch (RejectedExecutionException re) {
             try {
+                //TODO: backoff and recover
                 backoff(connection);
                 connection.command(new ReQueue(message.getMessageID(), 3));
                 logger.info("Do a re-queue. MessageID:{}", message.getMessageID());
-                resumeRateLimiting(connection, 0);
+//                resumeRateLimiting(connection, 0);
             } catch (Exception e) {
                 logger.error("SDK can not handle it MessageID:{}, Exception:", message.getMessageID(), e);
             }
         }
-        resumeRateLimiting(connection, 1000);
-        if (!this.config.isOrdered() && this.config.isConsumerSlowStart()) {
-            int newCount = RdySpectrum.increase(connection, connection.getCurrentRdyCount(), this.config.getRdy());
-            connection.setCurrentRdyCount(newCount);
+        //TODO: update rdy
+        if (!this.config.isOrdered()) {
+            connection.increaseExpectedRdy();
         }
-    }
-
-    private void resumeRateLimiting(final NSQConnection conn, final int delayInMillisecond) {
-        if (executor instanceof ThreadPoolExecutor) {
-            final ThreadPoolExecutor pools = (ThreadPoolExecutor) executor;
-            final double threshold = pools.getActiveCount() / (1.0D * pools.getPoolSize());
-            if (delayInMillisecond <= 0) {
-                logger.info("Current status is not good. threshold: {}", threshold);
-                boolean willSleep = false; // too , too busy
-                if (threshold >= 0.9D) {
-                    if (currentRdy == LOW_RDY) {
-                        willSleep = true;
-                    }
-                    currentRdy = LOW_RDY;
-                } else if (threshold >= 0.5D) {
-                    currentRdy = MEDIUM_RDY;
-                } else {
-                    currentRdy = DEFAULT_RDY;
-                }
-                // Ignore the data-race
-                ChannelFuture future = conn.command(currentRdy);
-                if (willSleep) {
-                    sleep(100);
-                }
-            } else {
-                if (currentRdy != DEFAULT_RDY) {
-                    logger.info("Current threshold state: {}", threshold);
-                    scheduler.schedule(new Runnable() {
-                        @Override
-                        public void run() {
-                            // restore the state
-                            if (threshold <= 0.3D) {
-                                currentRdy = DEFAULT_RDY;
-                                conn.command(currentRdy);
-                            }
-                        }
-                    }, delayInMillisecond, TimeUnit.MILLISECONDS);
-                }
-            }
-        } else {
-            logger.error("Initializing the executor is wrong.");
-        }
-        assert currentRdy != null;
     }
 
     /**
@@ -631,7 +605,6 @@ public class ConsumerImplV2 implements Consumer {
     private void consume(final NSQMessage message, final NSQConnection connection) {
         boolean ok;
         boolean retry;
-        //TODO: do tag filter here
 
         long start = System.currentTimeMillis();
         try {
@@ -693,10 +666,9 @@ public class ConsumerImplV2 implements Consumer {
                         logger.info("Do a re-queue by SDK that is a default behavior. MessageID: {} , Hex: {}", id, message.newHexString(id));
                     }
                 } else {
-                    if (!this.config.isOrdered() && this.config.isConsumerSlowStart() && end > this.config.getMsgTimeoutInMillisecond()) {
+                    if (!this.config.isOrdered() && end > this.config.getMsgTimeoutInMillisecond()) {
                         logger.warn("It tooks {} milliSec to for message to be consumed by message handler, and exceeds message timeout in nsq config. Fin not be invoked as requeue from NSQ server is on its way.", end);
-                        int currentRdyCnt = RdySpectrum.decrease(connection, connection.getCurrentRdyCount(), connection.getCurrentRdyCount() - 1);
-                        connection.setCurrentRdyCount(currentRdyCnt);
+                        connection.declineExpectedRdy();
                     } else {
                         // Finish: client explicitly sets NextConsumingInSecond is null
                         cmd = new Finish(message.getMessageID());
@@ -722,26 +694,29 @@ public class ConsumerImplV2 implements Consumer {
         }
         if (cmd != null) {
             final String cmdStr = cmd.toString();
-            ChannelFuture future = connection.command(cmd);
-            future.addListener(new ChannelFutureListener() {
-                @Override
-                public void operationComplete(ChannelFuture future) throws Exception {
-                    if(!future.isSuccess()){
-                        logger.error("Fail to send {}. Message {} will be delivered to consumer in another round.", cmdStr, message.getMessageID());
-                    }else if(PERF_LOG.isDebugEnabled()) {
-                        PERF_LOG.debug("Command {} to {} for message {} sent.", cmdStr, connection.getAddress(), message.getMessageID());
+            if (!closing.get()) {
+                ChannelFuture future = connection.command(cmd);
+                future.addListener(new ChannelFutureListener() {
+                    @Override
+                    public void operationComplete(ChannelFuture future) throws Exception {
+                        if (!future.isSuccess()) {
+                            logger.error("Fail to send {}. Message {} will be delivered to consumer in another round.", cmdStr, message.getMessageID());
+                        } else if (PERF_LOG.isDebugEnabled()) {
+                            PERF_LOG.debug("Command {} to {} for message {} sent.", cmdStr, connection.getAddress(), message.getMessageID());
+                        }
                     }
+                });
+                if (cmd instanceof Finish) {
+                    finished.incrementAndGet();
+                } else {
+                    re.incrementAndGet();
                 }
-            });
-            if (cmd instanceof Finish) {
-                finished.incrementAndGet();
-            } else {
-                re.incrementAndGet();
             }
         }
         // Post
         //log warn
         if (!ok) {
+            connection.setMessageConsumptionFailed(start);
             logger.warn("Exception occurs in message handler. Please check it right now {} , Original message: {}.", message, message.getReadableContent());
         }
     }
@@ -783,12 +758,13 @@ public class ConsumerImplV2 implements Consumer {
         // Application will close the worker executor of the consumer
         // Application will all of the TCP-Connections
         // ===================================================================
-        if(this.started) {
+        if(this.started.get()) {
             synchronized (lock) {
-                if(!this.started)
+                if(!this.started.get())
                     return;
-                started = false;
-                closing = true;
+                started.set(Boolean.FALSE);
+                closing.set(Boolean.TRUE);
+                this.conMgr.close();
                 final Set<NSQConnection> connections = cleanClose();
                 IOUtil.closeQuietly(simpleClient);
                 scheduler.shutdownNow();
@@ -808,6 +784,26 @@ public class ConsumerImplV2 implements Consumer {
                 LookupAddressUpdate.getInstance().closed();
             }
         }
+    }
+
+    @Override
+    public void backoff(Topic topic) {
+        this.conMgr.backoff(topic.getTopicText(), null);
+    }
+
+    @Override
+    public void backoff(Topic topic, CountDownLatch latch) {
+        this.conMgr.backoff(topic.getTopicText(), latch);
+    }
+
+    @Override
+    public void resume(Topic topic) {
+        this.conMgr.resume(topic.getTopicText(), null);
+    }
+
+    @Override
+    public void resume(Topic topic, CountDownLatch latch) {
+        this.conMgr.resume(topic.getTopicText(), latch);
     }
 
 
@@ -873,11 +869,7 @@ public class ConsumerImplV2 implements Consumer {
 
     @ThreadSafe
     private void cleanClose(NSQConnection connection) throws TimeoutException {
-        synchronized (connection) {
-            if (connection.isConnected()) {
-                backoff(connection);
-            }
-        }
+        conMgr.backoff(connection);
     }
 
     private void handleResponse(NSQFrame frame, NSQConnection connection) {
@@ -928,8 +920,7 @@ public class ConsumerImplV2 implements Consumer {
         if (!conn.isConnected()) {
             return false;
         }
-        currentRdy = DEFAULT_RDY;
-        final ChannelFuture future = conn.command(currentRdy);
+        final ChannelFuture future = conn.command(Nop.getInstance());
         if (future.awaitUninterruptibly(config.getQueryTimeoutInMillisecond(), TimeUnit.MILLISECONDS)) {
             return future.isSuccess();
         }
@@ -997,5 +988,26 @@ public class ConsumerImplV2 implements Consumer {
             logger.warn(e.getLocalizedMessage());
         }
         return "[Consumer] at " + ipStr;
+    }
+
+    @Override
+    public float getLoadFactor() {
+        ThreadPoolExecutor pool = (ThreadPoolExecutor) executor;
+        int active = pool.getActiveCount();
+        int queueSize = queue4Consume.get();
+        if(active > 0)
+            return (float)queueSize/active;
+        else {
+            return 0f;
+        }
+    }
+
+    @Override
+    public int getRdyPerConnection() {
+        return this.config.getRdy();
+    }
+
+    public ConnectionManager getConnectionManager() {
+        return this.conMgr;
     }
 }

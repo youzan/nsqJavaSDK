@@ -58,29 +58,29 @@ public class ITProducer {
         }
     }
 
-    public void concurrentPublish() throws NSQException, InterruptedException {
-        final ExecutorService exec = Executors.newFixedThreadPool(100);
-        config.setConnectionPoolSize(200);
-        config.setThreadPoolSize4IO(Runtime.getRuntime().availableProcessors() * 2);
-        final Producer proCon = new ProducerImplV2(config);
-        proCon.start();
-        final Topic topic = new Topic("JavaTesting-Producer-Base");
-        ((ProducerImplV2) proCon).preAllocateNSQConnection(topic, 100);
-        while(true) {
-            exec.submit(new Runnable() {
-                @Override
-                public void run() {
-                    Message msg = Message.create(topic, "message");
-                    try {
-                        proCon.publish(msg);
-                    } catch (NSQException e) {
-                        logger.error("publish fail.", e);
-                    }
-                }
-            });
-            Thread.sleep(100L);
-        }
-    }
+//    public void concurrentPublish() throws NSQException, InterruptedException {
+//        final ExecutorService exec = Executors.newFixedThreadPool(100);
+//        config.setConnectionPoolSize(200);
+//        config.setThreadPoolSize4IO(Runtime.getRuntime().availableProcessors() * 2);
+//        final Producer proCon = new ProducerImplV2(config);
+//        proCon.start();
+//        final Topic topic = new Topic("JavaTesting-Producer-Base");
+//        ((ProducerImplV2) proCon).preAllocateNSQConnection(topic, 100);
+//        while(true) {
+//            exec.submit(new Runnable() {
+//                @Override
+//                public void run() {
+//                    Message msg = Message.create(topic, "message");
+//                    try {
+//                        proCon.publish(msg);
+//                    } catch (NSQException e) {
+//                        logger.error("publish fail.", e);
+//                    }
+//                }
+//            });
+//            Thread.sleep(100L);
+//        }
+//    }
 
     @AfterClass
     public void close() {
