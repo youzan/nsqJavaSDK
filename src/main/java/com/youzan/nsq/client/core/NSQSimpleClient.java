@@ -250,8 +250,7 @@ public class NSQSimpleClient implements Client, Closeable {
         }
         switch (frame.getType()) {
             case RESPONSE_FRAME: {
-                final String resp = frame.getMessage();
-                if (Response._HEARTBEAT_.getContent().equals(resp)) {
+                if (frame.isHeartBeat()) {
                     if(PERF_LOG.isDebugEnabled())
                         PERF_LOG.debug("heartbeat received from {}.", conn.getAddress());
                     ChannelFuture nopFuture = conn.command(Nop.getInstance());
@@ -266,32 +265,19 @@ public class NSQSimpleClient implements Client, Closeable {
                             }
                         }
                     });
-                    return;
-                } else {
-                    conn.addResponseFrame((ResponseFrame) frame);
                 }
                 break;
             }
             case ERROR_FRAME: {
                 final ErrorFrame err = (ErrorFrame) frame;
-                try {
-                    conn.addErrorFrame(err);
-                } catch (Exception e) {
-                    logger.error("Address: {}, Exception:", conn.getAddress(), e);
-                }
                 logger.warn("Error-Frame from {} , frame: {}", conn.getAddress(), frame);
                 if (Role.Consumer == this.role && !conn.getConfig().isOrdered()) {
                     conn.declineExpectedRdy();
                 }
                 break;
             }
-            case MESSAGE_FRAME: {
-                logger.warn("Un-excepted a message frame in the simple client.");
-                break;
-            }
             default: {
                 logger.warn("Invalid frame-type from {} , frame-type: {} , frame: {}", conn.getAddress(), frame.getType(), frame);
-                break;
             }
         }
     }
@@ -450,7 +436,7 @@ public class NSQSimpleClient implements Client, Closeable {
     @Override
     public boolean validateHeartbeat(NSQConnection conn) {
         final ChannelFuture future = conn.command(Nop.getInstance());
-        return future.awaitUninterruptibly(2000, TimeUnit.MILLISECONDS) && future.isSuccess();
+        return null != future && future.awaitUninterruptibly(2000, TimeUnit.MILLISECONDS) ? future.isSuccess() : false;
     }
 
     @Override
@@ -463,11 +449,11 @@ public class NSQSimpleClient implements Client, Closeable {
         lock.writeLock().lock();
         try {
             lookup.close();
+            scheduler.shutdownNow();
             topic_2_partitionsSelector.clear();
             ps_lastInvalidated.clear();
             topicSubscribed.clear();
             topicSynMap.clear();
-            scheduler.shutdownNow();
         } finally {
             lock.writeLock().unlock();
         }

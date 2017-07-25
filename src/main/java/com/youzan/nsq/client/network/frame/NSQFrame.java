@@ -1,5 +1,6 @@
 package com.youzan.nsq.client.network.frame;
 
+import com.youzan.nsq.client.entity.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,5 +87,9 @@ public abstract class NSQFrame {
                 return null;
             }
         }
+    }
+
+    public boolean isHeartBeat() {
+        return Response._HEARTBEAT_.getContent().equals(this.getMessage());
     }
 }

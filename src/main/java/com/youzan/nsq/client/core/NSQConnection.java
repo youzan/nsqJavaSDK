@@ -33,8 +33,6 @@ public interface NSQConnection extends Closeable {
 
     boolean isConnected();
 
-    void invalidate();
-
     int getId();
 
     int getExpectedRdy();
@@ -71,7 +69,7 @@ public interface NSQConnection extends Closeable {
     boolean checkOrder(long internalID, long diskQueueOffset, final NSQMessage msg);
 
     /**
-     * Synchronize the protocol packet
+     * Synchronize the protocol packet, command need response from nsqd like Identity, Sub, CLS
      *
      * @param command a {@link NSQCommand}
      * @return a {@link NSQFrame}  after send a request
@@ -91,6 +89,12 @@ public interface NSQConnection extends Closeable {
      */
     boolean isExtend();
 
+    /**
+     * {@link Boolean#TRUE} when {@link com.youzan.nsq.client.core.command.Identify} is issued via current connection, else {@link Boolean#FALSE}
+     * @return whether identity sent
+     */
+    boolean isIdentitySent();
+
     Topic getTopic();
 
     /**
@@ -99,10 +103,13 @@ public interface NSQConnection extends Closeable {
     @Override
     void close();
 
+    void disconnect(final ConnectionManager conMgr);
+
     void onRdy(int rdy, IRdyCallback callback);
     void onResume(IRdyCallback callback);
     void onBackoff(IRdyCallback callback);
     boolean isBackoff();
+    void onClose();
     int hashCode();
     void setMessageReceived(long timeStamp);
     long lastMessageReceived();

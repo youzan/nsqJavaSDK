@@ -108,7 +108,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private int maxRequeueTimes = 30;
 
     // 1 seconds
-    public static final int _MIN_NEXT_CONSUMING_IN_SECOND = 1;
+    public static final int _MIN_NEXT_CONSUMING_IN_SECOND = 0;
     // 180 days ?why 180
     public static final int _MAX_NEXT_CONSUMING_IN_SECOND = 180 * 24 * 3600;
     private int nextConsumingInSecond = 5;

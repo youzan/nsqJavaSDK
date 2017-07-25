@@ -11,7 +11,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
 
 import java.io.InputStream;
 import java.util.Properties;
@@ -34,7 +33,6 @@ public class ITTagConsumer {
         }
     }
 
-    @Test
     public void test() throws Exception {
         String topic = "testExt2Par2Rep";
         try {
@@ -84,7 +82,6 @@ public class ITTagConsumer {
         }
     }
 
-    @Test
     public void testConsumeTagMix() throws Exception {
         String topic = "testExt2Par2Rep";
         try {

@@ -19,6 +19,10 @@ public class ITConsumer extends AbstractITConsumer{
     private static final Logger logger = LoggerFactory.getLogger(ITConsumer.class);
 
     public void test() throws NSQException, InterruptedException {
+        Calendar cal = Calendar.getInstance();
+        cal.set(2017, 6, 18, 17, 40, 40);
+        long timeMill = cal.getTimeInMillis();
+
         final CountDownLatch latch = new CountDownLatch(10);
         final AtomicInteger received = new AtomicInteger(0);
         consumer = new ConsumerImplV2(config, new MessageHandler() {

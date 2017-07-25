@@ -13,6 +13,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * Created by lin on 17/6/26.
@@ -63,8 +64,9 @@ public class ConnectionManager {
     }
 
     public static class ConnectionWrapperSet extends HashSet<NSQConnectionWrapper> {
-        private AtomicInteger totalRdy = new AtomicInteger(0);
-        private AtomicBoolean isBackOff = new AtomicBoolean(false);
+        private final AtomicInteger totalRdy = new AtomicInteger(0);
+        private final AtomicBoolean isBackOff = new AtomicBoolean(false);
+        private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
         public void addTotalRdy(int rdy) {
             int rdyTotal = this.totalRdy.addAndGet(rdy);
@@ -87,8 +89,33 @@ public class ConnectionManager {
             return isBackOff.get();
          }
 
-         public boolean remove(final Collection<Address> addrs) {
-            return this.removeAll(addrs);
+         public boolean remove(final Collection<NSQConnectionWrapper> addrs) {
+            boolean modified = false;
+            //update rdy after remove one connection wrapper
+             for(Iterator<NSQConnectionWrapper> ite = addrs.iterator(); ite.hasNext(); ) {
+                 NSQConnectionWrapper wrapper = ite.next();
+                if(this.remove(wrapper)) {
+                    addTotalRdy(-1 * wrapper.getConn().getCurrentRdyCount());
+                    modified |= Boolean.TRUE;
+                }
+             }
+            return modified;
+         }
+
+         public void writeLock() {
+            this.lock.writeLock().lock();
+         }
+
+         public void writeUnlock() {
+             this.lock.writeLock().unlock();
+         }
+
+         public void readLock() {
+            this.lock.readLock().lock();
+         }
+
+         public void readUnlock() {
+            this.lock.readLock().unlock();
          }
     }
 
@@ -129,7 +156,8 @@ public class ConnectionManager {
         }
 
         final ConnectionWrapperSet subs = topic2Subs.get(topic);
-        synchronized(subs) {
+        subs.writeLock();
+        try{
             subs.add(new NSQConnectionWrapper(subscriber));
             if(!subs.isBackoff()) {
                 subscriber.onRdy(rdy, new IRdyCallback() {
@@ -141,6 +169,8 @@ public class ConnectionManager {
             } else {
                 backoff(subscriber);
             }
+        } finally {
+            subs.writeUnlock();
         }
     }
 
@@ -150,18 +180,21 @@ public class ConnectionManager {
 
     /**
      * Not-thread safe, remove connection according to pass in addresses belong to topic
-     * @param topic2Addrs topic to address collection map
+     * @param topic2ConWrappers topic to {@link NSQConnectionWrapper} collection map
      */
-    public boolean remove(final Map<String, List<Address>> topic2Addrs) {
+    public boolean remove(final Map<String, List<NSQConnectionWrapper>> topic2ConWrappers) {
         boolean removed = false;
-        for(String topic : topic2Addrs.keySet()) {
+        for(String topic : topic2ConWrappers.keySet()) {
             if (topic2Subs.containsKey(topic)) {
                 ConnectionWrapperSet subs = topic2Subs.get(topic);
-                synchronized (subs) {
-                    removed = removed | subs.remove(topic2Addrs.get(topic));
+                subs.writeLock();
+                try {
+                    removed = removed | subs.remove(topic2ConWrappers.get(topic));
                     if(subs.size() == 0) {
                         topic2Subs.remove(topic);
                     }
+                } finally {
+                    subs.writeUnlock();
                 }
             }
         }
@@ -175,14 +208,13 @@ public class ConnectionManager {
      *             backoff when it does.
      */
     public void backoff(final NSQConnection conn) {
-        NSQConnectionWrapper connWrapper = new NSQConnectionWrapper(conn);
         String topic = conn.getTopic().getTopicText();
-
         if (!topic2Subs.containsKey(topic)) {
             logger.info("Subscriber for topic {} does not exist.");
             return;
         }
 
+        NSQConnectionWrapper connWrapper = new NSQConnectionWrapper(conn);
         final ConnectionWrapperSet conWrapperSet = topic2Subs.get(topic);
         if(conWrapperSet.contains(connWrapper)) {
             conn.onBackoff(new IRdyCallback() {
@@ -208,14 +240,14 @@ public class ConnectionManager {
 
         final ConnectionWrapperSet subs = topic2Subs.get(topic);
         if(null != subs) {
-            synchronized (subs) {
+            subs.writeLock();
+            try {
                 if (!subs.backoff()) {
                     logger.info("topic {} already backoff.", topic);
                     if(null != latch)
                         latch.countDown();
                     return;
                 }
-                boolean invalidate = Boolean.FALSE;
                 final int latchCount = subs.size();
                 final CountDownLatch backoffLatch = new CountDownLatch(latchCount);
                 exec.submit(new Runnable() {
@@ -234,22 +266,16 @@ public class ConnectionManager {
 
                 try{
                     if (!backoffLatch.await(latchCount * RDY_TIMEOUT, TimeUnit.MILLISECONDS)) {
-                        logger.error("Timeout for backoff topic connections {}", topic);
-                        invalidate = Boolean.TRUE;
+                        logger.error("Timeout backoff topic connections {}", topic);
                     } else if (null != latch) {
                         latch.countDown();
                         logger.info("Backoff connections for topic {}", topic);
                     }
                 } catch (InterruptedException e) {
                     logger.error("Interrupted while waiting for back off on all connections for {}", topic);
-                    invalidate = Boolean.TRUE;
-                } finally {
-                    if(invalidate) {
-                        for (NSQConnectionWrapper sub : subs) {
-                            sub.getConn().invalidate();
-                        }
-                    }
                 }
+            } finally {
+                subs.writeUnlock();
             }
         }
     }
@@ -263,14 +289,14 @@ public class ConnectionManager {
 
         final ConnectionWrapperSet subs = topic2Subs.get(topic);
         if(null != subs) {
-            synchronized (subs) {
+            subs.writeLock();
+            try {
                 if(!subs.resume()) {
                     logger.info("topic {} is already in resumed.", topic);
                     if(null != latch)
                         latch.countDown();
                     return;
                 }
-                boolean rollback = Boolean.FALSE;
                 int latchCount = subs.size();
                 final CountDownLatch resumeLatch = new CountDownLatch(latchCount);
                 exec.submit(new Runnable() {
@@ -291,21 +317,16 @@ public class ConnectionManager {
                 try {
                     if (!resumeLatch.await(latchCount * RDY_TIMEOUT, TimeUnit.MILLISECONDS)) {
                         logger.error("Timeout for resume topic connections {}", topic);
-                        rollback = Boolean.TRUE;
                     } else if (null != latch) {
                         latch.countDown();
                         logger.info("Resume connections for topic {}", topic);
                     }
                 } catch (InterruptedException e) {
                     logger.error("Interrupted while waiting for resume on all connections for {}", topic);
-                    rollback = Boolean.TRUE;
                 } finally {
-                    if(rollback) {
-                        for (NSQConnectionWrapper sub : subs) {
-                            sub.getConn().invalidate();
-                        }
-                    }
                 }
+            } finally {
+                subs.writeUnlock();
             }
         }
     }
@@ -321,17 +342,19 @@ public class ConnectionManager {
 //                                  ceilingRdy = availableRdy;
             final int newRdy = Math.min(ceilingRdy, currentRdy + 1);
             if (newRdy > currentRdy) {
-                con.command(new Rdy(newRdy)).addListener(new ChannelFutureListener() {
-                    @Override
-                    public void operationComplete(ChannelFuture channelFuture) throws Exception {
-                        if (channelFuture.isSuccess()) {
-                            int lastRdy = con.getCurrentRdyCount();
-                            con.setCurrentRdyCount(newRdy);
-                            conSet.addTotalRdy(newRdy - lastRdy);
+                ChannelFuture future = con.command(new Rdy(newRdy));
+                if(null != future)
+                    future.addListener(new ChannelFutureListener() {
+                        @Override
+                        public void operationComplete(ChannelFuture channelFuture) throws Exception {
+                            if (channelFuture.isSuccess()) {
+                                int lastRdy = con.getCurrentRdyCount();
+                                con.setCurrentRdyCount(newRdy);
+                                conSet.addTotalRdy(newRdy - lastRdy);
+                            }
+                            latch.countDown();
                         }
-                        latch.countDown();
-                    }
-                });
+                    });
             } else {
                 latch.countDown();
             }
@@ -346,18 +369,20 @@ public class ConnectionManager {
             //update rdy
             final int expectedRdy = con.getExpectedRdy();
             final int newRdy = Math.min(currentRdy - 1, expectedRdy);
-            con.command(new Rdy(newRdy)).addListener(new ChannelFutureListener() {
-                @Override
-                public void operationComplete(ChannelFuture channelFuture) throws Exception {
-                    if (channelFuture.isSuccess()) {
-                        int lastRdy = con.getCurrentRdyCount();
-                        con.setCurrentRdyCount(newRdy);
-                        conSet.addTotalRdy(newRdy - lastRdy);
+            ChannelFuture future = con.command(new Rdy(newRdy));
+            if(null != future)
+                future.addListener(new ChannelFutureListener() {
+                    @Override
+                    public void operationComplete(ChannelFuture channelFuture) throws Exception {
+                        if (channelFuture.isSuccess()) {
+                            int lastRdy = con.getCurrentRdyCount();
+                            con.setCurrentRdyCount(newRdy);
+                            conSet.addTotalRdy(newRdy - lastRdy);
+                        }
+                        //latch count down
+                        latch.countDown();
                     }
-                    //latch count down
-                    latch.countDown();
-                }
-            });
+                });
         } else {
             //latch count down
             latch.countDown();
@@ -368,30 +393,20 @@ public class ConnectionManager {
        for(String topic:topic2Subs.keySet()) {
            final ConnectionWrapperSet subs = topic2Subs.get(topic);
            if(null != subs) {
-               synchronized (subs) {
+               subs.writeLock();
+               try {
                    final int latchCount = subs.size();
                    final CountDownLatch latch = new CountDownLatch(latchCount);
                    if (!mayTimeout && scheduleLoad <= THRESDHOLD && !subs.isBackoff()) {
                        for (NSQConnectionWrapper sub : subs) {
                            final NSQConnection con = sub.getConn();
-                           exec.submit(new Runnable() {
-                               @Override
-                               public void run() {
-                                   mayIncreaseRdy(con, rdyPerCon, subs, latch);
-
-                               }
-                           });
+                           mayIncreaseRdy(con, rdyPerCon, subs, latch);
                        }
                    } else if ((scheduleLoad >= WATER_HIGH && mayTimeout) && !subs.isBackoff()) {
                        //rdy decrease
                        for (NSQConnectionWrapper sub : subs) {
                            final NSQConnection con = sub.getConn();
-                           exec.submit(new Runnable() {
-                               @Override
-                               public void run() {
-                                   mayDeclineRdy(con, subs, latch);
-                               }
-                           });
+                           mayDeclineRdy(con, subs, latch);
                        }
                    }
                    //await for may rdy updates
@@ -402,6 +417,8 @@ public class ConnectionManager {
                    } catch (InterruptedException e) {
                        logger.error("Interrupted while waiting for resume on all connections for {}", topic);
                    }
+               } finally {
+                   subs.writeUnlock();
                }
            }
        }

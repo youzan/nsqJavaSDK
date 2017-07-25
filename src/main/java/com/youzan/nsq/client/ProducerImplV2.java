@@ -10,6 +10,7 @@ import com.youzan.nsq.client.entity.*;
 import com.youzan.nsq.client.exception.*;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
+import com.youzan.nsq.client.network.frame.ResponseFrame;
 import com.youzan.util.HostUtil;
 import com.youzan.util.IOUtil;
 import com.youzan.util.NamedThreadFactory;
@@ -21,6 +22,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -38,10 +40,11 @@ public class ProducerImplV2 implements Producer {
     private static final Logger PERF_LOG = LoggerFactory.getLogger(ProducerImplV2.class.getName() + ".perf");
 
     private static final int MAX_PUBLISH_RETRY = 6;
-    private final Object lock = new Object();
-
     private static final int MAX_MSG_OUTPUT_LEN = 100;
-    private volatile boolean started = false;
+
+    private AtomicBoolean started = new AtomicBoolean(Boolean.FALSE);
+    private AtomicBoolean closing = new AtomicBoolean(Boolean.FALSE);
+
     private volatile int offset = 0;
     private final GenericKeyedObjectPoolConfig poolConfig;
     private final KeyedPooledConnectionFactory factory;
@@ -155,47 +158,42 @@ public class ProducerImplV2 implements Producer {
 
     @Override
     public void start() throws NSQException {
-        if (!this.started) {
-            synchronized (lock) {
-                if(this.started)
-                    return;
-                if (!validateLookupdSource()) {
-                    throw new IllegalArgumentException("Producer could not start with invalid lookupd address sources.");
-                }
-
-                this.started = true;
-                // setting all of the configs
-                this.offset = _r.nextInt(100);
-                this.poolConfig.setLifo(true);
-                this.poolConfig.setFairness(false);
-                this.poolConfig.setTestOnBorrow(false);
-                this.poolConfig.setTestOnReturn(false);
-                //If testWhileIdle is true, examined objects are validated when visited (and removed if invalid);
-                //otherwise only objects that have been idle for more than minEvicableIdleTimeMillis are removed.
-                this.poolConfig.setTestWhileIdle(true);
-                this.poolConfig.setJmxEnabled(true);
-                //connection need being validated after idle time
-                this.poolConfig.setSoftMinEvictableIdleTimeMillis(5 * 60 * 1000);
-                //this need to be negative, otherwise min idle per key setting won't work
-                this.poolConfig.setMinEvictableIdleTimeMillis(-1);
-                this.poolConfig.setTimeBetweenEvictionRunsMillis(60 * 1000);
-                this.poolConfig.setMinIdlePerKey(this.config.getMinIdleConnectionForProducer());
-                this.poolConfig.setMaxIdlePerKey(this.config.getConnectionSize());
-                this.poolConfig.setMaxTotalPerKey(this.config.getConnectionSize());
-                // acquire connection waiting time
-                this.poolConfig.setMaxWaitMillis(this.config.getConnWaitTimeoutForProducerInMilliSec());
-                this.poolConfig.setBlockWhenExhausted(false);
-                // new instance without performing to connect
-                this.bigPool = new GenericKeyedObjectPool<>(this.factory, this.poolConfig);
-                if (this.config.getUserSpecifiedLookupAddress()) {
-                    LookupAddressUpdate.getInstance().setUpDefaultSeedLookupConfig(this.simpleClient.getLookupLocalID(), this.config.getLookupAddresses());
-                }
-                //simple client starts and LookupAddressUpdate instance initialized there.
-                this.simpleClient.start();
-                scheduler.scheduleAtFixedRate(EXPIRED_TOPIC_CLEANER, 30, 30, TimeUnit.MINUTES);
+        if (started.compareAndSet(Boolean.FALSE, Boolean.TRUE)) {
+            if (!validateLookupdSource()) {
+                throw new IllegalArgumentException("Producer could not start with invalid lookupd address sources.");
             }
+
+            // setting all of the configs
+            this.offset = _r.nextInt(100);
+            this.poolConfig.setLifo(true);
+            this.poolConfig.setFairness(false);
+            this.poolConfig.setTestOnBorrow(false);
+            this.poolConfig.setTestOnReturn(false);
+            //If testWhileIdle is true, examined objects are validated when visited (and removed if invalid);
+            //otherwise only objects that have been idle for more than minEvicableIdleTimeMillis are removed.
+            this.poolConfig.setTestWhileIdle(true);
+            this.poolConfig.setJmxEnabled(true);
+            //connection need being validated after idle time
+            this.poolConfig.setSoftMinEvictableIdleTimeMillis(5 * 60 * 1000);
+            //this need to be negative, otherwise min idle per key setting won't work
+            this.poolConfig.setMinEvictableIdleTimeMillis(-1);
+            this.poolConfig.setTimeBetweenEvictionRunsMillis(60 * 1000);
+            this.poolConfig.setMinIdlePerKey(this.config.getMinIdleConnectionForProducer());
+            this.poolConfig.setMaxIdlePerKey(this.config.getConnectionSize());
+            this.poolConfig.setMaxTotalPerKey(this.config.getConnectionSize());
+            // acquire connection waiting time
+            this.poolConfig.setMaxWaitMillis(this.config.getConnWaitTimeoutForProducerInMilliSec());
+            this.poolConfig.setBlockWhenExhausted(false);
+            // new instance without performing to connect
+            this.bigPool = new GenericKeyedObjectPool<>(this.factory, this.poolConfig);
+            if (this.config.getUserSpecifiedLookupAddress()) {
+                LookupAddressUpdate.getInstance().setUpDefaultSeedLookupConfig(this.simpleClient.getLookupLocalID(), this.config.getLookupAddresses());
+            }
+            //simple client starts and LookupAddressUpdate instance initialized there.
+            this.simpleClient.start();
+            scheduler.scheduleAtFixedRate(EXPIRED_TOPIC_CLEANER, 30, 30, TimeUnit.MINUTES);
+            logger.info("The producer has been started.");
         }
-        logger.info("The producer has been started.");
     }
 
     /**
@@ -316,7 +314,7 @@ public class ProducerImplV2 implements Producer {
         if (null == topic || null == topic.getTopicText() || topic.getTopicText().isEmpty()) {
             throw new IllegalArgumentException("Your input topic name is blank!");
         }
-        if (!started) {
+        if (!started.get() || closing.get()) {
             throw new IllegalStateException("Producer must be started before producing messages!");
         }
         total.incrementAndGet();
@@ -555,7 +553,26 @@ public class ProducerImplV2 implements Producer {
 
     @Override
     public void incoming(NSQFrame frame, NSQConnection conn) throws NSQException {
-        simpleClient.incoming(frame, conn);
+        switch (frame.getType()) {
+            case RESPONSE_FRAME: {
+                if (frame.isHeartBeat() && conn.isIdentitySent()) {
+                    this.simpleClient.incoming(frame, conn);
+                } else {
+                    conn.addResponseFrame((ResponseFrame) frame);
+                }
+                break;
+            }
+            case ERROR_FRAME: {
+                final ErrorFrame err = (ErrorFrame) frame;
+                conn.addErrorFrame(err);
+                logger.warn("Error-Frame from {} , frame: {}", conn.getAddress(), frame);
+                break;
+            }
+            default: {
+                logger.warn("Invalid frame-type from {} , frame-type: {} , frame: {}", conn.getAddress(), frame.getType(), frame);
+                break;
+            }
+        }
     }
 
 
@@ -580,21 +597,17 @@ public class ProducerImplV2 implements Producer {
 
     @Override
     public void close() {
-        if(this.started) {
-            synchronized (lock) {
-                if(!this.started)
-                    return;
-                IOUtil.closeQuietly(simpleClient);
-                if (factory != null) {
-                    factory.close();
-                }
-                if (bigPool != null) {
-                    bigPool.close();
-                }
-                scheduler.shutdownNow();
-                logger.info("The producer has been closed.");
-                LookupAddressUpdate.getInstance().closed();
+        if(this.started.get() && this.closing.compareAndSet(Boolean.FALSE, Boolean.TRUE)) {
+            IOUtil.closeQuietly(simpleClient);
+            if (factory != null) {
+                factory.close();
             }
+            if (bigPool != null) {
+                bigPool.close();
+            }
+            scheduler.shutdownNow();
+            logger.info("The producer has been closed.");
+            LookupAddressUpdate.getInstance().closed();
         }
     }
 

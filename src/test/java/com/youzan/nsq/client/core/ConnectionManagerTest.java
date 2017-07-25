@@ -366,30 +366,32 @@ public class ConnectionManagerTest {
             }
 
             //remove par0 par1 for test5Par1Rep
-            Map<String, List<Address>> removeMap = new HashMap<>();
-            removeMap.put(topic, new ArrayList<Address>());
-            List<Address> conLists = removeMap.get(topic);
-            conLists.add(connList.get(0).getAddress());
-            conLists.add(connList.get(1).getAddress());
+            Map<String, List<ConnectionManager.NSQConnectionWrapper>> removeMap = new HashMap<>();
+            removeMap.put(topic, new ArrayList<ConnectionManager.NSQConnectionWrapper>());
+            List<ConnectionManager.NSQConnectionWrapper> conLists = removeMap.get(topic);
+            conLists.add(new ConnectionManager.NSQConnectionWrapper(connList.get(0)));
+            conLists.add(new ConnectionManager.NSQConnectionWrapper(connList.get(1)));
 
             Assert.assertTrue(conMgr.remove(removeMap));
+            Assert.assertEquals(((ConnectionManager.ConnectionWrapperSet)conMgr.getSubscribeConnections(topic)).getTotalRdy(), 3, "total rdy for " + topic + " does not equal.");
 
             Set<ConnectionManager.NSQConnectionWrapper> conWprs = conMgr.getSubscribeConnections(topic);
             Assert.assertEquals(conWprs.size(), 3);
             conWprs = conMgr.getSubscribeConnections(topicJ);
             Assert.assertEquals(conWprs.size(), 1);
 
-            conLists.add(connList.get(2).getAddress());
+            conLists.add(new ConnectionManager.NSQConnectionWrapper(connList.get(2)));
 
             Assert.assertTrue(conMgr.remove(removeMap));
+            Assert.assertEquals(((ConnectionManager.ConnectionWrapperSet)conMgr.getSubscribeConnections(topic)).getTotalRdy(), 2, "total rdy for " + topic + " does not equal.");
 
             conWprs = conMgr.getSubscribeConnections(topic);
             Assert.assertEquals(conWprs.size(), 2);
 
             //add another topic-> conn into map
-            removeMap.put(topicJ, new ArrayList<Address>());
-            List<Address> conListsJ = removeMap.get(topicJ);
-            conListsJ.add(connList.get(5).getAddress());
+            removeMap.put(topicJ, new ArrayList<ConnectionManager.NSQConnectionWrapper>());
+            List<ConnectionManager.NSQConnectionWrapper> conListsJ = removeMap.get(topicJ);
+            conListsJ.add(new ConnectionManager.NSQConnectionWrapper(connList.get(5)));
 
             Assert.assertTrue(conMgr.remove(removeMap));
 
@@ -517,13 +519,8 @@ public class ConnectionManagerTest {
             }
             Map<Address, FixedPool> addr2Pool = consumer.getAddress2Pool();
             for(FixedPool pool : addr2Pool.values()) {
-               boolean invalidate = true;
                for(NSQConnection con : pool.getConnections()) {
-                   if (invalidate){
-                       con.invalidate();
-                       invalidate = false;
-                   }
-                   conMgr.subscribe(topic, con);
+                   con.close();
                }
             }
             //invalidate connection

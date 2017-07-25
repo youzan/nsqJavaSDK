@@ -6,6 +6,7 @@ import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.exception.ConfigAccessAgentException;
 import com.youzan.nsq.client.exception.NSQException;
+import com.youzan.nsq.client.utils.TopicUtil;
 import com.youzan.util.IOUtil;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.config.RequestConfig;
@@ -24,6 +25,7 @@ import org.testng.annotations.Test;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.charset.Charset;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -44,6 +46,8 @@ public class ITComplexConsumer {
     private Consumer consumer4ReQueue;
     private Consumer consumer4Finish;
     private HashSet<String> messages4Finish = new HashSet<>();
+    private String admin;
+    private String lookups;
 
 
     @BeforeClass
@@ -55,10 +59,9 @@ public class ITComplexConsumer {
             props.load(is);
         }
 
-        final String lookups = props.getProperty("lookup-addresses");
+        lookups = props.getProperty("lookup-addresses");
         final String connTimeout = props.getProperty("connectTimeoutInMillisecond");
-        final String admin = props.getProperty("admin-address");
-        config.setUserSpecifiedLookupAddress(true);
+        admin = "http://" + props.getProperty("admin-address");
         config.setLookupAddresses(lookups);
         config.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
         config.setThreadPoolSize4IO(Runtime.getRuntime().availableProcessors() * 2);
@@ -68,21 +71,7 @@ public class ITComplexConsumer {
         // curl -X /api/topics/:topic/:channel    body: {"action":"empty"}
         String[] topics = new String[]{"JavaTesting-Finish", "JavaTesting-ReQueue"};
         for (String t : topics) {
-            final String url = String.format("http://%s/api/topics/%s/%s", admin, t, consumerName);
-            logger.debug("Empty channel {}", url);
-
-            RequestConfig requestConfig = RequestConfig.custom()
-                    .setConnectTimeout(5 * 1000)
-                    .setConnectionRequestTimeout(10 * 1000)
-                    .build();
-            HttpEntity entity = new StringEntity("{\"action\":\"empty\"}");
-
-            final CloseableHttpClient httpclient = HttpClients.createDefault();
-            final HttpPost httpPost = new HttpPost(url);
-            httpPost.setConfig(requestConfig);
-            httpPost.setEntity(entity);
-            final CloseableHttpResponse response = httpclient.execute(httpPost);
-            response.close();
+            TopicUtil.emptyQueue(admin, t, consumerName);
         }
         // create new instances
         producer = new ProducerImplV2(config);
@@ -175,6 +164,50 @@ public class ITComplexConsumer {
         latch.await(1, TimeUnit.MINUTES);
     }
 
+    @Test
+    public void testReadabeAttempt() throws Exception {
+        logger.info("[testReadableAttempt] starts.");
+        final String topic = "JavaTesting-ReQueue";
+        TopicUtil.emptyQueue(admin, topic, "BaseConsumer");
+        final NSQConfig config = new NSQConfig("BaseConsumer");
+        config.setMaxRequeueTimes(1024);
+        config.setLookupAddresses(lookups);
+        Producer producer = new ProducerImplV2(config);
+        producer.start();
+        producer.publish("message".getBytes(Charset.defaultCharset()), topic);
+        producer.close();
+
+        //consume
+        Consumer consumer = null;
+        try {
+            final CountDownLatch latch = new CountDownLatch(1);
+            final AtomicInteger cnt = new AtomicInteger(0);
+            consumer = new ConsumerImplV2(config, new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    int attempt = message.getReadableAttempts();
+                    if (attempt - cnt.get() != 1) {
+                        latch.countDown();
+                    } else {
+                        logger.info("msg attempt: {}", cnt.incrementAndGet());
+                        try {
+                            message.setNextConsumingInSecond(0);
+                        } catch (NSQException e) {
+                            logger.error("fail to set message requeue timeout.");
+                        }
+                        throw new RuntimeException("on purpose");
+                    }
+                }
+            });
+            consumer.subscribe(topic);
+            consumer.start();
+            Assert.assertFalse(latch.await(2, TimeUnit.MINUTES));
+        }finally {
+            consumer.close();
+            TopicUtil.emptyQueue(admin, topic, "BaseConsumer");
+            logger.info("[testReadableAttempt] ends.");
+        }
+    }
 
     private String newMessage() {
         return "String Message: " + counter.getAndIncrement() + " . At: " + System.currentTimeMillis();

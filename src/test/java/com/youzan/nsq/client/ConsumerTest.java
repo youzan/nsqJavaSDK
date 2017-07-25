@@ -128,11 +128,9 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
                 Assert.assertEquals(actualRdy, expectRdy, "rdy in connection does not equals to expected rdy.");
             }
         }finally {
-            exec.shutdown();
+            exec.shutdownNow();
             Thread.sleep(10000L);
             producer.close();
-            logger.info("Wait for 10sec to clean mq channel.");
-            Thread.sleep(10000L);
             consumer.close();
             String adminHttp = "http://" + props.getProperty("admin-address");
             TopicUtil.emptyQueue(adminHttp, topic, "BaseConsumer");
@@ -141,7 +139,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
     }
 
     @Test
-    public void testLoadFactor() throws NSQException, InterruptedException {
+    public void testLoadFactor() throws Exception {
         logger.info("[testLoadFactor] starts.");
         final String topic = "test5Par1Rep";
         int expectRdy = 10;
@@ -182,13 +180,56 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
                 lastLoadFactor = loadFactor;
             }
         }finally {
-            exec.shutdown();
+            exec.shutdownNow();
             Thread.sleep(10000L);
             producer.close();
-            logger.info("Wait for 10sec to clean mq channel.");
-            Thread.sleep(10000L);
             consumer.close();
+            String adminHttp = "http://" + props.getProperty("admin-address");
+            TopicUtil.emptyQueue(adminHttp, topic, "BaseConsumer");
             logger.info("[testLoadFactor] ends.");
+        }
+    }
+
+    @Test
+    public void testCloseConsumerWhileConsumption() throws Exception {
+        logger.info("[testCloseConsumerWhileConsumption] starts.");
+        final String topic = "test5Par1Rep";
+        int expectRdy = 10;
+        logger.info("ExpectedRdy: {}", expectRdy);
+        final NSQConfig config = new NSQConfig("BaseConsumer");
+        config.setLookupAddresses(props.getProperty("lookup-addresses"));
+        config.setRdy(expectRdy);
+        ScheduledExecutorService exec = null;
+        Producer producer = null;
+        Consumer consumer = null;
+        try {
+            producer = new ProducerImplV2(config);
+            producer.start();
+            exec = keepMessagePublish(producer, topic,10);
+            MessageHandler handler = new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException e) {
+                        logger.error("Interrupted while sleep");
+                    }
+                }
+            };
+
+            consumer = new ConsumerImplV2(config, handler);
+            consumer.subscribe(topic);
+            consumer.start();
+            logger.info("Wait for 60s for consumer to start...");
+            Thread.sleep(60000L);
+        }finally {
+            exec.shutdownNow();
+            Thread.sleep(1000L);
+            producer.close();
+            consumer.close();
+            String adminHttp = "http://" + props.getProperty("admin-address");
+            TopicUtil.emptyQueue(adminHttp, topic, "BaseConsumer");
+            logger.info("[testCloseConsumerWhileConsumption] ends.");
         }
     }
 
