@@ -269,7 +269,6 @@ public class NSQSimpleClient implements Client, Closeable {
                 break;
             }
             case ERROR_FRAME: {
-                final ErrorFrame err = (ErrorFrame) frame;
                 logger.warn("Error-Frame from {} , frame: {}", conn.getAddress(), frame);
                 if (Role.Consumer == this.role && !conn.getConfig().isOrdered()) {
                     conn.declineExpectedRdy();

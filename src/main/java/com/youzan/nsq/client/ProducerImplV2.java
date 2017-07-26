@@ -400,8 +400,6 @@ public class ProducerImplV2 implements Producer {
                 //throw it directly
                 throw exp;
             }
-            //bad connection to node. nsqd may down and need to invalidated
-            //TODO: review
             catch (NSQNoConnectionException badConnExp) {
                 logger.info("Try invalidating partition selectors for {}, due to NSQNoConnectionException.");
                 this.simpleClient.invalidatePartitionsSelector(msg.getTopic().getTopicText());
@@ -442,14 +440,6 @@ public class ProducerImplV2 implements Producer {
                     TraceLogger.trace(this, conn, (MessageMetadata) frame);
                 break;
             }
-            catch (TimeoutException te){
-                NSQTimeoutException nte = new NSQTimeoutException(te);
-                returnCon = true;
-                exceptions.add(nte);
-                if (c >= MAX_PUBLISH_RETRY) {
-                    throw new NSQPubException(exceptions);
-                }
-            }
             catch(NSQPubFactoryInitializeException | NSQTagException | NSQTopicNotExtendableException expShouldFail) {
                 throw expShouldFail;
             }
@@ -458,7 +448,7 @@ public class ProducerImplV2 implements Producer {
                 returnCon = false;
                 try {
                     bigPool.invalidateObject(conn.getAddress(), conn);
-                    logger.info("Connection invalidated.");
+                    logger.info("Connection to {} invalidated.", conn.getAddress());
                 } catch (Exception e1) {
                     logger.error("Fail to destroy connection {}.", conn.toString(), e1);
                 }

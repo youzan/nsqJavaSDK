@@ -79,8 +79,8 @@ public class ProducerTest extends AbstractNSQClientTestcase {
         }
     }
 
-    @Test(expectedExceptions = {NSQInvalidMessageException.class})
-    public void testPubMessageExceed() throws NSQException {
+    @Test(expectedExceptions = {NSQInvalidMessageException.class}, invocationCount = 5)
+    public void testPubMessageExceed() throws NSQException, InterruptedException {
         ByteBuffer bf =  ByteBuffer.allocate(2000000);
         int i = 0;
         while(i++ < 2000000) {
@@ -96,6 +96,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
             producer.start();
             producer.publish(bf.array(), topic);
         }finally {
+            Thread.sleep(3000);
             producer.close();
             logger.info("Producer closed");
         }

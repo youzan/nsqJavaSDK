@@ -22,6 +22,14 @@ public class ConnectionManager {
     private final static Logger logger = LoggerFactory.getLogger(ConnectionManager.class.getName());
     private Map<String, ConnectionWrapperSet> topic2Subs = new ConcurrentHashMap<>();
 
+    //success attemp of total rdy proofread count
+    private final AtomicInteger proofreadCnt = new AtomicInteger(0);
+    private final long PROOFREAD_INTERVAL = 30 * 60 * 1000L;
+    private static final float PROOFREAD_FACTOR_DELTA = 0.1f;
+    private static final float PROOFREAD_FACTOR_FLOOR = 0.1f;
+    private static final float PROOFREAD_FACTOR_DEFAULT = 1f;
+    private float proofreadFactor = PROOFREAD_FACTOR_DEFAULT;
+
     //executor for backoff & resume
     private final ExecutorService exec = Executors.newCachedThreadPool(new NamedThreadFactory("connMgr-job", Thread.NORM_PRIORITY));
     //schedule executor for backoff resume
@@ -67,10 +75,42 @@ public class ConnectionManager {
         private final AtomicInteger totalRdy = new AtomicInteger(0);
         private final AtomicBoolean isBackOff = new AtomicBoolean(false);
         private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+        private volatile float proofreadFactor = 1.0f;
+        private volatile long lastProofread = System.currentTimeMillis();
+
+        public long getLastProofread() {
+            return this.lastProofread;
+        }
+
+        public void setLastProofread(long proofreadTimeStamp) {
+            this.lastProofread = proofreadTimeStamp;
+        }
 
         public void addTotalRdy(int rdy) {
             int rdyTotal = this.totalRdy.addAndGet(rdy);
             assert rdyTotal >= 0;
+            float proofreadFactor = this.proofreadFactor;
+            if(proofreadFactor - PROOFREAD_FACTOR_DELTA >= PROOFREAD_FACTOR_FLOOR)
+                this.proofreadFactor = proofreadFactor - PROOFREAD_FACTOR_DELTA;
+            else {
+                this.proofreadFactor = PROOFREAD_FACTOR_FLOOR;
+            }
+        }
+
+        public int setTotalRdy(int newTotalrdy) {
+            assert newTotalrdy >= 0;
+            int oldRdy = this.totalRdy.get();
+            if(oldRdy != newTotalrdy && this.totalRdy.compareAndSet(oldRdy, newTotalrdy)) {
+                this.setLastProofread(System.currentTimeMillis());
+                //restore factor to defaut
+                this.proofreadFactor = PROOFREAD_FACTOR_DEFAULT;
+                return oldRdy;
+            }
+            return -1;
+        }
+
+        public float getProofreadFactor() {
+            return this.proofreadFactor;
         }
 
          public int getTotalRdy() {
@@ -109,14 +149,40 @@ public class ConnectionManager {
          public void writeUnlock() {
              this.lock.writeLock().unlock();
          }
+    }
 
-         public void readLock() {
-            this.lock.readLock().lock();
-         }
 
-         public void readUnlock() {
-            this.lock.readLock().unlock();
-         }
+    private void proofreadTotalRdy() {
+        for(String topic : this.topic2Subs.keySet()) {
+            proofreadTotalRdy(topic);
+        }
+        logger.info("rdy proofready end. Total {} topics' connections affected after this batch.");
+    }
+
+    /**
+     * proofread total rdy of current connection manager
+     */
+    private void proofreadTotalRdy(String topic) {
+        AtomicInteger totalRdy = new AtomicInteger(0);
+        final ConnectionWrapperSet cws = this.topic2Subs.get(topic);
+        if (null != cws) {
+            cws.writeLock();
+            try{
+               logger.info("Collecting Rdy for connections, topic {}...", topic);
+               for(Iterator<NSQConnectionWrapper> ite = cws.iterator(); ite.hasNext(); ) {
+                   NSQConnectionWrapper conWrapper = ite.next();
+                   totalRdy.addAndGet(conWrapper.getConn().getCurrentRdyCount());
+               }
+               if(totalRdy.get() > 0) {
+                  int oldTotal = cws.setTotalRdy(totalRdy.get());
+                  logger.info("Update total rdy for connections, topic {}, from {} to {}", topic, oldTotal, totalRdy.get());
+                  if(oldTotal > 0)
+                      proofreadCnt.incrementAndGet();
+               }
+            } finally {
+                cws.writeUnlock();
+            }
+        }
     }
 
     public void start() {
@@ -160,12 +226,19 @@ public class ConnectionManager {
         try{
             subs.add(new NSQConnectionWrapper(subscriber));
             if(!subs.isBackoff()) {
+                final CountDownLatch latch = new CountDownLatch(1);
                 subscriber.onRdy(rdy, new IRdyCallback() {
                     @Override
                     public void onUpdated(int newRdy, int lastRdy) {
                         subs.addTotalRdy(subscriber.getCurrentRdyCount());
+                        latch.countDown();
                     }
                 });
+                try {
+                    latch.await(RDY_TIMEOUT, TimeUnit.MILLISECONDS);
+                } catch (InterruptedException e) {
+                    logger.error("Interrupted waiting for rdy update for subscribe, topic {}, Connection {}", topic, subscriber);
+                }
             } else {
                 backoff(subscriber);
             }
@@ -202,8 +275,7 @@ public class ConnectionManager {
     }
 
     /**
-     * backoff a single connection to nsqd
-     * TODO: regardless of whether topic is backed off?
+     * backoff a single connection to nsqd, regardless of whether topic is backed off.
      * @param conn nsqd connection to backoff, connection manager check if connection belongs to current manager,
      *             backoff when it does.
      */
@@ -217,12 +289,19 @@ public class ConnectionManager {
         NSQConnectionWrapper connWrapper = new NSQConnectionWrapper(conn);
         final ConnectionWrapperSet conWrapperSet = topic2Subs.get(topic);
         if(conWrapperSet.contains(connWrapper)) {
+            final CountDownLatch latch = new CountDownLatch(1);
             conn.onBackoff(new IRdyCallback() {
                 @Override
                 public void onUpdated(int newRdy, int lastRdy) {
                     conWrapperSet.addTotalRdy(newRdy - lastRdy);
+                    latch.countDown();
                 }
             });
+            try {
+                latch.await(RDY_TIMEOUT, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                logger.error("Interrupted waiting for rdy update for backoff, connection {}", conn);
+            }
         } else {
             logger.error("Connection {} does not belong to current consumer.", conn);
         }
@@ -400,13 +479,23 @@ public class ConnectionManager {
                    if (!mayTimeout && scheduleLoad <= THRESDHOLD && !subs.isBackoff()) {
                        for (NSQConnectionWrapper sub : subs) {
                            final NSQConnection con = sub.getConn();
-                           mayIncreaseRdy(con, rdyPerCon, subs, latch);
+                           exec.submit(new Runnable() {
+                               @Override
+                               public void run() {
+                                   mayIncreaseRdy(con, rdyPerCon, subs, latch);
+                               }
+                           });
                        }
                    } else if ((scheduleLoad >= WATER_HIGH && mayTimeout) && !subs.isBackoff()) {
                        //rdy decrease
                        for (NSQConnectionWrapper sub : subs) {
                            final NSQConnection con = sub.getConn();
-                           mayDeclineRdy(con, subs, latch);
+                           exec.submit(new Runnable() {
+                               @Override
+                               public void run() {
+                                   mayDeclineRdy(con, subs, latch);
+                               }
+                           });
                        }
                    }
                    //await for may rdy updates
@@ -419,6 +508,9 @@ public class ConnectionManager {
                    }
                } finally {
                    subs.writeUnlock();
+               }
+               if (System.currentTimeMillis() - subs.getLastProofread() > subs.getProofreadFactor() * PROOFREAD_INTERVAL) {
+                   proofreadTotalRdy(topic);
                }
            }
        }

@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -134,7 +135,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
             try {
                 response = _commandAndGetResposne(identify);
             } catch (InterruptedException e) {
-                logger.error("Interrupted waiting for identity from {}", this.address);
+                logger.error("Identity fail to {}", this.address);
             }
             if (null == response) {
                 throw new IllegalStateException("Bad Identify Response! Close connection!");
@@ -155,7 +156,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         return channel.writeAndFlush(cmd);
     }
 
-    private NSQFrame _commandAndGetResposne(final NSQCommand command) throws TimeoutException, InterruptedException {
+    private NSQFrame _commandAndGetResposne(final NSQCommand command) throws TimeoutException, InterruptedException{
         final long start = System.currentTimeMillis();
         long timeout = queryTimeoutInMillisecond - (System.currentTimeMillis() - start);
         if (!requests.offer(command, timeout, TimeUnit.MILLISECONDS)) {
@@ -163,13 +164,24 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
                     "The command timeout in " + timeout + " milliSec. The command name is : " + command.getClass().getName());
         }
 
+        // wait to get the response
+        final CountDownLatch sendLatch = new CountDownLatch(1);
         responses.clear(); // clear
         // write data
         final ChannelFuture future = command(command);
+        future.addListener(new ChannelFutureListener() {
+            @Override
+            public void operationComplete(ChannelFuture future) throws Exception {
+                if(!future.isSuccess()) {
+                    Throwable cause = future.cause();
+                    logger.warn("{} failed with exception: {}", command, cause == null ? null : cause.getMessage());
+                }
+                sendLatch.countDown();
+            }
+        });
 
-        // wait to get the response
         timeout = queryTimeoutInMillisecond - (System.currentTimeMillis() - start);
-        if (!future.await(timeout, TimeUnit.MILLISECONDS)) {
+        if(!sendLatch.await(timeout, TimeUnit.MILLISECONDS)) {
             throw new TimeoutException(
                     "The command timeout in " + timeout + " milliSec. The command name is : " + command.getClass().getName());
         }
@@ -177,7 +189,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         final NSQFrame frame = responses.poll(timeout, TimeUnit.MILLISECONDS);
         if (frame == null) {
             throw new TimeoutException(
-                    "The command timeout in " + timeout + " milliSec. The command name is : " + command.getClass().getName());
+                    "The command timeout receiving response frame in " + timeout + " milliSec. The command name is : " + command.getClass().getName());
         }
 
         requests.poll(); // clear

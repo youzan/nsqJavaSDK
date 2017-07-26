@@ -12,7 +12,6 @@ import io.netty.channel.ChannelFuture;
 import io.netty.util.AttributeKey;
 
 import java.io.Closeable;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
 
 /**
