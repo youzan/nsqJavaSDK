@@ -699,11 +699,23 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         return this.producerRetryIntervalBase;
     }
 
+    /**
+     * Deprecated in SDK 2.4
+     * set max requeue times threshold for one message.
+     * @param times
+     * @return {@link NSQConfig}
+     */
+    @Deprecated
     public NSQConfig setMaxRequeueTimes(int times) {
        this.maxRequeueTimes = times;
        return this;
     }
 
+    /**
+     * Deprecated in SDK 2.4.
+     * @return threshold of requeue time for one message.
+     */
+    @Deprecated
     public int getMaxRequeueTimes() {
         return this.maxRequeueTimes;
     }

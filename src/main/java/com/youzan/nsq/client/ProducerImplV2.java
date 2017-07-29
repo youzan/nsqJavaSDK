@@ -165,7 +165,8 @@ public class ProducerImplV2 implements Producer {
 
             // setting all of the configs
             this.offset = _r.nextInt(100);
-            this.poolConfig.setLifo(true);
+
+            this.poolConfig.setLifo(false);
             this.poolConfig.setFairness(false);
             this.poolConfig.setTestOnBorrow(false);
             this.poolConfig.setTestOnReturn(false);
@@ -174,10 +175,11 @@ public class ProducerImplV2 implements Producer {
             this.poolConfig.setTestWhileIdle(true);
             this.poolConfig.setJmxEnabled(true);
             //connection need being validated after idle time
-            this.poolConfig.setSoftMinEvictableIdleTimeMillis(5 * 60 * 1000);
+            this.poolConfig.setSoftMinEvictableIdleTimeMillis(5 * config.getHeartbeatIntervalInMillisecond());
             //this need to be negative, otherwise min idle per key setting won't work
             this.poolConfig.setMinEvictableIdleTimeMillis(-1);
-            this.poolConfig.setTimeBetweenEvictionRunsMillis(60 * 1000);
+            //number of milliseconds to sleep between runs of the idle object evictor thread
+            this.poolConfig.setTimeBetweenEvictionRunsMillis(2 * 60 * 1000);
             this.poolConfig.setMinIdlePerKey(this.config.getMinIdleConnectionForProducer());
             this.poolConfig.setMaxIdlePerKey(this.config.getConnectionSize());
             this.poolConfig.setMaxTotalPerKey(this.config.getConnectionSize());
@@ -444,8 +446,8 @@ public class ProducerImplV2 implements Producer {
                 throw expShouldFail;
             }
             catch (Exception e) {
-                IOUtil.closeQuietly(conn);
                 returnCon = false;
+                IOUtil.closeQuietly(conn);
                 try {
                     bigPool.invalidateObject(conn.getAddress(), conn);
                     logger.info("Connection to {} invalidated.", conn.getAddress());

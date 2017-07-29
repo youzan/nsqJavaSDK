@@ -53,7 +53,6 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     private final AtomicInteger re = new AtomicInteger(0); // have done reQueue
     private final AtomicInteger queue4Consume = new AtomicInteger(0); // have done reQueue
     protected ConnectionManager conMgr;
-    Producer compensateProducer;
 
     /*-
      * =========================================================================
@@ -667,22 +666,10 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             } else {
                 // an error occurs
                 if (nextConsumingWaiting != null) {
-                    //check if max retry times reaches before requeue
-                    // Post
-                    if (!this.config.isOrdered() && message.getReadableAttempts() > this.config.getMaxRequeueTimes()) {
-                        logger.warn("Message {} has reached max retry limitation: {}. it will be published to NSQ again for consume.", message, this.config.getMaxRequeueTimes());
-                        try {
-                            compensationPublish(connection.getTopic(), message);
-                            cmd = new Finish(message.getMessageID());
-                        } catch (NSQException e) {
-                            logger.error("Fail to publish compensation message for incoming message {}. Retry in next round.");
-                        }
-                    }else {
-                        // ReQueue
-                        cmd = new ReQueue(message.getMessageID(), nextConsumingWaiting.intValue());
-                        final byte[] id = message.getMessageID();
-                        logger.info("Do a re-queue by SDK that is a default behavior. MessageID: {} , Hex: {}", id, message.newHexString(id));
-                    }
+                    // ReQueue
+                    cmd = new ReQueue(message.getMessageID(), nextConsumingWaiting.intValue());
+                    final byte[] id = message.getMessageID();
+                    logger.info("Do a re-queue by SDK that is a default behavior. MessageID: {} , Hex: {}", id, message.newHexString(id));
                 } else {
                     if (!this.config.isOrdered() && end > this.config.getMsgTimeoutInMillisecond()) {
                         logger.warn("It tooks {} milliSec to for message to be consumed by message handler, and exceeds message timeout in nsq config. Fin not be invoked as requeue from NSQ server is on its way.", end);
@@ -741,26 +728,6 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         }
     }
 
-    private Producer compensationPublish(final Topic topic, final NSQMessage msg) throws NSQException {
-        if(null == topic) {
-            logger.warn("Could not create producer, pass in topic is null.");
-            return null;
-        }
-        logger.info("Compensation publish to {}", topic);
-        if(null == this.compensateProducer){
-            synchronized (this) {
-                if(null == this.compensateProducer){
-                    this.compensateProducer = new ProducerImplV2(this.config);
-                    this.compensateProducer.start();
-                }
-            }
-        }
-        Message newMsg = Message.create(topic, msg.getTraceID(), msg.getReadableContent());
-        this.compensateProducer.publish(newMsg);
-        logger.info("Compensation publish finished.");
-        return this.compensateProducer;
-    }
-
     @Override
     @ThreadSafe
     public void backoff(NSQConnection conn) {
@@ -800,8 +767,6 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                     Thread.currentThread().interrupt();
                 }
                 close(connections);
-                if (null != this.compensateProducer)
-                    this.compensateProducer.close();
                 logger.info("The consumer has been closed.");
             } finally {
                 cLock.writeLock().unlock();

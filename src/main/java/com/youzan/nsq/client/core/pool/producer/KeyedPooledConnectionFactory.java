@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
+ * Connection pool factory for {@link oracle.jvm.hotspot.jfr.Producer}
  * <pre>
  * It is a big pool that consists of some sub-pools.
  * Just handle TCP-Connection Object.
@@ -41,9 +42,6 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
     private final EventLoopGroup eventLoopGroup;
     private final ConcurrentHashMap<Address, Bootstrap> bootstraps = new ConcurrentHashMap<>();
     private final Object bootstrapsLock = new Object();
-//    private final ConcurrentHashMap<Address, Long> address_2_bootedTime = new ConcurrentHashMap<>();
-//    private final  ScheduledExecutorService scheduler = Executors
-//            .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
 
 
     /**
@@ -59,7 +57,6 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
         this.config = config;
         this.client = client;
         this.eventLoopGroup = new NioEventLoopGroup(config.getThreadPoolSize4IO());
-//        keep();
     }
 
     @Override
@@ -136,8 +133,7 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
         final NSQConnection connection = p.getObject();
         // another implementation : use client.heartbeat,or called
         // client.validateConnection
-        if (null != connection && connection.isConnected()) {
-            //producer connection validation
+        if (null != connection && connection.isConnected() && connection.isIdentitySent()) {
             return client.validateHeartbeat(connection);
         }
         logger.warn("NSQConnection {} fails validation.", address);
@@ -153,17 +149,9 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
         }
     }
 
-//    private void clearDataNode(Address address) {
-//        synchronized (address) {
-//            bootstraps.remove(address);
-//            address_2_bootedTime.remove(address);
-//            client.clearDataNode(address);
-//        }
-//    }
 
     public void close() {
         bootstraps.clear();
-//        address_2_bootedTime.clear();
         if (eventLoopGroup != null && !eventLoopGroup.isShuttingDown()) {
             eventLoopGroup.shutdownGracefully(1, 2, TimeUnit.SECONDS);
         }

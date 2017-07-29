@@ -8,13 +8,6 @@ import com.youzan.nsq.client.exception.ConfigAccessAgentException;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.utils.TopicUtil;
 import com.youzan.util.IOUtil;
-import org.apache.http.HttpEntity;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -78,18 +71,14 @@ public class ITComplexConsumer {
         producer.start();
     }
 
-    @Test(priority = 9, groups = {"Finish"})
-    public void produceFinish() throws NSQException {
+    @Test
+    public void testFinish() throws NSQException, InterruptedException {
         for (int i = 0; i < 10; i++) {
             String message = newMessage();
             producer.publish(message, "JavaTesting-Finish");
             messages4Finish.add(message);
         }
         logger.debug("======messages4Finish:{} ", messages4Finish);
-    }
-
-    @Test(priority = 10, dependsOnGroups = {"Finish"})
-    public void consumeFinish() throws InterruptedException, NSQException {
         final int count = 10;
         final CountDownLatch latch = new CountDownLatch(count);
         final HashSet<String> actualMessages = new HashSet<>();
@@ -131,17 +120,14 @@ public class ITComplexConsumer {
         }
     }
 
-    @Test(priority = 9, groups = {"ReQueue"})
-    public void produceReQueue() throws NSQException {
+    @Test
+    public void testReQueue() throws Exception {
         for (int i = 0; i < 10; i++) {
             final byte[] message = new byte[32];
             _r.nextBytes(message);
             producer.publish(message, "JavaTesting-ReQueue");
         }
-    }
 
-    @Test(priority = 10, dependsOnGroups = {"ReQueue"})
-    public void consumeReQueue() throws InterruptedException, NSQException {
         final CountDownLatch latch = new CountDownLatch(10);
         final MessageHandler handler = new MessageHandler() {
             @Override
@@ -162,6 +148,7 @@ public class ITComplexConsumer {
         consumer4ReQueue.subscribe("JavaTesting-ReQueue");
         consumer4ReQueue.start();
         latch.await(1, TimeUnit.MINUTES);
+        TopicUtil.emptyQueue(admin, "JavaTesting-ReQueue", consumerName);
     }
 
     @Test
@@ -201,7 +188,7 @@ public class ITComplexConsumer {
             });
             consumer.subscribe(topic);
             consumer.start();
-            Assert.assertFalse(latch.await(2, TimeUnit.MINUTES));
+            Assert.assertFalse(latch.await(1, TimeUnit.MINUTES));
         }finally {
             consumer.close();
             TopicUtil.emptyQueue(admin, topic, "BaseConsumer");

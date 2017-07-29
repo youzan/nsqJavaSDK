@@ -32,6 +32,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     private static final long serialVersionUID = 7139923487863469738L;
 
     private final ReentrantReadWriteLock conLock = new ReentrantReadWriteLock();
+    private final ReentrantReadWriteLock conClsLock = new ReentrantReadWriteLock();
     private final int id; // primary key
     private final long queryTimeoutInMillisecond;
 
@@ -275,12 +276,17 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     @Override
     public void close() {
         logger.info("Begin to clear {}", this);
-        conLock.writeLock().lock();
-        try {
-           _close();
-        } finally {
-            conLock.writeLock().unlock();
+        //extra lock to proof from more than one thread waiting for close
+        if (conClsLock.writeLock().tryLock()) {
+            conLock.writeLock().lock();
+            try {
+                _close();
+            } finally {
+                conLock.writeLock().unlock();
+                conClsLock.writeLock().unlock();
+            }
         }
+        logger.info("End clear {}", this);
     }
 
     private void _close() {
