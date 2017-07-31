@@ -15,7 +15,7 @@ import java.util.List;
  *
  * 
  */
-public class Sub implements NSQCommand, PartitionEnable {
+public class Sub implements NSQCommand {
     private static final Logger logger = LoggerFactory.getLogger(Sub.class);
 
     protected byte[] data = null;
@@ -55,7 +55,6 @@ public class Sub implements NSQCommand, PartitionEnable {
         return EMPTY_BODY;
     }
 
-    @Override
     public byte[] getPartitionIdByte(Topic topic) {
         return topic.hasPartition() ?
                 (SPACE_STR + String.valueOf(topic.getPartitionId())).getBytes(DEFAULT_CHARSET) : new byte[0];

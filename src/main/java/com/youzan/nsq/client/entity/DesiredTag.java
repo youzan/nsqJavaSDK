@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
 public class DesiredTag implements IExtContent {
     //tag limitation in length
     private static final int TAG_FILTER_LIMIT = 100;
-    private static final Pattern VALID_TAG_REFEX = Pattern.compile("^[a-zA-Z0-9]+$");
+    private static final Pattern VALID_TAG_REFEX = Pattern.compile("^[a-zA-Z0-9_-]+$");
     private static final Logger logger = LoggerFactory.getLogger(DesiredTag.class);
 
     //default tag value is empty, it receives any messages in topic/channel

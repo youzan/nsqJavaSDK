@@ -12,4 +12,8 @@ public class NSQInvalidMessageException extends NSQException {
     public NSQInvalidMessageException(String message) {
         super(message);
     }
+
+    public NSQInvalidMessageException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

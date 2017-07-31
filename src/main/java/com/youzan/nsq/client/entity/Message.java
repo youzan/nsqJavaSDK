@@ -28,7 +28,7 @@ public class Message {
 
     //common part, message body
     private final byte[] messageBody;
-
+    private Object jsonHeaderExt;
     private String desiredTag = null;
 
     public String toString() {
@@ -107,6 +107,24 @@ public class Message {
         else {
            return this.desiredTag.getBytes(Charset.defaultCharset());
         }
+    }
+
+    /**
+     * Set json header extension for message, for {@link com.youzan.nsq.client.core.command.PubExt} purpose.
+     * json header ext ignored if current message is sent by commands other than {@link com.youzan.nsq.client.core.command.PubExt}
+     * @param jsonExt {@link Object} for json parse
+     */
+    public void setJsonHeaderExt(final Object jsonExt) {
+        this.jsonHeaderExt = jsonExt;
+    }
+
+    /**
+     * get json header extension for message, for {@link com.youzan.nsq.client.core.command.PubExt} purpose.
+     * json header ext ignored if current message is sent by commands other than {@link com.youzan.nsq.client.core.command.PubExt}
+     * @return {@link Object}
+     */
+    public Object getJsonHeaderExt() {
+        return this.jsonHeaderExt;
     }
 
     /**

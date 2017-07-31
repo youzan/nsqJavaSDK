@@ -17,7 +17,7 @@ import java.util.List;
  *
  * 
  */
-public class Pub implements NSQCommand, PartitionEnable {
+public class Pub implements NSQCommand {
     private static final Logger logger = LoggerFactory.getLogger(Pub.class);
     public final static int MSG_SIZE = 4;
     public final static int TRACE_ID_SIZE = 8;
@@ -25,7 +25,6 @@ public class Pub implements NSQCommand, PartitionEnable {
     protected final Topic topic;
     private final List<byte[]> body = new ArrayList<>(1);
     protected byte[] bytes = null;
-    protected String desiredTag = null;
     protected int partitionOverride = -1;
 
     /**
@@ -35,7 +34,6 @@ public class Pub implements NSQCommand, PartitionEnable {
     public Pub(Message msg) {
         this.topic = msg.getTopic();
         this.body.add(msg.getMessageBodyInByte());
-        this.desiredTag = msg.getDesiredTag();
     }
 
     @Override
@@ -69,7 +67,7 @@ public class Pub implements NSQCommand, PartitionEnable {
         this.partitionOverride = newPartition;
     }
 
-    protected String getPartitionAndTagStr() {
+    protected String getPartitionStr() {
         String partitionStr;
         if(partitionOverride > -1)
             partitionStr = SPACE_STR + partitionOverride;
@@ -78,21 +76,12 @@ public class Pub implements NSQCommand, PartitionEnable {
         else
             partitionStr = "";
 
-        String tagFilterStr;
-        if(!partitionStr.isEmpty()) {
-            if(null != this.desiredTag &&  !this.desiredTag.isEmpty())
-                tagFilterStr = SPACE_STR + this.desiredTag;
-            else
-                tagFilterStr = "";
-        } else {
-            tagFilterStr = "";
-        }
-        return partitionStr + tagFilterStr;
+        return partitionStr;
     }
 
     @Override
     public String getHeader() {
-        return String.format("PUB %s%s\n", topic.getTopicText(), this.getPartitionAndTagStr());
+        return String.format("PUB %s%s\n", topic.getTopicText(), this.getPartitionStr());
     }
 
     @Override
@@ -106,14 +95,6 @@ public class Pub implements NSQCommand, PartitionEnable {
 
     public Topic getTopic() {
         return this.topic;
-    }
-
-    /**
-     * NOT implemented
-     */
-    @Override
-    public byte[] getPartitionIdByte(Topic topic) {
-        return null;
     }
 
     public String toString(){

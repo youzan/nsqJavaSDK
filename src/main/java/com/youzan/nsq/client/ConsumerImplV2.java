@@ -929,16 +929,24 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         this.autoFinish = autoFinish;
     }
 
-    private NSQMessage createNSQMessage(final MessageFrame msgFrame, final NSQConnection conn) {
+    private NSQMessage createNSQMessage(final MessageFrame msgFrame, final NSQConnection conn) throws NSQInvalidMessageException {
         if (config.isOrdered() && msgFrame instanceof OrderedMessageFrame) {
             OrderedMessageFrame orderedMsgFrame = (OrderedMessageFrame) msgFrame;
             return new NSQMessage(orderedMsgFrame.getTimestamp(), orderedMsgFrame.getAttempts(), orderedMsgFrame.getMessageID(),
                     orderedMsgFrame.getInternalID(), orderedMsgFrame.getTractID(),
                     orderedMsgFrame.getDiskQueueOffset(), orderedMsgFrame.getDiskQueueDataSize(),
-                    msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond(), conn.getTopic(), msgFrame.getExtVerBytes(), msgFrame.getExtBytes());
-        } else
-            return new NSQMessage(msgFrame.getTimestamp(), msgFrame.getAttempts(), msgFrame.getMessageID(),
-                    msgFrame.getInternalID(), msgFrame.getTractID(), msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond(), conn.getTopic(), msgFrame.getExtVerBytes(), msgFrame.getExtBytes());
+                    msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond(), conn.getTopic());
+        } else {
+            NSQMessage msg = new NSQMessage(msgFrame.getTimestamp(), msgFrame.getAttempts(), msgFrame.getMessageID(),
+                    msgFrame.getInternalID(), msgFrame.getTractID(), msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond(), conn.getTopic());
+            ExtVer extVer = ExtVer.getExtVersion(msgFrame.getExtVerBytes());
+            try {
+                msg.parseExtContent(extVer, msgFrame.getExtBytes());
+            } catch (IOException e) {
+                throw new NSQInvalidMessageException("Fail to parse ext content for incoming message.", e);
+            }
+            return msg;
+        }
     }
 
     public String toString() {

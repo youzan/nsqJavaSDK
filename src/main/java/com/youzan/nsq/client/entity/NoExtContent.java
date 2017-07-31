@@ -6,6 +6,6 @@ package com.youzan.nsq.client.entity;
 public class NoExtContent implements IExtContent {
     @Override
     public ExtVer version() {
-        return ExtVer.Ver0x1;
+        return ExtVer.Ver0x0;
     }
 }

@@ -15,7 +15,7 @@ import java.util.List;
  *
  * 
  */
-public class Mpub implements NSQCommand, PartitionEnable {
+public class Mpub implements NSQCommand{
     private static final Logger logger = LoggerFactory.getLogger(Mpub.class);
 
     private final Topic topic;
@@ -62,10 +62,5 @@ public class Mpub implements NSQCommand, PartitionEnable {
     @Override
     public List<byte[]> getBody() {
         return messages;
-    }
-
-    @Override
-    public byte[] getPartitionIdByte(Topic topic) {
-        return null;
     }
 }

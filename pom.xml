@@ -115,28 +115,6 @@
         </pluginManagement>
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-resources-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>copy-resources</id>
-                        <phase>generate-test-resources</phase>
-                        <goals>
-                            <goal>copy-resources</goal>
-                        </goals>
-                        <configuration>
-                            <outputDirectory>target/test-classes</outputDirectory>
-                            <resources>
-                                <resource>
-                                    <filtering>false</filtering>
-                                    <directory>src/test/resources/</directory>
-                                </resource>
-                            </resources>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>templating-maven-plugin</artifactId>
                 <version>1.0.0</version>
@@ -262,7 +240,8 @@
                         <artifactId>maven-resources-plugin</artifactId>
                         <executions>
                             <execution>
-                                <id>default-resources</id>
+                                <id>copy-test-resources</id>
+                                <phase>compile</phase>
                                 <goals>
                                     <goal>copy-resources</goal>
                                 </goals>
@@ -278,6 +257,26 @@
                                         </resource>
                                     </resources>
                                     <outputDirectory>target/test-classes</outputDirectory>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>copy-resources</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>copy-resources</goal>
+                                </goals>
+                                <configuration>
+                                    <resources>
+                                        <resource>
+                                            <filtering>false</filtering>
+                                            <directory>src/assembly/conf/openSource/</directory>
+                                        </resource>
+                                        <resource>
+                                            <filtering>false</filtering>
+                                            <directory>src/main/resources</directory>
+                                        </resource>
+                                    </resources>
+                                    <outputDirectory>target/classes</outputDirectory>
                                 </configuration>
                             </execution>
                         </executions>
@@ -309,7 +308,8 @@
                         <artifactId>maven-resources-plugin</artifactId>
                         <executions>
                             <execution>
-                                <id>default-resources</id>
+                                <id>copy-test-resources</id>
+                                <phase>compile</phase>
                                 <goals>
                                     <goal>copy-resources</goal>
                                 </goals>
@@ -325,6 +325,26 @@
                                         </resource>
                                     </resources>
                                     <outputDirectory>target/test-classes</outputDirectory>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>copy-resources</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>copy-resources</goal>
+                                </goals>
+                                <configuration>
+                                    <resources>
+                                        <resource>
+                                            <filtering>false</filtering>
+                                            <directory>src/assembly/conf/youzan/</directory>
+                                        </resource>
+                                        <resource>
+                                            <filtering>false</filtering>
+                                            <directory>src/main/resources</directory>
+                                        </resource>
+                                    </resources>
+                                    <outputDirectory>target/classes</outputDirectory>
                                 </configuration>
                             </execution>
                         </executions>

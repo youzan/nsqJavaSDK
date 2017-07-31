@@ -114,7 +114,10 @@ public class MessageFrame extends NSQFrame {
             System.arraycopy(bytes, 26, extVerBytes, 0, 1);
             int extVer = (int)extVerBytes[0];
             switch (extVer) {
-                case 2:
+                case 0:
+                    messageBodyStart = 27;//8+2+16+1
+                    break;
+                default:
                     byte[] extBytesLenBytes = new byte[2];
                     //ext content length
                     System.arraycopy(bytes, 27, extBytesLenBytes, 0, 2);
@@ -123,9 +126,6 @@ public class MessageFrame extends NSQFrame {
                     extBytes = new byte[extBytesLen];
                     System.arraycopy(bytes, 29, extBytes, 0, extBytesLen);
                     messageBodyStart = 29 + extBytesLen;//8 + 2 + 16 + 1 + 2 + extBytesLen;
-                    break;
-                default:
-                    messageBodyStart = 27;//8+2+16+1
             }
         }
         messageBodySize = bytes.length - (messageBodyStart);
