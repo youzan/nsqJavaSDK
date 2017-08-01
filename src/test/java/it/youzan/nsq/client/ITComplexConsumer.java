@@ -22,6 +22,7 @@ import java.nio.charset.Charset;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -69,6 +70,62 @@ public class ITComplexConsumer {
         // create new instances
         producer = new ProducerImplV2(config);
         producer.start();
+    }
+
+    /**
+     * touch message several times and consumer can still finish it
+     * @throws Exception
+     */
+    @Test
+    public void testTouch() throws Exception {
+        logger.info("[testTouch] starts.");
+        String topicName = "JavaTesting-ReQueue";
+        TopicUtil.emptyQueue(admin, topicName, consumerName);
+        final byte[] message = new byte[32];
+        _r.nextBytes(message);
+        producer.publish(message, topicName);
+
+        final CountDownLatch latch = new CountDownLatch(1);
+        final AtomicBoolean fail = new AtomicBoolean(false);
+        final AtomicBoolean receiveGuard = new AtomicBoolean(false);
+
+        final NSQConfig config = (NSQConfig) this.config.clone();
+        config.setRdy(4);
+        config.setConsumerName(consumerName);
+        config.setThreadPoolSize4IO(Math.max(2, Runtime.getRuntime().availableProcessors()));
+        final Consumer consumer4Touch = new ConsumerImplV2(config);
+        consumer4Touch.setAutoFinish(false);
+        final MessageHandler handler = new MessageHandler() {
+            @Override
+            public void process(final NSQMessage message) {
+                try {
+                        if(receiveGuard.compareAndSet(false, true)){
+                            Thread.sleep(50000);
+                            consumer4Touch.touch(message);
+                            Thread.sleep(50000);
+                            consumer4Touch.finish(message);
+                        } else {
+                            //fail it
+                            fail.set(true);
+                        }
+                        latch.countDown();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } catch (NSQException e) {
+                    e.printStackTrace();
+                }
+            }
+        };
+
+        consumer4Touch.subscribe(topicName);
+        consumer4Touch.setMessageHandler(handler);
+        consumer4Touch.start();
+
+        Assert.assertTrue(latch.await(3, TimeUnit.MINUTES));
+        Assert.assertFalse(fail.get());
+        consumer4Touch.close();
+        TopicUtil.emptyQueue(admin, topicName, consumerName);
+        logger.info("[testTouch] ends.");
     }
 
     @Test

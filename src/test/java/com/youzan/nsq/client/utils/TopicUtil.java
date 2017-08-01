@@ -51,7 +51,7 @@ public class TopicUtil {
         if (logger.isDebugEnabled()) {
             logger.debug("Request to {} responses {}:{}.", url.toString(), con.getResponseCode(), con.getResponseMessage());
         }
-        Thread.sleep(10000);
+        Thread.sleep(20000);
     }
 
     public static void deleteTopic(String adminUrl, String topicName) throws Exception {

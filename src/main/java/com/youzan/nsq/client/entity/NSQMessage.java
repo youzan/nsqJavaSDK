@@ -148,6 +148,13 @@ public class NSQMessage implements MessageMetadata{
         return this.jsonExtHeader;
     }
 
+    public Object getExtByName(String key) {
+        if (null != this.jsonExtHeader)
+            return this.jsonExtHeader.get(key);
+        else
+            return null;
+    }
+
     public DesiredTag getTag() {
         return this.tag;
     }

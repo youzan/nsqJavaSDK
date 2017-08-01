@@ -7,22 +7,19 @@ import java.nio.ByteBuffer;
 import java.util.List;
 
 /**
- * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
- *
- * 
+ * Created by lin on 17/8/1.
  */
-public class Finish implements NSQCommand {
-    private static final Logger logger = LoggerFactory.getLogger(Finish.class);
+public class Touch implements NSQCommand {
+    private static final Logger logger = LoggerFactory.getLogger(Touch.class);
 
     private final byte[] data;
 
-    public Finish(byte[] messageID) {
+    public Touch(byte[] messageID) {
         if (messageID == null || messageID.length <= 0) {
             throw new IllegalArgumentException("Your input messageID is empty!");
         }
-        final byte[] cmd = "FIN ".getBytes(UTF8);
+        final byte[] cmd = "TOUCH ".getBytes(UTF8);
         final ByteBuffer bb = ByteBuffer.allocate(cmd.length + messageID.length + 1);
-        // FIN <message_id>\n
         bb.put(cmd).put(messageID).put(LINE_SEPARATOR);
         this.data = bb.array();
     }
