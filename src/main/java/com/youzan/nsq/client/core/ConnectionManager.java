@@ -3,6 +3,8 @@ package com.youzan.nsq.client.core;
 import com.youzan.nsq.client.IConsumeInfo;
 import com.youzan.nsq.client.core.command.Rdy;
 import com.youzan.nsq.client.entity.Address;
+import com.youzan.nsq.client.entity.DefaultRdyUpdatePolicy;
+import com.youzan.nsq.client.entity.IRdyUpdatePolicy;
 import com.youzan.util.NamedThreadFactory;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
@@ -28,16 +30,13 @@ public class ConnectionManager {
     private static final float PROOFREAD_FACTOR_DELTA = 0.1f;
     private static final float PROOFREAD_FACTOR_FLOOR = 0.1f;
     private static final float PROOFREAD_FACTOR_DEFAULT = 1f;
-    private float proofreadFactor = PROOFREAD_FACTOR_DEFAULT;
 
     //executor for backoff & resume
     private final ExecutorService exec = Executors.newCachedThreadPool(new NamedThreadFactory("connMgr-job", Thread.NORM_PRIORITY));
     //schedule executor for backoff resume
     private final ScheduledExecutorService delayExec = Executors.newSingleThreadScheduledExecutor();
 
-    private final float THRESDHOLD = 1.5f;
-    private final float WATER_HIGH = 1.75f;
-    private final int INIT_DELAY = 20;
+    private final int INIT_DELAY = 5;
     private final int INTERVAL = 5;
     private final int INIT_RDY = 1;
     private final int RDY_TIMEOUT = 100;
@@ -51,8 +50,83 @@ public class ConnectionManager {
     };
 
     private final IConsumeInfo ci;
+    private RdyUpdatePolicyWrapper policyWrapper = new RdyUpdatePolicyWrapper();
+
     public ConnectionManager(IConsumeInfo consumer) {
         this.ci = consumer;
+    }
+
+    public void setRdyUpdatePolicyClass(String policyClass) {
+        try {
+            Class<?> clazz;
+            try {
+                clazz = Class.forName(policyClass, true,
+                        Thread.currentThread().getContextClassLoader());
+            } catch (ClassNotFoundException e) {
+                clazz = Class.forName(policyClass);
+            }
+            Object policy = clazz.newInstance();
+            if (policy instanceof IRdyUpdatePolicy) {
+                @SuppressWarnings("unchecked") // safe, because we just checked the class
+                         IRdyUpdatePolicy evicPolicy = (IRdyUpdatePolicy) policy;
+                policyWrapper.setInnerPolicy(evicPolicy);
+            }
+        } catch (ClassNotFoundException e) {
+            throw new IllegalArgumentException(
+                    "Unable to create RdyUpdatePolicy instance of type " +
+                            policyClass, e);
+        } catch (InstantiationException e) {
+            throw new IllegalArgumentException(
+                    "Unable to create RdyUpdatePolicy instance of type " +
+                            policyClass, e);
+        } catch (IllegalAccessException e) {
+            throw new IllegalArgumentException(
+                    "Unable to create RdyUpdatePolicy instance of type " +
+                            policyClass, e);
+        }
+    }
+
+    //Rdy update policy wrapper
+    class RdyUpdatePolicyWrapper implements IRdyUpdatePolicy{
+
+        private volatile IRdyUpdatePolicy rdyUpdatePolicy = new DefaultRdyUpdatePolicy();
+
+        void setInnerPolicy(final IRdyUpdatePolicy newPolicy) {
+            logger.info("RdyUpdatePolicy instance change from {} to {}", this.rdyUpdatePolicy, newPolicy);
+            this.rdyUpdatePolicy = newPolicy;
+        }
+
+        @Override
+        public boolean rdyShouldIncrease(String topic, float scheduleLoad, boolean mayTimeout, int maxRdyPerCon, int extraRdy) {
+            long start = 0l;
+            boolean debug = logger.isDebugEnabled();
+            if(debug) {
+                start = System.currentTimeMillis();
+            }
+            try {
+                return this.rdyUpdatePolicy.rdyShouldIncrease(topic, scheduleLoad, mayTimeout, maxRdyPerCon, extraRdy);
+            }finally {
+                if(debug){
+                    logger.debug("{}.rdyShouldIncrease ends in {} millisec", this.rdyUpdatePolicy ,System.currentTimeMillis() - start);
+                }
+            }
+        }
+
+        @Override
+        public boolean rdyShouldDecline(String topic, float scheduleLoad, boolean mayTimeout, int maxRdyPerCon, int extraRdy) {
+            long start = 0l;
+            boolean debug = logger.isDebugEnabled();
+            if(debug) {
+                start = System.currentTimeMillis();
+            }
+            try {
+                return this.rdyUpdatePolicy.rdyShouldDecline(topic, scheduleLoad, mayTimeout, maxRdyPerCon, extraRdy);
+            }finally {
+                if(debug){
+                    logger.debug("RduUpdatePolicy.rdyShouldDecline {} ends in {} millisec", System.currentTimeMillis() - start);
+                }
+            }
+        }
     }
 
     /**
@@ -75,7 +149,7 @@ public class ConnectionManager {
         private final AtomicInteger totalRdy = new AtomicInteger(0);
         private final AtomicBoolean isBackOff = new AtomicBoolean(false);
         private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-        private volatile float proofreadFactor = 1.0f;
+        private volatile float proofreadFactor = PROOFREAD_FACTOR_DEFAULT;
         private volatile long lastProofread = System.currentTimeMillis();
 
         public long getLastProofread() {
@@ -97,6 +171,11 @@ public class ConnectionManager {
             }
         }
 
+        /**
+         * set total rdy for one {@link ConnectionWrapperSet}, also reset proofread factor to {@link ConnectionManager#PROOFREAD_FACTOR_DEFAULT}
+         * @param newTotalrdy new total rdy for current connection wrapper set
+         * @return old total rdy, or -1 if update total rdy action fails.
+         */
         public int setTotalRdy(int newTotalrdy) {
             assert newTotalrdy >= 0;
             int oldRdy = this.totalRdy.get();
@@ -152,7 +231,7 @@ public class ConnectionManager {
     }
 
 
-    private void proofreadTotalRdy() {
+    public void proofreadTotalRdy() {
         for(String topic : this.topic2Subs.keySet()) {
             proofreadTotalRdy(topic);
         }
@@ -162,13 +241,14 @@ public class ConnectionManager {
     /**
      * proofread total rdy of current connection manager
      */
-    private void proofreadTotalRdy(String topic) {
+    public void proofreadTotalRdy(String topic) {
         AtomicInteger totalRdy = new AtomicInteger(0);
         final ConnectionWrapperSet cws = this.topic2Subs.get(topic);
         if (null != cws) {
+            long start = System.currentTimeMillis();
+            logger.info("Start proofread total rdy for topic {}...", topic);
             cws.writeLock();
             try{
-               logger.info("Collecting Rdy for connections, topic {}...", topic);
                for(Iterator<NSQConnectionWrapper> ite = cws.iterator(); ite.hasNext(); ) {
                    NSQConnectionWrapper conWrapper = ite.next();
                    totalRdy.addAndGet(conWrapper.getConn().getCurrentRdyCount());
@@ -181,6 +261,7 @@ public class ConnectionManager {
                }
             } finally {
                 cws.writeUnlock();
+                logger.info("End proofread total rdy for topic {} in {} millisec.", topic, System.currentTimeMillis() - start);
             }
         }
     }
@@ -217,8 +298,10 @@ public class ConnectionManager {
             throw new IllegalArgumentException("topic: " + topic + " connection: " + subscriber);
         }
 
-        if(!topic2Subs.containsKey(topic)) {
-            topic2Subs.put(topic, new ConnectionWrapperSet());
+        synchronized (this.topic2Subs) {
+            if (!topic2Subs.containsKey(topic)) {
+                topic2Subs.put(topic, new ConnectionWrapperSet());
+            }
         }
 
         final ConnectionWrapperSet subs = topic2Subs.get(topic);
@@ -410,9 +493,8 @@ public class ConnectionManager {
         }
     }
 
-    private void mayIncreaseRdy(final NSQConnection con, int rdyPerCon, final ConnectionWrapperSet conSet, final CountDownLatch latch) {
+    private void mayIncreaseRdy(final NSQConnection con, int availableRdy, final ConnectionWrapperSet conSet, final CountDownLatch latch) {
         int currentRdy = con.getCurrentRdyCount();
-        final int availableRdy = rdyPerCon * conSet.size() - conSet.getTotalRdy() + currentRdy;
         final int expectedRdy = con.getExpectedRdy();
         if (availableRdy > 0) {
             int ceilingRdy = availableRdy > expectedRdy ? expectedRdy : availableRdy;
@@ -468,25 +550,30 @@ public class ConnectionManager {
         }
     }
 
-    private void redistributeRdy(float scheduleLoad, boolean mayTimeout, final int rdyPerCon) {
+    private void redistributeRdy(float scheduleLoad, boolean mayTimeout, final int maxRdyPerCon) {
        for(String topic:topic2Subs.keySet()) {
            final ConnectionWrapperSet subs = topic2Subs.get(topic);
            if(null != subs) {
                subs.writeLock();
                try {
-                   final int latchCount = subs.size();
-                   final CountDownLatch latch = new CountDownLatch(latchCount);
-                   if (!mayTimeout && scheduleLoad <= THRESDHOLD && !subs.isBackoff()) {
+                   //connection count for current topic
+                   final int conCount = subs.size();
+                   //coutn down latch for synchronization
+                   final CountDownLatch latch = new CountDownLatch(conCount);
+                   //availiable Rdy # for current topic
+                   final int extraRdy = maxRdyPerCon * conCount - subs.getTotalRdy(); //+ con.getCurrentRdy()
+                   if (!subs.isBackoff() && this.policyWrapper.rdyShouldIncrease(topic, scheduleLoad, mayTimeout, maxRdyPerCon, extraRdy)) {
                        for (NSQConnectionWrapper sub : subs) {
                            final NSQConnection con = sub.getConn();
+                           final int availableRdy = extraRdy + con.getCurrentRdyCount();
                            exec.submit(new Runnable() {
                                @Override
                                public void run() {
-                                   mayIncreaseRdy(con, rdyPerCon, subs, latch);
+                                   mayIncreaseRdy(con, availableRdy, subs, latch);
                                }
                            });
                        }
-                   } else if ((scheduleLoad >= WATER_HIGH && mayTimeout) && !subs.isBackoff()) {
+                   } else if (!subs.isBackoff() && this.policyWrapper.rdyShouldDecline(topic, scheduleLoad, mayTimeout, maxRdyPerCon, extraRdy)) {
                        //rdy decrease
                        for (NSQConnectionWrapper sub : subs) {
                            final NSQConnection con = sub.getConn();
@@ -500,7 +587,7 @@ public class ConnectionManager {
                    }
                    //await for may rdy updates
                    try {
-                       if (!latch.await(latchCount * RDY_TIMEOUT, TimeUnit.MILLISECONDS)) {
+                       if (!latch.await(conCount * RDY_TIMEOUT, TimeUnit.MILLISECONDS)) {
                            logger.error("Timeout for redistribute connections rdy {}", topic);
                        }
                    } catch (InterruptedException e) {

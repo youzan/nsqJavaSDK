@@ -21,7 +21,6 @@ import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -40,9 +39,7 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
     private static final Logger PERF_LOG = LoggerFactory.getLogger(KeyedPooledConnectionFactory.class.getName() + ".perf");
     private final AtomicInteger connectionIDGenerator = new AtomicInteger(0);
     private final EventLoopGroup eventLoopGroup;
-    private final ConcurrentHashMap<Address, Bootstrap> bootstraps = new ConcurrentHashMap<>();
-    private final Object bootstrapsLock = new Object();
-
+    private final Bootstrap bootstrap = new Bootstrap();
 
     /**
      * Connection/Pool configurations
@@ -57,27 +54,17 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
         this.config = config;
         this.client = client;
         this.eventLoopGroup = new NioEventLoopGroup(config.getThreadPoolSize4IO());
+        bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
+        bootstrap.option(ChannelOption.TCP_NODELAY, true);
+        bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, config.getConnectTimeoutInMillisecond());
+        bootstrap.group(eventLoopGroup);
+        bootstrap.channel(NioSocketChannel.class);
+        bootstrap.handler(new NSQClientInitializer());
     }
 
     @Override
     public NSQConnection create(Address address) throws Exception {
         logger.debug("Begin to create a connection, the address is {}", address);
-        final Bootstrap bootstrap;
-        synchronized (bootstrapsLock) {
-            if (bootstraps.containsKey(address)) {
-                bootstrap = bootstraps.get(address);
-            } else {
-                bootstrap = new Bootstrap();
-                bootstraps.putIfAbsent(address, bootstrap);
-                bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
-                bootstrap.option(ChannelOption.TCP_NODELAY, true);
-                bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, config.getConnectTimeoutInMillisecond());
-                bootstrap.group(eventLoopGroup);
-                bootstrap.channel(NioSocketChannel.class);
-                bootstrap.handler(new NSQClientInitializer());
-            }
-        }
-
         long connStart = 0;
         if(PERF_LOG.isDebugEnabled())
             connStart = System.currentTimeMillis();
@@ -151,7 +138,6 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
 
 
     public void close() {
-        bootstraps.clear();
         if (eventLoopGroup != null && !eventLoopGroup.isShuttingDown()) {
             eventLoopGroup.shutdownGracefully(1, 2, TimeUnit.SECONDS);
         }

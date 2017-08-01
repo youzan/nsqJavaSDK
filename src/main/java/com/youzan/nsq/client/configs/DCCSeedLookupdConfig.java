@@ -146,10 +146,11 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
         List<String> preClusterIds = new ArrayList<>();
         if (null != preRefs && preRefs.size() > 0) {
             for(SoftReference<SeedLookupdAddress> seedRef : preRefs){
+                SeedLookupdAddress aPreSeed = seedRef.get();
+                String clusterId = aPreSeed.getClusterId();
+                String address = aPreSeed.getAddress();
                 try {
-                    SeedLookupdAddress aPreSeed = seedRef.get();
-                    String clusterId = aPreSeed.getClusterId();
-                    URL url = new URL(aPreSeed.getAddress());
+                    URL url = new URL(address);
                     String host = url.getHost();
                     if(!clusterIds.contains(host)){
                         String preLookupd = aPreSeed.punchLookupdAddressStr(force);
@@ -162,7 +163,7 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
                 }catch(NullPointerException npe){
                     //swallow it
                 } catch (MalformedURLException e) {
-                    logger.error("Seed lookupd address {} is NOT valid URL form. Skip and check with config access remote.");
+                    logger.error("Seed lookupd address {} is NOT valid URL form. Skip and check with config access remote.", address);
                 }
             }
         }

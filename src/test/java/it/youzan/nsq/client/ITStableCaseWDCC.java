@@ -70,7 +70,6 @@ public class ITStableCaseWDCC {
 
         final String dccLookups = props.getProperty("dcc-lookup");
         final String connTimeout = props.getProperty("connectTimeoutInMillisecond");
-//        config.setUserSpecifiedLookupAddress(true);
         config.setLookupAddresses(dccLookups);
         config.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
         config.setThreadPoolSize4IO(1);

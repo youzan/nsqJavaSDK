@@ -9,7 +9,6 @@ import com.youzan.nsq.client.core.command.Identify;
 import com.youzan.nsq.client.core.command.Magic;
 import com.youzan.nsq.client.core.command.Rdy;
 import com.youzan.nsq.client.core.command.Sub;
-import com.youzan.nsq.client.core.pool.consumer.FixedPool;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.Role;
@@ -515,20 +514,74 @@ public class ConnectionManagerTest {
             for (int i = 0; i < par; i++) {
                 JsonNode partition = lookupResp.get("partitions").get("" + i);
                 Address addr = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topic, i, false);
-                consumer.connect(addr, topics);
+                consumer.connect(addr);
             }
-            Map<Address, FixedPool> addr2Pool = consumer.getAddress2Pool();
-            for(FixedPool pool : addr2Pool.values()) {
-               for(NSQConnection con : pool.getConnections()) {
-                   con.close();
-               }
+            Map<Address, NSQConnection> addr2Conns = consumer.getAddress2Conn();
+            //invalidate conenction by closing
+            for(NSQConnection con : addr2Conns.values()) {
+               con.close();
             }
             //invalidate connection
             consumer.connect();
-            addr2Pool = consumer.getAddress2Pool();
-            Assert.assertTrue(addr2Pool.keySet().size() == 0);
+            addr2Conns = consumer.getAddress2Conn();
+            Assert.assertTrue(addr2Conns.keySet().size() == 0);
         } finally {
             logger.info("[testInvalidateConnection] ends.");
+        }
+    }
+
+    @Test
+    public void testProofreadTotalRdy() throws Exception {
+        logger.info("[testProofreadTotalRdy] starts.");
+        NSQConfig localConfig = (NSQConfig) config.clone();
+        localConfig.setConsumerName("BaseConsumer");
+        final ConnectionManager conMgr = new ConnectionManager(new IConsumeInfo() {
+            @Override
+            public float getLoadFactor() {
+                return 0;
+            }
+
+            @Override
+            public int getRdyPerConnection() {
+                return 4;
+            }
+
+            @Override
+            public boolean isConsumptionEstimateElapseTimeout() {
+                return false;
+            }
+        });
+
+        MockedConsumer consumer = null;
+        try{
+            int par = 5;
+            final String topic = "test5Par1Rep";
+            JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topic + "&access=r"));
+            //set it 4 rdy per connection and make total 4*5 = 20
+            localConfig.setRdy(4);
+            consumer = new MockedConsumer(localConfig, null);
+            consumer.setConnectionManager(conMgr);
+            consumer.start();
+            Set<String> topics = new HashSet<>();
+            topics.add(topic);
+            for (int i = 0; i < par; i++) {
+                JsonNode partition = lookupResp.get("partitions").get("" + i);
+                Address addr = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topic, i, false);
+                consumer.connect(addr);
+            }
+
+            conMgr.start(0);
+            ConnectionManager.ConnectionWrapperSet cws = (ConnectionManager.ConnectionWrapperSet)conMgr.getSubscribeConnections(topic);
+            //sleep 30 for rdy to increase
+            Thread.sleep(30000);
+            cws.setTotalRdy(40);
+            conMgr.proofreadTotalRdy(topic);
+
+            Assert.assertEquals(cws.getTotalRdy(), 4*5);
+        } finally {
+            conMgr.close();
+            consumer.close();
+            logger.info("[testProofreadTotalRdy] ends.");
         }
     }
 }

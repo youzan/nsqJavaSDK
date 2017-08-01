@@ -36,6 +36,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         String adminHttp = "http://" + props.getProperty("admin-address");
         TopicUtil.emptyQueue(adminHttp, "JavaTesting-ReQueue", "BaseConsumer");
         final int requeueTimeout = 10;
+        Consumer consumer = null;
         try {
             Producer producer = new ProducerImplV2(config);
             producer.start();
@@ -46,7 +47,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
             final CountDownLatch latch = new CountDownLatch(1);
             final AtomicLong timestamp = new AtomicLong(0);
             //consumer
-            Consumer consumer = new ConsumerImplV2(config, new MessageHandler() {
+            consumer = new ConsumerImplV2(config, new MessageHandler() {
                 @Override
                 public void process(NSQMessage message) {
                     int timeout = message.getNextConsumingInSecond();
@@ -79,6 +80,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
             consumer.start();
             Assert.assertTrue(latch.await(2, TimeUnit.MINUTES));
         }finally {
+            consumer.close();
             logger.info("[testNextConsumingTimeout] ends.");
             TopicUtil.emptyQueue(adminHttp, "JavaTesting-ReQueue", "BaseConsumer");
         }
@@ -159,7 +161,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
                 @Override
                 public void process(NSQMessage message) {
                     try {
-                        Thread.sleep(100 * cnt.incrementAndGet());
+                        Thread.sleep(100);
                     } catch (InterruptedException e) {
                         logger.error("Interrupted while sleep");
                     }

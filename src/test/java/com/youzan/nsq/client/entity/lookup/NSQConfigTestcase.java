@@ -2,6 +2,7 @@ package com.youzan.nsq.client.entity.lookup;
 
 import com.youzan.nsq.client.configs.ConfigAccessAgent;
 import com.youzan.nsq.client.configs.DCCConfigAccessAgent;
+import com.youzan.nsq.client.entity.DesiredTag;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.exception.ConfigAccessAgentException;
 import org.slf4j.Logger;
@@ -89,6 +90,28 @@ public class NSQConfigTestcase {
                 用户消息处理线程池容量配置项
                  */
                 .setThreadPoolSize4IO(Runtime.getRuntime().availableProcessors());
+    }
+
+    @Test
+    public void testDesiredTag() {
+        DesiredTag tag = new DesiredTag("service-chain-demo-_123");
+        try{
+            new DesiredTag("Toooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo" +
+                    "ooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo" +
+                    "ooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo" +
+                    "ooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo" +
+                    "ooooooooooooooooooooooooooLong");
+            Assert.fail("desired tag should be too long");
+        } catch (Exception e) {
+            logger.info("too long tag detected.");
+        }
+
+        try{
+            new DesiredTag("tag with space");
+            Assert.fail("desired tag should be invalid");
+        } catch (Exception e) {
+            logger.info("tag with space detected.");
+        }
     }
 
     @AfterMethod
