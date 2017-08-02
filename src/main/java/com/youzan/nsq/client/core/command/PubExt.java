@@ -16,7 +16,7 @@ import java.util.IllegalFormatException;
  */
 public class PubExt extends Pub {
     private byte[] jsonHeaderBytes;
-    public static final String CLIENT_TAG_KEY = "##dispatch_client_tag";
+    public static final String CLIENT_TAG_KEY = "##client_dispatch_tag";
     public static final String TRACE_ID_KEY = "##trace_id";
 
     /**
@@ -25,7 +25,7 @@ public class PubExt extends Pub {
     public PubExt(final Message msg, boolean trace) throws IllegalFormatException {
         super(msg);
         String clientTag = msg.getDesiredTag();
-        boolean jsonHeaderNeeded = (null != clientTag) || (trace);
+        boolean jsonHeaderNeeded = (null != clientTag && !clientTag.isEmpty()) || (trace);
 
         Object jsonObj = msg.getJsonHeaderExt();
         ObjectNode jsonHeaderExt = null;

@@ -551,7 +551,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                     //order problem
                     throw new NSQInvalidMessageException("Invalid internalID or diskQueueOffset in order mode.");
                 }
-                conn.setMessageReceived(System.currentTimeMillis());
+                conn.setMessageTouched(System.currentTimeMillis());
                 processMessage(message, conn);
             }
         }

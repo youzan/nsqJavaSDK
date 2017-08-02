@@ -106,7 +106,7 @@ public class PubCmdFactory implements IConfigAccessSubscriber{
      */
     public Pub create(final Message msg, final NSQConfig config){
         boolean isTraced = isTracedMessage(config, msg);
-        boolean containJsonHeader = (null != msg.getJsonHeaderExt());
+        boolean containJsonHeader = (null != msg.getJsonHeaderExt() || (null != msg.getDesiredTag() && !msg.getDesiredTag().isEmpty()));
         if(isTraced && !containJsonHeader){
             return new PubTrace(msg);
         }else if (containJsonHeader) {

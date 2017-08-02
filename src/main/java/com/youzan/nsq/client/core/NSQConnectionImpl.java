@@ -60,7 +60,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     private final AtomicLong latestInternalID = new AtomicLong(-1L);
     private final AtomicLong latestDiskQueueOffset = new AtomicLong(-1L);
 
-    private volatile long lastMsgReceived;
+    private volatile long lastMsgTouched;
     private volatile long lastMsgConsumptionFailed;
 
     public NSQConnectionImpl(int id, Address address, Channel channel, NSQConfig config) {
@@ -522,13 +522,13 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     }
 
     @Override
-    public void setMessageReceived(long timeStamp) {
-        this.lastMsgReceived = timeStamp;
+    public void setMessageTouched(long timeStamp) {
+        this.lastMsgTouched = timeStamp;
     }
 
     @Override
-    public long lastMessageReceived() {
-        return this.lastMsgReceived;
+    public long lastMessageTouched() {
+        return this.lastMsgTouched;
     }
 
     @Override

@@ -110,8 +110,9 @@ public interface NSQConnection extends Closeable {
     boolean isBackoff();
     void onClose();
     int hashCode();
-    void setMessageReceived(long timeStamp);
-    long lastMessageReceived();
+
+    void setMessageTouched(long timeStamp);
+    long lastMessageTouched();
     void setMessageConsumptionFailed(long timeStamp);
     long lastMessageConsumptionFailed();
     int declineExpectedRdy();

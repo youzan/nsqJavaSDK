@@ -174,12 +174,12 @@ public class ProducerImplV2 implements Producer {
             //otherwise only objects that have been idle for more than minEvicableIdleTimeMillis are removed.
             this.poolConfig.setTestWhileIdle(true);
             this.poolConfig.setJmxEnabled(true);
-            //connection need being validated after idle time
-            this.poolConfig.setSoftMinEvictableIdleTimeMillis(5 * config.getHeartbeatIntervalInMillisecond());
+            //connection need being validated after idle time, default to 30 min
+            this.poolConfig.setSoftMinEvictableIdleTimeMillis(30 * config.getHeartbeatIntervalInMillisecond());
             //this need to be negative, otherwise min idle per key setting won't work
             this.poolConfig.setMinEvictableIdleTimeMillis(-1);
             //number of milliseconds to sleep between runs of the idle object evictor thread
-            this.poolConfig.setTimeBetweenEvictionRunsMillis(2 * 60 * 1000);
+            this.poolConfig.setTimeBetweenEvictionRunsMillis(10 * 60 * 1000);
             this.poolConfig.setMinIdlePerKey(this.config.getMinIdleConnectionForProducer());
             this.poolConfig.setMaxIdlePerKey(this.config.getConnectionSize());
             this.poolConfig.setMaxTotalPerKey(this.config.getConnectionSize());

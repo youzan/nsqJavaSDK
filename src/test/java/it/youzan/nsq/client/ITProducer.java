@@ -2,9 +2,7 @@ package it.youzan.nsq.client;
 
 import com.youzan.nsq.client.Producer;
 import com.youzan.nsq.client.ProducerImplV2;
-import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.NSQConfig;
-import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.util.IOUtil;
 import org.slf4j.Logger;
@@ -16,8 +14,6 @@ import org.testng.annotations.Test;
 import java.io.InputStream;
 import java.util.Properties;
 import java.util.Random;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 @Test(groups = {"ITProducer-Base"}, priority = 3)
 public class ITProducer {
@@ -51,6 +47,7 @@ public class ITProducer {
         producer.start();
     }
 
+    @Test
     public void publish() throws NSQException {
         for (int i = 0; i < 10; i++) {
             final byte[] message = ("Message #"+ i).getBytes();
