@@ -15,6 +15,8 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 
 /**
@@ -79,6 +81,33 @@ public class ITTagProducer {
 
         for (int i = 0; i < 10; i++) {
             Message msg = Message.create(topic, "message");
+            producer.publish(msg);
+        }
+    }
+
+    @Test
+    public void publishWTagMixWHeader() throws Exception {
+        TopicUtil.emptyQueue("http://" + props.getProperty("admin-address"), "testExt2Par2Rep", "BaseConsumer");
+        Topic topic = new Topic("testExt2Par2Rep");
+        DesiredTag tag = new DesiredTag("TAG1");
+
+        Map<String, String> properties = new HashMap<>();
+        properties.put("key" ,"javaSDK");
+        properties.put("key1" ,"this is value 1");
+        properties.put("key2" ,"this is value 2");
+        properties.put("key3" ,"this is value 3");
+        properties.put("key4" ,"this is value 4");
+
+        for (int i = 0; i < 10; i++) {
+            Message msg = Message.create(topic, "message");
+            msg.setDesiredTag(tag);
+            msg.setJsonHeaderExt(properties);
+            producer.publish(msg);
+        }
+
+        for (int i = 0; i < 10; i++) {
+            Message msg = Message.create(topic, "message");
+            msg.setJsonHeaderExt(properties);
             producer.publish(msg);
         }
     }

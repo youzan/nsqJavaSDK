@@ -37,8 +37,6 @@ public class ITComplexConsumer {
     private final Random _r = new Random();
     private final NSQConfig config = new NSQConfig();
     private Producer producer;
-    private Consumer consumer4ReQueue;
-    private Consumer consumer4Finish;
     private HashSet<String> messages4Finish = new HashSet<>();
     private String admin;
     private String lookups;
@@ -102,8 +100,10 @@ public class ITComplexConsumer {
                         if(receiveGuard.compareAndSet(false, true)){
                             Thread.sleep(50000);
                             consumer4Touch.touch(message);
+                            logger.info("message touched");
                             Thread.sleep(50000);
                             consumer4Touch.finish(message);
+                            logger.info("message finished");
                         } else {
                             //fail it
                             fail.set(true);
@@ -121,7 +121,7 @@ public class ITComplexConsumer {
         consumer4Touch.setMessageHandler(handler);
         consumer4Touch.start();
 
-        Assert.assertTrue(latch.await(3, TimeUnit.MINUTES));
+        Assert.assertTrue(latch.await(5, TimeUnit.MINUTES));
         Assert.assertFalse(fail.get());
         consumer4Touch.close();
         TopicUtil.emptyQueue(admin, topicName, consumerName);
@@ -156,7 +156,7 @@ public class ITComplexConsumer {
         config.setRdy(20);
         config.setConsumerName(consumerName);
         config.setThreadPoolSize4IO(1);
-        consumer4Finish = new ConsumerImplV2(config, handler);
+        Consumer consumer4Finish = new ConsumerImplV2(config, handler);
         consumer4Finish.setAutoFinish(false);
         consumer4Finish.subscribe("JavaTesting-Finish");
         consumer4Finish.start();
@@ -175,6 +175,7 @@ public class ITComplexConsumer {
         } else {
             Assert.assertTrue(false, "Not have got enough messages.");
         }
+        consumer4Finish.close();
     }
 
     @Test
@@ -201,11 +202,12 @@ public class ITComplexConsumer {
         config.setRdy(4);
         config.setConsumerName(consumerName);
         config.setThreadPoolSize4IO(Math.max(2, Runtime.getRuntime().availableProcessors()));
-        consumer4ReQueue = new ConsumerImplV2(config, handler);
+        Consumer consumer4ReQueue = new ConsumerImplV2(config, handler);
         consumer4ReQueue.subscribe("JavaTesting-ReQueue");
         consumer4ReQueue.start();
         latch.await(1, TimeUnit.MINUTES);
         TopicUtil.emptyQueue(admin, "JavaTesting-ReQueue", consumerName);
+        consumer4ReQueue.close();
     }
 
     @Test
@@ -260,7 +262,7 @@ public class ITComplexConsumer {
     @AfterClass
     public void close() throws NoSuchMethodException, ConfigAccessAgentException, InvocationTargetException, IllegalAccessException {
         logger.debug("================Begin to close");
-        IOUtil.closeQuietly(producer, consumer4ReQueue, consumer4Finish);
+        IOUtil.closeQuietly(producer);
         Method method = ConfigAccessAgent.class.getDeclaredMethod("release");
         method.setAccessible(true);
         method.invoke(ConfigAccessAgent.getInstance());

@@ -602,6 +602,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
      * @param message    a NSQMessage
      * @param connection a NSQConnection
      */
+    // through it is private method, signature of method will NOT change as it is used as cut point
     private void consume(final NSQMessage message, final NSQConnection connection) {
         boolean ok;
         boolean retry;

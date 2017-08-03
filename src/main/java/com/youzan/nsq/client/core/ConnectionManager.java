@@ -123,7 +123,7 @@ public class ConnectionManager {
                 return this.rdyUpdatePolicy.rdyShouldDecline(topic, scheduleLoad, mayTimeout, maxRdyPerCon, extraRdy);
             }finally {
                 if(debug){
-                    logger.debug("RduUpdatePolicy.rdyShouldDecline {} ends in {} millisec", System.currentTimeMillis() - start);
+                    logger.debug("{}.rdyShouldDecline ends in {} millisec", this.rdyUpdatePolicy, System.currentTimeMillis() - start);
                 }
             }
         }

@@ -1,10 +1,7 @@
 package com.youzan.nsq.client;
 
 import com.youzan.nsq.client.core.ConnectionManager;
-import com.youzan.nsq.client.entity.Message;
-import com.youzan.nsq.client.entity.NSQConfig;
-import com.youzan.nsq.client.entity.NSQMessage;
-import com.youzan.nsq.client.entity.Topic;
+import com.youzan.nsq.client.entity.*;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.utils.TopicUtil;
 import org.slf4j.Logger;
@@ -161,7 +158,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
                 @Override
                 public void process(NSQMessage message) {
                     try {
-                        Thread.sleep(100);
+                        Thread.sleep(100 * cnt.incrementAndGet());
                     } catch (InterruptedException e) {
                         logger.error("Interrupted while sleep");
                     }
@@ -173,13 +170,11 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
             consumer.start();
             logger.info("Wait for 20s for consumer to start...");
             Thread.sleep(20000L);
-            float lastLoadFactor = 0f, loadFactor;
+            float loadFactor;
             for(int i = 0; i < 10; i++) {
                 Thread.sleep(5000);
                 loadFactor = ((ConsumerImplV2)consumer).getLoadFactor();
                 logger.info("loadFactor {}", loadFactor);
-                Assert.assertTrue(loadFactor >= lastLoadFactor);
-                lastLoadFactor = loadFactor;
             }
         }finally {
             exec.shutdownNow();

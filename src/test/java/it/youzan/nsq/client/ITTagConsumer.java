@@ -17,6 +17,7 @@ import java.io.InputStream;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -110,6 +111,50 @@ public class ITTagConsumer {
             consumer.start();
 
             Assert.assertTrue(latch.await(1, TimeUnit.MINUTES));
+            Assert.assertEquals(received.get(), 10);
+            Assert.assertEquals(receivedTag.get(), 10);
+
+            consumer.close();
+        }finally {
+            TopicUtil.emptyQueue("http://" + props.getProperty("admin-address"), topic, "BaseConsumer");
+        }
+    }
+
+    @Test
+    public void testConsumeTagMixWHeader() throws Exception {
+        String topic = "testExt2Par2Rep";
+        try {
+            final AtomicBoolean fail = new AtomicBoolean(false);
+            final CountDownLatch latch = new CountDownLatch(20);
+            final AtomicInteger received = new AtomicInteger(0);
+            final AtomicInteger receivedTag = new AtomicInteger(0);
+            NSQConfig config = new NSQConfig("BaseConsumer");
+            config.setLookupAddresses(props.getProperty("lookup-addresses"));
+            Consumer consumer = new ConsumerImplV2(config, new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    logger.info("Message received: " + message.getReadableContent());
+                    logger.info("message tag: " + message.getTag());
+                    if (!message.getExtByName("key").equals("javaSDK") ||
+                            !message.getExtByName("key1").equals("this is value 1") ||
+                            !message.getExtByName("key2").equals("this is value 2") ||
+                            !message.getExtByName("key3").equals("this is value 3") ||
+                            !message.getExtByName("key4").equals("this is value 4"))
+                        fail.set(true);
+
+                    if (null == message.getTag())
+                        received.incrementAndGet();
+                    else
+                        receivedTag.incrementAndGet();
+                    latch.countDown();
+                }
+            });
+            consumer.setAutoFinish(true);
+            consumer.subscribe(topic);
+            consumer.start();
+
+            Assert.assertTrue(latch.await(1, TimeUnit.MINUTES));
+            Assert.assertFalse(fail.get());
             Assert.assertEquals(received.get(), 10);
             Assert.assertEquals(receivedTag.get(), 10);
 
