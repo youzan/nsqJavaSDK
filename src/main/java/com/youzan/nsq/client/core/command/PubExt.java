@@ -35,7 +35,7 @@ public class PubExt extends Pub {
             if(null != clientTag)
                 jsonHeaderExt.put(CLIENT_TAG_KEY, clientTag);
             if(trace)
-                jsonHeaderExt.put(TRACE_ID_KEY, msg.getTraceID());
+                jsonHeaderExt.put(TRACE_ID_KEY, msg.getTraceIDStr());
         } else if (null != jsonObj) {
             //parse message json header ext
             try {
@@ -47,7 +47,7 @@ public class PubExt extends Pub {
                     if(null != clientTag)
                         jsonHeaderExt.put(CLIENT_TAG_KEY, clientTag);
                     if(trace)
-                        jsonHeaderExt.put(TRACE_ID_KEY, msg.getTraceID());
+                        jsonHeaderExt.put(TRACE_ID_KEY, msg.getTraceIDStr());
                 } else {
                     //throw error
                     throw new IllegalStateException("Invalid json header format, pass in json root is not object.");

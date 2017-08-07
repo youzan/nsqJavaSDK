@@ -8,9 +8,7 @@ import com.youzan.nsq.client.entity.*;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQInvalidTopicException;
 import com.youzan.nsq.client.exception.NSQLookupException;
-import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
-import com.youzan.nsq.client.network.frame.ResponseFrame;
 import com.youzan.util.NamedThreadFactory;
 import com.youzan.util.ThreadSafe;
 import io.netty.channel.ChannelFuture;
@@ -20,11 +18,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
@@ -39,13 +35,15 @@ public class NSQSimpleClient implements Client, Closeable {
 
     private final static AtomicInteger CLIENT_ID = new AtomicInteger(0);
     private int lookupLocalID = -1;
-    private static final IPartitionsSelector EMPTY = new SimplePartitionsSelector(null);
     //maintain a mapping from topic to producer broadcast addresses
     private final Set<String> topicSubscribed = new HashSet<>();
-    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-    private final Map<String, TopicSync> topicSynMap = new ConcurrentHashMap<>();
-    private final Map<String, IPartitionsSelector> topic_2_partitionsSelector = new ConcurrentHashMap<>();
-    private final long TOPIC_PARTITION_TIMEOUT = 500L;
+    private final ReentrantReadWriteLock topicSyncLock = new ReentrantReadWriteLock();
+
+    private final ReentrantLock lock = new ReentrantLock();
+
+    private final ConcurrentMap<String, TopicSync> topicSynMap = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, IPartitionsSelector> topic_2_partitionsSelector = new ConcurrentHashMap<>();
+    private final long TOPIC_PARTITION_TIMEOUT = 150L;
 
     private final Map<String, Long> ps_lastInvalidated = new ConcurrentHashMap<>();
 
@@ -76,26 +74,31 @@ public class NSQSimpleClient implements Client, Closeable {
             "started: %b," +
             "\t" + "role: %s," +
             "\t" + "userLocalLookupd: %b," +
-            "\t" + "lookupLocalID: %d," +
-            "\t" + "topic size: %d," + "]";
+            "\t" + "lookupLocalID: %d";
 
     /**
      * return meta data of current simple client and {@link Client} current simple client belongs to.
      * @return string meta data of simple client.
      */
     public String toString() {
-        String toString = String.format(SIMPLECLIENT_META_FORMAT, super.toString(), this.started, this.role.getRoleTxt(), this.useLocalLookupd, this.lookupLocalID, this.topicSubscribed.size());
+        String toString = String.format(SIMPLECLIENT_META_FORMAT, super.toString(), this.started, this.role.getRoleTxt(), this.useLocalLookupd, this.lookupLocalID);
         return toString;
     }
 
     @Override
     public synchronized void start() {
-        if (!started) {
-            started = true;
-            LookupAddressUpdate.getInstance(true).keepListLookup();
-            keepDataNodes();
+        if(!started && lock.tryLock()) {
+            try {
+                if (!started) {
+                    started = true;
+                    LookupAddressUpdate.getInstance(true).keepListLookup();
+                    keepDataNodes();
+                }
+                started = true;
+            }finally {
+                lock.unlock();
+            }
         }
-        started = true;
     }
 
     /**
@@ -122,34 +125,18 @@ public class NSQSimpleClient implements Client, Closeable {
     private void newDataNodes() throws NSQException {
         //gather topics from topic_2_partitions
         final Set<String> topics = new HashSet<>();
-        lock.readLock().lock();
-        try {
-            //not ant topic is subscribed. process ends
-            if(this.role == Role.Consumer && topicSubscribed.size() == 0) {
-                logger.warn("No any subscribed topic is found, Consumer may not subscribe any topic. Data node updating process ends.");
-                return;
-            }
+        //not ant topic is subscribed. process ends
+        if(this.role == Role.Consumer && topicSynMap.size() == 0) {
+            logger.warn("No any subscribed topic is found, Consumer may not subscribe any topic. Data node updating process ends.");
+            return;
+        }
 
-            for (String topic : topicSubscribed) {
-                topics.add(topic);
-            }
-        } finally {
-            lock.readLock().unlock();
+        for (String topic : topicSynMap.keySet()) {
+            topics.add(topic);
         }
 
         //lookup gatheres topics
         for (String topic : topics) {
-            TopicSync ts = topicSynMap.get(topic);
-            if (null == ts) {
-                logger.info("Partitions selector lock for {} do not exist", topic);
-                continue;
-            }
-            //another process, producer or consumer is updating this partitions slelector, ok to skip
-            if (!ts.tryLock()) {
-                logger.info("Skip partitions selector for {} as it is hold by client", topic);
-                continue;
-            }
-
             try {
                 final IPartitionsSelector aPs = lookup.lookup(topic, this.useLocalLookupd, false);
                 if(null == aPs){
@@ -162,8 +149,6 @@ public class NSQSimpleClient implements Client, Closeable {
                 logger.warn("Could not fetch lookup info for topic: {} at this moment, lookup info may not be ready.", topic);
             } catch (Exception e) {
                 logger.error("Exception", e);
-            }finally {
-                ts.unlock();
             }
         }
     }
@@ -173,73 +158,48 @@ public class NSQSimpleClient implements Client, Closeable {
             throw new IllegalArgumentException("Topic is not allowed to be empty.");
         }
 
-        lock.readLock().lock();
+        boolean syncExist = false;
+        topicSyncLock.readLock().lock();
         try{
-            if (topicSubscribed.contains(topic)) {
-                return;
-            }
+            syncExist = topicSynMap.containsKey(topic);
         }finally {
-            lock.readLock().unlock();
+            topicSyncLock.readLock().unlock();
         }
 
-        lock.writeLock().lock();
-        try {
-            if(!topicSubscribed.contains(topic)) {
-                topicSubscribed.add(topic);
-                if (!topicSynMap.containsKey(topic)) {
+        if(!syncExist) {
+            topicSyncLock.writeLock().lock();
+            try {
+                if(!topicSynMap.containsKey(topic))
                     topicSynMap.put(topic, new TopicSync(topic));
-                }
-
-                if (!topic_2_partitionsSelector.containsKey(topic)) {
-                    topic_2_partitionsSelector.put(topic, EMPTY);
-                }
+            }finally {
+                topicSyncLock.writeLock().unlock();
             }
-        } finally {
-            lock.writeLock().unlock();
         }
     }
 
     /**
      * remove topic resources in topic partitions selector map, topic synchronization map and topic subscribed.
      * during remove topics, put topic should be blocked.
-     * @param expiredTopics
+     * @param expiredTopics expired topics to removed
+     * @return topic set removed
      */
     public void removeTopics(Set<String> expiredTopics) {
-        lock.writeLock().lock();
-        try{
-            for(String topic : expiredTopics) {
-                _removeTopic(topic);
+        if (null != expiredTopics && expiredTopics.size() > 0) {
+            topicSyncLock.writeLock().lock();
+            try {
+                for (String topic : expiredTopics) {
+                    _removeTopic(topic);
+                }
+            }finally {
+                topicSyncLock.writeLock().unlock();
             }
-        }finally {
-            lock.writeLock().unlock();
         }
     }
 
     private void _removeTopic(String topic) {
-        int retry = 3;
-        TopicSync ts = topicSynMap.get(topic);
-        while (!ts.tryLock()) {
-            if (retry-- > 0) {
-                try {
-                    Thread.sleep(TOPIC_PARTITION_TIMEOUT);
-                } catch (InterruptedException e) {
-                    logger.error("interrupted while waiting for removing partitions selector for {}.", topic);
-                }
-            } else {
-                logger.info("Remove partitions selector for {} out of retry.", topic);
-                return;
-            }
-            //partitions selector is being updated
-        }
-        try {
-            topicSubscribed.remove(topic);
-            topic_2_partitionsSelector.remove(topic);
-            logger.info("{} removed from consumer subscribe.", topic);
-        }finally {
-            //place it in finally block
-            topicSynMap.remove(topic);
-            ts.unlock();
-        }
+        topic_2_partitionsSelector.remove(topic);
+        topicSynMap.remove(topic);
+        logger.info("{} removed from consumer subscribe.", topic);
     }
 
     @Override
@@ -300,7 +260,7 @@ public class NSQSimpleClient implements Client, Closeable {
 
         while (true) {
             aPs = topic_2_partitionsSelector.get(topic.getTopicText());
-            if (aPs != EMPTY && null != aPs) {
+            if (null != aPs) {
                 Partitions[] partitions;
                 if (write)
                     partitions = aPs.choosePartitions();
@@ -340,56 +300,57 @@ public class NSQSimpleClient implements Client, Closeable {
                 }
                 return nodes.toArray(new Address[0]);
             } else {
-                TopicSync ts = this.topicSynMap.get(topic.getTopicText());
-
-                if (null == ts) {
-                    logger.error("topic partitions selector synchronization for {} is null.", topic.getTopicText());
-                }
-
-                if (!ts.tryLock()) {
-                    Thread.sleep(TOPIC_PARTITION_TIMEOUT);
-                    //access to topic 2 partition map
-                    logger.info("Try again for partition selector for topic {}", topic.getTopicText());
-                    continue;
-                }
-
-                //update topic 2 partition map
-                long start = 0L;
+                long start = 0l;
+                if (PERF_LOG.isDebugEnabled())
+                    start = System.currentTimeMillis();
+                this.topicSyncLock.readLock().lock();
                 try {
-                    if(PERF_LOG.isDebugEnabled())
-                        start = System.currentTimeMillis();
-                    aPs = lookup.lookup(topic.getTopicText(), this.useLocalLookupd, false);
-                    if (null != aPs) {
-                        topic_2_partitionsSelector.put(topic.getTopicText(), aPs);
-                        for (Partitions aPartitions : aPs.dumpAllPartitions()) {
-                            //for partitions
-                            if (aPartitions.hasPartitionDataNodes() && topicShardingIDs[0] != Message.NO_SHARDING) {
-                                int partitionNum = aPartitions.getPartitionNum();
+                    TopicSync ts = this.topicSynMap.get(topic.getTopicText());
 
-                                if (write) {
-                                    int partitionId = topic.calculatePartitionIndex(topicShardingIDs[0], partitionNum);
-                                    //index out of boundry
-                                    Address addr = aPartitions.getPartitionAddress(partitionId);
-                                    nodes.add(addr);
-                                } else if ((long) topicShardingIDs[0] >= 0) {
-                                    for (Object partitionId : topicShardingIDs) {
-                                        long partIdLong = (long) partitionId;
-                                        Address addr = aPartitions.getPartitionAddress((int) partIdLong);
-                                        nodes.add(addr);
-                                    }
-                                }
-                                //all data nodes
-                            } else {
-                                List<Address> address = aPartitions.getAllDataNodes();
-                                nodes.addAll(address);
-                            }
-                        }
-                        return nodes.toArray(new Address[0]);
+                    if (!ts.tryLock()) {
+                        Thread.sleep(TOPIC_PARTITION_TIMEOUT);
+                        //access to topic 2 partition map
+                        logger.info("Try again for partition selector for topic {}", topic.getTopicText());
+                        continue;
                     }
-                    throw new NSQInvalidTopicException(topic.getTopicText());
+
+                    //update topic 2 partition map
+                    try {
+                        aPs = lookup.lookup(topic.getTopicText(), this.useLocalLookupd, false);
+                        if (null != aPs) {
+                            topic_2_partitionsSelector.put(topic.getTopicText(), aPs);
+                            for (Partitions aPartitions : aPs.dumpAllPartitions()) {
+                                //for partitions
+                                if (aPartitions.hasPartitionDataNodes() && topicShardingIDs[0] != Message.NO_SHARDING) {
+                                    int partitionNum = aPartitions.getPartitionNum();
+
+                                    if (write) {
+                                        int partitionId = topic.calculatePartitionIndex(topicShardingIDs[0], partitionNum);
+                                        //index out of boundry
+                                        Address addr = aPartitions.getPartitionAddress(partitionId);
+                                        nodes.add(addr);
+                                    } else if ((long) topicShardingIDs[0] >= 0) {
+                                        for (Object partitionId : topicShardingIDs) {
+                                            long partIdLong = (long) partitionId;
+                                            Address addr = aPartitions.getPartitionAddress((int) partIdLong);
+                                            nodes.add(addr);
+                                        }
+                                    }
+                                    //all data nodes
+                                } else {
+                                    List<Address> address = aPartitions.getAllDataNodes();
+                                    nodes.addAll(address);
+                                }
+                            }
+                            return nodes.toArray(new Address[0]);
+                        }
+                        throw new NSQInvalidTopicException(topic.getTopicText());
+                    } finally {
+                        ts.unlock();
+                    }
                 } finally {
-                    ts.unlock();
-                    if(PERF_LOG.isDebugEnabled()) {
+                    this.topicSyncLock.readLock().unlock();
+                    if (PERF_LOG.isDebugEnabled()) {
                         PERF_LOG.debug("Partition selector update for topic {} ends in {} milliSec.", topic.getTopicText(), System.currentTimeMillis() - start);
                     }
                 }
@@ -445,16 +406,17 @@ public class NSQSimpleClient implements Client, Closeable {
 
     @Override
     public void close() {
-        lock.writeLock().lock();
-        try {
-            lookup.close();
-            scheduler.shutdownNow();
-            topic_2_partitionsSelector.clear();
-            ps_lastInvalidated.clear();
-            topicSubscribed.clear();
-            topicSynMap.clear();
-        } finally {
-            lock.writeLock().unlock();
+        if(lock.tryLock()) {
+            try {
+                lookup.close();
+                scheduler.shutdownNow();
+                topic_2_partitionsSelector.clear();
+                ps_lastInvalidated.clear();
+                topicSubscribed.clear();
+                topicSynMap.clear();
+            } finally {
+                lock.unlock();
+            }
         }
     }
 

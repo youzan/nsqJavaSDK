@@ -41,7 +41,8 @@ public class AbstractNSQClientTestcase {
         final String threadPoolSize4IO = props.getProperty("threadPoolSize4IO");
 
         config = new NSQConfig();
-        config.setLookupAddresses(lookups);
+//        config.setLookupAddresses(lookups);
+        config.setLookupAddresses("qabb-qa-nsqtest0:4161");
         config.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
         config.setMsgTimeoutInMillisecond(Integer.valueOf(msgTimeoutInMillisecond));
         config.setThreadPoolSize4IO(Integer.valueOf(threadPoolSize4IO));
@@ -53,7 +54,7 @@ public class AbstractNSQClientTestcase {
 
     //simple function to give you a producer
     public static Producer createProducer(final NSQConfig config){
-        return new ProducerImplV2(config);
+        return new MockedProducer(config);
     }
 
     public static Consumer createConsumer(final NSQConfig config, final MessageHandler handler){

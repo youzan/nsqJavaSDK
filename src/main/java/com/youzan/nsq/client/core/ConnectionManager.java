@@ -501,7 +501,7 @@ public class ConnectionManager {
 //                                  TODO now we do not exceed expected per connection
 //                                  if(currentRdy >= expectedRdy && availableRdy > ceilingRdy)
 //                                  ceilingRdy = availableRdy;
-            final int newRdy = Math.min(ceilingRdy, currentRdy + 1);
+            final int newRdy = Math.min(ceilingRdy, currentRdy * 2);
             if (newRdy > currentRdy) {
                 ChannelFuture future = con.command(new Rdy(newRdy));
                 if(null != future)

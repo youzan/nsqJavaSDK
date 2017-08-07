@@ -50,6 +50,18 @@ public class ITTagProducer {
     }
 
     @Test
+    public void publishWTagAndNot() throws Exception {
+        TopicUtil.emptyQueue("http://" + props.getProperty("admin-address"), "testExt2Par2Rep", "BaseConsumer");
+        Topic topic = new Topic("testExt2Par2Rep");
+        DesiredTag tag = new DesiredTag("TAG1");
+        for (int i = 0; i < 20; i++) {
+            Message msg = Message.create(topic, "message");
+            msg.setDesiredTag(tag);
+            producer.publish(msg);
+        }
+    }
+
+    @Test
     public void publishWTag() throws Exception {
         TopicUtil.emptyQueue("http://" + props.getProperty("admin-address"), "testExt2Par2Rep", "BaseConsumer");
         Topic topic = new Topic("testExt2Par2Rep");

@@ -61,6 +61,10 @@ public class Message {
         return this.traceID;
     }
 
+    public String getTraceIDStr() {
+        return String.valueOf(this.traceID);
+    }
+
     public String getMessageBody(){
         return new String(this.messageBody, IOUtil.DEFAULT_CHARSET);
     }

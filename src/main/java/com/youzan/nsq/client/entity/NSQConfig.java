@@ -125,7 +125,8 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      */
     //default heartbeat value, also the max value NSQd allow
     private final Integer MAX_HEARTBEAT_INTERVAL_IN_MILLISEC = 60 * 1000;
-    private Integer heartbeatIntervalInMillisecond = MAX_HEARTBEAT_INTERVAL_IN_MILLISEC;
+    private final Integer DEFAULT_HEARTBEAT_INTERVAL_IN_MILLISEC = 30 * 1000;
+    private Integer heartbeatIntervalInMillisecond = DEFAULT_HEARTBEAT_INTERVAL_IN_MILLISEC;
 
     private Integer outputBufferSize = null;
 
@@ -137,6 +138,8 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     // ...
     private SslContext sslContext = null;
     private int rdy = 3;
+
+    private long producerConnectionEvictIntervalMillSec = 2 * 60 * 1000;
 
     static {
         PerfTune.getInstance();
@@ -815,6 +818,15 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     public int getMinIdleConnectionForProducer() {
         return this.minIdleConn;
+    }
+
+    public long getProducerConnectionEvictIntervalInMillSec() {
+        return this.producerConnectionEvictIntervalMillSec;
+    }
+
+    public NSQConfig setProducerConnectionEvictIntervalInMillSec(long producerConnectionEvictIntervalMillSec) {
+        this.producerConnectionEvictIntervalMillSec = producerConnectionEvictIntervalMillSec;
+        return this;
     }
 
     @Override

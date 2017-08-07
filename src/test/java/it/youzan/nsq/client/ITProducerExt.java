@@ -41,7 +41,7 @@ public class ITProducerExt extends ITProducer {
         final String msgTimeoutInMillisecond = props.getProperty("msgTimeoutInMillisecond");
         final String threadPoolSize4IO = props.getProperty("threadPoolSize4IO");
         adminHttp = "http://" + props.getProperty("admin-http");
-        config.setLookupAddresses(lookups);
+        config.setLookupAddresses("127.0.0.1:4161");
         config.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
         config.setMsgTimeoutInMillisecond(Integer.valueOf(msgTimeoutInMillisecond));
         config.setThreadPoolSize4IO(Integer.valueOf(threadPoolSize4IO));

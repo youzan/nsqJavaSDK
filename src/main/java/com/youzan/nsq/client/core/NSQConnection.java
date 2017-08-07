@@ -115,6 +115,6 @@ public interface NSQConnection extends Closeable {
     long lastMessageTouched();
     void setMessageConsumptionFailed(long timeStamp);
     long lastMessageConsumptionFailed();
-    int declineExpectedRdy();
-    int increaseExpectedRdy();
+    boolean declineExpectedRdy();
+    boolean increaseExpectedRdy();
 }

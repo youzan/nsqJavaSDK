@@ -24,6 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -582,6 +583,87 @@ public class ConnectionManagerTest {
             conMgr.close();
             consumer.close();
             logger.info("[testProofreadTotalRdy] ends.");
+        }
+    }
+
+
+    @DataProvider(name = "topicNums")
+    public static Object[][] topicNums() {
+        return new Object[][]{
+//                {new Integer(2)},
+//                {new Integer(4)},
+                {new Integer(6)},
+                {new Integer(8)}
+        };
+    }
+
+    @Test(dataProvider = "topicNums", dataProviderClass = ConnectionManagerTest.class)
+    public void testConsumeMultiTopicsRdy(int topicsNum) throws Exception {
+        String adminHtp = "http://" + props.getProperty("admin-address");
+        final List<String> list = new ArrayList<>();
+        int parNum = 4;
+        int repNum = 1;
+        for(int i = 0; i < topicsNum; i++) {
+            list.add("testConsume_" + i + "_" + System.currentTimeMillis());
+        }
+        try {
+            for (String topic : list) {
+                TopicUtil.createTopic(adminHtp, topic, parNum, repNum, "default");
+                TopicUtil.createTopicChannel(adminHtp, topic, "default");
+            }
+
+            NSQConfig localConfig = (NSQConfig) config.clone();
+            localConfig.setConsumerName("default");
+            localConfig.setRdy(4);
+
+            final ConnectionManager conMgr = new ConnectionManager(new IConsumeInfo() {
+                @Override
+                public float getLoadFactor() {
+                    return 0;
+                }
+
+                @Override
+                public int getRdyPerConnection() {
+                    return 4;
+                }
+
+                @Override
+                public boolean isConsumptionEstimateElapseTimeout() {
+                    return false;
+                }
+            });
+
+            final MockedConsumer consumer = new MockedConsumer(localConfig, null);
+            consumer.setConnectionManager(conMgr);
+            consumer.start();
+
+            for(String topic : list) {
+                JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topic + "&access=r"));
+                for (int i = 0; i < parNum; i++) {
+                    JsonNode partition = lookupResp.get("partitions").get("" + i);
+                    Address addr = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topic, i, false);
+                    consumer.connect(addr);
+                }
+            }
+
+            conMgr.start(0);
+            Thread.sleep(topicsNum * 10000);
+
+            //assert all topics has same rdy
+            for(String topic : list) {
+                logger.info("Check rdy for {}", topic);
+                ConnectionManager.ConnectionWrapperSet conSet = (ConnectionManager.ConnectionWrapperSet) conMgr.getSubscribeConnections(topic);
+                Assert.assertEquals(conSet.getTotalRdy(), 4 * parNum, "total rdy does not match");
+                for(ConnectionManager.NSQConnectionWrapper connWrapper : conSet) {
+                    Assert.assertEquals( connWrapper.getConn().getCurrentRdyCount(), 4);
+                }
+            }
+
+        }finally {
+            logger.info("[testConsumeMultiTopicsRdy] ends");
+            for(String topic:list) {
+                TopicUtil.deleteTopic(adminHtp, topic);
+            }
         }
     }
 }

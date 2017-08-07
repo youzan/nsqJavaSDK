@@ -35,9 +35,17 @@ public class TopicUtil {
     }
 
     public static void createTopic(String adminUrl, String topicName, String channel) throws IOException, InterruptedException {
+        createTopic(adminUrl, topicName, 2, 2, channel, false, false);
+    }
+
+    public static void createTopic(String adminUrl, String topicName, int parNum, int repNum, String channel) throws IOException, InterruptedException {
+        createTopic(adminUrl, topicName, parNum, repNum, channel, false,  false);
+    }
+
+    public static void createTopic(String adminUrl, String topicName, int parNum, int repNum, String channel, boolean ordered, boolean ext) throws IOException, InterruptedException {
         String urlStr = String.format("%s/api/topics", adminUrl);
         URL url = new URL(urlStr);
-        String contentStr = String.format("{\"topic\":\"%s\",\"partition_num\":\"2\", \"replicator\":\"1\", \"retention_days\":\"\", \"syncdisk\":\"\", \"channel\":\"%s\"}", topicName, channel);
+        String contentStr = String.format("{\"topic\":\"%s\",\"partition_num\":\"%d\", \"replicator\":\"%d\", \"retention_days\":\"\", \"syncdisk\":\"\", \"channel\":\"%s\", \"orderedmulti\":\"%s\", \"extend\":\"%s\"}", topicName, parNum, repNum, channel, ordered, ext);
         logger.debug("Prepare to open HTTP Connection...");
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
         con.setDoOutput(true);
@@ -62,6 +70,11 @@ public class TopicUtil {
     public static void deleteTopicChannel(String adminUrl, String topicName, String channel) throws Exception {
         URL channelUrl = new URL(adminUrl + "/api/topics/" + topicName + "/" + channel);
         IOUtil.deleteToUrl(channelUrl);
+    }
+
+    public static void createTopicChannel(String adminUrl, String topicName, String channel) throws Exception {
+        URL channelUrl = new URL(adminUrl + "/api/topics/" + topicName + "/" + channel);
+        IOUtil.postToUrl(channelUrl, "{\"action\":\"create\"}");
     }
 
     @Test

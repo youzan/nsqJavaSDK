@@ -21,10 +21,12 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * <pre>
@@ -52,7 +54,6 @@ public class ProducerImplV2 implements Producer {
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
     private final ConcurrentHashMap<String, Long> topic_2_lastActiveTime = new ConcurrentHashMap<>();
-    private ReentrantLock expiredTopicResLock = new ReentrantLock();
 
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger total = new AtomicInteger(0);
@@ -99,7 +100,6 @@ public class ProducerImplV2 implements Producer {
     }
 
     class ExpiredTopicCleaner implements Runnable {
-        final private int MAX_RETRY = 10;
         private Long expiration = 3600 * 1000L;
 
         public void setExpiration(long expration) {
@@ -116,37 +116,27 @@ public class ProducerImplV2 implements Producer {
             // Normal max lifetime is 1 hour
             // Extreme max lifetime is 1.5 hours
             final long allow = System.currentTimeMillis() - this.expiration;
-            final Set<String> expiredTopics = new HashSet<>();
+            final Map<String, Long> expiredTopicsMap = new HashMap<>();
             for (Map.Entry<String, Long> pair : topic_2_lastActiveTime.entrySet()) {
                 if (pair.getValue() < allow) {
-                    expiredTopics.add(pair.getKey());
+                    expiredTopicsMap.put(pair.getKey(), pair.getValue());
                 }
             }
-            int retry = 1;
-            if(expiredTopics.size() > 0) {
-                while (!expiredTopicResLock.tryLock()) {
-                    //TODO: backoff
-                    if (retry++ <= MAX_RETRY) {
-                        try {
-                            Thread.sleep(500L);
-                        } catch (InterruptedException e) {
-                            logger.warn("Expired topic resource cleaner thread interrupted while acquiring lock.");
-                        }
-                    } else {
-                        logger.info("Expired topic resource cleaner exits as publish process is busy.");
-                        return;
-                    }
-                }
+            if(expiredTopicsMap.size() > 0) {
                 try {
                     long now = System.currentTimeMillis();
-                    simpleClient.removeTopics(expiredTopics);
-                    logger.info("Expired topic resource cleaner exits in {} milliSec.", System.currentTimeMillis() - now);
-                    expiredTopics.clear();
-                    logger.info("Publish. Total: {} , Success: {} . Two values do not use a lock action.", total.get(), success.get());
+                    simpleClient.removeTopics(expiredTopicsMap.keySet());
+                    logger.info("Expired {} topic resource cleaner exits in {} milliSec.", expiredTopicsMap.size(), System.currentTimeMillis() - now);
+                    logger.info("Publish. Total: {} , Success: {}.", total.get(), success.get());
                 } finally {
-                    expiredTopicResLock.unlock();
+                    for (Map.Entry<String, Long> pair : expiredTopicsMap.entrySet()) {
+                        topic_2_lastActiveTime.remove(pair.getKey(), pair.getValue());
+                    }
                 }
+            } else {
+                logger.info("Expired topic not found. expired topic process exit.");
             }
+            expiredTopicsMap.clear();
         }
     }
 
@@ -174,12 +164,10 @@ public class ProducerImplV2 implements Producer {
             //otherwise only objects that have been idle for more than minEvicableIdleTimeMillis are removed.
             this.poolConfig.setTestWhileIdle(true);
             this.poolConfig.setJmxEnabled(true);
-            //connection need being validated after idle time, default to 30 min
-            this.poolConfig.setSoftMinEvictableIdleTimeMillis(30 * config.getHeartbeatIntervalInMillisecond());
-            //this need to be negative, otherwise min idle per key setting won't work
-            this.poolConfig.setMinEvictableIdleTimeMillis(-1);
+            //connection need being validated after idle time, default to 15 min
+            this.poolConfig.setMinEvictableIdleTimeMillis(30 * config.getHeartbeatIntervalInMillisecond());
             //number of milliseconds to sleep between runs of the idle object evictor thread
-            this.poolConfig.setTimeBetweenEvictionRunsMillis(10 * 60 * 1000);
+            this.poolConfig.setTimeBetweenEvictionRunsMillis(config.getProducerConnectionEvictIntervalInMillSec());
             this.poolConfig.setMinIdlePerKey(this.config.getMinIdleConnectionForProducer());
             this.poolConfig.setMaxIdlePerKey(this.config.getConnectionSize());
             this.poolConfig.setMaxTotalPerKey(this.config.getConnectionSize());
@@ -244,13 +232,16 @@ public class ProducerImplV2 implements Producer {
      * @return a validated {@link NSQConnection}
      * @throws NSQException that is having done a negotiation
      */
-    private NSQConnection getNSQConnection(Topic topic, Object topicShardingID, final Context cxt) throws NSQException {
+    protected NSQConnection getNSQConnection(Topic topic, Object topicShardingID, final Context cxt) throws NSQException {
         final Long now = System.currentTimeMillis();
-        topic_2_lastActiveTime.put(topic.getTopicText(), now);
         //data nodes matches topic sharding returns
-        Address[] partitonAddrs;
+        Address[] partitonAddrs = null;
         try {
-            partitonAddrs = simpleClient.getPartitionNodes(topic, new Object[]{topicShardingID}, true);
+            //TODO: timeout in publish
+            while(null == partitonAddrs) {
+                topic_2_lastActiveTime.put(topic.getTopicText(), now);
+                partitonAddrs = simpleClient.getPartitionNodes(topic, new Object[]{topicShardingID}, true);
+            }
         } catch (InterruptedException e) {
             logger.warn("Thread interrupted waiting for partition selector update, Topic {}. Ignore if SDK is shutting down.", topic.getTopicText());
             return null;
@@ -321,15 +312,6 @@ public class ProducerImplV2 implements Producer {
         }
         total.incrementAndGet();
 
-        topic_2_lastActiveTime.put(topic.getTopicText(), System.currentTimeMillis());
-        expiredTopicResLock.lock();
-        //while put topic, topic expiration is not allowed
-        try {
-            this.simpleClient.putTopic(message.getTopic().getTopicText());
-        }finally {
-            expiredTopicResLock.unlock();
-        }
-
         try{
             sendPUB(message, cxt);
         }catch (NSQPubException pubE){
@@ -379,6 +361,8 @@ public class ProducerImplV2 implements Producer {
                 logger.debug("Sleep. CurrentRetries: {}", c);
                 sleep((1 << (c - 1)) * this.config.getProducerRetryIntervalBaseInMilliSeconds());
             }
+            //while put topic, topic expiration is not allowed
+            this.simpleClient.putTopic(msg.getTopic().getTopicText());
             try {
                 //performance logging
                 long getConnStart = System.currentTimeMillis();

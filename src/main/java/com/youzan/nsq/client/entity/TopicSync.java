@@ -1,7 +1,6 @@
 package com.youzan.nsq.client.entity;
 
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
@@ -11,12 +10,10 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public class TopicSync {
     private final String topic;
     private final ReentrantReadWriteLock lock;
-    private final Condition waitOnLock;
 
     public TopicSync(final String topic) {
         this.topic = topic;
         this.lock = new ReentrantReadWriteLock();
-        this.waitOnLock = this.lock.writeLock().newCondition();
     }
 
     public String getTopicText() {

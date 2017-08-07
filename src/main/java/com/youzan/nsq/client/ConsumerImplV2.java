@@ -593,9 +593,6 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 logger.error("SDK can not handle it MessageID:{}, Exception:", message.getMessageID(), e);
             }
         }
-        if (!this.config.isOrdered()) {
-            connection.increaseExpectedRdy();
-        }
     }
 
     /**
@@ -709,6 +706,8 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         if (!ok) {
             connection.setMessageConsumptionFailed(start);
             logger.warn("Exception occurs in message handler. Please check it right now {} , Original message: {}.", message, message.getReadableContent());
+        } else if (!this.getConfig().isOrdered()){
+            connection.increaseExpectedRdy();
         }
     }
 

@@ -36,6 +36,52 @@ public class ITTagConsumer {
     }
 
     @Test
+    public void testConsumeOneTagOneNormal() throws Exception {
+        String topic = "testExt2Par2Rep";
+        try {
+            final CountDownLatch latch = new CountDownLatch(20);
+            final AtomicInteger receivedTag1 = new AtomicInteger(0);
+            final AtomicInteger receivedTag2 = new AtomicInteger(0);
+            NSQConfig config = new NSQConfig("BaseConsumer");
+            config.setLookupAddresses(props.getProperty("lookup-addresses"));
+            config.setConsumerDesiredTag(new DesiredTag("TAG1"));
+            Consumer consumerTag = new ConsumerImplV2(config, new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    logger.info("Message received: " + message.getReadableContent());
+                    logger.info("message tag: " + message.getTag().toString());
+                    receivedTag1.incrementAndGet();
+                    latch.countDown();
+                }
+            });
+            consumerTag.setAutoFinish(true);
+            consumerTag.subscribe(topic);
+            consumerTag.start();
+
+            NSQConfig configTag = new NSQConfig("BaseConsumer");
+            configTag.setLookupAddresses(props.getProperty("lookup-addresses"));
+            Consumer consumer = new ConsumerImplV2(configTag, new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    logger.error("Message should not received: " + message.getReadableContent());
+                    logger.error("message tag: " + message.getTag().toString());
+                }
+            });
+            consumer.setAutoFinish(true);
+            consumer.subscribe(topic);
+            consumer.start();
+
+            Assert.assertTrue(latch.await(1, TimeUnit.MINUTES));
+            Assert.assertEquals(receivedTag1.get(), 20);
+
+            consumer.close();
+            consumer.close();
+        }finally {
+            TopicUtil.emptyQueue("http://" + props.getProperty("admin-address"), topic, "BaseConsumer");
+        }
+    }
+
+    @Test
     public void test() throws Exception {
         String topic = "testExt2Par2Rep";
         try {

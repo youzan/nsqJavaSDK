@@ -454,16 +454,19 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         this.currentRdy.set(newCount);
     }
 
-    public synchronized int declineExpectedRdy() {
-        if(this.expectedRdy.get() - 1 >= 0)
-            return this.expectedRdy.decrementAndGet();
-        return this.expectedRdy.get();
+    public boolean declineExpectedRdy() {
+        int currentExpRdy = this.expectedRdy.get();
+        if(currentExpRdy - 1 > 0) {
+            return this.expectedRdy.compareAndSet(currentExpRdy, currentExpRdy - 1);
+        }
+        return false;
     }
 
-    public synchronized int increaseExpectedRdy() {
-        if(this.expectedRdy.get() + 1 <= this.config.getRdy())
-            return this.expectedRdy.incrementAndGet();
-        return this.expectedRdy.get();
+    public boolean increaseExpectedRdy() {
+        int currentExpRdy = this.expectedRdy.get();
+        if(currentExpRdy + 1 <= this.config.getRdy())
+            return this.expectedRdy.compareAndSet(currentExpRdy, currentExpRdy + 1);
+        return false;
     }
 
     public int getExpectedRdy() {

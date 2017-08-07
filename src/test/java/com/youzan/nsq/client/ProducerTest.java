@@ -1,29 +1,26 @@
 package com.youzan.nsq.client;
 
-import com.youzan.nsq.client.entity.Message;
-import com.youzan.nsq.client.entity.NSQConfig;
-import com.youzan.nsq.client.entity.NSQMessage;
-import com.youzan.nsq.client.entity.Topic;
+import com.youzan.nsq.client.entity.*;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQInvalidMessageException;
 import com.youzan.nsq.client.exception.NSQTopicNotFoundException;
 import com.youzan.nsq.client.utils.CompressUtil;
 import com.youzan.nsq.client.utils.TopicUtil;
 import com.youzan.util.IOUtil;
+import io.netty.util.internal.ConcurrentSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.lang.management.ThreadMXBean;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -382,5 +379,276 @@ public class ProducerTest extends AbstractNSQClientTestcase {
             TopicUtil.deleteTopic(adminHttp, topicName);
             logger.info("[testMessageWCompressedString] ends.");
         }
+    }
+
+    @Test
+    public void testProducerConnEvict() throws Exception {
+        logger.info("[testProducerConnEvict] starts.");
+        String adminHttp = "http://" + props.getProperty("admin-address");
+        String topicName = "topicProducerEvict_" + System.currentTimeMillis();
+        String channel = "default";
+        TopicUtil.createTopic(adminHttp, topicName, channel);
+        String raw  = "This is raw message for compress";
+
+        NSQConfig config = this.getNSQConfig();
+        config.setHeartbeatIntervalInMillisecond(1000);
+        config.setConsumerName(channel);
+        config.setLookupAddresses(props.getProperty("lookup-addresses"));
+        MockedProducer producer = (MockedProducer)this.createProducer(config);
+        try{
+            Topic topic = new Topic(topicName);
+            //a topic is invalid enough
+            producer.start();
+            producer.publish(raw.getBytes(IOUtil.UTF8), topic);
+
+            int id = producer.getNSQConnection(topic, Message.NO_SHARDING, new Context()).getId();
+            logger.info("sleep 60 sec for pool evict connection.");
+            Thread.sleep(60000);
+            int newId =  producer.getNSQConnection(topic, Message.NO_SHARDING, new Context()).getId();
+            Assert.assertNotEquals(newId, id);
+        }finally {
+            producer.close();
+            logger.info("Producer closed");
+            TopicUtil.deleteTopic(adminHttp, topicName);
+            logger.info("[testProducerConnEvict] ends.");
+        }
+    }
+
+    @Test
+    public void testExpiredTopicsClear() throws InterruptedException, NSQException {
+        logger.info("[testExpiredTopicsClear] starts.");
+        final String adminHttp = "http://" + props.getProperty("admin-address");
+        final String channel = "default";
+        int topicNum = 20;
+        final CountDownLatch latch = new CountDownLatch(topicNum);
+        final ExecutorService exec = Executors.newCachedThreadPool();
+        final AtomicBoolean fail = new AtomicBoolean(false);
+        final Set<String> topics = new ConcurrentSet<>();
+
+        NSQConfig config = this.getNSQConfig();
+        config.setConsumerName(channel);
+        config.setLookupAddresses(props.getProperty("lookup-addresses"));
+        final ProducerImplV2 producer = (ProducerImplV2) this.createProducer(config);
+        try {
+            for (int i = 0; i < topicNum; i++) {
+                final int idx = i;
+                exec.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            String topicName = "topic_" + idx + "_" + System.currentTimeMillis();
+                            TopicUtil.createTopic(adminHttp, topicName, channel);
+                            TopicUtil.createTopicChannel(adminHttp, topicName, channel);
+                            topics.add(topicName);
+                            latch.countDown();
+                        } catch (Exception e) {
+                            logger.error("error in create topic", e);
+                            fail.set(true);
+                        }
+                    }
+                });
+            }
+            Assert.assertTrue(latch.await(60, TimeUnit.SECONDS));
+            Thread.sleep(20000);
+
+            producer.getTopicExpirationCleaner().setExpiration(5000);
+            producer.start();
+            final String raw = "This is raw message for compress";
+            for (String topic : topics) {
+                producer.publish(raw, topic);
+            }
+//            Thread.sleep(10000);
+//            producer.getTopicExpirationCleaner().run();
+
+            //random publish
+            final AtomicBoolean stop = new AtomicBoolean(false);
+            final Random ran = new Random();
+            exec.submit(new Runnable() {
+                @Override
+                public void run() {
+                    while(!stop.get()) {
+                        int cnt = topics.size()/2;
+                        for(String topic:topics) {
+                            try {
+                                producer.publish(raw, topic);
+                                Thread.sleep(ran.nextInt(50));
+                                if (--cnt == 0)
+                                    break;
+                            } catch (IllegalStateException e) {
+                                stop.set(true);
+                                break;
+                            } catch (Exception e) {
+                                logger.error("error publish messages", e);
+                                fail.set(true);
+                                stop.set(true);
+                                break;
+                            }
+                        }
+                    }
+                    logger.info("publish loop stop...");
+                }
+            });
+
+            for(int i = 0; i < 10; i++) {
+                Thread.sleep(10000);
+                producer.getTopicExpirationCleaner().run();
+            }
+            stop.set(true);
+            Thread.sleep(10000);
+            producer.getTopicExpirationCleaner().run();
+            Assert.assertFalse(fail.get());
+        } finally {
+            producer.close();
+            logger.info("start to delete {} topics", topics.size());
+            final CountDownLatch delLatch = new CountDownLatch(topics.size());
+            for (final String topic : topics) {
+                exec.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            TopicUtil.deleteTopic(adminHttp, topic);
+                            delLatch.countDown();
+                        } catch (Exception e) {
+                            logger.error("error in create topic", e);
+                        }
+                    }
+                });
+            }
+            delLatch.await(60, TimeUnit.SECONDS);
+            logger.info("[testExpiredTopicsClear] ends.");
+        }
+    }
+
+    /**
+     * {producer_num, message_num, message_size}
+     */
+    @DataProvider(name = "producerProvider")
+    public static Object[][] producerData() {
+        return new Object[][] {
+                {new Integer(2), new Integer(1000), new Integer(16)},
+                {new Integer(4), new Integer(1000), new Integer(16)},
+                {new Integer(8), new Integer(1000), new Integer(16)},
+                {new Integer(16), new Integer(1000), new Integer(16)},
+                {new Integer(32), new Integer(1000), new Integer(16)},
+        };
+    }
+
+    @Test(dataProvider = "producerProvider", dataProviderClass = ProducerTest.class)
+    public void benchmarkPublish(int producerNum, final int messageNum, int msgSize) throws Exception {
+        logger.info("[benchmarkPublish] start");
+        String adminUrl = "http://" + props.getProperty("admin-address");
+        final String topic = "bench_producer_" + System.currentTimeMillis();
+        String channel = "default";
+
+        NSQConfig config = new NSQConfig();
+        config.setLookupAddresses(props.getProperty("lookup-addresses"));
+        final Producer producer = new ProducerImplV2(config);
+        producer.start();
+
+        final AtomicInteger readyCnt = new AtomicInteger();
+        final Semaphore readySignal = new Semaphore(producerNum);
+        final AtomicBoolean fail = new AtomicBoolean(false);
+        final ExecutorService exec = Executors.newCachedThreadPool();
+        final ByteBuffer bf = ByteBuffer.allocate(msgSize);
+        int idx = 0;
+        while(idx++ < msgSize)
+            bf.put("x".getBytes());
+
+        final CountDownLatch latch = new CountDownLatch(producerNum);
+        long start = 0l;
+        try {
+            TopicUtil.createTopic(adminUrl, topic, channel);
+            TopicUtil.createTopicChannel(adminUrl, topic, channel);
+
+            for (int i = 0; i < producerNum; i++) {
+                exec.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            try {
+                                readyCnt.incrementAndGet();
+                                readySignal.acquire();
+                            } catch (InterruptedException e) {
+                                logger.error("fail to wait ready lock", e);
+                                fail.set(true);
+                                return;
+                            }
+
+                            int cnt = 0;
+                            do {
+                                try {
+                                    producer.publish(bf.array(), topic);
+                                } catch (NSQException e) {
+                                    logger.error("fail to send message, cnt {}", cnt, e);
+                                    fail.set(true);
+                                    break;
+                                }
+                            } while (cnt++ < messageNum);
+                        }finally {
+                            latch.countDown();
+                        }
+                    }
+                });
+            }
+
+            Thread.sleep(5000);
+            if (readyCnt.get() == producerNum) {
+                readySignal.release(producerNum);
+            } else {
+                Assert.fail("Not all producers are ready");
+            }
+            start = System.currentTimeMillis();
+            Assert.assertTrue(latch.await(10, TimeUnit.MINUTES));
+            Assert.assertFalse(fail.get());
+            logger.info("benchmark publish ends in {} milliSec, producer_num: {}, message_num: {}, msg_size: {}", System.currentTimeMillis() - start, producerNum, messageNum, msgSize);
+        }finally {
+            producer.close();
+            TopicUtil.deleteTopic(adminUrl, topic);
+            logger.info("[benchmarkPublish] ends");
+        }
+    }
+
+
+    /**
+     *test whether pubExt change map passin
+     */
+    @Test
+    public void testPubExtNotChangeMap() throws Exception {
+        logger.info("[testPubExtNotChangeMap] starts");
+        String topicName = "testPubNotChangeMap_" + System.currentTimeMillis();
+        String channel = "default";
+//        String adminUrl = "http://" + props.getProperty("admin-address");
+        String adminUrl = "http://" + "qabb-qa-nsqtest0:4171";
+        Producer producer = null;
+        try{
+            TopicUtil.createTopic(adminUrl, topicName, 2, 2, channel, false, true);
+            TopicUtil.createTopicChannel(adminUrl, topicName, channel);
+
+            NSQConfig config = (NSQConfig) this.config.clone();
+            config.turnOnLocalTrace(topicName);
+
+            producer = new ProducerImplV2(config);
+            producer.start();
+
+            final Topic topic = new Topic(topicName);
+            final Map<String, String> properties = new HashMap<>();
+            properties.put("key" ,"onlyVal");
+
+            final DesiredTag tag = new DesiredTag("testTag");
+            for (int i = 0; i < 10; i++) {
+                Message msg = Message.create(topic, 45678L, ("Message #" + i));
+                msg.setDesiredTag(tag);
+                //add ext json
+                msg.setJsonHeaderExt(properties);
+                producer.publish(msg);
+            }
+                //check properties map not change
+            Assert.assertEquals(properties.size(), 1);
+            Assert.assertEquals(properties.get("key"), "onlyVal");
+        }finally {
+            producer.close();
+            TopicUtil.deleteTopic(adminUrl, topicName);
+        }
+
     }
 }
