@@ -158,7 +158,7 @@ public class NSQSimpleClient implements Client, Closeable {
             throw new IllegalArgumentException("Topic is not allowed to be empty.");
         }
 
-        boolean syncExist = false;
+        boolean syncExist;
         topicSyncLock.readLock().lock();
         try{
             syncExist = topicSynMap.containsKey(topic);

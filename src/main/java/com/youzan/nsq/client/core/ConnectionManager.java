@@ -34,7 +34,7 @@ public class ConnectionManager {
     //executor for backoff & resume
     private final ExecutorService exec = Executors.newCachedThreadPool(new NamedThreadFactory("connMgr-job", Thread.NORM_PRIORITY));
     //schedule executor for backoff resume
-    private final ScheduledExecutorService delayExec = Executors.newSingleThreadScheduledExecutor();
+    private final ScheduledExecutorService delayExec = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("rdy-distribute", Thread.NORM_PRIORITY));
 
     private final int INIT_DELAY = 5;
     private final int INTERVAL = 5;
@@ -45,7 +45,11 @@ public class ConnectionManager {
     private final Runnable REDISTRIBUTE_RUNNABLE = new Runnable() {
         @Override
         public void run() {
-            redistributeRdy(ci.getLoadFactor(), ci.isConsumptionEstimateElapseTimeout(), ci.getRdyPerConnection());
+            try {
+                redistributeRdy(ci.getLoadFactor(), ci.isConsumptionEstimateElapseTimeout(), ci.getRdyPerConnection());
+            }catch (Exception e) {
+                logger.error("error in redistribute rdy.", e);
+            }
         }
     };
 
@@ -54,6 +58,10 @@ public class ConnectionManager {
 
     public ConnectionManager(IConsumeInfo consumer) {
         this.ci = consumer;
+    }
+
+    public Runnable getRedistributeRunnable() {
+        return this.REDISTRIBUTE_RUNNABLE;
     }
 
     public void setRdyUpdatePolicyClass(String policyClass) {
@@ -584,6 +592,10 @@ public class ConnectionManager {
                                }
                            });
                        }
+                   } else {
+                       //keep rdy untouched, count down the latch
+                       for(NSQConnectionWrapper sub:subs)
+                           latch.countDown();
                    }
                    //await for may rdy updates
                    try {

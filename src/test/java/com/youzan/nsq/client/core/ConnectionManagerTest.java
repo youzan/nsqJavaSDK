@@ -9,10 +9,7 @@ import com.youzan.nsq.client.core.command.Identify;
 import com.youzan.nsq.client.core.command.Magic;
 import com.youzan.nsq.client.core.command.Rdy;
 import com.youzan.nsq.client.core.command.Sub;
-import com.youzan.nsq.client.entity.Address;
-import com.youzan.nsq.client.entity.NSQConfig;
-import com.youzan.nsq.client.entity.Role;
-import com.youzan.nsq.client.entity.Topic;
+import com.youzan.nsq.client.entity.*;
 import com.youzan.nsq.client.network.netty.NSQClientInitializer;
 import com.youzan.nsq.client.utils.TopicUtil;
 import com.youzan.util.IOUtil;
@@ -31,10 +28,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.*;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 /**
  * Created by lin on 17/6/26.
@@ -531,6 +525,149 @@ public class ConnectionManagerTest {
         }
     }
 
+    @Test(invocationCount = 3)
+    public void testConcurrentBackoffAndResume() throws Exception {
+        logger.info("[testConcurrentBackoffAncResume] starts");
+        final String topicName = "testConBackoffResume_" + System.currentTimeMillis();
+        String channel = "default";
+        int parNum = 5;
+        String adminUrl = "http://" + props.getProperty("admin-address");
+        final ConnectionManager conMgr = new ConnectionManager(new IConsumeInfo() {
+            @Override
+            public float getLoadFactor() {
+                return 0;
+            }
+
+            @Override
+            public int getRdyPerConnection() {
+                return 4;
+            }
+
+            @Override
+            public boolean isConsumptionEstimateElapseTimeout() {
+                return false;
+            }
+        });
+
+        try {
+            TopicUtil.createTopic(adminUrl, topicName, 5, 1, channel, false, false);
+            TopicUtil.createTopicChannel(adminUrl, topicName, channel);
+            //then we have 5 channel
+
+            final List<NSQConnection> connList = new ArrayList<>(parNum);
+            JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topicName + "&access=r"));
+            for (int i = 0; i < parNum; i++) {
+                JsonNode partition = lookupResp.get("partitions").get("" + i);
+                Address addr = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topicName, i, false);
+                NSQConnection con = connect(addr, topicName, i, channel, config);
+                connList.add(con);
+            }
+
+            //subscribe first connection
+            conMgr.subscribe(topicName, connList.get(0));
+            conMgr.start(0);
+
+            ExecutorService exec = Executors.newCachedThreadPool();
+            final Semaphore endSignal = new Semaphore(0);
+            final Semaphore startSignal = new Semaphore(0);
+
+            //backoff
+            exec.submit(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        startSignal.acquire();
+                    } catch (InterruptedException e) {
+                        logger.error("interrupted waiting for start signal", e);
+                        Assert.fail();
+                    }
+                    while (!endSignal.tryAcquire()) {
+                        CountDownLatch latch = new CountDownLatch(1);
+                        conMgr.backoff(topicName, latch);
+                        try {
+                            if (!latch.await(1, TimeUnit.SECONDS)) {
+                                Assert.fail("timeout waiting for backoff");
+                            }
+                        } catch (InterruptedException e) {
+                            logger.error("interrupted.", e);
+                            Assert.fail("interrupted waiting for backoff finish");
+                        }
+                        try {
+                            Thread.sleep(50);
+                        } catch (InterruptedException e) {
+                            //ignore
+                        }
+                    }
+                    logger.info("backoff loop ends");
+                }
+            });
+
+            //resume
+            exec.submit(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        startSignal.acquire();
+                    } catch (InterruptedException e) {
+                        logger.error("interrupted waiting for start signal", e);
+                        Assert.fail();
+                    }
+                    while (!endSignal.tryAcquire()) {
+                        CountDownLatch latch = new CountDownLatch(1);
+                        conMgr.resume(topicName, latch);
+                        try {
+                            if (!latch.await(1, TimeUnit.SECONDS)) {
+                                Assert.fail("timeout waiting for backoff");
+                            }
+                        } catch (InterruptedException e) {
+                            logger.error("interrupted.", e);
+                            Assert.fail("interrupted waiting for backoff finish");
+                        }
+                        try {
+                            Thread.sleep(50);
+                        } catch (InterruptedException e) {
+                            //ignore
+                        }
+                    }
+                    logger.info("resume loop ends.");
+                }
+            });
+
+            startSignal.release(2);
+            Thread.sleep(1000);
+            for (int i = 1; i < connList.size(); i++) {
+                conMgr.subscribe(topicName, connList.get(i));
+                Thread.sleep(1000);
+            }
+            Thread.sleep(10000);
+            //now stop everything
+            endSignal.release(2);
+            Thread.sleep(1000);
+
+            boolean base = connList.get(0).isBackoff();
+            logger.info("Connection 0 is backoff: {}", base);
+            for (NSQConnection con : connList) {
+                Assert.assertTrue(con.isConnected());
+                Assert.assertEquals(con.isBackoff(), base, "" + con + " isBackoff state does not equal to " + base);
+            }
+
+            CountDownLatch latch = new CountDownLatch(1);
+            conMgr.resume(topicName, latch);
+            Assert.assertTrue(latch.await(1, TimeUnit.SECONDS));
+            Thread.sleep(20000);
+
+            for (NSQConnection con : connList) {
+                Assert.assertTrue(con.isConnected());
+                Assert.assertEquals(con.getCurrentRdyCount(), config.getRdy());
+            }
+
+        }finally {
+            conMgr.backoff(topicName, null);
+            conMgr.close();
+            TopicUtil.deleteTopic(adminUrl, topicName);
+        }
+    }
+
     @Test
     public void testProofreadTotalRdy() throws Exception {
         logger.info("[testProofreadTotalRdy] starts.");
@@ -586,6 +723,78 @@ public class ConnectionManagerTest {
         }
     }
 
+    public static class BadRdyUpdatePolicy implements IRdyUpdatePolicy {
+
+        @Override
+        public boolean rdyShouldIncrease(String topic, float scheduleLoad, boolean mayTimeout, int maxRdyPerCon, int extraRdy) {
+            boolean flag = true;
+            if(flag) {
+                throw new RuntimeException("expected exp in rdy update policy");
+            }
+            return true;
+        }
+
+        @Override
+        public boolean rdyShouldDecline(String topic, float scheduleLoad, boolean mayTimeout, int maxRdyPerCon, int extraRdy) {
+            boolean flag = true;
+            if(flag) {
+                throw new RuntimeException("expected exp in rdy update policy");
+            }
+            return false;
+        }
+    }
+
+    @Test
+    public void testMakebadOfRdyRedistribute() throws Exception {
+        logger.info("[testMakebadOfRdyRedistribute] starts.");
+        String topicName = "testMakebadOfRdyDist_" + System.currentTimeMillis();
+        String channel = "default";
+        String admin = "http://" + props.getProperty("admin-address");
+
+        final ConnectionManager conMgr = new ConnectionManager(new IConsumeInfo() {
+            @Override
+            public float getLoadFactor() {
+                return 0;
+            }
+
+            @Override
+            public int getRdyPerConnection() {
+                return 4;
+            }
+
+            @Override
+            public boolean isConsumptionEstimateElapseTimeout() {
+                return false;
+            }
+        });
+
+        try{
+            int parNum = 5;
+            TopicUtil.createTopic(admin, topicName, parNum, 1, channel, false, false);
+            TopicUtil.createTopicChannel(admin, topicName, channel);
+            //then we have 5 channel
+            conMgr.setRdyUpdatePolicyClass(BadRdyUpdatePolicy.class.getName());
+
+            final List<NSQConnection> connList = new ArrayList<>(parNum);
+            JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topicName + "&access=r"));
+            for (int i = 0; i < parNum; i++) {
+                JsonNode partition = lookupResp.get("partitions").get("" + i);
+                Address addr = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topicName, i, false);
+                NSQConnection con = connect(addr, topicName, i, channel, config);
+                connList.add(con);
+                conMgr.subscribe(topicName, con);
+            }
+            conMgr.start(0);
+            Thread.sleep(10000);
+            //check if redistribute is still alive
+            conMgr.getRedistributeRunnable().run();
+
+        }finally {
+            TopicUtil.deleteTopic(admin, topicName);
+            conMgr.close();
+            logger.info("[testMakebadOfRdyRedistribute] ends.");
+        }
+    }
 
     @DataProvider(name = "topicNums")
     public static Object[][] topicNums() {

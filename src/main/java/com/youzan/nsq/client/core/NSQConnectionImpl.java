@@ -22,12 +22,15 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
 public class NSQConnectionImpl implements Serializable, NSQConnection, Comparable {
+    public static final int INIT_RDY = 1;
+
     private static final Logger logger = LoggerFactory.getLogger(NSQConnectionImpl.class);
     private static final long serialVersionUID = 7139923487863469738L;
 
@@ -53,8 +56,8 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     private final boolean isExtend;
 
     //start ready cnt for current count
-    private AtomicInteger currentRdy = new AtomicInteger(1);
-    private AtomicInteger lastRdy = new AtomicInteger(1);
+    private AtomicInteger currentRdy = new AtomicInteger(0);
+    private AtomicInteger lastRdy = new AtomicInteger(0);
     private AtomicInteger expectedRdy = new AtomicInteger(1);
 
     private final AtomicLong latestInternalID = new AtomicLong(-1L);
@@ -68,7 +71,6 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         this.address = address;
         this.channel = channel;
         this.config = config;
-        this.currentRdy.set(1);
         this.expectedRdy.set(this.config.getRdy());
         this.queryTimeoutInMillisecond = config.getQueryTimeoutInMillisecond();
         if(address.isTopicExtend()) {
@@ -349,7 +351,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         command(new Rdy(rdy)).addListener(new ChannelFutureListener() {
             @Override
             public void operationComplete(ChannelFuture channelFuture) throws Exception {
-                if(channelFuture.isSuccess()) {
+                if (channelFuture.isSuccess()) {
                     int lastRdy = getCurrentRdyCount();
                     setCurrentRdyCount(rdy);
                     callback.onUpdated(rdy, lastRdy);
@@ -396,12 +398,13 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
             return;
         }
         if(backoff.compareAndSet(true, false)) {
-            final int rdy = this.lastRdy.get();
+            final int rdy = INIT_RDY;
             command(new Rdy(rdy)).addListener(new ChannelFutureListener() {
                 @Override
                 public void operationComplete(ChannelFuture channelFuture) throws Exception {
                     if(channelFuture.isSuccess()) {
                         int lastRdy = getCurrentRdyCount();
+                        assert lastRdy == 0;
                         setCurrentRdyCount(rdy);
                         callback.onUpdated(rdy, lastRdy);
                     } else {
@@ -446,8 +449,6 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     public synchronized void setCurrentRdyCount(int newCount) {
         if(newCount < 0 || this.currentRdy.get() == newCount) {
-            if(newCount == 0)
-                logger.info("Backoff connection {}", this);
             return;
         }
         this.lastRdy.set(this.currentRdy.get());

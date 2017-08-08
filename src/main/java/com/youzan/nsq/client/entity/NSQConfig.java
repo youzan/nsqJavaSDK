@@ -99,14 +99,6 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      */
     private Integer outputBufferTimeoutInMillisecond = null;
 
-    /**
-     * max requeue times setting for consumer, if message read attempts exceeds that value, consumer will:
-     * 1. log that message;
-     * 2. publish that message back to NSQ;
-     * 3. ACK origin message.
-     */
-    private int maxRequeueTimes = 30;
-
     // 1 seconds
     public static final int _MIN_NEXT_CONSUMING_IN_SECOND = 0;
     // 180 days ?why 180
@@ -506,8 +498,8 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * Specify output_buffer_size (nsqd v0.2.21+) the size in bytes of the buffer nsqd will use when writing to this
-     * client.
+     * Specify output_buffer_timeout (nsqd v0.2.21+) the timeout after which any data that nsqd has buffered will be
+     * flushed to this client.
      *
      * @param outputBufferTimeoutInMillisecond the outputBufferTimeoutInMillisecond to set
      * @return {@link NSQConfig}
@@ -702,27 +694,6 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         return this.producerRetryIntervalBase;
     }
 
-    /**
-     * Deprecated in SDK 2.4
-     * set max requeue times threshold for one message.
-     * @param times
-     * @return {@link NSQConfig}
-     */
-    @Deprecated
-    public NSQConfig setMaxRequeueTimes(int times) {
-       this.maxRequeueTimes = times;
-       return this;
-    }
-
-    /**
-     * Deprecated in SDK 2.4.
-     * @return threshold of requeue time for one message.
-     */
-    @Deprecated
-    public int getMaxRequeueTimes() {
-        return this.maxRequeueTimes;
-    }
-
     public static String[] getConfigAccessURLs() {
         return configAccessURLs;
     }
@@ -775,7 +746,6 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         logger.info("Global config access configs cleared.");
     }
 
-
     /**
      * specify time elapse before a requeued message sent from NSQd. Next consuming timeout in current NSQConfig could
      * be override by {@link NSQMessage#setNextConsumingInSecond(Integer)}
@@ -797,7 +767,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     /**
      * get time elapse for a requeued message in current NSQConfig.
-     * @return
+     * @return expected interval in seconds before a requeue message pushed to client again. As
      */
     public int getNextConsumingInSecond() {
         return this.nextConsumingInSecond;
@@ -839,6 +809,53 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         }
         assert newCfg != null;
         return newCfg;
+    }
+
+    /*
+    deprecated functions which are not used in 2.4
+     */
+    /**
+     * Deprecated in SDK 2.4. this function makes no effect
+     * set max requeue times threshold for one message.
+     * @param times
+     * @return {@link NSQConfig}
+     */
+    @Deprecated
+    public NSQConfig setMaxRequeueTimes(int times) {
+        logger.info("[NSQConfig.setMaxRequeueTimes] makes no effect");
+        return this;
+    }
+
+    /**
+     * Deprecated in SDK 2.4. this function ALWAYS answers -1
+     * @return threshold of requeue time for one message.
+     */
+    @Deprecated
+    public int getMaxRequeueTimes() {
+        return -1;
+    }
+
+    /**
+     * switch to enable/disable send a message which reaches max requeue times to the tail of message queue and ACK
+     * it after success, default flag value is {@link Boolean#FALSE}, prior to current release is always {@link Boolean#TRUE}.
+     * @param flag {@link Boolean#FALSE} to disable, otherwise enable
+     * @return {@link NSQConfig}
+     *
+     * This is function is deprecated, invoke of this function makes no effect
+     */
+    @Deprecated
+    public NSQConfig setSendAndACKAfterMaxRequeue(boolean flag) {
+        logger.info("[NSQConfig.setSendAnsACKAfterMaxRequeue] makes no effect");
+        return this;
+    }
+
+    /**
+     * This function is deprecated, invoke of this function makes no effect
+     * @return
+     */
+    @Deprecated
+    public boolean getSendAndACKAfterMaxRequeue() {
+        return false;
     }
 
 }

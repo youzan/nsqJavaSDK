@@ -147,6 +147,34 @@ public class ProducerImplV2 implements Producer {
     }
 
     @Override
+    public void start(String... topics) throws NSQException {
+        this.start();
+        if(null != topics && topics.length > 0) {
+            Set<Address> nsqdAddrs = new HashSet<>();
+            Object[] noSharding = new Object[]{Message.NO_SHARDING};
+            logger.info("start initializing connections for {}", topics);
+            for (String topic : topics) {
+                try {
+                    nsqdAddrs.addAll(
+                            Arrays.asList(
+                                    this.simpleClient.getPartitionNodes(new Topic(topic), noSharding, true)
+                            )
+                    );
+                } catch (InterruptedException e) {
+                    logger.error("error waiting for topic 2 partition info updating.");
+                }
+            }
+            logger.info("total {} addresses to initialize");
+            for(Address addr : nsqdAddrs)
+                try {
+                    this.bigPool.preparePool(addr);
+                } catch (Exception e) {
+                    logger.error("fail to initialize connection to {}", addr);
+                }
+        }
+    }
+
+    @Override
     public void start() throws NSQException {
         if (started.compareAndSet(Boolean.FALSE, Boolean.TRUE)) {
             if (!validateLookupdSource()) {
@@ -220,6 +248,10 @@ public class ProducerImplV2 implements Producer {
             }
             preAllocateList.clear();
         }
+    }
+
+    public GenericKeyedObjectPool<Address, NSQConnection> getConnectionPool() {
+        return this.bigPool;
     }
 
     /**

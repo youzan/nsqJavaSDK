@@ -41,8 +41,7 @@ public class AbstractNSQClientTestcase {
         final String threadPoolSize4IO = props.getProperty("threadPoolSize4IO");
 
         config = new NSQConfig();
-//        config.setLookupAddresses(lookups);
-        config.setLookupAddresses("qabb-qa-nsqtest0:4161");
+        config.setLookupAddresses(lookups);
         config.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
         config.setMsgTimeoutInMillisecond(Integer.valueOf(msgTimeoutInMillisecond));
         config.setThreadPoolSize4IO(Integer.valueOf(threadPoolSize4IO));

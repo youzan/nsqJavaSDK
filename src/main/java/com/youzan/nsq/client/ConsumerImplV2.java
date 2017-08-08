@@ -55,7 +55,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     private final AtomicInteger finished = new AtomicInteger(0);
     private final AtomicInteger re = new AtomicInteger(0); // have done reQueue
     private final AtomicInteger queue4Consume = new AtomicInteger(0); // have done reQueue
-    protected ConnectionManager conMgr;
+    protected ConnectionManager conMgr = new ConnectionManager(this);
 
     //netty component for consumer
     private final Bootstrap bootstrap = new Bootstrap();
@@ -221,7 +221,6 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             //                       First, async keep
             keepConnecting();
             // -----------------------------------------------------------------
-            conMgr = new ConnectionManager(this);
             conMgr.start();
             logger.info("The consumer has been started.");
         }
@@ -653,7 +652,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                     logger.info("Do a re-queue by SDK that is a default behavior. MessageID: {} , Hex: {}", id, message.newHexString(id));
                 } else {
                     if (!this.config.isOrdered() && end > this.config.getMsgTimeoutInMillisecond()) {
-                        logger.warn("It tooks {} milliSec to for message to be consumed by message handler, and exceeds message timeout in nsq config. Fin not be invoked as requeue from NSQ server is on its way.", end);
+                        logger.warn("It took {} milliSec to for message to be consumed by message handler, and exceeds message timeout in nsq config. Fin not be invoked as requeue from NSQ server is on its way.", end);
                         connection.declineExpectedRdy();
                     } else {
                         // Finish: client explicitly sets NextConsumingInSecond is null

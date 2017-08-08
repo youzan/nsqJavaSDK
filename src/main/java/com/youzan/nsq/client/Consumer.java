@@ -1,6 +1,7 @@
 package com.youzan.nsq.client;
 
 import com.youzan.nsq.client.core.Client;
+import com.youzan.nsq.client.core.ConnectionManager;
 import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
@@ -83,4 +84,6 @@ public interface Consumer extends Client, Closeable {
      * @return {@link NSQConfig} config
      */
     NSQConfig getConfig();
+
+    ConnectionManager getConnectionManager();
 }

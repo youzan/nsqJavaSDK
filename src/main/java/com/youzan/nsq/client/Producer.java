@@ -1,7 +1,6 @@
 package com.youzan.nsq.client;
 
 import com.youzan.nsq.client.core.Client;
-import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.Topic;
@@ -19,6 +18,13 @@ import java.util.List;
 public interface Producer extends Client, Closeable {
     @Override
     void start() throws NSQException;
+
+    /**
+     * start producer with specified topics for initializing nsq connection for later publish
+     * @param topics
+     * @throws NSQException
+     */
+    void start(String... topics) throws NSQException;
 
     /**
      * Default UTF-8 Encoding

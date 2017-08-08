@@ -51,6 +51,7 @@ public class NSQConfigTestcase {
                 /*
                 用于覆盖DCC返回的lookup address，配置为true时，ConfigAccessAgent将不会访问DCC，SDK
                 使用｛@link NSQConfig#setLookupAddresses(String)｝传入的地址。
+                @Deprecated
                 */
                 .setUserSpecifiedLookupAddress(true)
                 /*
