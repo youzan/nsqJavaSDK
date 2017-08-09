@@ -37,10 +37,12 @@ public class NSQMessage implements MessageMetadata{
     class TopicInfo {
         private String topicName;
         private int partition;
+        private boolean isExt;
 
-        public TopicInfo(String topicName, int partition) {
+        public TopicInfo(String topicName, int partition, boolean isExt) {
             this.topicName = topicName;
             this.partition = partition;
+            this.isExt = isExt;
         }
 
         public String getTopicName() {
@@ -51,8 +53,12 @@ public class NSQMessage implements MessageMetadata{
             return this.partition;
         }
 
+        public boolean isExt() {
+            return this.isExt;
+        }
+
         public String toString() {
-            return this.topicName + ", " + this.partition;
+            return this.topicName + ", " + this.partition + ", " + this.isExt;
         }
     }
 
@@ -70,7 +76,7 @@ public class NSQMessage implements MessageMetadata{
      * @param nextConsumingInSecond time elapse for requeued message to send
      */
     public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
-                     byte[] messageBody, Address address, Integer connectionID, int nextConsumingInSecond, final Topic topic) {
+                     byte[] messageBody, Address address, Integer connectionID, int nextConsumingInSecond, final Topic topic, boolean isExt) {
         this.timestamp = timestamp;
         this.attempts = attempts;
         this.messageID = messageID;
@@ -92,7 +98,7 @@ public class NSQMessage implements MessageMetadata{
 
         this.nextConsumingInSecond = nextConsumingInSecond;
 
-        this.ti = new TopicInfo(topic.getTopicText(), address.getPartition());
+        this.ti = new TopicInfo(topic.getTopicText(), address.getPartition(), isExt);
     }
 
     /**
@@ -111,8 +117,8 @@ public class NSQMessage implements MessageMetadata{
      */
     public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
                       final byte[] diskQueueOffset, final byte[] diskQueueDataSize, byte[] messageBody, Address address,
-                      Integer connectionID, int nextConsumingInSecond, final Topic topic) {
-        this(timestamp, attempts, messageID, internalID, traceID, messageBody, address, connectionID, nextConsumingInSecond, topic);
+                      Integer connectionID, int nextConsumingInSecond, final Topic topic, boolean isExt) {
+        this(timestamp, attempts, messageID, internalID, traceID, messageBody, address, connectionID, nextConsumingInSecond, topic, isExt);
         ByteBuffer buf = ByteBuffer.wrap(diskQueueOffset);
         this.diskQueueOffset = buf.getLong();
         buf = ByteBuffer.wrap(diskQueueDataSize);

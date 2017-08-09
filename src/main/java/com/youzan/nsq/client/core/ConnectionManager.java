@@ -493,7 +493,6 @@ public class ConnectionManager {
                     }
                 } catch (InterruptedException e) {
                     logger.error("Interrupted while waiting for resume on all connections for {}", topic);
-                } finally {
                 }
             } finally {
                 subs.writeUnlock();

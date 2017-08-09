@@ -815,6 +815,7 @@ public class ConnectionManagerTest {
         for(int i = 0; i < topicsNum; i++) {
             list.add("testConsume_" + i + "_" + System.currentTimeMillis());
         }
+        MockedConsumer consumer = null;
         try {
             for (String topic : list) {
                 TopicUtil.createTopic(adminHtp, topic, parNum, repNum, "default");
@@ -842,7 +843,7 @@ public class ConnectionManagerTest {
                 }
             });
 
-            final MockedConsumer consumer = new MockedConsumer(localConfig, null);
+            consumer = new MockedConsumer(localConfig, null);
             consumer.setConnectionManager(conMgr);
             consumer.start();
 
@@ -870,6 +871,7 @@ public class ConnectionManagerTest {
 
         }finally {
             logger.info("[testConsumeMultiTopicsRdy] ends");
+            consumer.close();
             for(String topic:list) {
                 TopicUtil.deleteTopic(adminHtp, topic);
             }

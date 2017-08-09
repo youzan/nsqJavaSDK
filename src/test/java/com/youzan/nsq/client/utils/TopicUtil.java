@@ -8,6 +8,7 @@ import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.util.IOUtil;
+import com.youzan.util.SystemUtil;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,9 +18,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -27,6 +32,38 @@ import java.util.concurrent.TimeUnit;
  */
 public class TopicUtil {
     private static final Logger logger = LoggerFactory.getLogger(TopicUtil.class);
+
+    public static void deleteTopics(final String nsqadminUrl, String topicPattern) throws IOException, InterruptedException {
+        URL url = new URL(nsqadminUrl);
+        JsonNode root = SystemUtil.getObjectMapper().readTree(url);
+        JsonNode topics = root.get("topics");
+        ExecutorService exec = Executors.newFixedThreadPool(4);
+        List<String> topicsNeedDel = new ArrayList<>();
+        if(topics.isArray()) {
+            for(JsonNode topicNode : topics) {
+                if(topicNode.asText().startsWith(topicPattern)) {
+                    String topic = topicNode.asText();
+                    topicsNeedDel.add(topic);
+                }
+            }
+            final CountDownLatch latch = new CountDownLatch(topicsNeedDel.size());
+            for(final String topic:topicsNeedDel) {
+                exec.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            TopicUtil.deleteTopic(nsqadminUrl, topic);
+                        } catch (Exception e) {
+                            logger.error("fail to delete topic {}", topic, e);
+                        }
+                        latch.countDown();
+                    }
+                });
+            }
+            latch.await(topicsNeedDel.size() * 1000, TimeUnit.MILLISECONDS);
+            logger.info("topics delete ends");
+        }
+    }
 
     public static void emptyQueue(String nsqadminUrl, String topic, String channel) throws Exception {
         URL channelUrl = new URL(nsqadminUrl + "/api/topics/" + topic + "/" + channel);
@@ -75,6 +112,19 @@ public class TopicUtil {
     public static void createTopicChannel(String adminUrl, String topicName, String channel) throws Exception {
         URL channelUrl = new URL(adminUrl + "/api/topics/" + topicName + "/" + channel);
         IOUtil.postToUrl(channelUrl, "{\"action\":\"create\"}");
+    }
+
+    public void testDeleteTopics() throws IOException, InterruptedException {
+        logger.info("[testDeleteTopics] start.");
+        Properties props = new Properties();
+        logger.info("At {} , initialize: {}", System.currentTimeMillis(), this.getClass().getName());
+        try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {
+            props.load(is);
+        }
+        String adminHttp = "http://" + props.getProperty("admin-address");
+        String topicPattern = "topic_";
+        TopicUtil.deleteTopics(adminHttp, topicPattern);
+        logger.info("[testTopicUtil] ends.");
     }
 
     @Test

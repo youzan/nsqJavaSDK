@@ -31,13 +31,17 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         final NSQConfig config = new NSQConfig("BaseConsumer");
         config.setLookupAddresses(props.getProperty("lookup-addresses"));
         String adminHttp = "http://" + props.getProperty("admin-address");
-        TopicUtil.emptyQueue(adminHttp, "JavaTesting-ReQueue", "BaseConsumer");
+        String topicName = "testNextConsumingTimeout_" + System.currentTimeMillis();
+
         final int requeueTimeout = 10;
         Consumer consumer = null;
         try {
+            TopicUtil.createTopic(adminHttp, topicName, "BaseConsumer");
+            TopicUtil.createTopicChannel(adminHttp, topicName, "BaseConsumer");
+
             Producer producer = new ProducerImplV2(config);
             producer.start();
-            producer.publish(Message.create(new Topic("JavaTesting-ReQueue"), "msg1"));
+            producer.publish(Message.create(new Topic(topicName), "msg1"));
             producer.close();
             final int nextTimeoutDefault = config.getNextConsumingInSecond();
             final AtomicInteger cnt = new AtomicInteger(0);
@@ -73,20 +77,20 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
                 }
             });
 
-            consumer.subscribe(new Topic("JavaTesting-ReQueue"));
+            consumer.subscribe(new Topic(topicName));
             consumer.start();
             Assert.assertTrue(latch.await(2, TimeUnit.MINUTES));
         }finally {
             consumer.close();
             logger.info("[testNextConsumingTimeout] ends.");
-            TopicUtil.emptyQueue(adminHttp, "JavaTesting-ReQueue", "BaseConsumer");
+            TopicUtil.deleteTopic(adminHttp, topicName);
         }
     }
 
     @Test
     public void testRdyIncrease() throws Exception {
         logger.info("[testRdyIncrease] starts.");
-        final String topic = "test5Par1Rep";
+        final String topicName = "testRdyIncrease_" + System.currentTimeMillis();
         Random ran = new Random();
         int expectRdy = ran.nextInt(6) + 5;
         logger.info("ExpectedRdy: {}", expectRdy);
@@ -96,10 +100,14 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         ScheduledExecutorService exec = null;
         Producer producer = null;
         Consumer consumer = null;
+        String adminHttp = "http://" + props.getProperty("admin-address");
         try {
+            TopicUtil.createTopic(adminHttp, topicName, 5, 1, "BaseConsumer");
+            TopicUtil.createTopicChannel(adminHttp, topicName, "BaseConsumer");
+
             producer = new ProducerImplV2(config);
             producer.start();
-            exec = keepMessagePublish(producer, topic, 1000);
+            exec = keepMessagePublish(producer, topicName, 1000);
 
             MessageHandler handler = new MessageHandler() {
                 @Override
@@ -113,7 +121,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
             };
 
             consumer = new ConsumerImplV2(config, handler);
-            consumer.subscribe(topic);
+            consumer.subscribe(topicName);
             consumer.start();
             int timeout = expectRdy * 10;
             logger.info("Sleep {} sec to wait for rdy to increase...", timeout);
@@ -121,7 +129,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
             logger.info("Wake up.");
 
             ConnectionManager conMgr = ((ConsumerImplV2) consumer).getConnectionManager();
-            Set<ConnectionManager.NSQConnectionWrapper> connSet = conMgr.getSubscribeConnections(topic);
+            Set<ConnectionManager.NSQConnectionWrapper> connSet = conMgr.getSubscribeConnections(topicName);
             for (ConnectionManager.NSQConnectionWrapper wrapper : connSet) {
                 int actualRdy = wrapper.getConn().getCurrentRdyCount();
                 Assert.assertEquals(actualRdy, expectRdy, "rdy in connection does not equals to expected rdy.");
@@ -131,8 +139,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
             Thread.sleep(10000L);
             producer.close();
             consumer.close();
-            String adminHttp = "http://" + props.getProperty("admin-address");
-            TopicUtil.emptyQueue(adminHttp, topic, "BaseConsumer");
+            TopicUtil.deleteTopic(adminHttp, topicName);
             logger.info("[testRdyIncrease] ends.");
         }
     }
@@ -140,7 +147,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
     @Test
     public void testLoadFactor() throws Exception {
         logger.info("[testLoadFactor] starts.");
-        final String topic = "test5Par1Rep";
+        final String topic = "testLoadFactor_" + System.currentTimeMillis();
         int expectRdy = 10;
         logger.info("ExpectedRdy: {}", expectRdy);
         final NSQConfig config = new NSQConfig("BaseConsumer");
@@ -149,7 +156,11 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         ScheduledExecutorService exec = null;
         Producer producer = null;
         Consumer consumer = null;
+        String adminHttp = "http://" + props.getProperty("admin-address");
         try {
+            TopicUtil.createTopic(adminHttp, topic, "BaseConsumer");
+            TopicUtil.createTopicChannel(adminHttp, topic, "BaseConsumer");
+
             producer = new ProducerImplV2(config);
             producer.start();
             exec = keepMessagePublish(producer, topic,10);
@@ -181,8 +192,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
             Thread.sleep(10000L);
             producer.close();
             consumer.close();
-            String adminHttp = "http://" + props.getProperty("admin-address");
-            TopicUtil.emptyQueue(adminHttp, topic, "BaseConsumer");
+            TopicUtil.deleteTopic(adminHttp, topic);
             logger.info("[testLoadFactor] ends.");
         }
     }
@@ -190,7 +200,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
     @Test
     public void testCloseConsumerWhileConsumption() throws Exception {
         logger.info("[testCloseConsumerWhileConsumption] starts.");
-        final String topic = "test5Par1Rep";
+        final String topic = "testClsConsumeWhileConsume_" + System.currentTimeMillis();
         int expectRdy = 10;
         logger.info("ExpectedRdy: {}", expectRdy);
         final NSQConfig config = new NSQConfig("BaseConsumer");
@@ -199,7 +209,11 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         ScheduledExecutorService exec = null;
         Producer producer = null;
         Consumer consumer = null;
+        String adminHttp = "http://" + props.getProperty("admin-address");
         try {
+            TopicUtil.createTopic(adminHttp, topic, "BaseConsumer");
+            TopicUtil.createTopicChannel(adminHttp, topic, "BaseConsumer");
+
             producer = new ProducerImplV2(config);
             producer.start();
             exec = keepMessagePublish(producer, topic,10);
@@ -224,8 +238,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
             Thread.sleep(1000L);
             producer.close();
             consumer.close();
-            String adminHttp = "http://" + props.getProperty("admin-address");
-            TopicUtil.emptyQueue(adminHttp, topic, "BaseConsumer");
+            TopicUtil.deleteTopic(adminHttp, topic);
             logger.info("[testCloseConsumerWhileConsumption] ends.");
         }
     }

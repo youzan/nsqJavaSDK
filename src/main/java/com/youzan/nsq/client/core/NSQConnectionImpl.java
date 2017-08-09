@@ -78,8 +78,6 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         } else {
             isExtend = Boolean.FALSE;
         }
-        if(logger.isDebugEnabled())
-            logger.debug("extend marked as {} for connection to {}", this.isExtend, address);
     }
 
     @Override

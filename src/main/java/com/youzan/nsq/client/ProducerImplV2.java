@@ -27,6 +27,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * <pre>
@@ -57,6 +58,7 @@ public class ProducerImplV2 implements Producer {
 
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger total = new AtomicInteger(0);
+    private final AtomicLong pubTraceIdGen = new AtomicLong(0);
 
     private final NSQConfig config;
     private final NSQSimpleClient simpleClient;
@@ -155,6 +157,7 @@ public class ProducerImplV2 implements Producer {
             logger.info("start initializing connections for {}", topics);
             for (String topic : topics) {
                 try {
+                    this.simpleClient.putTopic(topic);
                     nsqdAddrs.addAll(
                             Arrays.asList(
                                     this.simpleClient.getPartitionNodes(new Topic(topic), noSharding, true)
@@ -211,42 +214,6 @@ public class ProducerImplV2 implements Producer {
             this.simpleClient.start();
             scheduler.scheduleAtFixedRate(EXPIRED_TOPIC_CLEANER, 30, 30, TimeUnit.MINUTES);
             logger.info("The producer has been started.");
-        }
-    }
-
-    /**
-     * pre allocate connNumPerPartition nsqd connection for passin topic
-     * @param topic topic for pre allocate
-     * @param connNumPerPartition   connection number per partition
-     * @throws NSQException exception raised when address for topic fail to return
-     */
-    public void preAllocateNSQConnection(Topic topic, int connNumPerPartition) throws NSQException {
-        final Long now = System.currentTimeMillis();
-        Address[] partitonAddrs = new Address[0];
-        try {
-            this.simpleClient.putTopic(topic.getTopicText());
-            partitonAddrs = simpleClient.getPartitionNodes(topic, new Object[]{Message.NO_SHARDING}, true);
-        } catch (InterruptedException e) {
-            logger.warn("Pre-allocate connection to topic {} failed. Thread interrupted waiting for partition selector update, Topic {}. Ignore if SDK is shutting down.", topic, topic.getTopicText());
-            return;
-        }
-        for(Address addr : partitonAddrs) {
-            List<NSQConnection> preAllocateList = new ArrayList<>(connNumPerPartition);
-            int allocateSucceed = 0;
-            for(int i = 0; i < connNumPerPartition; i++) {
-                try {
-                    preAllocateList.add(bigPool.borrowObject(addr));
-                    allocateSucceed++;
-                } catch (Exception e) {
-                    logger.error("Fail to allocate connection to {}.", addr, e);
-                }
-            }
-            logger.info("{} connections allocated for {}", allocateSucceed, addr);
-            //release all in list
-            for(NSQConnection conn:preAllocateList) {
-                bigPool.returnObject(addr, conn);
-            }
-            preAllocateList.clear();
         }
     }
 
@@ -329,9 +296,11 @@ public class ProducerImplV2 implements Producer {
     }
 
     @Override
-    public void publish(Message message) throws NSQException {
-        Context cxt = new Context();
-        cxt.setTraceID(UUID.randomUUID());
+    public void publish(final Message message) throws NSQException {
+        final Context cxt = new Context();
+        if(PERF_LOG.isDebugEnabled()) {
+            cxt.setTraceID(pubTraceIdGen.getAndIncrement());
+        }
         if (message == null || message.getMessageBody().isEmpty()) {
             throw new IllegalArgumentException("Your input message is blank! Please check it!");
         }
@@ -345,6 +314,7 @@ public class ProducerImplV2 implements Producer {
         total.incrementAndGet();
 
         try{
+            //TODO: poll before timeout
             sendPUB(message, cxt);
         }catch (NSQPubException pubE){
             logger.error(pubE.getLocalizedMessage());
@@ -424,8 +394,8 @@ public class ProducerImplV2 implements Producer {
                 exceptions.add(badConnExp);
                 continue;
             }
-            catch(NSQException lookupE) {
-                exceptions.add(lookupE);
+            catch(NSQException nsqe) {
+                exceptions.add(nsqe);
                 continue;
             }
             //create PUB command
@@ -606,6 +576,7 @@ public class ProducerImplV2 implements Producer {
     @Override
     public void close() {
         if(this.started.get() && this.closing.compareAndSet(Boolean.FALSE, Boolean.TRUE)) {
+            LookupAddressUpdate.getInstance().removeDefaultSeedLookupConfig(this.simpleClient.getLookupLocalID());
             IOUtil.closeQuietly(simpleClient);
             if (factory != null) {
                 factory.close();

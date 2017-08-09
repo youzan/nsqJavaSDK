@@ -194,6 +194,11 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
         }
     }
 
+    public void removeDefaultSeedLookupConfig(int lookupLocalID) {
+        String categorization = TopicRuleCategory.TOPIC_CATEGORIZATION_USER_SPECIFIED + '_' + lookupLocalID;
+        cat2SeedLookupCnfMap.remove(categorization);
+    }
+
     @Override
     public AbstractSeedLookupdConfig subscribe(ConfigAccessAgent subscribeTo, final AbstractConfigAccessDomain domain, final AbstractConfigAccessKey<Role>[] keys, final ConfigAccessAgent.IConfigAccessCallback callback) throws NSQConfigAccessException {
         if(null == keys || keys.length == 0) {

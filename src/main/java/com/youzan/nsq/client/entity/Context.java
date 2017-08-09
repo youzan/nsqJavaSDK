@@ -10,16 +10,16 @@ import java.util.UUID;
  * Created by lin on 17/5/4.
  */
 public class Context {
-    private static Logger log = LoggerFactory.getLogger(Context.class);
+    private final static Logger log = LoggerFactory.getLogger(Context.class);
 
     //UUID for tracing
-    private UUID traceID = null;
+    private long traceID = 0L;
 
-    public void setTraceID(final UUID traceID) {
+    public void setTraceID(long traceID) {
         this.traceID = traceID;
     }
 
-    public UUID getTraceID() {
+    public long getTraceID() {
         return this.traceID;
     }
 }

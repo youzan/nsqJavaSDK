@@ -104,7 +104,7 @@ public class NSQConnectionTest {
         bootstrap.handler(new NSQClientInitializer());
     }
 
-    @Test
+    @Test(invocationCount = 3)
     public void testDuplicateCloseOnNSQConnection() throws IOException, InterruptedException {
         NSQConfig config = (NSQConfig) this.config.clone();
         String topicName = "JavaTesting-Producer-Base";
@@ -115,7 +115,7 @@ public class NSQConnectionTest {
 
         //case1
         NSQConnection con1 = connect(addr1, topicName, 0, "BaseConsumer", config);
-        Thread.sleep(100);
+        Thread.sleep(50);
         con1.close();
         con1.close();
 

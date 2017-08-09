@@ -606,9 +606,11 @@ public class ProducerTest extends AbstractNSQClientTestcase {
         }
     }
 
-    @Test(parameters = {"5"})
-    public void testProducerPreallocate(int topicNum) throws Exception {
+
+    @Test(invocationCount = 3)
+    public void testProducerPreallocate() throws Exception {
         logger.info("[testProducerPreallocate] starts");
+        int topicNum = 5;
         String topicName = "testProducerPreallocate_" + System.currentTimeMillis();
         String channel = "default";
         String adminUrl = "http://" + props.getProperty("admin-address");
@@ -616,7 +618,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
 
         try{
             String[] topics = new String[topicNum];
-            for(int i = 0; i < topicNum; i++) {
+            for(int i = 0;i < topicNum; i++) {
                 String topic = topicName + "_" + i;
                 TopicUtil.createTopic(adminUrl, topic, 4, 1, channel, false, true);
                 TopicUtil.createTopicChannel(adminUrl, topicName + "_" + i, channel);
@@ -629,6 +631,8 @@ public class ProducerTest extends AbstractNSQClientTestcase {
 
             producer = new ProducerImplV2(config);
             producer.start(topics);
+            int idleTotal = producer.getConnectionPool().getNumIdle();
+            Assert.assertEquals(idleTotal, topicNum * 4 * config.getMinIdleConnectionForProducer());
         }finally {
             logger.info("[testPubExtNotChangeMap] ends");
             producer.close();

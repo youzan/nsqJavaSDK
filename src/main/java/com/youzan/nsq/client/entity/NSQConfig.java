@@ -740,6 +740,9 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         return buffer.toString();
     }
 
+    /**
+     * reset gloable config access variables
+     */
     public static void resetConfigAccessConfigs() {
         NSQConfig.configAccessEnv = null;
         NSQConfig.configAccessURLs = null;

@@ -711,7 +711,6 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     }
 
     @Override
-    @ThreadSafe
     public void backoff(NSQConnection conn) {
         conMgr.backoff(conn);
     }
@@ -731,6 +730,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 started.set(Boolean.FALSE);
                 closing.set(Boolean.TRUE);
                 //close lookup address update
+                LookupAddressUpdate.getInstance().removeDefaultSeedLookupConfig(this.simpleClient.getLookupLocalID());
                 LookupAddressUpdate.getInstance().closed();
                 //stop & clear topic to partition mapping
                 IOUtil.closeQuietly(simpleClient);
@@ -948,10 +948,10 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             return new NSQMessage(orderedMsgFrame.getTimestamp(), orderedMsgFrame.getAttempts(), orderedMsgFrame.getMessageID(),
                     orderedMsgFrame.getInternalID(), orderedMsgFrame.getTractID(),
                     orderedMsgFrame.getDiskQueueOffset(), orderedMsgFrame.getDiskQueueDataSize(),
-                    msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond(), conn.getTopic());
+                    msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond(), conn.getTopic(), conn.isExtend());
         } else {
             NSQMessage msg = new NSQMessage(msgFrame.getTimestamp(), msgFrame.getAttempts(), msgFrame.getMessageID(),
-                    msgFrame.getInternalID(), msgFrame.getTractID(), msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond(), conn.getTopic());
+                    msgFrame.getInternalID(), msgFrame.getTractID(), msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond(), conn.getTopic(), conn.isExtend());
             ExtVer extVer = ExtVer.getExtVersion(msgFrame.getExtVerBytes());
             try {
                 msg.parseExtContent(extVer, msgFrame.getExtBytes());

@@ -1,7 +1,6 @@
 package it.youzan.nsq.client;
 
 import com.youzan.nsq.client.*;
-import com.youzan.nsq.client.configs.ConfigAccessAgent;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.exception.ConfigAccessAgentException;
@@ -17,7 +16,6 @@ import org.testng.annotations.Test;
 
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.nio.charset.Charset;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
@@ -263,9 +261,6 @@ public class ITComplexConsumer {
     public void close() throws NoSuchMethodException, ConfigAccessAgentException, InvocationTargetException, IllegalAccessException {
         logger.debug("================Begin to close");
         IOUtil.closeQuietly(producer);
-        Method method = ConfigAccessAgent.class.getDeclaredMethod("release");
-        method.setAccessible(true);
-        method.invoke(ConfigAccessAgent.getInstance());
         System.clearProperty("nsq.sdk.configFilePath");
     }
 }

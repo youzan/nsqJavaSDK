@@ -204,7 +204,7 @@ public class NSQLookupdAddresses extends AbstractLookupdAddresses {
         //producers part in json
         for (JsonNode node : producers) {
             //for old NSQd partition, we set partition as -1
-            final Address address = createAddress(topic, -1, node, isExtendable);
+            final Address address = createAddress(topic, -1, node, false);
             if(!partitionNodeSet.contains(new AddressCompatibility(address))) {
                 if(null == unPartitionedDataNodes)
                     unPartitionedDataNodes = new ArrayList<>();
