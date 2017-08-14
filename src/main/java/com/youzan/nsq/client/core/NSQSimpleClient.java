@@ -43,7 +43,7 @@ public class NSQSimpleClient implements Client, Closeable {
 
     private final ConcurrentMap<String, TopicSync> topicSynMap = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, IPartitionsSelector> topic_2_partitionsSelector = new ConcurrentHashMap<>();
-    private final long TOPIC_PARTITION_TIMEOUT = 150L;
+    private final long TOPIC_PARTITION_TIMEOUT = 90L;
 
     private final Map<String, Long> ps_lastInvalidated = new ConcurrentHashMap<>();
 
@@ -306,6 +306,11 @@ public class NSQSimpleClient implements Client, Closeable {
                 this.topicSyncLock.readLock().lock();
                 try {
                     TopicSync ts = this.topicSynMap.get(topic.getTopicText());
+
+                    if (null == ts) {
+                        logger.warn("topic sync for {} does not exist. Try getting partition info in another round.", topic);
+                        return null;
+                    }
 
                     if (!ts.tryLock()) {
                         Thread.sleep(TOPIC_PARTITION_TIMEOUT);

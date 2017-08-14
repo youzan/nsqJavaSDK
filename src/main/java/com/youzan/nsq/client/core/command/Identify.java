@@ -22,8 +22,8 @@ public class Identify implements NSQCommand {
 
     private final List<byte[]> body = new ArrayList<>(1);
     private byte[] bytes = null;
-    public Identify(NSQConfig config) {
-        this.body.add(config.identify().getBytes(DEFAULT_CHARSET));
+    public Identify(final NSQConfig config, boolean topicExt) {
+        this.body.add(config.identify(topicExt).getBytes(DEFAULT_CHARSET));
     }
 
     @Override

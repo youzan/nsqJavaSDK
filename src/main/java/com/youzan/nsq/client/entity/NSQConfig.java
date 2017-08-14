@@ -25,9 +25,72 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private static final long serialVersionUID = 6624842850216901700L;
     private static final Logger logger = LoggerFactory.getLogger(NSQConfig.class);
 
+    private IExpectedRdyUpdatePolicy DEFAULT_EXP_RDY_POLICY = new IExpectedRdyUpdatePolicy() {
+        @Override
+        public int expectedRdyIncrease(int currentExpRdy, int expectedRdyConf) {
+            int newExpRdy = (int)(currentExpRdy * 1.5);
+            if(newExpRdy <= expectedRdyConf)
+                return newExpRdy;
+            else {
+                return expectedRdyConf;
+            }
+        }
+
+        @Override
+        public int expectedRdyDecline(int currentExpRdy, int expectedRdy) {
+            int newExpRdy = (int)(currentExpRdy - currentExpRdy * 0.5);
+            if(newExpRdy > 0) {
+                return newExpRdy;
+            } else {
+                return 1;
+            }
+        }
+    };
+    private volatile IExpectedRdyUpdatePolicy expRdyUpdatePolicy = DEFAULT_EXP_RDY_POLICY;
+
+    /**
+     * specify {@link IExpectedRdyUpdatePolicy} for current config. {@link com.youzan.nsq.client.Consumer}
+     * which has current config applied uses expected rdy update poliy for increase/decline expected rdy.
+     * @param policyClass class name of policy class
+     */
+    public void setExpectedRdyUpdatePolicy(String policyClass) {
+        try {
+            Class<?> clazz;
+            try {
+                clazz = Class.forName(policyClass, true,
+                        Thread.currentThread().getContextClassLoader());
+            } catch (ClassNotFoundException e) {
+                clazz = Class.forName(policyClass);
+            }
+            Object policy = clazz.newInstance();
+            if (policy instanceof IRdyUpdatePolicy) {
+                @SuppressWarnings("unchecked")
+                        IExpectedRdyUpdatePolicy expRdyPolicy = (IExpectedRdyUpdatePolicy) policy;
+                this.expRdyUpdatePolicy = expRdyPolicy;
+            }
+        } catch (ClassNotFoundException e) {
+            throw new IllegalArgumentException(
+                    "Unable to create ExpectedRdyUpdatePolicy instance of type " +
+                            policyClass, e);
+        } catch (InstantiationException e) {
+            throw new IllegalArgumentException(
+                    "Unable to create ExpectedRdyUpdatePolicy instance of type " +
+                            policyClass, e);
+        } catch (IllegalAccessException e) {
+            throw new IllegalArgumentException(
+                    "Unable to create ExpectedRdyUpdatePolicy instance of type " +
+                            policyClass, e);
+        }
+    }
+
+    public IExpectedRdyUpdatePolicy getExpectedRdyUpdatePolicy() {
+        return this.expRdyUpdatePolicy;
+    }
+
+
     private boolean havingMonitoring = false;
 
-    private enum Compression {
+    public enum Compression {
         NO_COMPRESSION, DEFLATE, SNAPPY
     }
 
@@ -43,13 +106,15 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * The set of messages is ordered in one specified partition
      */
     private boolean ordered = false;
+
     /**
      * <pre>
      * Set the thread_pool_size for IO running.
-     * It is also used for Netty.
      * </pre>
      */
     private int threadPoolSize4IO = Runtime.getRuntime().availableProcessors() * 2;
+    private int nettyPoolSize = Runtime.getRuntime().availableProcessors() * 2;
+    private int consumerWorkerPoolSize = Runtime.getRuntime().availableProcessors() * 4;
     //connection pool size for producer
     private int connectionSize = 30;
     private final String clientId;
@@ -73,7 +138,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * Perform one interactive action between request and response underlying
      * Netty handling TCP
      */
-    private int queryTimeoutInMillisecond = 5000;
+    private int queryTimeoutInMillisecond = 1000;
     /**
      * query timeout for topic based seed lookup address check
      */
@@ -89,6 +154,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private static String configAccessEnv;
 
     /**
+     * @Deprecated
      * interval base for producer retry interval
      */
     private int producerRetryIntervalBase = 100;
@@ -101,11 +167,13 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     // 1 seconds
     public static final int _MIN_NEXT_CONSUMING_IN_SECOND = 0;
-    // 180 days ?why 180
-    public static final int _MAX_NEXT_CONSUMING_IN_SECOND = 180 * 24 * 3600;
-    private int nextConsumingInSecond = 5;
-    private long maxConnWait = 100L;
+    // one hour is the limit
+    public static final int _MAX_NEXT_CONSUMING_IN_SECOND = 3600;
+    private int nextConsumingInSecond = 60;
+    private long maxConnWait = 200L;
     private int minIdleConn = 2;
+    private int pubRetry = 3;
+    private static final int PUB_MAX_RETRY = 6;
 
     /*-
      *                             All of Timeout
@@ -131,7 +199,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private SslContext sslContext = null;
     private int rdy = 3;
 
-    private long producerConnectionEvictIntervalMillSec = 2 * 60 * 1000;
+    private long producerConnectionEvictIntervalMillSec = 10 * 60 * 1000;
 
     static {
         PerfTune.getInstance();
@@ -291,13 +359,14 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * @return the connectTimeoutInMillisecond
+     * @return the TCP connection timeout
      */
     public int getConnectTimeoutInMillisecond() {
         return connectTimeoutInMillisecond;
     }
 
     /**
+     * TCP connection timeout when invoke a new connection to nsqd.
      * @param connectTimeoutInMillisecond the connectTimeoutInMillisecond to set
      * @return {@link NSQConfig}
      */
@@ -362,26 +431,6 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * @return threadPoolSize4IO in current NSQConfig
-     */
-    public int getThreadPoolSize4IO() {
-        return threadPoolSize4IO;
-    }
-
-    /**
-     * Specify max thread size for consumer client business process.
-     * @param threadPoolSize4IO the threadPoolSize4IO to set
-     * @return {@link NSQConfig}
-     */
-    public NSQConfig setThreadPoolSize4IO(int threadPoolSize4IO) {
-        if (threadPoolSize4IO < 1) {
-            logger.warn("Thread pool size smaller than 1 is not accepted.");
-        }
-        this.threadPoolSize4IO = threadPoolSize4IO;
-        return this;
-    }
-
-    /**
      * Specify connection pool size for producer, or default value(30) applies.
      * @param connectionPoolSize
      *      connection pool size for producer connection pool.
@@ -389,8 +438,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      */
     public NSQConfig setConnectionPoolSize(int connectionPoolSize) {
         if(connectionPoolSize < 1) {
-            logger.warn("SDK does not accept connection pool size which smaller than 1.");
-            return this;
+            throw new IllegalArgumentException("SDK does not accept connection pool size which smaller than 1.");
         }
         this.connectionSize = connectionPoolSize;
         return this;
@@ -569,7 +617,8 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * @param compression the compression to set
+     * @param compression the compression to set, reference to {@link Compression} for options, default value is
+     *                    NO_COMPRESSION
      * @return {@link NSQConfig}
      */
     public NSQConfig setCompression(Compression compression) {
@@ -585,7 +634,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * @param deflateLevel the deflateLevel to set
+     * @param deflateLevel the expect deflateLevel to set, SDK will finally apply deflate level answer from nsqd
      * @return {@link NSQConfig}
      */
     public NSQConfig setDeflateLevel(Integer deflateLevel) {
@@ -594,23 +643,29 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * @return the sampleRate
+     * @return the sample rate
      */
     public Integer getSampleRate() {
         return sampleRate;
     }
 
     /**
-     * @param sampleRate the sampleRate to set
+     * sample_rate (nsqd v0.2.25+) deliver a percentage of all messages received to this connection.
+     * Valid range: 0 <= sample_rate <= 99 (0 disables sampling)
+     * Defaults to 0
+     * @param sampleRate the sample rate to set
      * @return {@link NSQConfig}
      */
     public NSQConfig setSampleRate(Integer sampleRate) {
+        if(sampleRate < 0 || sampleRate > 99) {
+            throw new IllegalArgumentException("Invalid sample rate, specify a value 0 <= sample_rate <= 99 (0 disables sampling)");
+        }
         this.sampleRate = sampleRate;
         return this;
     }
 
     /**
-     * @return the rdy
+     * @return the expected rdy count
      */
     public int getRdy() {
         return rdy;
@@ -624,7 +679,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     public NSQConfig setRdy(int rdy) {
         if (rdy <= 0) {
             this.rdy = 1;
-            throw new IllegalArgumentException("Are you kidding me? The rdy should be positive.");
+            throw new IllegalArgumentException("expect rdy smaller than 1 not allowed.");
         }
         this.rdy = rdy;
         return this;
@@ -645,6 +700,10 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         return queryTimeout4TopicSeedInMillisecond;
     }
 
+    /**
+     *timeout for seed lookup address subscribe.
+     * @param queryTimeout4TopicSeedInMillisecond
+     */
     public static void setQueryTimeout4TopicSeedInMillisecond(int queryTimeout4TopicSeedInMillisecond) {
         NSQConfig.queryTimeout4TopicSeedInMillisecond = queryTimeout4TopicSeedInMillisecond;
     }
@@ -669,31 +728,6 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         return logger;
     }
 
-    /**
-     * Set producer retry interval base when exception raised in publish.
-     * producer retry 6 times when exception which SDK does not know happen.
-     * producer sleeps  1 << (currentRetry - 1) * retryIntervalBase milliseconds in each interval.
-     *
-     * @param retryIntervalBase retry interval base in milliseconds, needs to be larger than 0. If pass in value is 0,
-     *                          it means producer does not sleep when failure happens.
-     * @return {@link NSQConfig} this NSQConfig
-     */
-    public NSQConfig setProducerRetryIntervalBaseInMilliSeconds(int retryIntervalBase) {
-        if(retryIntervalBase >=0 ) {
-            this.producerRetryIntervalBase = retryIntervalBase;
-            logger.info("producer retry interval base set to {}.", retryIntervalBase);
-        }
-        return this;
-    }
-
-    /**
-     * return producer retry interval base in milliseconds of current NSQConfig.
-     * @return producerRetryIntervalBase
-     */
-    public int getProducerRetryIntervalBaseInMilliSeconds() {
-        return this.producerRetryIntervalBase;
-    }
-
     public static String[] getConfigAccessURLs() {
         return configAccessURLs;
     }
@@ -702,7 +736,11 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         return configAccessEnv;
     }
 
-    public String identify() {
+    /**
+     * return IDENTIFY json in String for current NSQConfig
+     * @return identify json string
+     */
+    public String identify(boolean topicExt) {
         final StringBuffer buffer = new StringBuffer(300);
         buffer.append("{\"client_id\":\"" + clientId + "\", ");
         buffer.append("\"hostname\":\"" + hostname + "\", ");
@@ -711,7 +749,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
             buffer.append("\"output_buffer_size\":" + outputBufferSize + ", ");
         }
         if (outputBufferTimeoutInMillisecond != null) {
-            buffer.append("\"output_buffer_timeout\":" + outputBufferTimeoutInMillisecond.toString() + ", ");
+            buffer.append("\"output_buffer_timeout\":" + outputBufferTimeoutInMillisecond + ", ");
         }
         if (tlsV1) {
             buffer.append("\"tls_v1\":" + tlsV1 + ", ");
@@ -722,11 +760,11 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         if (compression == Compression.DEFLATE) {
             buffer.append("\"deflate\": true, ");
             if (deflateLevel != null) {
-                buffer.append("\"deflate_level\":" + deflateLevel.toString() + ", ");
+                buffer.append("\"deflate_level\":" + deflateLevel + ", ");
             }
         }
         if (sampleRate != null) {
-            buffer.append("\"sample_rate\":" + sampleRate.toString() + ",");
+            buffer.append("\"sample_rate\":" + sampleRate + ",");
         }
         if (getHeartbeatIntervalInMillisecond() != null) {
             buffer.append("\"heartbeat_interval\":" + String.valueOf(getHeartbeatIntervalInMillisecond()) + ", ");
@@ -736,12 +774,13 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         if (null != tag) {
             buffer.append("\"desired_tag\":\"" + tag.getTagName() + "\",");
         }
+        buffer.append("\"extend_support\":" + topicExt + ",");
         buffer.append("\"user_agent\": \"" + userAgent + "\"}");
         return buffer.toString();
     }
 
     /**
-     * reset gloable config access variables
+     * reset global config access variables
      */
     public static void resetConfigAccessConfigs() {
         NSQConfig.configAccessEnv = null;
@@ -758,11 +797,11 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     public NSQConfig setNextConsumingInSeconds(int timeout) {
         if (timeout < NSQConfig._MIN_NEXT_CONSUMING_IN_SECOND) {
             throw new IllegalArgumentException(
-                    "Message.nextConsumingInSecond is illegal. It is too small." + NSQConfig._MIN_NEXT_CONSUMING_IN_SECOND);
+                    "Next consuming in second is illegal. It is too small. " + NSQConfig._MIN_NEXT_CONSUMING_IN_SECOND);
         }
         if (timeout > NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND) {
             throw new IllegalArgumentException(
-                    "Message.nextConsumingInSecond is illegal. It is too big." + NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND);
+                    "Next consuming in second is illegal. It is too big. " + NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND);
         }
         this.nextConsumingInSecond = timeout;
         return this;
@@ -784,9 +823,13 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         return this.maxConnWait;
     }
 
-    public void setMinIdleConnectionForProducer(int min) {
-        if(min > 0)
-            this.minIdleConn = min;
+    /**
+     * Specify min number of idle connection number per topic in producer's connection pool
+     * @param minIdleNum min idle connection number per topic for message producer
+     */
+    public void setMinIdleConnectionForProducer(int minIdleNum) {
+        if(minIdleNum > 0)
+            this.minIdleConn = minIdleNum;
     }
 
     public int getMinIdleConnectionForProducer() {
@@ -802,6 +845,50 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         return this;
     }
 
+    public NSQConfig setPublishRetry(int retry) {
+        if (retry > PUB_MAX_RETRY) {
+            throw new IllegalArgumentException("Max publish retry " + PUB_MAX_RETRY + " allowed");
+        }
+        this.pubRetry = retry;
+        return this;
+    }
+
+    public int getPublishRetry() {
+        return this.pubRetry;
+    }
+
+    /**
+     * @return netty nio group pool size in current NSQConfig
+     */
+    public int getNettyPoolSize() {
+        return nettyPoolSize;
+    }
+
+    /**
+     * Specify netty work group thread pool size for nsqd frames receive & delivery process.
+     * @param newPoolSize new pool size for netty nio group to set
+     * @return {@link NSQConfig}
+     */
+    public NSQConfig setNettyPoolSize(int newPoolSize) {
+        if (newPoolSize < 1) {
+            throw new IllegalArgumentException("Thread pool size smaller than 1 is not accepted.");
+        }
+        this.nettyPoolSize = newPoolSize;
+        return this;
+    }
+
+    public NSQConfig setConsumerWorkerPoolSize(int newPoolSize) {
+        if (newPoolSize < 1) {
+            throw new IllegalArgumentException("Consumer worker pool size smaller than 1 is not accepted.");
+        }
+        this.consumerWorkerPoolSize = newPoolSize;
+        return this;
+    }
+
+    public int getConsumerWorkerPoolSize() {
+        return this.consumerWorkerPoolSize;
+    }
+
     @Override
     public Object clone() {
         NSQConfig newCfg = null;
@@ -815,7 +902,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /*
-    deprecated functions which are not used in 2.4
+     *deprecated functions which are not used in 2.4
      */
     /**
      * Deprecated in SDK 2.4. this function makes no effect
@@ -854,11 +941,63 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     /**
      * This function is deprecated, invoke of this function makes no effect
-     * @return
+     * @return false
      */
     @Deprecated
     public boolean getSendAndACKAfterMaxRequeue() {
         return false;
     }
 
+    /**
+     * Set producer retry interval base when exception raised in publish.
+     * producer retry 6 times when exception which SDK does not know happen.
+     * producer sleeps  1 << (currentRetry - 1) * retryIntervalBase milliseconds in each interval.
+     *
+     * @param retryIntervalBase retry interval base in milliseconds, needs to be larger than 0. If pass in value is 0,
+     *                          it means producer does not sleep when failure happens.
+     * @return {@link NSQConfig} this NSQConfig
+     *
+     * Function is deprecated as there is no wait interval between two retries.
+     */
+    @Deprecated
+    public NSQConfig setProducerRetryIntervalBaseInMilliSeconds(int retryIntervalBase) {
+        if(retryIntervalBase >=0 ) {
+            this.producerRetryIntervalBase = retryIntervalBase;
+            logger.info("producer retry interval base set to {}.", retryIntervalBase);
+        }
+        return this;
+    }
+
+    /**
+     * return producer retry interval base in milliseconds of current NSQConfig.
+     * @return producerRetryIntervalBase
+     *
+     */
+    @Deprecated
+    public int getProducerRetryIntervalBaseInMilliSeconds() {
+        return this.producerRetryIntervalBase;
+    }
+
+
+    /**
+     * @return threadPoolSize4IO in current NSQConfig
+     */
+    @Deprecated
+    public int getThreadPoolSize4IO() {
+        return threadPoolSize4IO;
+    }
+
+    /**
+     * Specify max thread size for consumer client business process.
+     * @param threadPoolSize4IO the threadPoolSize4IO to set
+     * @return {@link NSQConfig}
+     */
+    @Deprecated
+    public NSQConfig setThreadPoolSize4IO(int threadPoolSize4IO) {
+        if (threadPoolSize4IO < 1) {
+            throw new IllegalArgumentException("Thread pool size smaller than 1 is not accepted.");
+        }
+        this.threadPoolSize4IO = threadPoolSize4IO;
+        return this;
+    }
 }

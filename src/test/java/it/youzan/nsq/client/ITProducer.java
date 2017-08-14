@@ -35,13 +35,10 @@ public class ITProducer {
         final String connTimeout = props.getProperty("connectTimeoutInMillisecond");
         final String msgTimeoutInMillisecond = props.getProperty("msgTimeoutInMillisecond");
         final String threadPoolSize4IO = props.getProperty("threadPoolSize4IO");
-//        config.setUserSpecifiedLookupAddress(true);
         config.setLookupAddresses(lookups);
         config.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
         config.setMsgTimeoutInMillisecond(Integer.valueOf(msgTimeoutInMillisecond));
         config.setThreadPoolSize4IO(Integer.valueOf(threadPoolSize4IO));
-//        NSQConfig.setSDKEnvironment("qa");
-//        NSQConfig.turnOnConfigAccess();
 
         producer = new ProducerImplV2(config);
         producer.start();
@@ -49,10 +46,38 @@ public class ITProducer {
 
     @Test
     public void publish() throws NSQException {
+        String msgStr = "The quick brown fox jumps over the lazy dog, 那只迅捷的灰狐狸跳过了那条懒狗";
         for (int i = 0; i < 10; i++) {
-            final byte[] message = ("Message #"+ i).getBytes();
+            final byte[] message = (msgStr + " #" + i).getBytes();
             producer.publish(message, "JavaTesting-Producer-Base");
         }
+    }
+
+    @Test
+    public void publishSnappy() throws NSQException {
+        config.setCompression(NSQConfig.Compression.SNAPPY);
+        Producer producer = new ProducerImplV2(config);
+        producer.start();
+        String msgStr = "The quick brown fox jumps over the lazy dog, 那只迅捷的灰狐狸跳过了那条懒狗";
+        for (int i = 0; i < 10; i++) {
+            final byte[] message = (msgStr + " #" + i).getBytes();
+            producer.publish(message, "JavaTesting-Producer-Base");
+        }
+        producer.close();
+    }
+
+    @Test
+    public void publishDeflate() throws NSQException {
+        config.setCompression(NSQConfig.Compression.DEFLATE);
+        config.setDeflateLevel(3);
+        Producer producer = new ProducerImplV2(config);
+        producer.start();
+        String msgStr = "The quick brown fox jumps over the lazy dog, 那只迅捷的灰狐狸跳过了那条懒狗";
+        for (int i = 0; i < 10; i++) {
+            final byte[] message = (msgStr + " #" + i).getBytes();
+            producer.publish(message, "JavaTesting-Producer-Base");
+        }
+        producer.close();
     }
 
 //    public void concurrentPublish() throws NSQException, InterruptedException {

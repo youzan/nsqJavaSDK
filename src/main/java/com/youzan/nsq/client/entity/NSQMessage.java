@@ -300,11 +300,11 @@ public class NSQMessage implements MessageMetadata{
             final int timeout = nextConsumingInSecond.intValue();
             if (timeout < NSQConfig._MIN_NEXT_CONSUMING_IN_SECOND) {
                 throw new IllegalArgumentException(
-                        "Message.nextConsumingInSecond is illegal. It is too small." + NSQConfig._MIN_NEXT_CONSUMING_IN_SECOND);
+                        "NextConsumingInSecond is illegal. It is too small. " + NSQConfig._MIN_NEXT_CONSUMING_IN_SECOND);
             }
             if (timeout > NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND) {
                 throw new IllegalArgumentException(
-                        "Message.nextConsumingInSecond is illegal. It is too big." + NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND);
+                        "NextConsumingInSecond is illegal. It is too big. " + NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND);
             }
         }
         this.nextConsumingInSecond = nextConsumingInSecond;

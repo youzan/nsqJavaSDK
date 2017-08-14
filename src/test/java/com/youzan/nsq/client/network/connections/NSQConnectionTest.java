@@ -62,7 +62,7 @@ public class NSQConnectionTest {
         ch.attr(Client.STATE).set(simpleClient);
         ch.attr(NSQConnection.STATE).set(con1);
         con1.command(Magic.getInstance());
-        con1.command(new Identify(config));
+        con1.command(new Identify(config, addr.isTopicExtend()));
         Thread.sleep(100);
         con1.command(new Sub(new Topic(topic, partition), channel));
         Thread.sleep(100);
@@ -95,7 +95,7 @@ public class NSQConnectionTest {
 
         //netty setup
         this.bootstrap = new Bootstrap();
-        this.eventLoopGroup = new NioEventLoopGroup(config.getThreadPoolSize4IO());
+        this.eventLoopGroup = new NioEventLoopGroup(config.getNettyPoolSize());
         bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
         bootstrap.option(ChannelOption.TCP_NODELAY, true);
         bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, config.getConnectTimeoutInMillisecond());

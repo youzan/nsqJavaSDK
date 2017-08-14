@@ -26,6 +26,10 @@ public class MockedNSQConnectionImpl extends NSQConnectionImpl {
         super.setTopic(new Topic(topic));
     }
 
+    public void setTopic(Topic topic) {
+        super.setTopic(topic);
+    }
+
     @Override
     public void addResponseFrame(ResponseFrame frame) {
         if (!requests.isEmpty()) {

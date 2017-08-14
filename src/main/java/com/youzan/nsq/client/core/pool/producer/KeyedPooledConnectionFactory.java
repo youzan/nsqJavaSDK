@@ -53,7 +53,7 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
     public KeyedPooledConnectionFactory(NSQConfig config, Client client) {
         this.config = config;
         this.client = client;
-        this.eventLoopGroup = new NioEventLoopGroup(config.getThreadPoolSize4IO());
+        this.eventLoopGroup = new NioEventLoopGroup(config.getNettyPoolSize());
         bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
         bootstrap.option(ChannelOption.TCP_NODELAY, true);
         bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, config.getConnectTimeoutInMillisecond());

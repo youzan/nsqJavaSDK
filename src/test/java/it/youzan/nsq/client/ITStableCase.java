@@ -119,7 +119,7 @@ public class ITStableCase {
         };
         final NSQConfig config = (NSQConfig) this.config.clone();
         config.setUserSpecifiedLookupAddress(true);
-        config.setRdy(4);
+        config.setRdy(9);
         config.setConsumerName(consumerName);
         config.setThreadPoolSize4IO(Math.max(2, Runtime.getRuntime().availableProcessors()));
         consumer = new ConsumerImplV2(config, handler);

@@ -1,5 +1,6 @@
 package com.youzan.nsq.client.entity;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,6 +43,8 @@ public class DesiredTag {
     }
 
     public boolean match(final DesiredTag tag) {
+        if(StringUtils.isEmpty(tag.tag))
+            return false;
         return this.tag.equals(tag.tag);
     }
 

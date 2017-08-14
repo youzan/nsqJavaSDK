@@ -18,10 +18,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Properties;
+import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -34,7 +31,7 @@ public class TopicUtil {
     private static final Logger logger = LoggerFactory.getLogger(TopicUtil.class);
 
     public static void deleteTopics(final String nsqadminUrl, String topicPattern) throws IOException, InterruptedException {
-        URL url = new URL(nsqadminUrl);
+        URL url = new URL(nsqadminUrl + "/api/topics");
         JsonNode root = SystemUtil.getObjectMapper().readTree(url);
         JsonNode topics = root.get("topics");
         ExecutorService exec = Executors.newFixedThreadPool(4);
@@ -56,6 +53,7 @@ public class TopicUtil {
                         } catch (Exception e) {
                             logger.error("fail to delete topic {}", topic, e);
                         }
+                        logger.info("topic {} deleted", topic);
                         latch.countDown();
                     }
                 });
@@ -69,6 +67,42 @@ public class TopicUtil {
         URL channelUrl = new URL(nsqadminUrl + "/api/topics/" + topic + "/" + channel);
         String content = "{\"action\":\"empty\"}";
         IOUtil.postToUrl(channelUrl, content);
+    }
+
+    public static void deleteTopicOld(String nsqdAddr, String topicName) throws IOException, InterruptedException {
+        String urlStr = String.format("%s/topic/delete?topic=%s", nsqdAddr, topicName);
+        URL url = new URL(urlStr);
+        logger.debug("Prepare to open HTTP Connection...");
+        HttpURLConnection con = (HttpURLConnection) url.openConnection();
+        con.setDoOutput(true);
+        con.setRequestMethod("POST");
+        con.setRequestProperty("Accept", "application/vnd.nsq; version=1.0");
+        con.setConnectTimeout(5 * 1000);
+        con.setReadTimeout(10 * 1000);
+        InputStream is = con.getInputStream();
+        is.close();
+        if (logger.isDebugEnabled()) {
+            logger.debug("Request to {} responses {}:{}.", url.toString(), con.getResponseCode(), con.getResponseMessage());
+        }
+        Thread.sleep(20000);
+    }
+
+    public static void createTopicChannelOld(String nsqdAddr, String topicName, String channel) throws IOException, InterruptedException {
+        String urlStr = String.format("%s/topic/create?topic=%s&channel=%s", nsqdAddr, topicName, channel);
+        URL url = new URL(urlStr);
+        logger.debug("Prepare to open HTTP Connection...");
+        HttpURLConnection con = (HttpURLConnection) url.openConnection();
+        con.setDoOutput(true);
+        con.setRequestMethod("POST");
+        con.setRequestProperty("Accept", "application/vnd.nsq; version=1.0");
+        con.setConnectTimeout(5 * 1000);
+        con.setReadTimeout(10 * 1000);
+        InputStream is = con.getInputStream();
+        is.close();
+        if (logger.isDebugEnabled()) {
+            logger.debug("Request to {} responses {}:{}.", url.toString(), con.getResponseCode(), con.getResponseMessage());
+        }
+        Thread.sleep(20000);
     }
 
     public static void createTopic(String adminUrl, String topicName, String channel) throws IOException, InterruptedException {
@@ -114,7 +148,13 @@ public class TopicUtil {
         IOUtil.postToUrl(channelUrl, "{\"action\":\"create\"}");
     }
 
-    public void testDeleteTopics() throws IOException, InterruptedException {
+    @Test
+    /**
+     * remove @Test comment and run as test cases to remove topics in qa
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    public void deleteTopics() throws IOException, InterruptedException {
         logger.info("[testDeleteTopics] start.");
         Properties props = new Properties();
         logger.info("At {} , initialize: {}", System.currentTimeMillis(), this.getClass().getName());
@@ -122,13 +162,16 @@ public class TopicUtil {
             props.load(is);
         }
         String adminHttp = "http://" + props.getProperty("admin-address");
-        String topicPattern = "topic_";
+        String topicPattern = "test";
         TopicUtil.deleteTopics(adminHttp, topicPattern);
         logger.info("[testTopicUtil] ends.");
     }
 
     @Test
     public void testTopicUtil() throws Exception {
+        Calendar cal = Calendar.getInstance();
+        cal.set(2017, 7, 9, 17, 20, 0);
+        logger.info("{}", cal.getTimeInMillis());
         logger.info("[testTopicUtil] start.");
         Properties props = new Properties();
         logger.info("At {} , initialize: {}", System.currentTimeMillis(), this.getClass().getName());

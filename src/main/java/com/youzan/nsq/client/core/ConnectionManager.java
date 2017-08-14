@@ -15,6 +15,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
@@ -22,7 +23,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  */
 public class ConnectionManager {
     private final static Logger logger = LoggerFactory.getLogger(ConnectionManager.class.getName());
-    private Map<String, ConnectionWrapperSet> topic2Subs = new ConcurrentHashMap<>();
+    private ConcurrentMap<String, ConnectionWrapperSet> topic2Subs = new ConcurrentHashMap<>();
 
     //success attemp of total rdy proofread count
     private final AtomicInteger proofreadCnt = new AtomicInteger(0);
@@ -34,7 +35,7 @@ public class ConnectionManager {
     //executor for backoff & resume
     private final ExecutorService exec = Executors.newCachedThreadPool(new NamedThreadFactory("connMgr-job", Thread.NORM_PRIORITY));
     //schedule executor for backoff resume
-    private final ScheduledExecutorService delayExec = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("rdy-distribute", Thread.NORM_PRIORITY));
+    private final ScheduledExecutorService scheduleExec = Executors.newScheduledThreadPool(Runtime.getRuntime().availableProcessors(), new NamedThreadFactory("rdy-distribute", Thread.NORM_PRIORITY));
 
     private final int INIT_DELAY = 5;
     private final int INTERVAL = 5;
@@ -156,7 +157,7 @@ public class ConnectionManager {
     public static class ConnectionWrapperSet extends HashSet<NSQConnectionWrapper> {
         private final AtomicInteger totalRdy = new AtomicInteger(0);
         private final AtomicBoolean isBackOff = new AtomicBoolean(false);
-        private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+        private final ReentrantLock lock = new ReentrantLock();
         private volatile float proofreadFactor = PROOFREAD_FACTOR_DEFAULT;
         private volatile long lastProofread = System.currentTimeMillis();
 
@@ -187,8 +188,8 @@ public class ConnectionManager {
         public int setTotalRdy(int newTotalrdy) {
             assert newTotalrdy >= 0;
             int oldRdy = this.totalRdy.get();
+            this.setLastProofread(System.currentTimeMillis());
             if(oldRdy != newTotalrdy && this.totalRdy.compareAndSet(oldRdy, newTotalrdy)) {
-                this.setLastProofread(System.currentTimeMillis());
                 //restore factor to defaut
                 this.proofreadFactor = PROOFREAD_FACTOR_DEFAULT;
                 return oldRdy;
@@ -230,11 +231,11 @@ public class ConnectionManager {
          }
 
          public void writeLock() {
-            this.lock.writeLock().lock();
+            this.lock.lock();
          }
 
          public void writeUnlock() {
-             this.lock.writeLock().unlock();
+             this.lock.unlock();
          }
     }
 
@@ -277,13 +278,13 @@ public class ConnectionManager {
     public void start() {
         if(!start.compareAndSet(false, true))
             return;
-        delayExec.scheduleWithFixedDelay(REDISTRIBUTE_RUNNABLE, INIT_DELAY, INTERVAL, TimeUnit.SECONDS);
+        scheduleExec.scheduleWithFixedDelay(REDISTRIBUTE_RUNNABLE, INIT_DELAY, INTERVAL, TimeUnit.SECONDS);
     }
 
     public void start(int initDelay) {
         if(!start.compareAndSet(false, true))
             return;
-        delayExec.scheduleWithFixedDelay(REDISTRIBUTE_RUNNABLE, initDelay, INTERVAL, TimeUnit.SECONDS);
+        scheduleExec.scheduleWithFixedDelay(REDISTRIBUTE_RUNNABLE, initDelay, INTERVAL, TimeUnit.SECONDS);
     }
 
     boolean isStart() {
@@ -292,7 +293,7 @@ public class ConnectionManager {
 
     //TODO: close
     public void close() {
-        delayExec.shutdownNow();
+        scheduleExec.shutdownNow();
     }
 
     /**
@@ -306,11 +307,7 @@ public class ConnectionManager {
             throw new IllegalArgumentException("topic: " + topic + " connection: " + subscriber);
         }
 
-        synchronized (this.topic2Subs) {
-            if (!topic2Subs.containsKey(topic)) {
-                topic2Subs.put(topic, new ConnectionWrapperSet());
-            }
-        }
+        topic2Subs.putIfAbsent(topic, new ConnectionWrapperSet());
 
         final ConnectionWrapperSet subs = topic2Subs.get(topic);
         subs.writeLock();
@@ -370,32 +367,42 @@ public class ConnectionManager {
      * @param conn nsqd connection to backoff, connection manager check if connection belongs to current manager,
      *             backoff when it does.
      */
-    public void backoff(final NSQConnection conn) {
+    public void backoff(final NSQConnection conn, final CountDownLatch latch) {
         String topic = conn.getTopic().getTopicText();
         if (!topic2Subs.containsKey(topic)) {
-            logger.info("Subscriber for topic {} does not exist.");
+            logger.info("Subscriber for topic {} does not exist.", topic);
             return;
         }
 
         NSQConnectionWrapper connWrapper = new NSQConnectionWrapper(conn);
         final ConnectionWrapperSet conWrapperSet = topic2Subs.get(topic);
-        if(conWrapperSet.contains(connWrapper)) {
-            final CountDownLatch latch = new CountDownLatch(1);
-            conn.onBackoff(new IRdyCallback() {
-                @Override
-                public void onUpdated(int newRdy, int lastRdy) {
-                    conWrapperSet.addTotalRdy(newRdy - lastRdy);
-                    latch.countDown();
+        if (null != conWrapperSet) {
+            if (conWrapperSet.contains(connWrapper)) {
+                final CountDownLatch backoffLatch = new CountDownLatch(1);
+                conn.onBackoff(new IRdyCallback() {
+                    @Override
+                    public void onUpdated(int newRdy, int lastRdy) {
+                        conWrapperSet.addTotalRdy(newRdy - lastRdy);
+                        backoffLatch.countDown();
+                    }
+                });
+                try {
+                    if (!backoffLatch.await(RDY_TIMEOUT, TimeUnit.MILLISECONDS)) {
+                        logger.error("Timeout backoff topic connection {}", conn);
+                    } else if (null != latch) {
+                        latch.countDown();
+                    }
+                } catch (InterruptedException e) {
+                    logger.error("Interrupted waiting for rdy update for backoff, connection {}", conn);
                 }
-            });
-            try {
-                latch.await(RDY_TIMEOUT, TimeUnit.MILLISECONDS);
-            } catch (InterruptedException e) {
-                logger.error("Interrupted waiting for rdy update for backoff, connection {}", conn);
+            } else {
+                logger.error("Connection {} does not belong to current consumer.", conn);
             }
-        } else {
-            logger.error("Connection {} does not belong to current consumer.", conn);
         }
+    }
+
+    public void backoff(final NSQConnection conn) {
+       backoff(conn, null);
     }
 
     /**
@@ -508,6 +515,7 @@ public class ConnectionManager {
 //                                  TODO now we do not exceed expected per connection
 //                                  if(currentRdy >= expectedRdy && availableRdy > ceilingRdy)
 //                                  ceilingRdy = availableRdy;
+            //increase rdy as quickly as inorder to get closer to expected rdy
             final int newRdy = Math.min(ceilingRdy, currentRdy * 2);
             if (newRdy > currentRdy) {
                 ChannelFuture future = con.command(new Rdy(newRdy));

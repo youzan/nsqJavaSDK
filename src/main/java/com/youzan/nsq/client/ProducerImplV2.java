@@ -42,8 +42,8 @@ public class ProducerImplV2 implements Producer {
     private static final Logger logger = LoggerFactory.getLogger(ProducerImplV2.class);
     private static final Logger PERF_LOG = LoggerFactory.getLogger(ProducerImplV2.class.getName() + ".perf");
 
-    private static final int MAX_PUBLISH_RETRY = 6;
     private static final int MAX_MSG_OUTPUT_LEN = 100;
+    private static final int NSQ_LEADER_NOT_READY_TIMEOUT = 100;
 
     private AtomicBoolean started = new AtomicBoolean(Boolean.FALSE);
     private AtomicBoolean closing = new AtomicBoolean(Boolean.FALSE);
@@ -232,17 +232,15 @@ public class ProducerImplV2 implements Producer {
      * @throws NSQException that is having done a negotiation
      */
     protected NSQConnection getNSQConnection(Topic topic, Object topicShardingID, final Context cxt) throws NSQException {
-        final Long now = System.currentTimeMillis();
         //data nodes matches topic sharding returns
-        Address[] partitonAddrs = null;
+        Address[] partitonAddrs;
         try {
-            //TODO: timeout in publish
-            while(null == partitonAddrs) {
-                topic_2_lastActiveTime.put(topic.getTopicText(), now);
-                partitonAddrs = simpleClient.getPartitionNodes(topic, new Object[]{topicShardingID}, true);
-            }
+            partitonAddrs = simpleClient.getPartitionNodes(topic, new Object[]{topicShardingID}, true);
         } catch (InterruptedException e) {
             logger.warn("Thread interrupted waiting for partition selector update, Topic {}. Ignore if SDK is shutting down.", topic.getTopicText());
+            return null;
+        }
+        if(null == partitonAddrs) {
             return null;
         }
         final int size = partitonAddrs.length;
@@ -357,13 +355,15 @@ public class ProducerImplV2 implements Producer {
         NSQConnection conn = null;
         List<NSQException> exceptions = new ArrayList<>();
         long start = System.currentTimeMillis();
-        while (c++ < MAX_PUBLISH_RETRY) {
+        int retry = this.config.getPublishRetry();
+        while (c++ < retry) {
             returnCon = true;
-            if (c > 1) {
-                logger.debug("Sleep. CurrentRetries: {}", c);
-                sleep((1 << (c - 1)) * this.config.getProducerRetryIntervalBaseInMilliSeconds());
-            }
+//            if (c > 1) {
+//                logger.debug("Sleep. CurrentRetries: {}", c);
+                //sleep((1 << (c - 1)) * this.config.getProducerRetryIntervalBaseInMilliSeconds());
+//            }
             //while put topic, topic expiration is not allowed
+            topic_2_lastActiveTime.put(msg.getTopic().getTopicText(), start);
             this.simpleClient.putTopic(msg.getTopic().getTopicText());
             try {
                 //performance logging
@@ -418,7 +418,7 @@ public class ProducerImplV2 implements Producer {
                 if(PERF_LOG.isDebugEnabled()){
                     PERF_LOG.debug("{}: took {} milliSec to send msg to and hear response from nsqd.", cxt.getTraceID(), pubAndWaitEnd);
                 }
-                if(pubAndWaitEnd > PerfTune.getInstance().getNSQConnElapseLimit()) {
+                if(pubAndWaitEnd > PerfTune.getInstance().getSendMSGLimit()) {
                     PERF_LOG.warn("{}: took {} milliSec to send message. Limitation is {}", cxt.getTraceID(), pubAndWaitEnd, PerfTune.getInstance().getSendMSGLimit());
                 }
 
@@ -442,14 +442,14 @@ public class ProducerImplV2 implements Producer {
                 }
                 String msgStr = msg.getMessageBody();
                 int maxlen = msgStr.length() > MAX_MSG_OUTPUT_LEN ? MAX_MSG_OUTPUT_LEN : msgStr.length();
-                logger.error("MaxRetries: {} , CurrentRetries: {} , Address: {} , Topic: {}, MessageLength: {}, RawMessage: {}, Exception:", MAX_PUBLISH_RETRY, c,
+                logger.error("MaxRetries: {} , CurrentRetries: {} , Address: {} , Topic: {}, MessageLength: {}, RawMessage: {}, Exception:", retry, c,
                         conn.getAddress(), msg.getTopic(), msgStr.length(), msgStr.substring(0, maxlen), e);
                 //as to NSQInvalidMessageException throw it out after connection close.
                 if(e instanceof NSQInvalidMessageException)
                     throw (NSQInvalidMessageException)e;
                 NSQException nsqE = new NSQException(e);
                 exceptions.add(nsqE);
-                if (c >= MAX_PUBLISH_RETRY) {
+                if (c >= retry) {
                     throw new NSQPubException(exceptions);
                 }
             } finally {
@@ -465,7 +465,7 @@ public class ProducerImplV2 implements Producer {
                 }
             }
         } // end loop
-        if (c >= MAX_PUBLISH_RETRY) {
+        if (c >= retry) {
             throw new NSQPubException(exceptions);
         }
         if(PERF_LOG.isDebugEnabled()){
@@ -507,6 +507,12 @@ public class ProducerImplV2 implements Producer {
                         logger.error("Address: {} , Frame: {}", conn.getAddress(), frame);
                         //clean topic 2 partitions selector and force a lookup for topic
                         this.simpleClient.invalidatePartitionsSelector(topic.getTopicText());
+                        //backoff for nsqd consensus, if there is one
+                        try {
+                            Thread.sleep(NSQ_LEADER_NOT_READY_TIMEOUT);
+                        } catch (InterruptedException e) {
+                            logger.error("Publish process interrupted waiting for nsqd consensus.");
+                        }
                         logger.info("Partitions info for {} invalidated and related lookup force updated.", topic);
                         throw new NSQInvalidDataNodeException(topic.getTopicText());
                     }

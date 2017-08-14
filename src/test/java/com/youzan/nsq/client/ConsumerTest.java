@@ -243,6 +243,57 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         }
     }
 
+
+    /**
+     * Consume with high rdy and exceptions always, rdy should down to 1, then ??
+     */
+    @Test
+    public void testHowBadCanItBe() throws Exception {
+        logger.info("[testHowBadCanItBe] starts.");
+        final String topic = "testHowBadCanItBe_" + System.currentTimeMillis();
+        int expectRdy = 100;
+        logger.info("ExpectedRdy: {}", expectRdy);
+        final NSQConfig config = new NSQConfig("BaseConsumer");
+        config.setLookupAddresses(props.getProperty("lookup-addresses"));
+        config.setRdy(expectRdy);
+        ScheduledExecutorService exec = null;
+        Producer producer = null;
+        Consumer consumer = null;
+        String adminHttp = "http://" + props.getProperty("admin-address");
+        try {
+            TopicUtil.createTopic(adminHttp, topic, "default");
+            TopicUtil.createTopicChannel(adminHttp, topic, "default");
+
+            producer = new ProducerImplV2(config);
+            producer.start();
+            exec = keepMessagePublish(producer, topic,10);
+            MessageHandler handler = new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    try {
+                        Thread.sleep(100);
+                        throw new RuntimeException("exp on purpose");
+                    } catch (InterruptedException e) {
+                        logger.error("Interrupted while sleep");
+                    }
+                }
+            };
+
+            consumer = new ConsumerImplV2(config, handler);
+            consumer.subscribe(topic);
+            consumer.start();
+            logger.info("Wait for 60s for consumer to start...");
+            Thread.sleep(30000L);
+        }finally {
+            exec.shutdownNow();
+            Thread.sleep(1000L);
+            producer.close();
+            consumer.close();
+            TopicUtil.deleteTopic(adminHttp, topic);
+            logger.info("[testHowBadCanItBe] ends.");
+        }
+    }
+
     private ScheduledExecutorService keepMessagePublish(final Producer producer, final String topic, long interval) throws NSQException {
         ScheduledExecutorService exec = Executors.newSingleThreadScheduledExecutor();
         exec.scheduleWithFixedDelay(new Runnable() {

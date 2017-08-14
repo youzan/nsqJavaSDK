@@ -16,6 +16,7 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -82,9 +83,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
       *                          Client delegates to me
       */
     private volatile MessageHandler handler;
-    private final int WORKER_SIZE = Runtime.getRuntime().availableProcessors() * 4;
-    private final ExecutorService executor = Executors.newFixedThreadPool(WORKER_SIZE,
-            new NamedThreadFactory(this.getClass().getSimpleName() + "-ClientBusiness", Thread.MAX_PRIORITY));
+    private final ExecutorService executor;
     /*-
      *                           Client delegates to me
      * =========================================================================
@@ -101,13 +100,16 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         this.simpleClient = new NSQSimpleClient(Role.Consumer, this.config.getUserSpecifiedLookupAddress());
 
         //initialize netty component
-        EventLoopGroup eventLoopGroup = new NioEventLoopGroup(config.getThreadPoolSize4IO());
+        EventLoopGroup eventLoopGroup = new NioEventLoopGroup(config.getNettyPoolSize());
         bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
         bootstrap.option(ChannelOption.TCP_NODELAY, true);
         bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, config.getConnectTimeoutInMillisecond());
         bootstrap.group(eventLoopGroup);
         bootstrap.channel(NioSocketChannel.class);
         bootstrap.handler(new NSQClientInitializer());
+        //initialize consuemr worker size
+        executor = Executors.newFixedThreadPool(this.config.getConsumerWorkerPoolSize(),
+                new NamedThreadFactory(this.getClass().getSimpleName() + "-ClientBusiness", Thread.MAX_PRIORITY));
     }
 
     /**
@@ -538,7 +540,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
 
                 //check desired tag
                 DesiredTag tag = this.config.getConsumerDesiredTag();
-                if (null != tag && !tag.getTagName().equals("") && !tag.match(message.getTag())) {
+                if (conn.isExtend() && null != tag && StringUtils.isNotEmpty(tag.getTagName()) && !tag.match(message.getTag())) {
                     logger.warn("Skip message {} has tag {} not desired. Consumer desired tag: {}, Address: {}", message.getInternalID(), message.getTag(), this.config.getConsumerDesiredTag(), conn.getAddress());
                     return;
                 }
@@ -550,7 +552,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                     //order problem
                     throw new NSQInvalidMessageException("Invalid internalID or diskQueueOffset in order mode.");
                 }
-                conn.setMessageTouched(System.currentTimeMillis());
+//                conn.setMessageTouched(System.currentTimeMillis());
                 processMessage(message, conn);
             }
         }
@@ -582,15 +584,8 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             });
             queue4Consume.incrementAndGet();
         } catch (RejectedExecutionException re) {
-            try {
-                //TODO: backoff and recover. when to recover ?
-                backoff(connection);
-                ChannelFuture future = connection.command(new ReQueue(message.getMessageID(), 3));
-                if (null != future)
-                    logger.info("Do a re-queue. MessageID:{}", message.getMessageID());
-            } catch (Exception e) {
-                logger.error("SDK can not handle it MessageID:{}, Exception:", message.getMessageID(), e);
-            }
+            logger.error("message handler task rejected as task queue is full.");
+            connection.declineExpectedRdy();
         }
     }
 
@@ -653,7 +648,6 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 } else {
                     if (!this.config.isOrdered() && end > this.config.getMsgTimeoutInMillisecond()) {
                         logger.warn("It took {} milliSec to for message to be consumed by message handler, and exceeds message timeout in nsq config. Fin not be invoked as requeue from NSQ server is on its way.", end);
-                        connection.declineExpectedRdy();
                     } else {
                         // Finish: client explicitly sets NextConsumingInSecond is null
                         cmd = new Finish(message.getMessageID());
@@ -661,6 +655,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                         logger.info("Do a Finish by SDK, given that client process handler has failed and next consuming time elapse not specified. MessageID: {} , Hex: {}", id, message.newHexString(id));
                     }
                 }
+                connection.declineExpectedRdy();
             }
         } else {
             // Client code does finish explicitly.
@@ -703,9 +698,9 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         // Post
         //log warn
         if (!ok) {
-            connection.setMessageConsumptionFailed(start);
+            //TODO: connection.setMessageConsumptionFailed(start);
             logger.warn("Exception occurs in message handler. Please check it right now {} , Original message: {}.", message, message.getReadableContent());
-        } else if (!this.getConfig().isOrdered()){
+        } else if (!this.config.isOrdered()){
             connection.increaseExpectedRdy();
         }
     }
@@ -943,23 +938,26 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     }
 
     private NSQMessage createNSQMessage(final MessageFrame msgFrame, final NSQConnection conn) throws NSQInvalidMessageException {
+        NSQMessage msg;
         if (config.isOrdered() && msgFrame instanceof OrderedMessageFrame) {
             OrderedMessageFrame orderedMsgFrame = (OrderedMessageFrame) msgFrame;
-            return new NSQMessage(orderedMsgFrame.getTimestamp(), orderedMsgFrame.getAttempts(), orderedMsgFrame.getMessageID(),
+            msg = new NSQMessage(orderedMsgFrame.getTimestamp(), orderedMsgFrame.getAttempts(), orderedMsgFrame.getMessageID(),
                     orderedMsgFrame.getInternalID(), orderedMsgFrame.getTractID(),
                     orderedMsgFrame.getDiskQueueOffset(), orderedMsgFrame.getDiskQueueDataSize(),
                     msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond(), conn.getTopic(), conn.isExtend());
         } else {
-            NSQMessage msg = new NSQMessage(msgFrame.getTimestamp(), msgFrame.getAttempts(), msgFrame.getMessageID(),
+            msg = new NSQMessage(msgFrame.getTimestamp(), msgFrame.getAttempts(), msgFrame.getMessageID(),
                     msgFrame.getInternalID(), msgFrame.getTractID(), msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond(), conn.getTopic(), conn.isExtend());
+        }
+        if(conn.isExtend()) {
             ExtVer extVer = ExtVer.getExtVersion(msgFrame.getExtVerBytes());
             try {
                 msg.parseExtContent(extVer, msgFrame.getExtBytes());
             } catch (IOException e) {
                 throw new NSQInvalidMessageException("Fail to parse ext content for incoming message.", e);
             }
-            return msg;
         }
+        return msg;
     }
 
     public String toString() {

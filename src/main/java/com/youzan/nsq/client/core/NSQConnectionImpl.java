@@ -131,7 +131,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         assert config != null;
         if (identitySent.compareAndSet(Boolean.FALSE, Boolean.TRUE)) {
             command(Magic.getInstance());
-            final NSQCommand identify = new Identify(config);
+            final NSQCommand identify = new Identify(config, address.isTopicExtend());
             NSQFrame response = null;
             try {
                 response = _commandAndGetResposne(identify);
@@ -232,7 +232,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
                 logger.error("Thread was interrupted, probably shutting down!", e);
             }
         } else {
-            logger.error("No request to send, but get a frame from the server.");
+            logger.error("No request to send, but get a frame from the server. {}", frame);
         }
     }
 
@@ -455,17 +455,16 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     public boolean declineExpectedRdy() {
         int currentExpRdy = this.expectedRdy.get();
-        if(currentExpRdy - 1 > 0) {
-            return this.expectedRdy.compareAndSet(currentExpRdy, currentExpRdy - 1);
-        }
-        return false;
+        int newExpRdy = this.config.getExpectedRdyUpdatePolicy().expectedRdyDecline(currentExpRdy,
+                this.config.getRdy());
+        return this.expectedRdy.compareAndSet(currentExpRdy, newExpRdy);
     }
 
     public boolean increaseExpectedRdy() {
         int currentExpRdy = this.expectedRdy.get();
-        if(currentExpRdy + 1 <= this.config.getRdy())
-            return this.expectedRdy.compareAndSet(currentExpRdy, currentExpRdy + 1);
-        return false;
+        int newExpRdy = this.config.getExpectedRdyUpdatePolicy().expectedRdyIncrease(currentExpRdy,
+                this.config.getRdy());
+        return this.expectedRdy.compareAndSet(currentExpRdy, newExpRdy);
     }
 
     public int getExpectedRdy() {

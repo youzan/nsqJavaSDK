@@ -39,7 +39,7 @@ class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         //stop propagation
-        logger.warn("Uncaught exception in connection pipeline", cause.getMessage());
+        logger.warn("Uncaught exception in connection pipeline", cause);
         //add cause into error frame
         destroy(ctx);
         ctx.close();

@@ -65,7 +65,7 @@ public class ConnectionManagerTest {
 
         //netty setup
         this.bootstrap = new Bootstrap();
-        this.eventLoopGroup = new NioEventLoopGroup(config.getThreadPoolSize4IO());
+        this.eventLoopGroup = new NioEventLoopGroup(config.getNettyPoolSize());
         bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
         bootstrap.option(ChannelOption.TCP_NODELAY, true);
         bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, config.getConnectTimeoutInMillisecond());
@@ -85,7 +85,7 @@ public class ConnectionManagerTest {
         String topicName = "JavaTesting-Producer-Base";
         JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topicName + "&access=r"));
         JsonNode partition = lookupResp.get("partitions").get("0");
-        Address addr1 = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topicName, 0, false);
+        Address addr1 = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topicName, 0, true);
         NSQConnection con1 = connect(addr1, topicName, 0, "BaseConsumer", config);
 
         ConnectionManager conMgr = new ConnectionManager(new IConsumeInfo() {
@@ -118,11 +118,11 @@ public class ConnectionManagerTest {
         conMgr.resume("JavaTesting-Producer-Base", null);
         Thread.sleep(100);
 
-        assert 1 == conMgr.getSubscribeConnections("JavaTesting-Producer-Base")
+        Assert.assertEquals(conMgr.getSubscribeConnections("JavaTesting-Producer-Base")
                 .iterator()
                 .next()
                 .getConn()
-                .getCurrentRdyCount();
+                .getCurrentRdyCount(), 1);
     }
 
     private NSQConnection connect(Address addr, String topic, int partition, String channel, NSQConfig config) throws InterruptedException {
@@ -143,7 +143,7 @@ public class ConnectionManagerTest {
         ch.attr(Client.STATE).set(simpleClient);
         ch.attr(NSQConnection.STATE).set(con1);
         con1.command(Magic.getInstance());
-        con1.command(new Identify(config));
+        con1.command(new Identify(config, addr.isTopicExtend()));
         Thread.sleep(100);
         con1.command(new Sub(new Topic(topic, partition), channel));
         Thread.sleep(100);
@@ -157,9 +157,13 @@ public class ConnectionManagerTest {
     public void testRdyDecline() throws Exception {
         logger.info("[testRdyDecline] starts.");
         ConnectionManager conMgr = null;
-        String topic = "test5Par1Rep";
+        String topic = "testRdyDec_" + System.currentTimeMillis();
         String channel = "BaseConsumer";
+        String adminHttp = "http://" + props.getProperty("admin-address");
         try {
+            TopicUtil.createTopic(adminHttp, topic, 5, 1, channel);
+            TopicUtil.createTopicChannel(adminHttp, topic, channel);
+
             NSQConfig config = (NSQConfig) this.config.clone();
             config.setRdy(5);
             conMgr = new ConnectionManager(new IConsumeInfo() {
@@ -200,17 +204,15 @@ public class ConnectionManagerTest {
             }
         } finally {
             conMgr.close();
-            String adminHttp = "http://" + props.getProperty("admin-address");
-            TopicUtil.emptyQueue(adminHttp, topic, channel);
+            TopicUtil.deleteTopicChannel(adminHttp, topic, channel);
             logger.info("[testRdyDecline] ends.");
         }
     }
 
     @Test
-    public void testRdyIncrease() throws IOException, InterruptedException {
+    public void testRdyIncrease() throws Exception {
         logger.info("[testRdyIncrease] starts.");
         ConnectionManager conMgr = null;
-        try {
             NSQConfig config = (NSQConfig) this.config.clone();
             config.setRdy(5);
             conMgr = new ConnectionManager(new IConsumeInfo() {
@@ -231,7 +233,12 @@ public class ConnectionManagerTest {
             });
 
             int partitionNum = 5;
-            String topic = "test5Par1Rep";
+            String topic = "testRdyInc_" + System.currentTimeMillis();
+            String channel = "BaseConsumer";
+            String adminHttp = "http://" + props.getProperty("admin-address");
+        try{
+            TopicUtil.createTopic(adminHttp, topic, 5, 1, channel);
+            TopicUtil.createTopicChannel(adminHttp, topic, channel);
             JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topic + "&access=r"));
             List<NSQConnection> connList = new ArrayList<>(partitionNum);
             for (int i = 0; i < partitionNum; i++) {
@@ -251,15 +258,21 @@ public class ConnectionManagerTest {
             }
         } finally {
             conMgr.close();
+            TopicUtil.deleteTopic(adminHttp, topic);
             logger.info("[testRdyIncrease] ends.");
         }
     }
 
     @Test
-    public void testExpectedRdy() throws IOException, InterruptedException {
+    public void testExpectedRdy() throws Exception {
         logger.info("[testExpectedRdy] starts.");
         ConnectionManager conMgr = null;
+        String topic = "test5Par1Rep_" + System.currentTimeMillis();
+        String adminHttp = "http://" + props.getProperty("admin-address");
         try {
+            TopicUtil.createTopic(adminHttp, topic, 5, 1, "default");
+            TopicUtil.createTopicChannel(adminHttp, topic, "default");
+
             NSQConfig config = (NSQConfig) this.config.clone();
             config.setRdy(6);
             conMgr = new ConnectionManager(new IConsumeInfo() {
@@ -280,7 +293,6 @@ public class ConnectionManagerTest {
             });
 
             int partitionNum = 5;
-            String topic = "test5Par1Rep";
             JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topic + "&access=r"));
             List<NSQConnection> connList = new ArrayList<>(partitionNum);
             for (int i = 0; i < partitionNum; i++) {
@@ -292,8 +304,6 @@ public class ConnectionManagerTest {
             }
             //pick 2 connection and fix another rdy
             connList.get(0).declineExpectedRdy();
-            connList.get(0).declineExpectedRdy();
-            connList.get(0).declineExpectedRdy();
 
             connList.get(1).declineExpectedRdy();
             connList.get(1).declineExpectedRdy();
@@ -304,18 +314,26 @@ public class ConnectionManagerTest {
             Thread.sleep(30000);
 
             Assert.assertEquals(connList.get(0).getCurrentRdyCount(), 3);
-            Assert.assertEquals(connList.get(1).getCurrentRdyCount(), 2);
+            Assert.assertEquals(connList.get(1).getCurrentRdyCount(), 1);
         } finally {
             conMgr.close();
+            TopicUtil.deleteTopic(adminHttp, topic);
             logger.info("[testExpectedRdy] ends.");
         }
     }
 
 
     @Test
-    public void testRemoveConnectionWrapper() throws IOException, InterruptedException {
+    public void testRemoveConnectionWrapper() throws Exception {
         logger.info("[testRemoveConnectionWrapper] starts.");
+        int par1 = 5;
+        String topic = "test5Par1Rep";
+        String adminHttp = "http://" + props.getProperty("admin-address");
+        String channel = "BaseConsumer";
         try {
+            TopicUtil.createTopic(adminHttp, topic, 5, 1, channel);
+            TopicUtil.createTopicChannel(adminHttp, topic, channel);
+
             NSQConfig config = (NSQConfig) this.config.clone();
             config.setRdy(6);
             ConnectionManager conMgr = new ConnectionManager(new IConsumeInfo() {
@@ -335,8 +353,6 @@ public class ConnectionManagerTest {
                 }
             });
 
-            int par1 = 5;
-            String topic = "test5Par1Rep";
             JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topic + "&access=r"));
             List<NSQConnection> connList = new ArrayList<>(par1);
             for (int i = 0; i < par1; i++) {
@@ -393,14 +409,21 @@ public class ConnectionManagerTest {
             Assert.assertNull(conWprs);
 
         } finally {
+            TopicUtil.deleteTopic(adminHttp, topic);
             logger.info("[testRemoveConnectionWrapper] ends.");
         }
     }
 
     @Test
-    public void testSubscribeConnWhileBackoff() throws IOException, InterruptedException {
+    public void testSubscribeConnWhileBackoff() throws Exception {
         logger.info("[testSubscribeConnWhileBackoff] starts.");
+        int par = 5;
+        final String topic = "test5Par1Rep";
+        String channel = "BaseConsumer";
+        String adminHttp = "http://" + props.getProperty("admin-address");
         try{
+            TopicUtil.createTopic(adminHttp, topic, 5, 1, channel);
+            TopicUtil.createTopicChannel(adminHttp, topic, channel);
             NSQConfig config = (NSQConfig) this.config.clone();
             config.setRdy(6);
             final ConnectionManager conMgr = new ConnectionManager(new IConsumeInfo() {
@@ -420,8 +443,6 @@ public class ConnectionManagerTest {
                 }
             });
 
-            int par = 5;
-            final String topic = "test5Par1Rep";
             JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topic + "&access=r"));
             final List<NSQConnection> connList = new ArrayList<>(par);
             //subscribe 3 of 5 partitions
@@ -471,6 +492,7 @@ public class ConnectionManagerTest {
                 Assert.assertFalse(wrapper.getConn().isBackoff());
             }
         }finally {
+            TopicUtil.deleteTopic(adminHttp, topic);
             logger.info("[testSubscribeConnWhileBackoff] ends");
         }
     }
@@ -497,9 +519,12 @@ public class ConnectionManagerTest {
             }
         });
 
+        final String topic = "testInvalidateConnection_" + System.currentTimeMillis();
+        int par = 5;
+        String adminHttp = "http://" + props.getProperty("admin-address");
         try{
-            int par = 5;
-            final String topic = "test5Par1Rep";
+            TopicUtil.createTopic(adminHttp, topic, 5, 1, "default");
+            TopicUtil.createTopicChannel(adminHttp, topic, "default");
             JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topic + "&access=r"));
             MockedConsumer consumer = new MockedConsumer(localConfig, null);
             consumer.setConnectionManager(conMgr);
@@ -521,6 +546,7 @@ public class ConnectionManagerTest {
             addr2Conns = consumer.getAddress2Conn();
             Assert.assertTrue(addr2Conns.keySet().size() == 0);
         } finally {
+            TopicUtil.deleteTopic(adminHttp, topic);
             logger.info("[testInvalidateConnection] ends.");
         }
     }
@@ -691,9 +717,12 @@ public class ConnectionManagerTest {
         });
 
         MockedConsumer consumer = null;
+        final String topic = "testProofreadTotalRdy_" + System.currentTimeMillis();
+        int par = 5;
+        String adminHttp = "http://" + props.getProperty("admin-address");
         try{
-            int par = 5;
-            final String topic = "test5Par1Rep";
+            TopicUtil.createTopic(adminHttp, topic, 5, 1, "default");
+            TopicUtil.createTopicChannel(adminHttp, topic, "default");
             JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topic + "&access=r"));
             //set it 4 rdy per connection and make total 4*5 = 20
             localConfig.setRdy(4);
@@ -719,6 +748,7 @@ public class ConnectionManagerTest {
         } finally {
             conMgr.close();
             consumer.close();
+            TopicUtil.deleteTopic(adminHttp, topic);
             logger.info("[testProofreadTotalRdy] ends.");
         }
     }
