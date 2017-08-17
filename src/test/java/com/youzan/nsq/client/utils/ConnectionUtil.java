@@ -13,6 +13,7 @@ import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.Role;
 import com.youzan.nsq.client.entity.Topic;
+import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.netty.NSQClientInitializer;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
@@ -21,6 +22,7 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Created by lin on 17/8/11.
@@ -42,7 +44,7 @@ public class ConnectionUtil {
         bootstrap.handler(new NSQClientInitializer());
     }
 
-    public static NSQConnection connect(Address addr, String channel, NSQConfig config) throws InterruptedException {
+    public static NSQConnection connect(Address addr, String channel, NSQConfig config) throws InterruptedException, TimeoutException {
         ChannelFuture chFuture = bootstrap.connect(addr.getHost(), addr.getPort());
         final CountDownLatch connLatch = new CountDownLatch(1);
         chFuture.addListener(new ChannelFutureListener() {
@@ -60,9 +62,19 @@ public class ConnectionUtil {
         ch.attr(Client.STATE).set(simpleClient);
         ch.attr(NSQConnection.STATE).set(con1);
         con1.command(Magic.getInstance());
-        con1.command(new Identify(config, addr.isTopicExtend()));
+        NSQFrame resp = con1.commandAndGetResponse(new Identify(config, addr.isTopicExtend()));
+        if (null == resp) {
+            throw new IllegalStateException("Bad Identify Response!");
+        }
         Thread.sleep(100);
-        con1.command(new Sub(new Topic(addr.getTopic(), addr.getPartition()), channel));
+        resp = con1.commandAndGetResponse(new Sub(new Topic(addr.getTopic(), addr.getPartition()), channel));
+        if (null == resp) {
+            throw new IllegalStateException("Bad Identify Response!");
+        }
+        if (resp.getType() == NSQFrame.FrameType.ERROR_FRAME) {
+            throw new IllegalStateException(resp.getMessage());
+        }
+        con1.subSent();
         Thread.sleep(100);
         con1.command(new Rdy(1));
         Thread.sleep(100);

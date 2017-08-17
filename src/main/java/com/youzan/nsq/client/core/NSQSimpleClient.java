@@ -36,7 +36,6 @@ public class NSQSimpleClient implements Client, Closeable {
     private final static AtomicInteger CLIENT_ID = new AtomicInteger(0);
     private int lookupLocalID = -1;
     //maintain a mapping from topic to producer broadcast addresses
-    private final Set<String> topicSubscribed = new HashSet<>();
     private final ReentrantReadWriteLock topicSyncLock = new ReentrantReadWriteLock();
 
     private final ReentrantLock lock = new ReentrantLock();
@@ -372,7 +371,7 @@ public class NSQSimpleClient implements Client, Closeable {
             return;
         long now = System.currentTimeMillis();
         Long lastInvalidated = ps_lastInvalidated.get(topic);
-        if (now - lastInvalidated <= _INTERVAL_IN_SECOND * 2) {
+        if (null != lastInvalidated && now - lastInvalidated <= _INTERVAL_IN_SECOND * 2) {
             logger.info("Partition selector for {} has been invalidated in last {} seconds", topic, _INTERVAL_IN_SECOND * 2);
             return;
         } else {
@@ -417,7 +416,6 @@ public class NSQSimpleClient implements Client, Closeable {
                 scheduler.shutdownNow();
                 topic_2_partitionsSelector.clear();
                 ps_lastInvalidated.clear();
-                topicSubscribed.clear();
                 topicSynMap.clear();
             } finally {
                 lock.unlock();

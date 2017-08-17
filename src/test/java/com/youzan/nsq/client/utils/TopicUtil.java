@@ -17,6 +17,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
@@ -148,7 +149,12 @@ public class TopicUtil {
         IOUtil.postToUrl(channelUrl, "{\"action\":\"create\"}");
     }
 
-    @Test
+    public static void upgradeTopic(String lookupdAddr, String topicName) throws Exception {
+        URL upgradeUrl = new URL(lookupdAddr + "/topic/meta/update?topic=" + topicName + "&upgradeext=true");
+        IOUtil.postToUrl(upgradeUrl, null);
+    }
+
+//    @Test
     /**
      * remove @Test comment and run as test cases to remove topics in qa
      * @throws IOException
@@ -162,7 +168,7 @@ public class TopicUtil {
             props.load(is);
         }
         String adminHttp = "http://" + props.getProperty("admin-address");
-        String topicPattern = "test";
+        String topicPattern = "topic_";
         TopicUtil.deleteTopics(adminHttp, topicPattern);
         logger.info("[testTopicUtil] ends.");
     }

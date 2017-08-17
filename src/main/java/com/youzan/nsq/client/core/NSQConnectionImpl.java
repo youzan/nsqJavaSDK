@@ -22,7 +22,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
@@ -41,6 +40,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     private AtomicBoolean closing = new AtomicBoolean(Boolean.FALSE);
     private AtomicBoolean identitySent = new AtomicBoolean(Boolean.FALSE);
+    private AtomicBoolean subSent = new AtomicBoolean(Boolean.FALSE);
     private AtomicBoolean backoff = new AtomicBoolean(Boolean.FALSE);
 
     protected final LinkedBlockingQueue<NSQCommand> requests = new LinkedBlockingQueue<>(1);
@@ -131,7 +131,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         assert config != null;
         if (identitySent.compareAndSet(Boolean.FALSE, Boolean.TRUE)) {
             command(Magic.getInstance());
-            final NSQCommand identify = new Identify(config, address.isTopicExtend());
+            final NSQCommand identify = new Identify(config, isExtend());
             NSQFrame response = null;
             try {
                 response = _commandAndGetResposne(identify);
@@ -268,6 +268,16 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     @Override
     public boolean isIdentitySent() {
         return identitySent.get();
+    }
+
+    @Override
+    public boolean isSubSent() {
+        return this.subSent.get();
+    }
+
+    @Override
+    public boolean subSent() {
+        return this.subSent.compareAndSet(Boolean.FALSE, Boolean.TRUE);
     }
 
     /**

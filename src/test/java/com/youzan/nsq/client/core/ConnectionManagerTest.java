@@ -313,7 +313,7 @@ public class ConnectionManagerTest {
             conMgr.start(0);
             Thread.sleep(30000);
 
-            Assert.assertEquals(connList.get(0).getCurrentRdyCount(), 3);
+            Assert.assertEquals(connList.get(0).getCurrentRdyCount(), 4);
             Assert.assertEquals(connList.get(1).getCurrentRdyCount(), 1);
         } finally {
             conMgr.close();
@@ -326,13 +326,20 @@ public class ConnectionManagerTest {
     @Test
     public void testRemoveConnectionWrapper() throws Exception {
         logger.info("[testRemoveConnectionWrapper] starts.");
+        String topic = "testRemoveConWrapper_" + System.currentTimeMillis();
         int par1 = 5;
-        String topic = "test5Par1Rep";
+
+        String topicJ = "testRemoveConWrapper_j_" + System.currentTimeMillis();
+        int par2 = 1;
+
         String adminHttp = "http://" + props.getProperty("admin-address");
         String channel = "BaseConsumer";
         try {
-            TopicUtil.createTopic(adminHttp, topic, 5, 1, channel);
+            TopicUtil.createTopic(adminHttp, topic, par1, 1, channel);
             TopicUtil.createTopicChannel(adminHttp, topic, channel);
+
+            TopicUtil.createTopic(adminHttp, topicJ, par2, 1, channel);
+            TopicUtil.createTopicChannel(adminHttp, topicJ, channel);
 
             NSQConfig config = (NSQConfig) this.config.clone();
             config.setRdy(6);
@@ -364,8 +371,6 @@ public class ConnectionManagerTest {
             }
 
             //pick another topic
-            int par2 = 1;
-            String topicJ = "JavaTesting-Producer-Base";
             lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topicJ + "&access=r"));
             for (int i = 0; i < par2; i++) {
                 JsonNode partition = lookupResp.get("partitions").get("" + i);
@@ -410,6 +415,7 @@ public class ConnectionManagerTest {
 
         } finally {
             TopicUtil.deleteTopic(adminHttp, topic);
+            TopicUtil.deleteTopic(adminHttp, topicJ);
             logger.info("[testRemoveConnectionWrapper] ends.");
         }
     }

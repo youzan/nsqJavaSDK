@@ -34,7 +34,7 @@ public class NSQMessage implements MessageMetadata{
     private DesiredTag tag;
     private Map<String, Object> jsonExtHeader;
 
-    class TopicInfo {
+    public class TopicInfo {
         private String topicName;
         private int partition;
         private boolean isExt;

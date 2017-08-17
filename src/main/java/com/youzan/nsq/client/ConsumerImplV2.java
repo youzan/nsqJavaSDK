@@ -462,9 +462,11 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             } else {
                 Sub command = createSubCmd(topic, this.config.getConsumerName());
                 final NSQFrame frame = conn.commandAndGetResponse(command);
-                if (handleResponse(frame, conn))
+                if (handleResponse(frame, conn)) {
                     //as there is no success response from nsq, command is enough here
+                    conn.subSent();
                     this.conMgr.subscribe(topic.getTopicText(), conn);
+                }
             }
         }finally {
             cLock.readLock().unlock();
@@ -516,7 +518,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         }
         switch(frame.getType()) {
             case RESPONSE_FRAME: {
-                if (frame.isHeartBeat() && conn.isIdentitySent()) {
+                if (frame.isHeartBeat() && conn.isSubSent()) {
                     simpleClient.incoming(frame, conn);
                 } else {
                     conn.addResponseFrame((ResponseFrame) frame);
@@ -524,7 +526,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 break;
             }
             case ERROR_FRAME: {
-                if (conn.isIdentitySent()) {
+                if (conn.isSubSent()) {
                     simpleClient.incoming(frame, conn);
                 } else {
                     final ErrorFrame err = (ErrorFrame) frame;
@@ -845,6 +847,10 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 //for error case which nsqd nodes does not invalidation
                 case E_SUB_ORDER_IS_MUST: {
                     logger.error("SubOrder need for topic(s) consuming.");
+                    break;
+                }
+                case E_SUB_EXTEND_NEED: {
+                    logger.error("topic needs extend support identify.");
                     break;
                 }
                 default: {

@@ -28,7 +28,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private IExpectedRdyUpdatePolicy DEFAULT_EXP_RDY_POLICY = new IExpectedRdyUpdatePolicy() {
         @Override
         public int expectedRdyIncrease(int currentExpRdy, int expectedRdyConf) {
-            int newExpRdy = (int)(currentExpRdy * 1.5);
+            int newExpRdy = (int)(Math.round(currentExpRdy * 1.5));
             if(newExpRdy <= expectedRdyConf)
                 return newExpRdy;
             else {
@@ -38,7 +38,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
         @Override
         public int expectedRdyDecline(int currentExpRdy, int expectedRdy) {
-            int newExpRdy = (int)(currentExpRdy - currentExpRdy * 0.5);
+            int newExpRdy = (int)(currentExpRdy - Math.round(currentExpRdy * 0.25));
             if(newExpRdy > 0) {
                 return newExpRdy;
             } else {
@@ -138,7 +138,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * Perform one interactive action between request and response underlying
      * Netty handling TCP
      */
-    private int queryTimeoutInMillisecond = 1000;
+    private int queryTimeoutInMillisecond = 3000;
     /**
      * query timeout for topic based seed lookup address check
      */

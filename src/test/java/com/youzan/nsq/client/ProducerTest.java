@@ -368,7 +368,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     }
 
     @Test
-    public void testExpiredTopicsClear() throws InterruptedException, NSQException {
+    public void testExpiredTopicsClear() throws InterruptedException, NSQException, IOException {
         logger.info("[testExpiredTopicsClear] starts.");
         final String adminHttp = "http://" + props.getProperty("admin-address");
         final String channel = "default";
@@ -467,7 +467,8 @@ public class ProducerTest extends AbstractNSQClientTestcase {
                     }
                 });
             }
-            delLatch.await(60, TimeUnit.SECONDS);
+            delLatch.await(90, TimeUnit.SECONDS);
+            TopicUtil.deleteTopics(adminHttp, "topic_");
             logger.info("[testExpiredTopicsClear] ends.");
         }
     }

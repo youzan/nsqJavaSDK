@@ -94,6 +94,18 @@ public interface NSQConnection extends Closeable {
      */
     boolean isIdentitySent();
 
+    /**
+     * indicate is sub command sent via current connection, for connection to publish, it is always {@link Boolean#FALSE}
+     * @return true if any sub commend sent
+     */
+    boolean isSubSent();
+
+    /**
+     * set isSubSent to {@link Boolean#TRUE}, after subscribe is sent.
+     * @return
+     */
+    boolean subSent();
+
     Topic getTopic();
 
     /**

@@ -99,7 +99,7 @@ Fix connection leak in producer in ordered message production scenario. Performa
 ### Fixes:
 + connection leak in producer in ordered topic production[#76](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/76)
 
-## 2.4
+## 2.4-RELEASE
 Note worthy:
 
 ### Features:

@@ -3,7 +3,7 @@ package it.youzan.nsq.client;
 import com.youzan.nsq.client.Producer;
 import com.youzan.nsq.client.ProducerImplV2;
 import com.youzan.nsq.client.entity.NSQConfig;
-import com.youzan.nsq.client.exception.NSQException;
+import com.youzan.nsq.client.utils.TopicUtil;
 import com.youzan.util.IOUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +23,7 @@ public class ITProducer {
     final Random random = new Random();
     protected final NSQConfig config = new NSQConfig();
     protected Producer producer;
+    protected String adminHttp;
 
     @BeforeClass
     public void init() throws Exception {
@@ -35,6 +36,7 @@ public class ITProducer {
         final String connTimeout = props.getProperty("connectTimeoutInMillisecond");
         final String msgTimeoutInMillisecond = props.getProperty("msgTimeoutInMillisecond");
         final String threadPoolSize4IO = props.getProperty("threadPoolSize4IO");
+        this.adminHttp = "http://" + props.getProperty("admin-address");
         config.setLookupAddresses(lookups);
         config.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
         config.setMsgTimeoutInMillisecond(Integer.valueOf(msgTimeoutInMillisecond));
@@ -44,8 +46,8 @@ public class ITProducer {
         producer.start();
     }
 
-    @Test
-    public void publish() throws NSQException {
+    public void publish() throws Exception {
+        TopicUtil.emptyQueue(adminHttp, "JavaTesting-Producer-Base", "BaseConsumer");
         String msgStr = "The quick brown fox jumps over the lazy dog, 那只迅捷的灰狐狸跳过了那条懒狗";
         for (int i = 0; i < 10; i++) {
             final byte[] message = (msgStr + " #" + i).getBytes();
@@ -53,8 +55,8 @@ public class ITProducer {
         }
     }
 
-    @Test
-    public void publishSnappy() throws NSQException {
+    public void publishSnappy() throws Exception {
+        TopicUtil.emptyQueue(adminHttp, "JavaTesting-Producer-Base", "BaseConsumer");
         config.setCompression(NSQConfig.Compression.SNAPPY);
         Producer producer = new ProducerImplV2(config);
         producer.start();
@@ -66,8 +68,8 @@ public class ITProducer {
         producer.close();
     }
 
-    @Test
-    public void publishDeflate() throws NSQException {
+    public void publishDeflate() throws Exception {
+        TopicUtil.emptyQueue(adminHttp, "JavaTesting-Producer-Base", "BaseConsumer");
         config.setCompression(NSQConfig.Compression.DEFLATE);
         config.setDeflateLevel(3);
         Producer producer = new ProducerImplV2(config);

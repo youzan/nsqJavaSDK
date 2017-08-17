@@ -26,6 +26,7 @@ public enum Response {
     E_SUB_ORDER_IS_MUST("E_SUB_ORDER_IS_MUST"), //
     E_BAD_TAG("E_BAD_TAG"),
     E_TAG_NOT_SUPPORT ("E_TAG_NOT_SUPPORT"),
+    E_SUB_EXTEND_NEED ("E_SUB_EXTEND_NEED"),
     ;
 
     private final String content;

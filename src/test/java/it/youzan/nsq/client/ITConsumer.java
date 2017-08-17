@@ -18,7 +18,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ITConsumer extends AbstractITConsumer{
     private static final Logger logger = LoggerFactory.getLogger(ITConsumer.class);
 
-    @Test
     public void test() throws NSQException, InterruptedException {
         final CountDownLatch latch = new CountDownLatch(10);
         final AtomicInteger received = new AtomicInteger(0);
@@ -46,7 +45,6 @@ public class ITConsumer extends AbstractITConsumer{
         }
     }
 
-    @Test
     public void testSnappy() throws InterruptedException, NSQException {
         final CountDownLatch latch = new CountDownLatch(10);
         final AtomicInteger received = new AtomicInteger(0);
@@ -67,7 +65,7 @@ public class ITConsumer extends AbstractITConsumer{
         consumer.subscribe("JavaTesting-Producer-Base");
         consumer.start();
         try {
-            Assert.assertTrue(latch.await(1, TimeUnit.MINUTES));
+            Assert.assertTrue(latch.await(90, TimeUnit.MINUTES));
             Thread.sleep(100);
         }finally {
             consumer.close();
@@ -75,7 +73,6 @@ public class ITConsumer extends AbstractITConsumer{
         }
     }
 
-    @Test
     public void testDeflate() throws InterruptedException, NSQException {
         final CountDownLatch latch = new CountDownLatch(10);
         final AtomicInteger received = new AtomicInteger(0);

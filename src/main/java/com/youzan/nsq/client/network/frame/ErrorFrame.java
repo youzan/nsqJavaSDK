@@ -4,8 +4,6 @@ import com.youzan.nsq.client.entity.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.awt.geom.RectangularShape;
-
 public class ErrorFrame extends NSQFrame {
 
     private static final Logger logger = LoggerFactory.getLogger(ErrorFrame.class);
@@ -61,6 +59,9 @@ public class ErrorFrame extends NSQFrame {
             }
             if (content.startsWith("E_TAG_NOT_SUPPORT")) {
                 return Response.E_TAG_NOT_SUPPORT;
+            }
+            if (content.startsWith("E_SUB_EXTEND_NEED")) {
+                return Response.E_SUB_EXTEND_NEED;
             }
             if (content.startsWith(Response.E_BAD_TAG.getContent())) {
                 return Response.E_BAD_TAG;
