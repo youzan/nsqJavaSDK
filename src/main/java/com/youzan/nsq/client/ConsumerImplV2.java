@@ -3,20 +3,20 @@ package com.youzan.nsq.client;
 import com.youzan.nsq.client.configs.ConfigAccessAgent;
 import com.youzan.nsq.client.core.*;
 import com.youzan.nsq.client.core.command.*;
-import com.youzan.nsq.client.core.pool.consumer.FixedPool;
 import com.youzan.nsq.client.entity.*;
 import com.youzan.nsq.client.exception.*;
-import com.youzan.nsq.client.network.frame.ErrorFrame;
-import com.youzan.nsq.client.network.frame.MessageFrame;
-import com.youzan.nsq.client.network.frame.NSQFrame;
+import com.youzan.nsq.client.network.frame.*;
 import com.youzan.nsq.client.network.frame.NSQFrame.FrameType;
-import com.youzan.nsq.client.network.frame.OrderedMessageFrame;
+import com.youzan.nsq.client.network.netty.NSQClientInitializer;
 import com.youzan.util.HostUtil;
 import com.youzan.util.IOUtil;
 import com.youzan.util.NamedThreadFactory;
 import com.youzan.util.ThreadSafe;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
+import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.*;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.nio.NioSocketChannel;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,6 +25,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * <pre>
@@ -40,8 +41,9 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     private static final Logger logger = LoggerFactory.getLogger(ConsumerImplV2.class);
     private static final Logger PERF_LOG = LoggerFactory.getLogger(ConsumerImplV2.class.getName() + ".perf");
 
+    private final static AtomicInteger CONN_ID_GENERATOR = new AtomicInteger(0);
     private static final int MAX_CONSUME_RETRY = 3;
-    private final Object lock = new Object();
+    private final ReentrantReadWriteLock cLock = new ReentrantReadWriteLock();
     protected AtomicBoolean started = new AtomicBoolean(Boolean.FALSE);
     protected AtomicBoolean closing = new AtomicBoolean(Boolean.FALSE);
     private volatile long lastConnecting = 0L;
@@ -54,8 +56,10 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     private final AtomicInteger finished = new AtomicInteger(0);
     private final AtomicInteger re = new AtomicInteger(0); // have done reQueue
     private final AtomicInteger queue4Consume = new AtomicInteger(0); // have done reQueue
-    protected ConnectionManager conMgr;
-    Producer compensateProducer;
+    protected ConnectionManager conMgr = new ConnectionManager(this);
+
+    //netty component for consumer
+    private final Bootstrap bootstrap = new Bootstrap();
 
     /*-
      * =========================================================================
@@ -71,17 +75,15 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
       Basically, consumer subscribe multi-topics to one NSQd, hence there is a mapping
       between NSQd address and connections to topics
      */
-    protected final ConcurrentHashMap<Address, FixedPool> address_2_pool = new ConcurrentHashMap<>();
+    protected final ConcurrentHashMap<Address, NSQConnection> address_2_conn = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getSimpleName(), Thread.NORM_PRIORITY));
     /*-
       * =========================================================================
       *                          Client delegates to me
       */
-    private final MessageHandler handler;
-    private final int WORKER_SIZE = Runtime.getRuntime().availableProcessors() * 4;
-    private final ExecutorService executor = Executors.newFixedThreadPool(WORKER_SIZE,
-            new NamedThreadFactory(this.getClass().getSimpleName() + "-ClientBusiness", Thread.MAX_PRIORITY));
+    private volatile MessageHandler handler;
+    private final ExecutorService executor;
     /*-
      *                           Client delegates to me
      * =========================================================================
@@ -92,14 +94,38 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     private final NSQSimpleClient simpleClient;
     private final NSQConfig config;
 
+
+    public ConsumerImplV2(NSQConfig config) {
+        this.config = config;
+        this.simpleClient = new NSQSimpleClient(Role.Consumer, this.config.getUserSpecifiedLookupAddress());
+
+        //initialize netty component
+        EventLoopGroup eventLoopGroup = new NioEventLoopGroup(config.getNettyPoolSize());
+        bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
+        bootstrap.option(ChannelOption.TCP_NODELAY, true);
+        bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, config.getConnectTimeoutInMillisecond());
+        bootstrap.group(eventLoopGroup);
+        bootstrap.channel(NioSocketChannel.class);
+        bootstrap.handler(new NSQClientInitializer());
+        //initialize consuemr worker size
+        executor = Executors.newFixedThreadPool(this.config.getConsumerWorkerPoolSize(),
+                new NamedThreadFactory(this.getClass().getSimpleName() + "-ClientBusiness", Thread.MAX_PRIORITY));
+    }
+
     /**
      * @param config  NSQConfig
      * @param handler the client code sets it
      */
     public ConsumerImplV2(NSQConfig config, MessageHandler handler) {
-        this.config = config;
+        this(config);
         this.handler = handler;
-        this.simpleClient = new NSQSimpleClient(Role.Consumer, this.config.getUserSpecifiedLookupAddress());
+    }
+
+    public void setMessageHandler(final MessageHandler handler) {
+        if(this.started.get()) {
+            throw new IllegalStateException("Consumer has started.");
+        }
+        this.handler = handler;
     }
 
     @Override
@@ -174,40 +200,38 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         if (this.config.getConsumerName() == null || this.config.getConsumerName().isEmpty()) {
             throw new IllegalArgumentException("Consumer Name is blank! Please check it!");
         }
+        if (null == this.handler) {
+            throw new IllegalArgumentException("Message handler is null");
+        }
         if (this.topics2Partitions.isEmpty()) {
             logger.warn("No topic subscribed.");
         }
-        synchronized (lock) {
-            if (!this.started.get()) {
-                //set subscribe status
-                // create the pools
-                //simple client starts and LookupAddressUpdate instance initialized there.
-                //validate that consumer have right lookup address source
-                if(!validateLookupdSource()) {
-                    throw new IllegalArgumentException("Consumer could not start with invalid lookupd address sources.");
-                }
-                if(this.config.getUserSpecifiedLookupAddress()) {
-                    LookupAddressUpdate.getInstance().setUpDefaultSeedLookupConfig(this.simpleClient.getLookupLocalID(), this.config.getLookupAddresses());
-                }
-                this.simpleClient.start();
-
-                // -----------------------------------------------------------------
-                //                       First, async keep
-                keepConnecting();
-                // -----------------------------------------------------------------
-                conMgr = new ConnectionManager(this);
-                conMgr.start();
+        if (this.started.compareAndSet(Boolean.FALSE, Boolean.TRUE)) {
+            //set subscribe status
+            // create the pools
+            //simple client starts and LookupAddressUpdate instance initialized there.
+            //validate that consumer have right lookup address source
+            if (!validateLookupdSource()) {
+                throw new IllegalArgumentException("Consumer could not start with invalid lookupd address sources.");
             }
-            this.started.set(true);
+            if (this.config.getUserSpecifiedLookupAddress()) {
+                LookupAddressUpdate.getInstance().setUpDefaultSeedLookupConfig(this.simpleClient.getLookupLocalID(), this.config.getLookupAddresses());
+            }
+            this.simpleClient.start();
+
+            // -----------------------------------------------------------------
+            //                       First, async keep
+            keepConnecting();
+            // -----------------------------------------------------------------
+            conMgr.start();
+            logger.info("The consumer has been started.");
         }
-        logger.info("The consumer has been started.");
     }
 
     /**
      * update consumption rate according to message consumption last _INTERVAL_IN_SECOND
      */
     private void updateConsumptionRate() {
-        ThreadPoolExecutor pool = (ThreadPoolExecutor) executor;
         consumptionRate = ((long)success.get() - lastSuccess) / _INTERVAL_IN_SECOND;
         lastSuccess = success.get();
     }
@@ -260,25 +284,23 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         }
 
         //broken set to collect Address of connection which is not connected
-        final Set<Address> broken = new HashSet<>();
-        final ConcurrentHashMap<Address, Set<String>> address_2_topics = new ConcurrentHashMap<>();
+        final Set<ConnectionManager.NSQConnectionWrapper> broken = new HashSet<>();
+//        final ConcurrentHashMap<Address, Set<String>> address_2_topics = new ConcurrentHashMap<>();
         final Set<Address> targetAddresses = new TreeSet<>();
         /*-
          * =====================================================================
          *                    Clean up the broken connections
          * =====================================================================
          */
-        for (final FixedPool p : address_2_pool.values()) {
-            final List<NSQConnection> connections = p.getConnections();
-            for (final NSQConnection c : connections) {
-                try {
-                    if (!c.isConnected()) {
-                        c.close();
-                        broken.add(c.getAddress());
-                    }
-                } catch (Exception e) {
-                    logger.error("While detecting broken connections, Exception:", e);
+        for (final NSQConnection c : address_2_conn.values()) {
+            try {
+                if (!c.isConnected()) {
+                    //close it directly, as it is broken
+                    c.close();
+                    broken.add(new ConnectionManager.NSQConnectionWrapper(c));
                 }
+            } catch (Exception e) {
+                logger.error("While detecting broken connections, Exception:", e);
             }
         }
         /*-
@@ -288,16 +310,16 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
          * =====================================================================
          */
         if(broken.size() > 0) {
-            Map<String, List<Address>> topic2Addrs = new HashMap<>();
-            for (Address address : broken) {
-                if (!topic2Addrs.containsKey(address.getTopic())) {
-                    topic2Addrs.put(address.getTopic(), new ArrayList<Address>());
+            Map<String, List<ConnectionManager.NSQConnectionWrapper>> topic2ConWrappers = new HashMap<>();
+            for (ConnectionManager.NSQConnectionWrapper conWrapper : broken) {
+                if (!topic2ConWrappers.containsKey(conWrapper.getTopic())) {
+                    topic2ConWrappers.put(conWrapper.getTopic(), new ArrayList<ConnectionManager.NSQConnectionWrapper>());
                 }
-                List<Address> topics = topic2Addrs.get(address.getTopic());
-                topics.add(address);
-                clearDataNode(address);
+                List<ConnectionManager.NSQConnectionWrapper> conWrappers = topic2ConWrappers.get(conWrapper.getTopic());
+                conWrappers.add(conWrapper);
+                clearDataNode(conWrapper);
             }
-            conMgr.remove(topic2Addrs);
+            conMgr.remove(topic2ConWrappers);
         }
         /*-
          * =====================================================================
@@ -328,21 +350,11 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 }
             }
             final List<Address> dataNodeLst = Arrays.asList(partitionDataNodes);
-            for (Address a : dataNodeLst) {
-                final Set<String> tmpTopics;
-                if (address_2_topics.containsKey(a)) {
-                    tmpTopics = address_2_topics.get(a);
-                } else {
-                    tmpTopics = new TreeSet<>();
-                    address_2_topics.put(a, tmpTopics);
-                }
-                tmpTopics.add(topic);
-            }
             targetAddresses.addAll(dataNodeLst);
         }
-        logger.debug("address_2_topics: {}", address_2_topics);
+        logger.debug("subscribe target NSQd nodes: {}", targetAddresses);
 
-        final Set<Address> oldAddresses = new TreeSet<>(this.address_2_pool.keySet());
+        final Set<Address> oldAddresses = new TreeSet<>(this.address_2_conn.keySet());
         if (targetAddresses.isEmpty() && oldAddresses.isEmpty()) {
             logger.debug("No new addresses and old addresses so that no need to connect.");
             return;
@@ -379,8 +391,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             logger.info("Get new data-nodes: {}", except1);
             for (Address address : except1) {
                 try {
-                    final Set<String> topics = address_2_topics.get(address);
-                    connect(address, topics);
+                    connect(address);
                 } catch (Exception e) {
                     logger.error("Exception", e);
                     clearDataNode(address);
@@ -397,87 +408,68 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         except2.clear();
         oldAddresses.clear();
         broken.clear();
-        address_2_topics.clear();
         targetAddresses.clear();
     }
 
-    /**
-     * create TCP connections
-     * one connection to one topic
-     * subscribe and get all the connections
-     * init consumer connection
-     *
-     * @param address data-node(NSQd)
-     * @param topics  client cares about the specified topics
-     */
-    protected void connect(Address address, Set<String> topics) throws Exception {
-        if (topics == null || topics.isEmpty()) {
+    protected void connect(Address address) throws Exception {
+        if (null == address) {
             return;
         }
-        synchronized (lock) {
+        cLock.readLock().lock();
+        try {
             if (closing.get()) {
                 return;
             }
-            final int topicSize = topics.size();
-            //set connection size to 1 for consumer, 1 connection per topic/partition(dataNode)
-            //one topic may has more than one partition, they are managed
-            //calculate connection size
-            int connectionSizeCal = topics.size();
-            final int connectionSize = connectionSizeCal;
-            if (connectionSize <= 0) {
-                return;
-            }
 
-            final String[] topicArray = new String[topicSize];
-            topics.toArray(topicArray);
-            if (topics.size() != topicArray.length) {
-                // concurrent problem
-                return;
+            //connect to address
+            final ChannelFuture future = bootstrap.connect(address.getHost(), address.getPort());
+            // Wait until the connection attempt succeeds or fails.
+            if (!future.awaitUninterruptibly(config.getConnectTimeoutInMillisecond(), TimeUnit.MILLISECONDS)) {
+                throw new NSQNoConnectionException(future.cause());
             }
-
-            final FixedPool pool = new FixedPool(address, connectionSize, this, config);
-            address_2_pool.put(address, pool);
-            pool.prepare(this.config.isOrdered());
-            List<NSQConnection> connections = pool.getConnections();
-            if (connections == null || connections.isEmpty()) {
-                logger.info("TopicSize: {} , Address: {} , Connection-Size: {} . The pool is empty.", topicSize, address, connectionSize);
-                return;
-            }
-            logger.info("TopicSize: {} , Address: {} , Connection-Size: {} , Topics: {}", topicSize, address, connectionSize, topics);
-            int connectionIdx = 0;
-            try {
-                for (int i = 0; i < topicSize; i++) {
-                    final String topicTxt = topicArray[i];
-
-                    // init( connection, topic ) , let it be a consumer connection
-                    final NSQConnection connection = connections.get(connectionIdx++);
-                    Topic topic = new Topic(topicTxt, address.getPartition());
-                    try {
-                        connection.init(topic);
-                    } catch (Exception e) {
-                        connection.close();
-                        if (!closing.get()) {
-                            throw new NSQNoConnectionException("Creating a connection and having a negotiation fails!", e);
-                        }
-                    }
-                    if (!connection.isConnected()) {
-                        connection.close();
-                        if (!closing.get()) {
-                            throw new NSQNoConnectionException("Pool failed in connecting to NSQd! Closing: !" + closing);
-                        }
-                    } else {
-                        Sub command = createSubCmd(topic, this.config.getConsumerName());
-                        final NSQFrame frame = connection.commandAndGetResponse(command);
-                        handleResponse(frame, connection);
-                        //as there is no success response from nsq, command is enough here
-                        this.conMgr.subscribe(topic.getTopicText(), connection);
-                    }
-                    logger.info("Done. Current connection index: {}", i);
+            final Channel channel = future.channel();
+            if (!future.isSuccess()) {
+                if (channel != null) {
+                    channel.close();
                 }
-            }catch(NullPointerException npe) {
-                logger.warn("Address to partition mapping is updating in topics. Connect process try later.");
-                clearDataNode(address);
+                throw new NSQNoConnectionException("Connect " + address + " is wrong.", future.cause());
             }
+
+            final NSQConnection conn = new NSQConnectionImpl(CONN_ID_GENERATOR.incrementAndGet(), address, channel,
+                    config);
+            address_2_conn.put(address, conn);
+
+            // Netty async+sync programming
+            channel.attr(NSQConnection.STATE).set(conn);
+            channel.attr(Client.STATE).set(this);
+            channel.attr(Client.ORDERED).set(this.config.isOrdered());
+
+            Topic topic = new Topic(address.getTopic(), address.getPartition());
+            try {
+                conn.init(topic);
+            } catch (Exception e) {
+                conn.close();
+                if (!closing.get()) {
+                    throw new NSQNoConnectionException("Creating a connection and having a negotiation fails!", e);
+                }
+            }
+
+            if (!conn.isConnected()) {
+                conn.close();
+                if (!closing.get()) {
+                    throw new NSQNoConnectionException("Pool failed in connecting to NSQd! Closing: !" + closing);
+                }
+            } else {
+                Sub command = createSubCmd(topic, this.config.getConsumerName());
+                final NSQFrame frame = conn.commandAndGetResponse(command);
+                if (handleResponse(frame, conn)) {
+                    //as there is no success response from nsq, command is enough here
+                    conn.subSent();
+                    this.conMgr.subscribe(topic.getTopicText(), conn);
+                }
+            }
+        }finally {
+            cLock.readLock().unlock();
         }
     }
 
@@ -498,25 +490,19 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         if (address == null) {
             return null;
         }
-        if (!address_2_pool.containsKey(address)) {
+        if (!address_2_conn.containsKey(address)) {
             return null;
         }
         final Set<NSQConnection> clearConnections = new HashSet<>();
-        final FixedPool pool = address_2_pool.get(address);
-        address_2_pool.remove(address);
-        if (pool != null) {
-            final List<NSQConnection> connections = pool.getConnections();
-            if (connections != null) {
-                for (NSQConnection connection : connections) {
-                    clearConnections.add(connection);
-                    try {
-                        cleanClose(connection);
-                    } catch (Exception e) {
-                        logger.error("It can not backoff the connection! Exception:", e);
-                    }
+        final NSQConnection conn = address_2_conn.get(address);
+        address_2_conn.remove(address);
+        if (conn != null) {
+                clearConnections.add(conn);
+                try {
+                    backoff(conn);
+                } catch (Exception e) {
+                    logger.error("It can not backoff the connection! Exception:", e);
                 }
-            }
-            pool.close();
         }
         return clearConnections;
     }
@@ -530,29 +516,47 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             logger.warn("The consumer connection is closed and removed. {}", frame);
             return;
         }
-        if (frame.getType() == FrameType.MESSAGE_FRAME) {
-            received.incrementAndGet();
-            final MessageFrame msg = (MessageFrame) frame;
-            final NSQMessage message = createNSQMessage(msg, conn);
-
-            //check desired tag
-            DesiredTag tag = this.config.getConsumerDesiredTag();
-            if (null != tag && !tag.toString().equals("") && !tag.match(message.getTag())) {
-                logger.warn("Skip message {} has tag {} not desired. Consumer desired tag: {}, Address: {}", message.getInternalID(), message.getTag(), this.config.getConsumerDesiredTag(), conn.getAddress());
-                return;
+        switch(frame.getType()) {
+            case RESPONSE_FRAME: {
+                if (frame.isHeartBeat() && conn.isSubSent()) {
+                    simpleClient.incoming(frame, conn);
+                } else {
+                    conn.addResponseFrame((ResponseFrame) frame);
+                }
+                break;
             }
-
-            if (TraceLogger.isTraceLoggerEnabled() && conn.getAddress().isHA())
-                TraceLogger.trace(this, conn, message);
-            if (this.config.isOrdered()
-                    && !conn.checkOrder(message.getInternalID(), message.getDiskQueueOffset(), message)) {
-                //order problem
-                throw new NSQInvalidMessageException("Invalid internalID or diskQueueOffset in order mode.");
+            case ERROR_FRAME: {
+                if (conn.isSubSent()) {
+                    simpleClient.incoming(frame, conn);
+                } else {
+                    final ErrorFrame err = (ErrorFrame) frame;
+                    conn.addErrorFrame(err);
+                    logger.warn("Error-Frame from {} , frame: {}", conn.getAddress(), frame);
+                }
+                break;
             }
-            conn.setMessageReceived(System.currentTimeMillis());
-            processMessage(message, conn);
-        } else {
-            simpleClient.incoming(frame, conn);
+            case MESSAGE_FRAME: {
+                received.incrementAndGet();
+                final MessageFrame msg = (MessageFrame) frame;
+                final NSQMessage message = createNSQMessage(msg, conn);
+
+                //check desired tag
+                DesiredTag tag = this.config.getConsumerDesiredTag();
+                if (conn.isExtend() && null != tag && StringUtils.isNotEmpty(tag.getTagName()) && !tag.match(message.getTag())) {
+                    logger.warn("Skip message {} has tag {} not desired. Consumer desired tag: {}, Address: {}", message.getInternalID(), message.getTag(), this.config.getConsumerDesiredTag(), conn.getAddress());
+                    return;
+                }
+
+                if (TraceLogger.isTraceLoggerEnabled() && conn.getAddress().isHA())
+                    TraceLogger.trace(this, conn, message);
+                if (this.config.isOrdered()
+                        && !conn.checkOrder(message.getInternalID(), message.getDiskQueueOffset(), message)) {
+                    //order problem
+                    throw new NSQInvalidMessageException("Invalid internalID or diskQueueOffset in order mode.");
+                }
+//                conn.setMessageTouched(System.currentTimeMillis());
+                processMessage(message, conn);
+            }
         }
     }
 
@@ -582,19 +586,8 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             });
             queue4Consume.incrementAndGet();
         } catch (RejectedExecutionException re) {
-            try {
-                //TODO: backoff and recover
-                backoff(connection);
-                connection.command(new ReQueue(message.getMessageID(), 3));
-                logger.info("Do a re-queue. MessageID:{}", message.getMessageID());
-//                resumeRateLimiting(connection, 0);
-            } catch (Exception e) {
-                logger.error("SDK can not handle it MessageID:{}, Exception:", message.getMessageID(), e);
-            }
-        }
-        //TODO: update rdy
-        if (!this.config.isOrdered()) {
-            connection.increaseExpectedRdy();
+            logger.error("message handler task rejected as task queue is full.");
+            connection.declineExpectedRdy();
         }
     }
 
@@ -602,6 +595,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
      * @param message    a NSQMessage
      * @param connection a NSQConnection
      */
+    // through it is private method, signature of method will NOT change as it is used as cut point
     private void consume(final NSQMessage message, final NSQConnection connection) {
         boolean ok;
         boolean retry;
@@ -649,26 +643,13 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             } else {
                 // an error occurs
                 if (nextConsumingWaiting != null) {
-                    //check if max retry times reaches before requeue
-                    // Post
-                    if (!this.config.isOrdered() && message.getReadableAttempts() > this.config.getMaxRequeueTimes()) {
-                        logger.warn("Message {} has reached max retry limitation: {}. it will be published to NSQ again for consume.", message, this.config.getMaxRequeueTimes());
-                        try {
-                            compensationPublish(connection.getTopic(), message);
-                            cmd = new Finish(message.getMessageID());
-                        } catch (NSQException e) {
-                            logger.error("Fail to publish compensation message for incoming message {}. Retry in next round.");
-                        }
-                    }else {
-                        // ReQueue
-                        cmd = new ReQueue(message.getMessageID(), nextConsumingWaiting.intValue());
-                        final byte[] id = message.getMessageID();
-                        logger.info("Do a re-queue by SDK that is a default behavior. MessageID: {} , Hex: {}", id, message.newHexString(id));
-                    }
+                    // ReQueue
+                    cmd = new ReQueue(message.getMessageID(), nextConsumingWaiting.intValue());
+                    final byte[] id = message.getMessageID();
+                    logger.info("Do a re-queue by SDK that is a default behavior. MessageID: {} , Hex: {}", id, message.newHexString(id));
                 } else {
                     if (!this.config.isOrdered() && end > this.config.getMsgTimeoutInMillisecond()) {
-                        logger.warn("It tooks {} milliSec to for message to be consumed by message handler, and exceeds message timeout in nsq config. Fin not be invoked as requeue from NSQ server is on its way.", end);
-                        connection.declineExpectedRdy();
+                        logger.warn("It took {} milliSec to for message to be consumed by message handler, and exceeds message timeout in nsq config. Fin not be invoked as requeue from NSQ server is on its way.", end);
                     } else {
                         // Finish: client explicitly sets NextConsumingInSecond is null
                         cmd = new Finish(message.getMessageID());
@@ -676,6 +657,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                         logger.info("Do a Finish by SDK, given that client process handler has failed and next consuming time elapse not specified. MessageID: {} , Hex: {}", id, message.newHexString(id));
                     }
                 }
+                connection.declineExpectedRdy();
             }
         } else {
             // Client code does finish explicitly.
@@ -696,57 +678,38 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             final String cmdStr = cmd.toString();
             if (!closing.get()) {
                 ChannelFuture future = connection.command(cmd);
-                future.addListener(new ChannelFutureListener() {
-                    @Override
-                    public void operationComplete(ChannelFuture future) throws Exception {
-                        if (!future.isSuccess()) {
-                            logger.error("Fail to send {}. Message {} will be delivered to consumer in another round.", cmdStr, message.getMessageID());
-                        } else if (PERF_LOG.isDebugEnabled()) {
-                            PERF_LOG.debug("Command {} to {} for message {} sent.", cmdStr, connection.getAddress(), message.getMessageID());
+                if (null != future) {
+                    future.addListener(new ChannelFutureListener() {
+                        @Override
+                        public void operationComplete(ChannelFuture future) throws Exception {
+                            if (!future.isSuccess()) {
+                                logger.error("Fail to send {}. Message {} will be delivered to consumer in another round.", cmdStr, message.getMessageID());
+                            } else if (PERF_LOG.isDebugEnabled()) {
+                                PERF_LOG.debug("Command {} to {} for message {} sent.", cmdStr, connection.getAddress(), message.getMessageID());
+                            }
                         }
+                    });
+                    if (cmd instanceof Finish) {
+                        finished.incrementAndGet();
+                    } else {
+                        re.incrementAndGet();
                     }
-                });
-                if (cmd instanceof Finish) {
-                    finished.incrementAndGet();
-                } else {
-                    re.incrementAndGet();
                 }
             }
         }
         // Post
         //log warn
         if (!ok) {
-            connection.setMessageConsumptionFailed(start);
+            //TODO: connection.setMessageConsumptionFailed(start);
             logger.warn("Exception occurs in message handler. Please check it right now {} , Original message: {}.", message, message.getReadableContent());
+        } else if (!this.config.isOrdered()){
+            connection.increaseExpectedRdy();
         }
-    }
-
-    private Producer compensationPublish(final Topic topic, final NSQMessage msg) throws NSQException {
-        if(null == topic) {
-            logger.warn("Could not create producer, pass in topic is null.");
-            return null;
-        }
-        logger.info("Compensation publish to {}", topic);
-        if(null == this.compensateProducer){
-            synchronized (this) {
-                if(null == this.compensateProducer){
-                    this.compensateProducer = new ProducerImplV2(this.config);
-                    this.compensateProducer.start();
-                }
-            }
-        }
-        Message newMsg = Message.create(topic, msg.getTraceID(), msg.getReadableContent());
-        this.compensateProducer.publish(newMsg);
-        logger.info("Compensation publish finished.");
-        return this.compensateProducer;
     }
 
     @Override
-    @ThreadSafe
     public void backoff(NSQConnection conn) {
-        synchronized (conn) {
-            simpleClient.backoff(conn);
-        }
+        conMgr.backoff(conn);
     }
 
     @Override
@@ -758,30 +721,34 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         // Application will close the worker executor of the consumer
         // Application will all of the TCP-Connections
         // ===================================================================
-        if(this.started.get()) {
-            synchronized (lock) {
-                if(!this.started.get())
-                    return;
+        if(started.get() && closing.compareAndSet(Boolean.FALSE, Boolean.TRUE)) {
+            cLock.writeLock().lock();
+            try {
                 started.set(Boolean.FALSE);
                 closing.set(Boolean.TRUE);
-                this.conMgr.close();
-                final Set<NSQConnection> connections = cleanClose();
+                //close lookup address update
+                LookupAddressUpdate.getInstance().removeDefaultSeedLookupConfig(this.simpleClient.getLookupLocalID());
+                LookupAddressUpdate.getInstance().closed();
+                //stop & clear topic to partition mapping
                 IOUtil.closeQuietly(simpleClient);
+                //stop connect new NSQConnections
                 scheduler.shutdownNow();
+                this.conMgr.close();
+                //backoff existing connections
+                final Set<NSQConnection> connections = cleanClose();
                 executor.shutdown();
                 try {
                     if (!executor.awaitTermination(10, TimeUnit.SECONDS)) {
-                        logger.warn("Client handles a message over 10 sec.");
+                        logger.warn("Message workers handles messages over 10 sec.");
                         executor.shutdownNow();
                     }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
                 close(connections);
-                if (null != this.compensateProducer)
-                    this.compensateProducer.close();
                 logger.info("The consumer has been closed.");
-                LookupAddressUpdate.getInstance().closed();
+            } finally {
+                cLock.writeLock().unlock();
             }
         }
     }
@@ -808,26 +775,11 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
 
 
     private void disconnectServer(NSQConnection connection) {
-        synchronized (connection) {
-            if (!connection.isConnected()) {
-                // It has been closed
-                return;
-            }
-            try {
-                final NSQFrame frame = connection.commandAndGetResponse(Close.getInstance());
-                if (frame != null) {
-                    handleResponse(frame, connection);
-                }
-            } catch (Exception e) {
-                if (connection.isConnected()) {
-                    logger.error("Sending CLS to the connection {} occurs an error. Exception:", connection, e);
-                }
-            } finally {
-                if (connection.isConnected()) {
-                    IOUtil.closeQuietly(connection);
-                }
-            }
+        if (!connection.isConnected()) {
+            // It has been closed
+            return;
         }
+        connection.disconnect(this.conMgr);
     }
 
     private void close(Set<NSQConnection> connections) {
@@ -840,45 +792,34 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
 
     @ThreadSafe
     public void close(NSQConnection connection) {
-        synchronized (connection) {
-            try {
-                cleanClose(connection);
-                disconnectServer(connection);
-            } catch (TimeoutException e) {
-                logger.error("Backoff connection {} to the server, TimeoutException", connection);
-                if (connection.isConnected()) {
-                    IOUtil.closeQuietly(connection);
-                }
-            }
+        try {
+            disconnectServer(connection);
+        } catch (Exception e) {
+            logger.error("Fail backoff connection {} to the server, Exception", connection, e);
         }
     }
 
     private Set<NSQConnection> cleanClose() {
         final Set<NSQConnection> connections = new HashSet<>();
-        final Set<Address> addresses = address_2_pool.keySet();
+        final Set<Address> addresses = address_2_conn.keySet();
         if (!addresses.isEmpty()) {
             for (Address address : addresses) {
                 Set<NSQConnection> tmp = clearDataNode(address);
                 connections.addAll(tmp);
             }
         }
-        address_2_pool.clear();
+        address_2_conn.clear();
         topics2Partitions.clear();
         return connections;
     }
 
-    @ThreadSafe
-    private void cleanClose(NSQConnection connection) throws TimeoutException {
-        conMgr.backoff(connection);
-    }
-
-    private void handleResponse(NSQFrame frame, NSQConnection connection) {
+    private boolean handleResponse(NSQFrame frame, NSQConnection connection) {
         if (frame == null) {
             logger.warn("SDK bug: the frame is null.");
-            return;
+            return false;
         }
         if (frame.getType() == FrameType.RESPONSE_FRAME) {
-            return;
+            return true;
         }
         if (frame.getType() == FrameType.ERROR_FRAME) {
             final ErrorFrame err = (ErrorFrame) frame;
@@ -905,52 +846,96 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 }
                 //for error case which nsqd nodes does not invalidation
                 case E_SUB_ORDER_IS_MUST: {
-                    logger.error("SubOrder is needed for topic(s) consuming.");
+                    logger.error("SubOrder need for topic(s) consuming.");
+                    break;
+                }
+                case E_SUB_EXTEND_NEED: {
+                    logger.error("topic needs extend support identify.");
                     break;
                 }
                 default: {
                     logger.error("Unknown error type in ERROR_FRAME! {}", frame);
                 }
             }
+            return false;
         }
+        logger.error("Receive frame client can not handle, frameType {}", frame.getType());
+        return false;
     }
 
+    /**
+     * connection heart beat validation for consumer, invoked by netty idle event.
+     * @param conn NSQConnection
+     * @return  {@link Boolean#TRUE} if success, {@link Boolean#FALSE} otherwise.
+     */
     @Override
     public boolean validateHeartbeat(NSQConnection conn) {
         if (!conn.isConnected()) {
             return false;
         }
         final ChannelFuture future = conn.command(Nop.getInstance());
-        if (future.awaitUninterruptibly(config.getQueryTimeoutInMillisecond(), TimeUnit.MILLISECONDS)) {
+        if (null != future && future.awaitUninterruptibly(config.getQueryTimeoutInMillisecond(), TimeUnit.MILLISECONDS)) {
             return future.isSuccess();
         }
         return false;
     }
 
     @Override
-    public void finish(NSQMessage message) throws NSQException {
+    public void finish(final NSQMessage message) throws NSQException {
         if (message == null) {
             return;
         }
-        final FixedPool pool = address_2_pool.get(message.getAddress());
-        final List<NSQConnection> connections = pool.getConnections();
-        if (connections != null) {
-            for (NSQConnection c : connections) {
-                if (c.getId() == message.getConnectionID().intValue()) {
-                    synchronized (c) {
-                        if (c.isConnected()) {
-                            c.command(new Finish(message.getMessageID()));
-                            finished.incrementAndGet();
-                            // It is OK.
-                            return;
+        final NSQConnection conn = address_2_conn.get(message.getAddress());
+        if (conn != null) {
+            if (conn.getId() == message.getConnectionID().intValue()) {
+                if (conn.isConnected()) {
+                    ChannelFuture future = conn.command(new Finish(message.getMessageID()));
+                    future.addListener(new ChannelFutureListener() {
+                        @Override
+                        public void operationComplete(ChannelFuture future) throws Exception {
+                            if(future.isSuccess()) {
+                                finished.incrementAndGet();
+                            } else {
+                                logger.warn("Fail to FIN {}.", message, future.cause());
+                            }
                         }
-                    }
-                    break;
+                    });
                 }
+            } else {
+                logger.error("message {} does not belong to current consumer's connection", message);
             }
+        } else {
+            throw new NSQNoConnectionException(
+                    "The connection is broken so that can not retry. Please wait next consuming.");
         }
-        throw new NSQNoConnectionException(
-                "The connection is broken so that can not retry. Please wait next consuming.");
+    }
+
+    @Override
+    public void touch(final NSQMessage message) throws NSQException {
+        if (message == null) {
+            return;
+        }
+        final NSQConnection conn = address_2_conn.get(message.getAddress());
+        if (conn != null) {
+            if (conn.getId() == message.getConnectionID().intValue()) {
+                if (conn.isConnected()) {
+                    ChannelFuture future = conn.command(new Touch(message.getMessageID()));
+                    future.addListener(new ChannelFutureListener() {
+                        @Override
+                        public void operationComplete(ChannelFuture future) throws Exception {
+                            if(!future.isSuccess()) {
+                                logger.warn("Fail to Touch {}.", message, future.cause());
+                            }
+                        }
+                    });
+                }
+            } else {
+                logger.error("message {} does not belong to current consumer's connection", message);
+            }
+        } else {
+            throw new NSQNoConnectionException(
+                    "The connection is broken so that Touch can not sent.");
+        }
     }
 
     @Override
@@ -958,26 +943,27 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         this.autoFinish = autoFinish;
     }
 
-    private void sleep(final long millisecond) {
-        logger.debug("Sleep {} millisecond.", millisecond);
-        try {
-            Thread.sleep(millisecond);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            logger.error("Your machine is too busy! Please check it!");
-        }
-    }
-
-    private NSQMessage createNSQMessage(final MessageFrame msgFrame, final NSQConnection conn) {
+    private NSQMessage createNSQMessage(final MessageFrame msgFrame, final NSQConnection conn) throws NSQInvalidMessageException {
+        NSQMessage msg;
         if (config.isOrdered() && msgFrame instanceof OrderedMessageFrame) {
             OrderedMessageFrame orderedMsgFrame = (OrderedMessageFrame) msgFrame;
-            return new NSQMessage(orderedMsgFrame.getTimestamp(), orderedMsgFrame.getAttempts(), orderedMsgFrame.getMessageID(),
+            msg = new NSQMessage(orderedMsgFrame.getTimestamp(), orderedMsgFrame.getAttempts(), orderedMsgFrame.getMessageID(),
                     orderedMsgFrame.getInternalID(), orderedMsgFrame.getTractID(),
                     orderedMsgFrame.getDiskQueueOffset(), orderedMsgFrame.getDiskQueueDataSize(),
-                    msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond(), conn.getTopic(), msgFrame.getExtVerBytes(), msgFrame.getExtBytes());
-        } else
-            return new NSQMessage(msgFrame.getTimestamp(), msgFrame.getAttempts(), msgFrame.getMessageID(),
-                    msgFrame.getInternalID(), msgFrame.getTractID(), msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond(), conn.getTopic(), msgFrame.getExtVerBytes(), msgFrame.getExtBytes());
+                    msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond(), conn.getTopic(), conn.isExtend());
+        } else {
+            msg = new NSQMessage(msgFrame.getTimestamp(), msgFrame.getAttempts(), msgFrame.getMessageID(),
+                    msgFrame.getInternalID(), msgFrame.getTractID(), msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond(), conn.getTopic(), conn.isExtend());
+        }
+        if(conn.isExtend()) {
+            ExtVer extVer = ExtVer.getExtVersion(msgFrame.getExtVerBytes());
+            try {
+                msg.parseExtContent(extVer, msgFrame.getExtBytes());
+            } catch (IOException e) {
+                throw new NSQInvalidMessageException("Fail to parse ext content for incoming message.", e);
+            }
+        }
+        return msg;
     }
 
     public String toString() {

@@ -29,8 +29,8 @@ public class SeedLookupdConfigTest {
             "}";
 
     protected final static String controlCnfStr = "{" +
-            "\"previous\":[\"nsq-dev.s.qima-inc.com:4161\"]," +
-            "\"current\":[\"nsq-dev.s.qima-inc.com:4161\", \"nsq-dev.s.qima-inc.com:4161\"]," +
+            "\"previous\":[\"http://nsq-dev.s.qima-inc.com:4161\"]," +
+            "\"current\":[\"http://nsq-dev.s.qima-inc.com:4161\", \"http://nsq-dev.s.qima-inc.com:4161\"]," +
             "\"gradation\":{" +
             "\"*\":{\"percent\":10.0}," +
             "\"bc-pifa0\":{\"percent\":10.0}," +
@@ -64,7 +64,7 @@ public class SeedLookupdConfigTest {
         }
     }
 
-    @Test
+    @Test(invocationCount = 10)
     public void testPunchLookupdAddress() {
         try{
             logger.info("[testPunchLookupdAddress] starts.");

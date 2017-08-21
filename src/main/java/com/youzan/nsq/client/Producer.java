@@ -1,7 +1,6 @@
 package com.youzan.nsq.client;
 
 import com.youzan.nsq.client.core.Client;
-import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.Topic;
@@ -19,6 +18,13 @@ import java.util.List;
 public interface Producer extends Client, Closeable {
     @Override
     void start() throws NSQException;
+
+    /**
+     * start producer with specified topics for initializing nsq connection for later publish
+     * @param topics
+     * @throws NSQException
+     */
+    void start(String... topics) throws NSQException;
 
     /**
      * Default UTF-8 Encoding
@@ -57,6 +63,7 @@ public interface Producer extends Client, Closeable {
     void publish(byte[] message, Topic topic) throws NSQException;
 
     /**
+     * @Deprecated Method not implemented.
      * 生产一批的'消息'. <br>
      * 如果一批超过30条,那么SDK会给你按照FIFO顺序的分批(每批30条)发送出去! <br>
      * 因此小于等于30条作为一批的消息,可以作为局部化的有顺序.

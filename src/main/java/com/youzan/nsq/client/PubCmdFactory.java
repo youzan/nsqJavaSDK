@@ -2,6 +2,7 @@ package com.youzan.nsq.client;
 
 import com.youzan.nsq.client.configs.*;
 import com.youzan.nsq.client.core.command.Pub;
+import com.youzan.nsq.client.core.command.PubExt;
 import com.youzan.nsq.client.core.command.PubTrace;
 import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.NSQConfig;
@@ -104,9 +105,13 @@ public class PubCmdFactory implements IConfigAccessSubscriber{
      * @return Pub command instance
      */
     public Pub create(final Message msg, final NSQConfig config){
-        if(isTracedMessage(config, msg)){
+        boolean isTraced = isTracedMessage(config, msg);
+        boolean containJsonHeader = (null != msg.getJsonHeaderExt() || (null != msg.getDesiredTag() && !msg.getDesiredTag().isEmpty()));
+        if(isTraced && !containJsonHeader){
             return new PubTrace(msg);
-        }else{
+        }else if (containJsonHeader) {
+            return new PubExt(msg, isTraced);
+        } else {
             return new Pub(msg);
         }
     }

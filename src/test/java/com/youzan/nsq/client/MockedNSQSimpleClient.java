@@ -6,6 +6,7 @@ import com.youzan.nsq.client.core.command.Nop;
 import com.youzan.nsq.client.entity.Response;
 import com.youzan.nsq.client.entity.Role;
 import com.youzan.nsq.client.exception.NSQException;
+import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
 import io.netty.channel.ChannelFuture;
@@ -49,6 +50,13 @@ public class MockedNSQSimpleClient extends NSQSimpleClient {
                 break;
             }
             case ERROR_FRAME: {
+                if (conn.isSubSent()) {
+//                    super.incoming(frame, conn);
+                } else {
+                    final ErrorFrame err = (ErrorFrame) frame;
+                    conn.addErrorFrame(err);
+                    logger.warn("Error-Frame from {} , frame: {}", conn.getAddress(), frame);
+                }
                 break;
             }
             case MESSAGE_FRAME: {

@@ -10,6 +10,7 @@ import com.youzan.nsq.client.entity.*;
 import com.youzan.nsq.client.exception.*;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
+import com.youzan.nsq.client.network.frame.ResponseFrame;
 import com.youzan.util.HostUtil;
 import com.youzan.util.IOUtil;
 import com.youzan.util.NamedThreadFactory;
@@ -20,9 +21,13 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * <pre>
@@ -37,11 +42,12 @@ public class ProducerImplV2 implements Producer {
     private static final Logger logger = LoggerFactory.getLogger(ProducerImplV2.class);
     private static final Logger PERF_LOG = LoggerFactory.getLogger(ProducerImplV2.class.getName() + ".perf");
 
-    private static final int MAX_PUBLISH_RETRY = 6;
-    private final Object lock = new Object();
-
     private static final int MAX_MSG_OUTPUT_LEN = 100;
-    private volatile boolean started = false;
+    private static final int NSQ_LEADER_NOT_READY_TIMEOUT = 100;
+
+    private AtomicBoolean started = new AtomicBoolean(Boolean.FALSE);
+    private AtomicBoolean closing = new AtomicBoolean(Boolean.FALSE);
+
     private volatile int offset = 0;
     private final GenericKeyedObjectPoolConfig poolConfig;
     private final KeyedPooledConnectionFactory factory;
@@ -49,10 +55,10 @@ public class ProducerImplV2 implements Producer {
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
     private final ConcurrentHashMap<String, Long> topic_2_lastActiveTime = new ConcurrentHashMap<>();
-    private ReentrantLock expiredTopicResLock = new ReentrantLock();
 
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger total = new AtomicInteger(0);
+    private final AtomicLong pubTraceIdGen = new AtomicLong(0);
 
     private final NSQConfig config;
     private final NSQSimpleClient simpleClient;
@@ -96,7 +102,6 @@ public class ProducerImplV2 implements Producer {
     }
 
     class ExpiredTopicCleaner implements Runnable {
-        final private int MAX_RETRY = 10;
         private Long expiration = 3600 * 1000L;
 
         public void setExpiration(long expration) {
@@ -113,37 +118,27 @@ public class ProducerImplV2 implements Producer {
             // Normal max lifetime is 1 hour
             // Extreme max lifetime is 1.5 hours
             final long allow = System.currentTimeMillis() - this.expiration;
-            final Set<String> expiredTopics = new HashSet<>();
+            final Map<String, Long> expiredTopicsMap = new HashMap<>();
             for (Map.Entry<String, Long> pair : topic_2_lastActiveTime.entrySet()) {
                 if (pair.getValue() < allow) {
-                    expiredTopics.add(pair.getKey());
+                    expiredTopicsMap.put(pair.getKey(), pair.getValue());
                 }
             }
-            int retry = 1;
-            if(expiredTopics.size() > 0) {
-                while (!expiredTopicResLock.tryLock()) {
-                    //TODO: backoff
-                    if (retry++ <= MAX_RETRY) {
-                        try {
-                            Thread.sleep(500L);
-                        } catch (InterruptedException e) {
-                            logger.warn("Expired topic resource cleaner thread interrupted while acquiring lock.");
-                        }
-                    } else {
-                        logger.info("Expired topic resource cleaner exits as publish process is busy.");
-                        return;
-                    }
-                }
+            if(expiredTopicsMap.size() > 0) {
                 try {
                     long now = System.currentTimeMillis();
-                    simpleClient.removeTopics(expiredTopics);
-                    logger.info("Expired topic resource cleaner exits in {} milliSec.", System.currentTimeMillis() - now);
-                    expiredTopics.clear();
-                    logger.info("Publish. Total: {} , Success: {} . Two values do not use a lock action.", total.get(), success.get());
+                    simpleClient.removeTopics(expiredTopicsMap.keySet());
+                    logger.info("Expired {} topic resource cleaner exits in {} milliSec.", expiredTopicsMap.size(), System.currentTimeMillis() - now);
+                    logger.info("Publish. Total: {} , Success: {}.", total.get(), success.get());
                 } finally {
-                    expiredTopicResLock.unlock();
+                    for (Map.Entry<String, Long> pair : expiredTopicsMap.entrySet()) {
+                        topic_2_lastActiveTime.remove(pair.getKey(), pair.getValue());
+                    }
                 }
+            } else {
+                logger.info("Expired topic not found. expired topic process exit.");
             }
+            expiredTopicsMap.clear();
         }
     }
 
@@ -154,84 +149,76 @@ public class ProducerImplV2 implements Producer {
     }
 
     @Override
-    public void start() throws NSQException {
-        if (!this.started) {
-            synchronized (lock) {
-                if(this.started)
-                    return;
-                if (!validateLookupdSource()) {
-                    throw new IllegalArgumentException("Producer could not start with invalid lookupd address sources.");
+    public void start(String... topics) throws NSQException {
+        this.start();
+        if(null != topics && topics.length > 0) {
+            Set<Address> nsqdAddrs = new HashSet<>();
+            Object[] noSharding = new Object[]{Message.NO_SHARDING};
+            logger.info("start initializing connections for {}", topics);
+            for (String topic : topics) {
+                try {
+                    this.simpleClient.putTopic(topic);
+                    nsqdAddrs.addAll(
+                            Arrays.asList(
+                                    this.simpleClient.getPartitionNodes(new Topic(topic), noSharding, true)
+                            )
+                    );
+                } catch (InterruptedException e) {
+                    logger.error("error waiting for topic 2 partition info updating.");
                 }
-
-                this.started = true;
-                // setting all of the configs
-                this.offset = _r.nextInt(100);
-                this.poolConfig.setLifo(true);
-                this.poolConfig.setFairness(false);
-                this.poolConfig.setTestOnBorrow(false);
-                this.poolConfig.setTestOnReturn(false);
-                //If testWhileIdle is true, examined objects are validated when visited (and removed if invalid);
-                //otherwise only objects that have been idle for more than minEvicableIdleTimeMillis are removed.
-                this.poolConfig.setTestWhileIdle(true);
-                this.poolConfig.setJmxEnabled(true);
-                //connection need being validated after idle time
-                this.poolConfig.setSoftMinEvictableIdleTimeMillis(5 * 60 * 1000);
-                //this need to be negative, otherwise min idle per key setting won't work
-                this.poolConfig.setMinEvictableIdleTimeMillis(-1);
-                this.poolConfig.setTimeBetweenEvictionRunsMillis(60 * 1000);
-                this.poolConfig.setMinIdlePerKey(this.config.getMinIdleConnectionForProducer());
-                this.poolConfig.setMaxIdlePerKey(this.config.getConnectionSize());
-                this.poolConfig.setMaxTotalPerKey(this.config.getConnectionSize());
-                // acquire connection waiting time
-                this.poolConfig.setMaxWaitMillis(this.config.getConnWaitTimeoutForProducerInMilliSec());
-                this.poolConfig.setBlockWhenExhausted(false);
-                // new instance without performing to connect
-                this.bigPool = new GenericKeyedObjectPool<>(this.factory, this.poolConfig);
-                if (this.config.getUserSpecifiedLookupAddress()) {
-                    LookupAddressUpdate.getInstance().setUpDefaultSeedLookupConfig(this.simpleClient.getLookupLocalID(), this.config.getLookupAddresses());
-                }
-                //simple client starts and LookupAddressUpdate instance initialized there.
-                this.simpleClient.start();
-                scheduler.scheduleAtFixedRate(EXPIRED_TOPIC_CLEANER, 30, 30, TimeUnit.MINUTES);
             }
+            logger.info("total {} addresses to initialize");
+            for(Address addr : nsqdAddrs)
+                try {
+                    this.bigPool.preparePool(addr);
+                } catch (Exception e) {
+                    logger.error("fail to initialize connection to {}", addr);
+                }
         }
-        logger.info("The producer has been started.");
     }
 
-    /**
-     * pre allocate connNumPerPartition nsqd connection for passin topic
-     * @param topic topic for pre allocate
-     * @param connNumPerPartition   connection number per partition
-     * @throws NSQException exception raised when address for topic fail to return
-     */
-    public void preAllocateNSQConnection(Topic topic, int connNumPerPartition) throws NSQException {
-        final Long now = System.currentTimeMillis();
-        Address[] partitonAddrs = new Address[0];
-        try {
-            this.simpleClient.putTopic(topic.getTopicText());
-            partitonAddrs = simpleClient.getPartitionNodes(topic, new Object[]{Message.NO_SHARDING}, true);
-        } catch (InterruptedException e) {
-            logger.warn("Pre-allocate connection to topic {} failed. Thread interrupted waiting for partition selector update, Topic {}. Ignore if SDK is shutting down.", topic, topic.getTopicText());
-            return;
-        }
-        for(Address addr : partitonAddrs) {
-            List<NSQConnection> preAllocateList = new ArrayList<>(connNumPerPartition);
-            int allocateSucceed = 0;
-            for(int i = 0; i < connNumPerPartition; i++) {
-                try {
-                    preAllocateList.add(bigPool.borrowObject(addr));
-                    allocateSucceed++;
-                } catch (Exception e) {
-                    logger.error("Fail to allocate connection to {}.", addr, e);
-                }
+    @Override
+    public void start() throws NSQException {
+        if (started.compareAndSet(Boolean.FALSE, Boolean.TRUE)) {
+            if (!validateLookupdSource()) {
+                throw new IllegalArgumentException("Producer could not start with invalid lookupd address sources.");
             }
-            logger.info("{} connections allocated for {}", allocateSucceed, addr);
-            //release all in list
-            for(NSQConnection conn:preAllocateList) {
-                bigPool.returnObject(addr, conn);
+
+            // setting all of the configs
+            this.offset = _r.nextInt(100);
+
+            this.poolConfig.setLifo(false);
+            this.poolConfig.setFairness(false);
+            this.poolConfig.setTestOnBorrow(false);
+            this.poolConfig.setTestOnReturn(false);
+            //If testWhileIdle is true, examined objects are validated when visited (and removed if invalid);
+            //otherwise only objects that have been idle for more than minEvicableIdleTimeMillis are removed.
+            this.poolConfig.setTestWhileIdle(true);
+            this.poolConfig.setJmxEnabled(true);
+            //connection need being validated after idle time, default to 15 min
+            this.poolConfig.setMinEvictableIdleTimeMillis(30 * config.getHeartbeatIntervalInMillisecond());
+            //number of milliseconds to sleep between runs of the idle object evictor thread
+            this.poolConfig.setTimeBetweenEvictionRunsMillis(config.getProducerConnectionEvictIntervalInMillSec());
+            this.poolConfig.setMinIdlePerKey(this.config.getMinIdleConnectionForProducer());
+            this.poolConfig.setMaxIdlePerKey(this.config.getConnectionSize());
+            this.poolConfig.setMaxTotalPerKey(this.config.getConnectionSize());
+            // acquire connection waiting time
+            this.poolConfig.setMaxWaitMillis(this.config.getConnWaitTimeoutForProducerInMilliSec());
+            this.poolConfig.setBlockWhenExhausted(false);
+            // new instance without performing to connect
+            this.bigPool = new GenericKeyedObjectPool<>(this.factory, this.poolConfig);
+            if (this.config.getUserSpecifiedLookupAddress()) {
+                LookupAddressUpdate.getInstance().setUpDefaultSeedLookupConfig(this.simpleClient.getLookupLocalID(), this.config.getLookupAddresses());
             }
-            preAllocateList.clear();
+            //simple client starts and LookupAddressUpdate instance initialized there.
+            this.simpleClient.start();
+            scheduler.scheduleAtFixedRate(EXPIRED_TOPIC_CLEANER, 30, 30, TimeUnit.MINUTES);
+            logger.info("The producer has been started.");
         }
+    }
+
+    public GenericKeyedObjectPool<Address, NSQConnection> getConnectionPool() {
+        return this.bigPool;
     }
 
     /**
@@ -244,15 +231,16 @@ public class ProducerImplV2 implements Producer {
      * @return a validated {@link NSQConnection}
      * @throws NSQException that is having done a negotiation
      */
-    private NSQConnection getNSQConnection(Topic topic, Object topicShardingID, final Context cxt) throws NSQException {
-        final Long now = System.currentTimeMillis();
-        topic_2_lastActiveTime.put(topic.getTopicText(), now);
+    protected NSQConnection getNSQConnection(Topic topic, Object topicShardingID, final Context cxt) throws NSQException {
         //data nodes matches topic sharding returns
         Address[] partitonAddrs;
         try {
             partitonAddrs = simpleClient.getPartitionNodes(topic, new Object[]{topicShardingID}, true);
         } catch (InterruptedException e) {
             logger.warn("Thread interrupted waiting for partition selector update, Topic {}. Ignore if SDK is shutting down.", topic.getTopicText());
+            return null;
+        }
+        if(null == partitonAddrs) {
             return null;
         }
         final int size = partitonAddrs.length;
@@ -306,9 +294,11 @@ public class ProducerImplV2 implements Producer {
     }
 
     @Override
-    public void publish(Message message) throws NSQException {
-        Context cxt = new Context();
-        cxt.setTraceID(UUID.randomUUID());
+    public void publish(final Message message) throws NSQException {
+        final Context cxt = new Context();
+        if(PERF_LOG.isDebugEnabled()) {
+            cxt.setTraceID(pubTraceIdGen.getAndIncrement());
+        }
         if (message == null || message.getMessageBody().isEmpty()) {
             throw new IllegalArgumentException("Your input message is blank! Please check it!");
         }
@@ -316,21 +306,13 @@ public class ProducerImplV2 implements Producer {
         if (null == topic || null == topic.getTopicText() || topic.getTopicText().isEmpty()) {
             throw new IllegalArgumentException("Your input topic name is blank!");
         }
-        if (!started) {
+        if (!started.get() || closing.get()) {
             throw new IllegalStateException("Producer must be started before producing messages!");
         }
         total.incrementAndGet();
 
-        topic_2_lastActiveTime.put(topic.getTopicText(), System.currentTimeMillis());
-        expiredTopicResLock.lock();
-        //while put topic, topic expiration is not allowed
-        try {
-            this.simpleClient.putTopic(message.getTopic().getTopicText());
-        }finally {
-            expiredTopicResLock.unlock();
-        }
-
         try{
+            //TODO: poll before timeout
             sendPUB(message, cxt);
         }catch (NSQPubException pubE){
             logger.error(pubE.getLocalizedMessage());
@@ -373,12 +355,16 @@ public class ProducerImplV2 implements Producer {
         NSQConnection conn = null;
         List<NSQException> exceptions = new ArrayList<>();
         long start = System.currentTimeMillis();
-        while (c++ < MAX_PUBLISH_RETRY) {
+        int retry = this.config.getPublishRetry();
+        while (c++ < retry) {
             returnCon = true;
-            if (c > 1) {
-                logger.debug("Sleep. CurrentRetries: {}", c);
-                sleep((1 << (c - 1)) * this.config.getProducerRetryIntervalBaseInMilliSeconds());
-            }
+//            if (c > 1) {
+//                logger.debug("Sleep. CurrentRetries: {}", c);
+                //sleep((1 << (c - 1)) * this.config.getProducerRetryIntervalBaseInMilliSeconds());
+//            }
+            //while put topic, topic expiration is not allowed
+            topic_2_lastActiveTime.put(msg.getTopic().getTopicText(), start);
+            this.simpleClient.putTopic(msg.getTopic().getTopicText());
             try {
                 //performance logging
                 long getConnStart = System.currentTimeMillis();
@@ -402,16 +388,14 @@ public class ProducerImplV2 implements Producer {
                 //throw it directly
                 throw exp;
             }
-            //bad connection to node. nsqd may down and need to invalidated
-            //TODO: review
             catch (NSQNoConnectionException badConnExp) {
                 logger.info("Try invalidating partition selectors for {}, due to NSQNoConnectionException.");
                 this.simpleClient.invalidatePartitionsSelector(msg.getTopic().getTopicText());
                 exceptions.add(badConnExp);
                 continue;
             }
-            catch(NSQException lookupE) {
-                exceptions.add(lookupE);
+            catch(NSQException nsqe) {
+                exceptions.add(nsqe);
                 continue;
             }
             //create PUB command
@@ -434,7 +418,7 @@ public class ProducerImplV2 implements Producer {
                 if(PERF_LOG.isDebugEnabled()){
                     PERF_LOG.debug("{}: took {} milliSec to send msg to and hear response from nsqd.", cxt.getTraceID(), pubAndWaitEnd);
                 }
-                if(pubAndWaitEnd > PerfTune.getInstance().getNSQConnElapseLimit()) {
+                if(pubAndWaitEnd > PerfTune.getInstance().getSendMSGLimit()) {
                     PERF_LOG.warn("{}: took {} milliSec to send message. Limitation is {}", cxt.getTraceID(), pubAndWaitEnd, PerfTune.getInstance().getSendMSGLimit());
                 }
 
@@ -444,36 +428,28 @@ public class ProducerImplV2 implements Producer {
                     TraceLogger.trace(this, conn, (MessageMetadata) frame);
                 break;
             }
-            catch (TimeoutException te){
-                NSQTimeoutException nte = new NSQTimeoutException(te);
-                returnCon = true;
-                exceptions.add(nte);
-                if (c >= MAX_PUBLISH_RETRY) {
-                    throw new NSQPubException(exceptions);
-                }
-            }
             catch(NSQPubFactoryInitializeException | NSQTagException | NSQTopicNotExtendableException expShouldFail) {
                 throw expShouldFail;
             }
             catch (Exception e) {
-                IOUtil.closeQuietly(conn);
                 returnCon = false;
+                IOUtil.closeQuietly(conn);
                 try {
                     bigPool.invalidateObject(conn.getAddress(), conn);
-                    logger.info("Connection invalidated.");
+                    logger.info("Connection to {} invalidated.", conn.getAddress());
                 } catch (Exception e1) {
                     logger.error("Fail to destroy connection {}.", conn.toString(), e1);
                 }
                 String msgStr = msg.getMessageBody();
                 int maxlen = msgStr.length() > MAX_MSG_OUTPUT_LEN ? MAX_MSG_OUTPUT_LEN : msgStr.length();
-                logger.error("MaxRetries: {} , CurrentRetries: {} , Address: {} , Topic: {}, MessageLength: {}, RawMessage: {}, Exception:", MAX_PUBLISH_RETRY, c,
+                logger.error("MaxRetries: {} , CurrentRetries: {} , Address: {} , Topic: {}, MessageLength: {}, RawMessage: {}, Exception:", retry, c,
                         conn.getAddress(), msg.getTopic(), msgStr.length(), msgStr.substring(0, maxlen), e);
                 //as to NSQInvalidMessageException throw it out after connection close.
                 if(e instanceof NSQInvalidMessageException)
                     throw (NSQInvalidMessageException)e;
                 NSQException nsqE = new NSQException(e);
                 exceptions.add(nsqE);
-                if (c >= MAX_PUBLISH_RETRY) {
+                if (c >= retry) {
                     throw new NSQPubException(exceptions);
                 }
             } finally {
@@ -489,7 +465,7 @@ public class ProducerImplV2 implements Producer {
                 }
             }
         } // end loop
-        if (c >= MAX_PUBLISH_RETRY) {
+        if (c >= retry) {
             throw new NSQPubException(exceptions);
         }
         if(PERF_LOG.isDebugEnabled()){
@@ -531,6 +507,12 @@ public class ProducerImplV2 implements Producer {
                         logger.error("Address: {} , Frame: {}", conn.getAddress(), frame);
                         //clean topic 2 partitions selector and force a lookup for topic
                         this.simpleClient.invalidatePartitionsSelector(topic.getTopicText());
+                        //backoff for nsqd consensus, if there is one
+                        try {
+                            Thread.sleep(NSQ_LEADER_NOT_READY_TIMEOUT);
+                        } catch (InterruptedException e) {
+                            logger.error("Publish process interrupted waiting for nsqd consensus.");
+                        }
                         logger.info("Partitions info for {} invalidated and related lookup force updated.", topic);
                         throw new NSQInvalidDataNodeException(topic.getTopicText());
                     }
@@ -555,7 +537,26 @@ public class ProducerImplV2 implements Producer {
 
     @Override
     public void incoming(NSQFrame frame, NSQConnection conn) throws NSQException {
-        simpleClient.incoming(frame, conn);
+        switch (frame.getType()) {
+            case RESPONSE_FRAME: {
+                if (frame.isHeartBeat() && conn.isIdentitySent()) {
+                    this.simpleClient.incoming(frame, conn);
+                } else {
+                    conn.addResponseFrame((ResponseFrame) frame);
+                }
+                break;
+            }
+            case ERROR_FRAME: {
+                final ErrorFrame err = (ErrorFrame) frame;
+                conn.addErrorFrame(err);
+                logger.warn("Error-Frame from {} , frame: {}", conn.getAddress(), frame);
+                break;
+            }
+            default: {
+                logger.warn("Invalid frame-type from {} , frame-type: {} , frame: {}", conn.getAddress(), frame.getType(), frame);
+                break;
+            }
+        }
     }
 
 
@@ -580,21 +581,18 @@ public class ProducerImplV2 implements Producer {
 
     @Override
     public void close() {
-        if(this.started) {
-            synchronized (lock) {
-                if(!this.started)
-                    return;
-                IOUtil.closeQuietly(simpleClient);
-                if (factory != null) {
-                    factory.close();
-                }
-                if (bigPool != null) {
-                    bigPool.close();
-                }
-                scheduler.shutdownNow();
-                logger.info("The producer has been closed.");
-                LookupAddressUpdate.getInstance().closed();
+        if(this.started.get() && this.closing.compareAndSet(Boolean.FALSE, Boolean.TRUE)) {
+            LookupAddressUpdate.getInstance().removeDefaultSeedLookupConfig(this.simpleClient.getLookupLocalID());
+            IOUtil.closeQuietly(simpleClient);
+            if (factory != null) {
+                factory.close();
             }
+            if (bigPool != null) {
+                bigPool.close();
+            }
+            scheduler.shutdownNow();
+            logger.info("The producer has been closed.");
+            LookupAddressUpdate.getInstance().closed();
         }
     }
 

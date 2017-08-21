@@ -1,13 +1,12 @@
 package com.youzan.nsq.client;
 
 import com.youzan.nsq.client.core.ConnectionManager;
-import com.youzan.nsq.client.core.pool.consumer.FixedPool;
+import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.exception.NSQException;
 
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Created by lin on 17/7/11.
@@ -25,16 +24,16 @@ public class MockedConsumer extends ConsumerImplV2 {
         super.connect();
     }
 
-    public void connect(Address addr, Set<String> topics) throws Exception {
-        super.connect(addr, topics);
+    public void connect(Address addr) throws Exception {
+        super.connect(addr);
     }
 
     public void setConnectionManager(final ConnectionManager conMgr) {
         this.conMgr = conMgr;
     }
 
-    public Map<Address, FixedPool> getAddress2Pool() {
-        return super.address_2_pool;
+    public Map<Address, NSQConnection> getAddress2Conn() {
+        return super.address_2_conn;
     }
 
     public void start() {

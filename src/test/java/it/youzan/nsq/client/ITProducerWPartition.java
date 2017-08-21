@@ -33,7 +33,7 @@ public class ITProducerWPartition extends ITProducer{
 
 
     private void publishWTopicAndPartition(String topic) throws NSQException {
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 2; i++) {
             producer.publish(("Message #" + i).getBytes(), new Topic(topic));
         }
     }

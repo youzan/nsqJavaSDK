@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Created by lin on 16/8/19.
  */
-@Test(groups = {"ITConsumerWPartition-Base"}, dependsOnGroups = {"ITProducerWPartition-Base"}, priority = 5)
+@Test(groups = {"ITConsumerWPartition-Base"}/*, dependsOnGroups = {"ITProducerWPartition-Base"},*/, priority = 5)
 public class ITConsumerWPartition extends AbstractITConsumer{
 
     private static final Logger logger = LoggerFactory.getLogger(ITConsumerWPartition.class);
@@ -53,7 +53,7 @@ public class ITConsumerWPartition extends AbstractITConsumer{
         if(config.getUserSpecifiedLookupAddress() && null != lookupds && lookupds[0].contains("nsq-"))
             return;
 
-        final CountDownLatch latch = new CountDownLatch(10);
+        final CountDownLatch latch = new CountDownLatch(2);
         final AtomicInteger received = new AtomicInteger(0);
         config.setOrdered(true);
         Consumer recievedConsumer = new ConsumerImplV2(config, new MessageHandler() {
@@ -69,7 +69,7 @@ public class ITConsumerWPartition extends AbstractITConsumer{
         recievedConsumer.subscribe("JavaTesting-Partition");
         recievedConsumer.start();
         Assert.assertTrue(latch.await(1, TimeUnit.MINUTES));
-        Assert.assertEquals(received.get(), 10);
+        Assert.assertEquals(received.get(), 2);
         recievedConsumer.close();
     }
 }

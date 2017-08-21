@@ -21,11 +21,11 @@ import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
+ * Connection pool factory for {@link oracle.jvm.hotspot.jfr.Producer}
  * <pre>
  * It is a big pool that consists of some sub-pools.
  * Just handle TCP-Connection Object.
@@ -39,12 +39,7 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
     private static final Logger PERF_LOG = LoggerFactory.getLogger(KeyedPooledConnectionFactory.class.getName() + ".perf");
     private final AtomicInteger connectionIDGenerator = new AtomicInteger(0);
     private final EventLoopGroup eventLoopGroup;
-    private final ConcurrentHashMap<Address, Bootstrap> bootstraps = new ConcurrentHashMap<>();
-    private final Object bootstrapsLock = new Object();
-//    private final ConcurrentHashMap<Address, Long> address_2_bootedTime = new ConcurrentHashMap<>();
-//    private final  ScheduledExecutorService scheduler = Executors
-//            .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
-
+    private final Bootstrap bootstrap = new Bootstrap();
 
     /**
      * Connection/Pool configurations
@@ -58,29 +53,18 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
     public KeyedPooledConnectionFactory(NSQConfig config, Client client) {
         this.config = config;
         this.client = client;
-        this.eventLoopGroup = new NioEventLoopGroup(config.getThreadPoolSize4IO());
-//        keep();
+        this.eventLoopGroup = new NioEventLoopGroup(config.getNettyPoolSize());
+        bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
+        bootstrap.option(ChannelOption.TCP_NODELAY, true);
+        bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, config.getConnectTimeoutInMillisecond());
+        bootstrap.group(eventLoopGroup);
+        bootstrap.channel(NioSocketChannel.class);
+        bootstrap.handler(new NSQClientInitializer());
     }
 
     @Override
     public NSQConnection create(Address address) throws Exception {
         logger.debug("Begin to create a connection, the address is {}", address);
-        final Bootstrap bootstrap;
-        synchronized (bootstrapsLock) {
-            if (bootstraps.containsKey(address)) {
-                bootstrap = bootstraps.get(address);
-            } else {
-                bootstrap = new Bootstrap();
-                bootstraps.putIfAbsent(address, bootstrap);
-                bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
-                bootstrap.option(ChannelOption.TCP_NODELAY, true);
-                bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, config.getConnectTimeoutInMillisecond());
-                bootstrap.group(eventLoopGroup);
-                bootstrap.channel(NioSocketChannel.class);
-                bootstrap.handler(new NSQClientInitializer());
-            }
-        }
-
         long connStart = 0;
         if(PERF_LOG.isDebugEnabled())
             connStart = System.currentTimeMillis();
@@ -136,10 +120,10 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
         final NSQConnection connection = p.getObject();
         // another implementation : use client.heartbeat,or called
         // client.validateConnection
-        if (null != connection && connection.isConnected()) {
+        if (null != connection && connection.isConnected() && connection.isIdentitySent()) {
             return client.validateHeartbeat(connection);
         }
-        logger.warn("Validate {} connection! The statue is wrong.", address);
+        logger.warn("NSQConnection {} fails validation.", address);
         return false;
     }
 
@@ -152,17 +136,8 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
         }
     }
 
-//    private void clearDataNode(Address address) {
-//        synchronized (address) {
-//            bootstraps.remove(address);
-//            address_2_bootedTime.remove(address);
-//            client.clearDataNode(address);
-//        }
-//    }
 
     public void close() {
-        bootstraps.clear();
-//        address_2_bootedTime.clear();
         if (eventLoopGroup != null && !eventLoopGroup.isShuttingDown()) {
             eventLoopGroup.shutdownGracefully(1, 2, TimeUnit.SECONDS);
         }

@@ -4,7 +4,7 @@
 
     <groupId>com.youzan</groupId>
     <artifactId>NSQ-Client</artifactId>
-    <version>2.4-SNAPSHOT</version>
+    <version>2.4-RELEASE</version>
     <packaging>jar</packaging>
 
     <name>NSQ-Client</name>
@@ -15,7 +15,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <slf4j.version>1.7.21</slf4j.version>
         <logback.version>1.1.7</logback.version>
-        <jackson.version>2.7.9.1</jackson.version>
+        <jackson.version>2.8.6</jackson.version>
         <dccClient.version>1.1.0622-RELEASE</dccClient.version>
     </properties>
 
@@ -65,17 +65,17 @@
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-all</artifactId>
-            <version>4.1.1.Final</version>
-        </dependency>
-        <dependency>
-            <groupId>org.javassist</groupId>
-            <artifactId>javassist</artifactId>
-            <version>3.20.0-GA</version>
+            <version>4.1.14.Final</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-pool2</artifactId>
             <version>2.4.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-compress</artifactId>
+            <version>1.14</version>
         </dependency>
         <dependency>
             <groupId>com.alibaba</groupId>
@@ -100,6 +100,11 @@
             <version>3.4</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.6</version>
+        </dependency>
     </dependencies>
 
     <parent>
@@ -119,28 +124,6 @@
             </plugins>
         </pluginManagement>
         <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-resources-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>copy-resources</id>
-                        <phase>generate-test-resources</phase>
-                        <goals>
-                            <goal>copy-resources</goal>
-                        </goals>
-                        <configuration>
-                            <outputDirectory>target/test-classes</outputDirectory>
-                            <resources>
-                                <resource>
-                                    <filtering>false</filtering>
-                                    <directory>src/test/resources/</directory>
-                                </resource>
-                            </resources>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>templating-maven-plugin</artifactId>
@@ -168,11 +151,28 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>2.19.1</version>
+                <configuration>
+                    <rerunFailingTestsCount>1</rerunFailingTestsCount>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <version>2.19.1</version>
+                <configuration>
+                    <suiteXmlFiles>
+                        <suiteXmlFile>src/test/resources/testng-base-suite.xml</suiteXmlFile>
+                        <suiteXmlFile>src/test/resources/testng-base-tag-suite.xml</suiteXmlFile>
+                        <suiteXmlFile>src/test/resources/testng-complex-consumer-suite.xml</suiteXmlFile>
+                        <suiteXmlFile>src/test/resources/testng-finish-suite.xml</suiteXmlFile>
+                        <suiteXmlFile>src/test/resources/testng-order-suite.xml</suiteXmlFile>
+                        <suiteXmlFile>src/test/resources/testng-order-wdcc-suite.xml</suiteXmlFile>
+                        <suiteXmlFile>src/test/resources/testng-partition-suite.xml</suiteXmlFile>
+                        <suiteXmlFile>src/test/resources/testng-stable-dcc-suite.xml</suiteXmlFile>
+                        <suiteXmlFile>src/test/resources/testng-stable-suite.xml</suiteXmlFile>
+                        <suiteXmlFile>src/test/resources/testng-trace-suite.xml</suiteXmlFile>
+                    </suiteXmlFiles>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>
@@ -207,9 +207,6 @@
     <profiles>
         <profile>
             <id>openSource</id>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-            </activation>
             <build>
                 <resources>
                     <resource>
@@ -253,7 +250,8 @@
                         <artifactId>maven-resources-plugin</artifactId>
                         <executions>
                             <execution>
-                                <id>default-resources</id>
+                                <id>copy-test-resources</id>
+                                <phase>compile</phase>
                                 <goals>
                                     <goal>copy-resources</goal>
                                 </goals>
@@ -271,13 +269,33 @@
                                     <outputDirectory>target/test-classes</outputDirectory>
                                 </configuration>
                             </execution>
+                            <execution>
+                                <id>copy-resources</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>copy-resources</goal>
+                                </goals>
+                                <configuration>
+                                    <resources>
+                                        <resource>
+                                            <filtering>false</filtering>
+                                            <directory>src/assembly/conf/openSource/</directory>
+                                        </resource>
+                                        <resource>
+                                            <filtering>false</filtering>
+                                            <directory>src/main/resources</directory>
+                                        </resource>
+                                    </resources>
+                                    <outputDirectory>target/classes</outputDirectory>
+                                </configuration>
+                            </execution>
                         </executions>
                     </plugin>
                 </plugins>
             </build>
         </profile>
         <profile>
-            <id>youzan</id>
+            <id>dev</id>
             <dependencies>
                 <dependency>
                     <groupId>com.youzan</groupId>
@@ -285,9 +303,77 @@
                     <version>${dccClient.version}</version>
                 </dependency>
             </dependencies>
+            <build>
+                <resources>
+                    <resource>
+                        <directory>src/assembly/conf/dev</directory>
+                    </resource>
+                </resources>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-resources-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>copy-test-resources</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>copy-resources</goal>
+                                </goals>
+                                <configuration>
+                                    <resources>
+                                        <resource>
+                                            <filtering>false</filtering>
+                                            <directory>src/assembly/conf/dev/</directory>
+                                        </resource>
+                                        <resource>
+                                            <filtering>false</filtering>
+                                            <directory>src/main/resources</directory>
+                                        </resource>
+                                    </resources>
+                                    <outputDirectory>target/test-classes</outputDirectory>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>copy-resources</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>copy-resources</goal>
+                                </goals>
+                                <configuration>
+                                    <resources>
+                                        <resource>
+                                            <excludes>
+                                                <exclude>app-test.properties</exclude>
+                                            </excludes>
+                                            <filtering>false</filtering>
+                                            <directory>src/assembly/conf/dev/</directory>
+                                        </resource>
+                                        <resource>
+                                            <filtering>false</filtering>
+                                            <directory>src/main/resources</directory>
+                                        </resource>
+                                    </resources>
+                                    <outputDirectory>target/classes</outputDirectory>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>youzan</id>
             <activation>
-                <activeByDefault>false</activeByDefault>
+                <activeByDefault>true</activeByDefault>
             </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>com.youzan</groupId>
+                    <artifactId>DCC-Client</artifactId>
+                    <version>${dccClient.version}</version>
+                </dependency>
+            </dependencies>
             <build>
                 <resources>
                     <resource>
@@ -300,7 +386,8 @@
                         <artifactId>maven-resources-plugin</artifactId>
                         <executions>
                             <execution>
-                                <id>default-resources</id>
+                                <id>copy-test-resources</id>
+                                <phase>compile</phase>
                                 <goals>
                                     <goal>copy-resources</goal>
                                 </goals>
@@ -316,6 +403,29 @@
                                         </resource>
                                     </resources>
                                     <outputDirectory>target/test-classes</outputDirectory>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>copy-resources</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>copy-resources</goal>
+                                </goals>
+                                <configuration>
+                                    <resources>
+                                        <resource>
+                                            <filtering>false</filtering>
+                                            <excludes>
+                                                <exclude>app-test.properties</exclude>
+                                            </excludes>
+                                            <directory>src/assembly/conf/youzan/</directory>
+                                        </resource>
+                                        <resource>
+                                            <filtering>false</filtering>
+                                            <directory>src/main/resources</directory>
+                                        </resource>
+                                    </resources>
+                                    <outputDirectory>target/classes</outputDirectory>
                                 </configuration>
                             </execution>
                         </executions>

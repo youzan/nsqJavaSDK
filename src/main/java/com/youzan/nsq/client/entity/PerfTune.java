@@ -52,8 +52,8 @@ public class PerfTune {
     private long returnnsqConnLimit = -1L;
     public long getNSQConnReturnLimit() {
         if(returnnsqConnLimit < 0)
-            sendmsgLimit =  Long.parseLong(props.getProperty("nsq.client.conn.return"));
-        return sendmsgLimit;
+            returnnsqConnLimit =  Long.parseLong(props.getProperty("nsq.client.conn.return"));
+        return returnnsqConnLimit;
     }
 
     private long borrownsqConnLimit = -1L;

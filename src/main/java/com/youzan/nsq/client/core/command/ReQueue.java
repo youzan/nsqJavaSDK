@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
 import java.nio.ByteBuffer;
 import java.util.List;
 
-public class ReQueue implements NSQCommand, PartitionEnable {
+public class ReQueue implements NSQCommand{
     private static final Logger logger = LoggerFactory.getLogger(ReQueue.class);
 
     private final byte[] data;
@@ -46,15 +46,5 @@ public class ReQueue implements NSQCommand, PartitionEnable {
     @Override
     public List<byte[]> getBody() {
         return EMPTY_BODY;
-    }
-
-    /**
-     * NOTE: NOT implemented
-     * @param topic {@link Topic}
-     * @return null
-     */
-    @Override
-    public byte[] getPartitionIdByte(Topic topic) {
-        return null;
     }
 }

@@ -1,15 +1,20 @@
 package com.youzan.nsq.client.entity;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.youzan.nsq.client.MessageMetadata;
 import com.youzan.nsq.client.core.command.Close;
+import com.youzan.nsq.client.core.command.PubExt;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.util.IOUtil;
+import com.youzan.util.SystemUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public class NSQMessage implements MessageMetadata{
@@ -22,20 +27,22 @@ public class NSQMessage implements MessageMetadata{
     final Address address;
     final Integer connectionID; // be sure that is not null
 
-    private IExtContent extContent;
-
     private long diskQueueOffset = -1L;
     private int diskQueueDataSize = -1;
 
     private TopicInfo ti;
+    private DesiredTag tag;
+    private Map<String, Object> jsonExtHeader;
 
-    class TopicInfo {
+    public class TopicInfo {
         private String topicName;
         private int partition;
+        private boolean isExt;
 
-        public TopicInfo(String topicName, int partition) {
+        public TopicInfo(String topicName, int partition, boolean isExt) {
             this.topicName = topicName;
             this.partition = partition;
+            this.isExt = isExt;
         }
 
         public String getTopicName() {
@@ -46,8 +53,12 @@ public class NSQMessage implements MessageMetadata{
             return this.partition;
         }
 
+        public boolean isExt() {
+            return this.isExt;
+        }
+
         public String toString() {
-            return this.topicName + ", " + this.partition;
+            return this.topicName + ", " + this.partition + ", " + this.isExt;
         }
     }
 
@@ -63,11 +74,9 @@ public class NSQMessage implements MessageMetadata{
      * @param address      the address of the message
      * @param connectionID the primary key of the connection
      * @param nextConsumingInSecond time elapse for requeued message to send
-     * @param extVerBytes extendable version in bytes
-     * @param extBytes    extendable content in bytes
      */
     public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
-                     byte[] messageBody, Address address, Integer connectionID, int nextConsumingInSecond, final Topic topic, byte[] extVerBytes, byte[] extBytes) {
+                     byte[] messageBody, Address address, Integer connectionID, int nextConsumingInSecond, final Topic topic, boolean isExt) {
         this.timestamp = timestamp;
         this.attempts = attempts;
         this.messageID = messageID;
@@ -88,10 +97,8 @@ public class NSQMessage implements MessageMetadata{
         this.readableMsgID = newHexString(this.messageID);
 
         this.nextConsumingInSecond = nextConsumingInSecond;
-        ExtVer extVer = ExtVer.getExtVersion(extVerBytes);
-        extContent = parseExtContent(extVer, extBytes);
 
-        this.ti = new TopicInfo(topic.getTopicText(), address.getPartition());
+        this.ti = new TopicInfo(topic.getTopicText(), address.getPartition(), isExt);
     }
 
     /**
@@ -101,6 +108,8 @@ public class NSQMessage implements MessageMetadata{
      * @param messageID    the raw bytes from the data-node
      * @param internalID   message internal ID in bytes
      * @param traceID      trace ID in bytes
+     * @param diskQueueOffset   offset in nsq disk queue
+     * @param diskQueueDataSize message data size in bytes
      * @param messageBody  the raw bytes from the data-node
      * @param address      the address of the message
      * @param connectionID the primary key of the connection
@@ -108,40 +117,52 @@ public class NSQMessage implements MessageMetadata{
      */
     public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
                       final byte[] diskQueueOffset, final byte[] diskQueueDataSize, byte[] messageBody, Address address,
-                      Integer connectionID, int nextConsumingInSecond, final Topic topic, final byte[] extVerBytes, final byte[] extBytes) {
-        this(timestamp, attempts, messageID, internalID, traceID, messageBody, address, connectionID, nextConsumingInSecond, topic, extVerBytes, extBytes);
-
+                      Integer connectionID, int nextConsumingInSecond, final Topic topic, boolean isExt) {
+        this(timestamp, attempts, messageID, internalID, traceID, messageBody, address, connectionID, nextConsumingInSecond, topic, isExt);
         ByteBuffer buf = ByteBuffer.wrap(diskQueueOffset);
         this.diskQueueOffset = buf.getLong();
         buf = ByteBuffer.wrap(diskQueueDataSize);
         this.diskQueueDataSize = buf.getInt();
     }
 
-    IExtContent parseExtContent(ExtVer extVer, byte[] extBytes) throws IllegalArgumentException {
+    public void parseExtContent(ExtVer extVer, byte[] extBytes) throws IllegalArgumentException, IOException {
         switch(extVer) {
-            case Ver0x2: {
-                String tagFilterStr = new String(extBytes);
-                return new DesiredTag(tagFilterStr);
+//            case Ver0x2: {
+//                String tagFilterStr = new String(extBytes);
+//                return new DesiredTag(tagFilterStr);
+//            }
+            case Ver0x4: {
+                //parse json header
+                this.jsonExtHeader = SystemUtil.getObjectMapper().readValue(extBytes, new TypeReference<Map<String, Object>>(){});
+                //parse tag if there is any
+                String tag = (String) jsonExtHeader.get(PubExt.CLIENT_TAG_KEY);
+                if(null != tag) {
+                    this.tag = new DesiredTag(tag);
+                }
+                break;
             }
             default: {
                 if(extBytes != null) {
                     logger.error("Ext content unrecognized. Extver {}, ExtBytes {}", extVer, extBytes);
                     throw new IllegalArgumentException("Ext content unrecognized.");
                 }
-                return new NoExtContent();
             }
         }
     }
 
-    IExtContent getExtContent() {
-        return this.extContent;
+    public Map<String, Object> getJsonExtHeader() {
+        return this.jsonExtHeader;
+    }
+
+    public Object getExtByName(String key) {
+        if (null != this.jsonExtHeader)
+            return this.jsonExtHeader.get(key);
+        else
+            return null;
     }
 
     public DesiredTag getTag() {
-        if (this.extContent instanceof DesiredTag)
-            return (DesiredTag) this.extContent;
-        else
-            return null;
+        return this.tag;
     }
 
     public TopicInfo getTopicInfo() {
@@ -279,11 +300,11 @@ public class NSQMessage implements MessageMetadata{
             final int timeout = nextConsumingInSecond.intValue();
             if (timeout < NSQConfig._MIN_NEXT_CONSUMING_IN_SECOND) {
                 throw new IllegalArgumentException(
-                        "Message.nextConsumingInSecond is illegal. It is too small." + NSQConfig._MIN_NEXT_CONSUMING_IN_SECOND);
+                        "NextConsumingInSecond is illegal. It is too small. " + NSQConfig._MIN_NEXT_CONSUMING_IN_SECOND);
             }
             if (timeout > NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND) {
                 throw new IllegalArgumentException(
-                        "Message.nextConsumingInSecond is illegal. It is too big." + NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND);
+                        "NextConsumingInSecond is illegal. It is too big. " + NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND);
             }
         }
         this.nextConsumingInSecond = nextConsumingInSecond;

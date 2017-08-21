@@ -53,7 +53,7 @@ public class AbstractNSQClientTestcase {
 
     //simple function to give you a producer
     public static Producer createProducer(final NSQConfig config){
-        return new ProducerImplV2(config);
+        return new MockedProducer(config);
     }
 
     public static Consumer createConsumer(final NSQConfig config, final MessageHandler handler){

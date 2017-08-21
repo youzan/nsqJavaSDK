@@ -1,10 +1,7 @@
 package com.youzan.nsq.client;
 
 import com.youzan.nsq.client.core.ConnectionManager;
-import com.youzan.nsq.client.entity.Message;
-import com.youzan.nsq.client.entity.NSQConfig;
-import com.youzan.nsq.client.entity.NSQMessage;
-import com.youzan.nsq.client.entity.Topic;
+import com.youzan.nsq.client.entity.*;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.utils.TopicUtil;
 import org.slf4j.Logger;
@@ -34,19 +31,24 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         final NSQConfig config = new NSQConfig("BaseConsumer");
         config.setLookupAddresses(props.getProperty("lookup-addresses"));
         String adminHttp = "http://" + props.getProperty("admin-address");
-        TopicUtil.emptyQueue(adminHttp, "JavaTesting-ReQueue", "BaseConsumer");
+        String topicName = "testNextConsumingTimeout_" + System.currentTimeMillis();
+
         final int requeueTimeout = 10;
+        Consumer consumer = null;
         try {
+            TopicUtil.createTopic(adminHttp, topicName, "BaseConsumer");
+            TopicUtil.createTopicChannel(adminHttp, topicName, "BaseConsumer");
+
             Producer producer = new ProducerImplV2(config);
             producer.start();
-            producer.publish(Message.create(new Topic("JavaTesting-ReQueue"), "msg1"));
+            producer.publish(Message.create(new Topic(topicName), "msg1"));
             producer.close();
             final int nextTimeoutDefault = config.getNextConsumingInSecond();
             final AtomicInteger cnt = new AtomicInteger(0);
             final CountDownLatch latch = new CountDownLatch(1);
             final AtomicLong timestamp = new AtomicLong(0);
             //consumer
-            Consumer consumer = new ConsumerImplV2(config, new MessageHandler() {
+            consumer = new ConsumerImplV2(config, new MessageHandler() {
                 @Override
                 public void process(NSQMessage message) {
                     int timeout = message.getNextConsumingInSecond();
@@ -75,19 +77,20 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
                 }
             });
 
-            consumer.subscribe(new Topic("JavaTesting-ReQueue"));
+            consumer.subscribe(new Topic(topicName));
             consumer.start();
             Assert.assertTrue(latch.await(2, TimeUnit.MINUTES));
         }finally {
+            consumer.close();
             logger.info("[testNextConsumingTimeout] ends.");
-            TopicUtil.emptyQueue(adminHttp, "JavaTesting-ReQueue", "BaseConsumer");
+            TopicUtil.deleteTopic(adminHttp, topicName);
         }
     }
 
     @Test
     public void testRdyIncrease() throws Exception {
         logger.info("[testRdyIncrease] starts.");
-        final String topic = "test5Par1Rep";
+        final String topicName = "testRdyIncrease_" + System.currentTimeMillis();
         Random ran = new Random();
         int expectRdy = ran.nextInt(6) + 5;
         logger.info("ExpectedRdy: {}", expectRdy);
@@ -97,10 +100,14 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         ScheduledExecutorService exec = null;
         Producer producer = null;
         Consumer consumer = null;
+        String adminHttp = "http://" + props.getProperty("admin-address");
         try {
+            TopicUtil.createTopic(adminHttp, topicName, 5, 1, "BaseConsumer");
+            TopicUtil.createTopicChannel(adminHttp, topicName, "BaseConsumer");
+
             producer = new ProducerImplV2(config);
             producer.start();
-            exec = keepMessagePublish(producer, topic, 1000);
+            exec = keepMessagePublish(producer, topicName, 1000);
 
             MessageHandler handler = new MessageHandler() {
                 @Override
@@ -114,7 +121,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
             };
 
             consumer = new ConsumerImplV2(config, handler);
-            consumer.subscribe(topic);
+            consumer.subscribe(topicName);
             consumer.start();
             int timeout = expectRdy * 10;
             logger.info("Sleep {} sec to wait for rdy to increase...", timeout);
@@ -122,28 +129,25 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
             logger.info("Wake up.");
 
             ConnectionManager conMgr = ((ConsumerImplV2) consumer).getConnectionManager();
-            Set<ConnectionManager.NSQConnectionWrapper> connSet = conMgr.getSubscribeConnections(topic);
+            Set<ConnectionManager.NSQConnectionWrapper> connSet = conMgr.getSubscribeConnections(topicName);
             for (ConnectionManager.NSQConnectionWrapper wrapper : connSet) {
                 int actualRdy = wrapper.getConn().getCurrentRdyCount();
                 Assert.assertEquals(actualRdy, expectRdy, "rdy in connection does not equals to expected rdy.");
             }
         }finally {
-            exec.shutdown();
+            exec.shutdownNow();
             Thread.sleep(10000L);
             producer.close();
-            logger.info("Wait for 10sec to clean mq channel.");
-            Thread.sleep(10000L);
             consumer.close();
-            String adminHttp = "http://" + props.getProperty("admin-address");
-            TopicUtil.emptyQueue(adminHttp, topic, "BaseConsumer");
+            TopicUtil.deleteTopic(adminHttp, topicName);
             logger.info("[testRdyIncrease] ends.");
         }
     }
 
     @Test
-    public void testLoadFactor() throws NSQException, InterruptedException {
+    public void testLoadFactor() throws Exception {
         logger.info("[testLoadFactor] starts.");
-        final String topic = "test5Par1Rep";
+        final String topic = "testLoadFactor_" + System.currentTimeMillis();
         int expectRdy = 10;
         logger.info("ExpectedRdy: {}", expectRdy);
         final NSQConfig config = new NSQConfig("BaseConsumer");
@@ -152,7 +156,11 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         ScheduledExecutorService exec = null;
         Producer producer = null;
         Consumer consumer = null;
+        String adminHttp = "http://" + props.getProperty("admin-address");
         try {
+            TopicUtil.createTopic(adminHttp, topic, "BaseConsumer");
+            TopicUtil.createTopicChannel(adminHttp, topic, "BaseConsumer");
+
             producer = new ProducerImplV2(config);
             producer.start();
             exec = keepMessagePublish(producer, topic,10);
@@ -173,22 +181,116 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
             consumer.start();
             logger.info("Wait for 20s for consumer to start...");
             Thread.sleep(20000L);
-            float lastLoadFactor = 0f, loadFactor;
+            float loadFactor;
             for(int i = 0; i < 10; i++) {
                 Thread.sleep(5000);
                 loadFactor = ((ConsumerImplV2)consumer).getLoadFactor();
                 logger.info("loadFactor {}", loadFactor);
-                Assert.assertTrue(loadFactor >= lastLoadFactor);
-                lastLoadFactor = loadFactor;
             }
         }finally {
-            exec.shutdown();
+            exec.shutdownNow();
             Thread.sleep(10000L);
             producer.close();
-            logger.info("Wait for 10sec to clean mq channel.");
-            Thread.sleep(10000L);
             consumer.close();
+            TopicUtil.deleteTopic(adminHttp, topic);
             logger.info("[testLoadFactor] ends.");
+        }
+    }
+
+    @Test
+    public void testCloseConsumerWhileConsumption() throws Exception {
+        logger.info("[testCloseConsumerWhileConsumption] starts.");
+        final String topic = "testClsConsumeWhileConsume_" + System.currentTimeMillis();
+        int expectRdy = 10;
+        logger.info("ExpectedRdy: {}", expectRdy);
+        final NSQConfig config = new NSQConfig("BaseConsumer");
+        config.setLookupAddresses(props.getProperty("lookup-addresses"));
+        config.setRdy(expectRdy);
+        ScheduledExecutorService exec = null;
+        Producer producer = null;
+        Consumer consumer = null;
+        String adminHttp = "http://" + props.getProperty("admin-address");
+        try {
+            TopicUtil.createTopic(adminHttp, topic, "BaseConsumer");
+            TopicUtil.createTopicChannel(adminHttp, topic, "BaseConsumer");
+
+            producer = new ProducerImplV2(config);
+            producer.start();
+            exec = keepMessagePublish(producer, topic,10);
+            MessageHandler handler = new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException e) {
+                        logger.error("Interrupted while sleep");
+                    }
+                }
+            };
+
+            consumer = new ConsumerImplV2(config, handler);
+            consumer.subscribe(topic);
+            consumer.start();
+            logger.info("Wait for 60s for consumer to start...");
+            Thread.sleep(60000L);
+        }finally {
+            exec.shutdownNow();
+            Thread.sleep(1000L);
+            producer.close();
+            consumer.close();
+            TopicUtil.deleteTopic(adminHttp, topic);
+            logger.info("[testCloseConsumerWhileConsumption] ends.");
+        }
+    }
+
+
+    /**
+     * Consume with high rdy and exceptions always, rdy should down to 1, then ??
+     */
+    @Test
+    public void testHowBadCanItBe() throws Exception {
+        logger.info("[testHowBadCanItBe] starts.");
+        final String topic = "testHowBadCanItBe_" + System.currentTimeMillis();
+        int expectRdy = 100;
+        logger.info("ExpectedRdy: {}", expectRdy);
+        final NSQConfig config = new NSQConfig("BaseConsumer");
+        config.setLookupAddresses(props.getProperty("lookup-addresses"));
+        config.setRdy(expectRdy);
+        ScheduledExecutorService exec = null;
+        Producer producer = null;
+        Consumer consumer = null;
+        String adminHttp = "http://" + props.getProperty("admin-address");
+        try {
+            TopicUtil.createTopic(adminHttp, topic, "default");
+            TopicUtil.createTopicChannel(adminHttp, topic, "default");
+
+            producer = new ProducerImplV2(config);
+            producer.start();
+            exec = keepMessagePublish(producer, topic,10);
+            MessageHandler handler = new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    try {
+                        Thread.sleep(100);
+                        throw new RuntimeException("exp on purpose");
+                    } catch (InterruptedException e) {
+                        logger.error("Interrupted while sleep");
+                    }
+                }
+            };
+
+            consumer = new ConsumerImplV2(config, handler);
+            consumer.subscribe(topic);
+            consumer.start();
+            logger.info("Wait for 60s for consumer to start...");
+            Thread.sleep(30000L);
+        }finally {
+            exec.shutdownNow();
+            Thread.sleep(1000L);
+            producer.close();
+            consumer.close();
+            TopicUtil.deleteTopic(adminHttp, topic);
+            logger.info("[testHowBadCanItBe] ends.");
         }
     }
 

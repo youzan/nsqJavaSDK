@@ -28,29 +28,35 @@ public class OrderedMessageFrame extends MessageFrame{
         int messageBodyStart;
         int messageBodySize;
         if(!shouldExt) {
-            messageBodyStart = 8 + 2 + 16;
+            messageBodyStart = 26;//8 + 2 + 16;
         } else {
-            byte[] extBytesLenBytes = new byte[2];
             //read ext content & length here
             //version
             System.arraycopy(bytes, 26, extVerBytes, 0, 1);
-            //ext content length
-            System.arraycopy(bytes, 27, extBytesLenBytes, 0, 2);
-            int extBytesLen = ByteBuffer.wrap(extBytesLenBytes).getShort();
-            //allocate
-            extBytes = new byte[extBytesLen];
-            System.arraycopy(bytes, 29, extBytes, 0, extBytesLen);
-
-            messageBodyStart = 8 + 2 + 16 + 1 + 2 + extBytesLen;
+            int extVer = (int)extVerBytes[0];
+            switch (extVer) {
+                case 0:
+                    messageBodyStart = 27;//8+2+16+1
+                    break;
+                default:
+                    byte[] extBytesLenBytes = new byte[2];
+                    //ext content length
+                    System.arraycopy(bytes, 27, extBytesLenBytes, 0, 2);
+                    int extBytesLen = ByteBuffer.wrap(extBytesLenBytes).getShort();
+                    //allocate
+                    extBytes = new byte[extBytesLen];
+                    System.arraycopy(bytes, 29, extBytes, 0, extBytesLen);
+                    messageBodyStart = 29 + extBytesLen;//8 + 2 + 16 + 1 + 2 + extBytesLen;
+            }
         }
 
         System.arraycopy(bytes, messageBodyStart, diskQueueOffset, 0, 8);
-        messageBodyStart += 8;
-        System.arraycopy(bytes, messageBodyStart, diskQueueDataSize, 0, 4);
-        messageBodyStart += 4;
-        messageBodySize = bytes.length - (messageBodyStart);
+        System.arraycopy(bytes, messageBodyStart + 8, diskQueueDataSize, 0, 4);
+
+        messageBodySize = bytes.length - (messageBodyStart + 8 + 4);
         messageBody = new byte[messageBodySize];
-        System.arraycopy(bytes, messageBodyStart, messageBody, 0, messageBodySize);
+
+        System.arraycopy(bytes, messageBodyStart + 8 + 4, messageBody, 0, messageBodySize);
     }
 
     @Override

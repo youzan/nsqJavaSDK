@@ -1,5 +1,6 @@
 package com.youzan.nsq.client.network.netty;
 
+import com.youzan.nsq.client.Producer;
 import com.youzan.nsq.client.core.Client;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.network.frame.MessageFrame;
@@ -37,7 +38,9 @@ class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
      */
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-        super.exceptionCaught(ctx, cause);
+        //stop propagation
+        logger.warn("Uncaught exception in connection pipeline", cause);
+        //add cause into error frame
         destroy(ctx);
         ctx.close();
     }
@@ -109,6 +112,11 @@ class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
         }
         final NSQConnection conn = ctx.channel().attr(NSQConnection.STATE).get();
         final Client worker = ctx.channel().attr(Client.STATE).get();
+        //do not close connection if client is producer, as it will be closed AFTER error frame returned
+        if (worker instanceof Producer) {
+            logger.info("Closing worker as producer.");
+            return;
+        }
         if (worker != null && conn != null) {
             worker.close(conn);
         } else {

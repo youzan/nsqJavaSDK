@@ -1,6 +1,8 @@
 package com.youzan.nsq.client;
 
 import com.youzan.nsq.client.core.Client;
+import com.youzan.nsq.client.core.ConnectionManager;
+import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.entity.Topic;
@@ -35,9 +37,13 @@ public interface Consumer extends Client, Closeable {
     @Override
     void start() throws NSQException;
 
-    void finish(NSQMessage message) throws NSQException;
+    void finish(final NSQMessage message) throws NSQException;
+
+    void touch(final NSQMessage message) throws NSQException;
 
     void setAutoFinish(boolean autoFinish);
+
+    void setMessageHandler(final MessageHandler handler);
 
     /**
      * Perform the action quietly. No exceptions.
@@ -78,4 +84,6 @@ public interface Consumer extends Client, Closeable {
      * @return {@link NSQConfig} config
      */
     NSQConfig getConfig();
+
+    ConnectionManager getConnectionManager();
 }

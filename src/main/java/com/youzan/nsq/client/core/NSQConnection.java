@@ -12,7 +12,6 @@ import io.netty.channel.ChannelFuture;
 import io.netty.util.AttributeKey;
 
 import java.io.Closeable;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
 
 /**
@@ -32,8 +31,6 @@ public interface NSQConnection extends Closeable {
     NSQConfig getConfig();
 
     boolean isConnected();
-
-    void invalidate();
 
     int getId();
 
@@ -71,7 +68,7 @@ public interface NSQConnection extends Closeable {
     boolean checkOrder(long internalID, long diskQueueOffset, final NSQMessage msg);
 
     /**
-     * Synchronize the protocol packet
+     * Synchronize the protocol packet, command need response from nsqd like Identity, Sub, CLS
      *
      * @param command a {@link NSQCommand}
      * @return a {@link NSQFrame}  after send a request
@@ -91,6 +88,24 @@ public interface NSQConnection extends Closeable {
      */
     boolean isExtend();
 
+    /**
+     * {@link Boolean#TRUE} when {@link com.youzan.nsq.client.core.command.Identify} is issued via current connection, else {@link Boolean#FALSE}
+     * @return whether identity sent
+     */
+    boolean isIdentitySent();
+
+    /**
+     * indicate is sub command sent via current connection, for connection to publish, it is always {@link Boolean#FALSE}
+     * @return true if any sub commend sent
+     */
+    boolean isSubSent();
+
+    /**
+     * set isSubSent to {@link Boolean#TRUE}, after subscribe is sent.
+     * @return
+     */
+    boolean subSent();
+
     Topic getTopic();
 
     /**
@@ -99,15 +114,19 @@ public interface NSQConnection extends Closeable {
     @Override
     void close();
 
+    void disconnect(final ConnectionManager conMgr);
+
     void onRdy(int rdy, IRdyCallback callback);
     void onResume(IRdyCallback callback);
     void onBackoff(IRdyCallback callback);
     boolean isBackoff();
+    void onClose();
     int hashCode();
-    void setMessageReceived(long timeStamp);
-    long lastMessageReceived();
+
+    void setMessageTouched(long timeStamp);
+    long lastMessageTouched();
     void setMessageConsumptionFailed(long timeStamp);
     long lastMessageConsumptionFailed();
-    int declineExpectedRdy();
-    int increaseExpectedRdy();
+    boolean declineExpectedRdy();
+    boolean increaseExpectedRdy();
 }

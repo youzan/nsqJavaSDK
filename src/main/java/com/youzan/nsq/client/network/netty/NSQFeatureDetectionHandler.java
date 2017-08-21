@@ -10,7 +10,6 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.handler.codec.compression.SnappyFrameDecoder;
-import io.netty.handler.codec.compression.SnappyFrameEncoder;
 import io.netty.handler.codec.compression.ZlibCodecFactory;
 import io.netty.handler.codec.compression.ZlibWrapper;
 import io.netty.handler.ssl.SslHandler;
@@ -27,6 +26,7 @@ public class NSQFeatureDetectionHandler extends SimpleChannelInboundHandler<NSQF
     private boolean compression;
     private boolean snappy;
     private boolean deflate;
+    private int deflatLevel = 0;
     private boolean finished;
 
     @Override
@@ -64,20 +64,20 @@ public class NSQFeatureDetectionHandler extends SimpleChannelInboundHandler<NSQF
                 sslHandler.setSingleDecode(true);
                 pipeline.addBefore("LengthFieldBasedFrameDecoder", "SSLHandler", sslHandler);
                 if (snappy) {
-                    pipeline.addBefore("NSQEncoder", "SnappyEncoder", new SnappyFrameEncoder());
+                    pipeline.addBefore("NSQEncoder", "SnappyEncoder", new SnappyEncoder());
                 }
                 if (deflate) {
                     pipeline.addBefore("NSQEncoder", "DeflateEncoder",
-                            ZlibCodecFactory.newZlibEncoder(ZlibWrapper.NONE, config.getDeflateLevel()));
+                            ZlibCodecFactory.newZlibEncoder(ZlibWrapper.NONE, deflatLevel));
                 }
             }
             if (!ssl && snappy) {
-                pipeline.addBefore("NSQEncoder", "SnappyEncoder", new SnappyFrameEncoder());
+                pipeline.addBefore("NSQEncoder", "SnappyEncoder", new SnappyEncoder());
                 reinstallDefaultDecoder = installSnappyDecoder(pipeline);
             }
             if (!ssl && deflate) {
                 pipeline.addBefore("NSQEncoder", "DeflateEncoder",
-                        ZlibCodecFactory.newZlibEncoder(ZlibWrapper.NONE, config.getDeflateLevel()));
+                        ZlibCodecFactory.newZlibEncoder(ZlibWrapper.NONE, deflatLevel));
                 reinstallDefaultDecoder = installDeflateDecoder(pipeline);
             }
             if (response.getMessage().contains("version") && finished) {
@@ -125,6 +125,8 @@ public class NSQFeatureDetectionHandler extends SimpleChannelInboundHandler<NSQF
         if (message.contains("\"deflate\":true")) {
             deflate = true;
             compression = true;
+            deflatLevel = Integer.valueOf(message.split("\"deflate_level\":",2)[1].split(",", 2)[0]);
+            logger.info("deflate level: {}", deflatLevel);
         }
         if (!ssl && !compression) {
             finished = true;
