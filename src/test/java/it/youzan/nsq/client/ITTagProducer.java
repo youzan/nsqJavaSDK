@@ -22,6 +22,7 @@ import java.util.Properties;
 /**
  * Created by lin on 17/6/12.
  */
+@Test(groups = {"ITTagProducer"}, priority = 3)
 public class ITTagProducer {
     private static final Logger logger = LoggerFactory.getLogger(ITTagProducer.class);
 
@@ -49,7 +50,6 @@ public class ITTagProducer {
         producer.start();
     }
 
-    @Test
     public void publishWTagAndNot() throws Exception {
         TopicUtil.emptyQueue("http://" + props.getProperty("admin-address"), "testExt2Par2Rep", "BaseConsumer");
         Topic topic = new Topic("testExt2Par2Rep");
@@ -61,7 +61,6 @@ public class ITTagProducer {
         }
     }
 
-    @Test
     public void publishWTag() throws Exception {
         TopicUtil.emptyQueue("http://" + props.getProperty("admin-address"), "testExt2Par2Rep", "BaseConsumer");
         Topic topic = new Topic("testExt2Par2Rep");
@@ -80,7 +79,6 @@ public class ITTagProducer {
         }
     }
 
-    @Test
     public void publishWTagMix() throws Exception {
         TopicUtil.emptyQueue("http://" + props.getProperty("admin-address"), "testExt2Par2Rep", "BaseConsumer");
         Topic topic = new Topic("testExt2Par2Rep");
@@ -97,7 +95,6 @@ public class ITTagProducer {
         }
     }
 
-    @Test
     public void publishWTagMixWHeader() throws Exception {
         TopicUtil.emptyQueue("http://" + props.getProperty("admin-address"), "testExt2Par2Rep", "BaseConsumer");
         Topic topic = new Topic("testExt2Par2Rep");

@@ -23,6 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Created by lin on 17/6/12.
  */
+@Test(groups = {"ITTagConsumer"}, dependsOnGroups = {"ITTagProducer"}, priority = 5)
 public class ITTagConsumer {
     private static final Logger logger = LoggerFactory.getLogger(ITTagConsumer.class);
     private Properties props = new Properties();
@@ -35,7 +36,6 @@ public class ITTagConsumer {
         }
     }
 
-    @Test
     public void testConsumeOneTagOneNormal() throws Exception {
         String topic = "testExt2Par2Rep";
         try {
@@ -81,7 +81,6 @@ public class ITTagConsumer {
         }
     }
 
-    @Test
     public void test() throws Exception {
         String topic = "testExt2Par2Rep";
         try {
@@ -131,7 +130,6 @@ public class ITTagConsumer {
         }
     }
 
-    @Test
     public void testConsumeTagMix() throws Exception {
         String topic = "testExt2Par2Rep";
         try {
@@ -166,7 +164,6 @@ public class ITTagConsumer {
         }
     }
 
-    @Test
     public void testConsumeTagMixWHeader() throws Exception {
         String topic = "testExt2Par2Rep";
         try {

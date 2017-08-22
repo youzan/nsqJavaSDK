@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Created by lin on 16/8/19.
  */
-@Test(groups = {"ITConsumerWPartition-Base"}/*, dependsOnGroups = {"ITProducerWPartition-Base"},*/, priority = 5)
+@Test(groups = {"ITConsumerWPartition-Base"}, dependsOnGroups = {"ITProducerWPartition-Base"}, priority = 5)
 public class ITConsumerWPartition extends AbstractITConsumer{
 
     private static final Logger logger = LoggerFactory.getLogger(ITConsumerWPartition.class);
