@@ -75,7 +75,7 @@ public class ITTagConsumer {
             Assert.assertEquals(receivedTag1.get(), 20);
 
             consumer.close();
-            consumer.close();
+            consumerTag.close();
         }finally {
             TopicUtil.emptyQueue("http://" + props.getProperty("admin-address"), topic, "BaseConsumer");
         }

@@ -614,14 +614,14 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             logger.error("Client business has one error. Original message: {}. Exception:", message.getReadableContent(), e);
         }
         if (!ok && retry) {
-            logger.warn("Client has told SDK to do again. {}", message);
+            logger.info("Client has told SDK to do again. {}", message);
             try {
                 handler.process(message);
                 ok = true;
             } catch (Exception e) {
                 ok = false;
                 retry = false;
-                logger.error("Client business has required SDK to do again, but still has one error. Original message: {}. Exception:", message.getReadableContent(), e);
+                logger.error("Client business retry fail. Original message: {}. Exception:", message.getReadableContent(), e);
             }
         }
         long end = System.currentTimeMillis() - start;

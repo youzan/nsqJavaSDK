@@ -39,8 +39,8 @@ public class TopicUtil {
         List<String> topicsNeedDel = new ArrayList<>();
         if(topics.isArray()) {
             for(JsonNode topicNode : topics) {
-                if(topicNode.asText().startsWith(topicPattern)) {
-                    String topic = topicNode.asText();
+                if(topicNode.get("topic_name").asText().startsWith(topicPattern)) {
+                    String topic = topicNode.get("topic_name").asText();
                     topicsNeedDel.add(topic);
                 }
             }
@@ -154,7 +154,7 @@ public class TopicUtil {
         IOUtil.postToUrl(upgradeUrl, null);
     }
 
-//    @Test
+    @Test
     /**
      * remove @Test comment and run as test cases to remove topics in qa
      * @throws IOException
@@ -168,12 +168,12 @@ public class TopicUtil {
             props.load(is);
         }
         String adminHttp = "http://" + props.getProperty("admin-address");
-        String topicPattern = "topic_";
+        String topicPattern = "topic";
         TopicUtil.deleteTopics(adminHttp, topicPattern);
         logger.info("[testTopicUtil] ends.");
     }
 
-    @Test
+//    @Test
     public void testTopicUtil() throws Exception {
         Calendar cal = Calendar.getInstance();
         cal.set(2017, 7, 9, 17, 20, 0);
