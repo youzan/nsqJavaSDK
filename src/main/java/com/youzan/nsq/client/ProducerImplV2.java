@@ -114,9 +114,6 @@ public class ProducerImplV2 implements Producer {
 
         @Override
         public void run() {
-            // We make a decision that the resources life time should be less than 2 hours
-            // Normal max lifetime is 1 hour
-            // Extreme max lifetime is 1.5 hours
             final long allow = System.currentTimeMillis() - this.expiration;
             final Map<String, Long> expiredTopicsMap = new HashMap<>();
             for (Map.Entry<String, Long> pair : topic_2_lastActiveTime.entrySet()) {
@@ -222,8 +219,8 @@ public class ProducerImplV2 implements Producer {
     }
 
     /**
-     * Get a connection foreach every broker in one loop till get one available because I don't believe
-     * that every broker is down or every pool is busy.
+     * Get a nsqd connection for passin topic. This function first queries simple client with passin topic for partition
+     * info or nsqd producer info, then borrows nsqd connection from connection pool.
      *
      * @param topic a topic name
      * @param topicShardingID topic sharding ID
@@ -232,7 +229,6 @@ public class ProducerImplV2 implements Producer {
      * @throws NSQException that is having done a negotiation
      */
     protected NSQConnection getNSQConnection(Topic topic, Object topicShardingID, final Context cxt) throws NSQException {
-        //data nodes matches topic sharding returns
         Address[] partitonAddrs;
         try {
             partitonAddrs = simpleClient.getPartitionNodes(topic, new Object[]{topicShardingID}, true);
@@ -271,7 +267,6 @@ public class ProducerImplV2 implements Producer {
             }
             c++;
         }
-        // no available {@link NSQConnection}
         return null;
     }
 
@@ -433,7 +428,6 @@ public class ProducerImplV2 implements Producer {
             }
             catch (Exception e) {
                 returnCon = false;
-                IOUtil.closeQuietly(conn);
                 try {
                     bigPool.invalidateObject(conn.getAddress(), conn);
                     logger.info("Connection to {} invalidated.", conn.getAddress());
@@ -483,7 +477,7 @@ public class ProducerImplV2 implements Producer {
 
     private void handleResponse(final Topic topic, NSQFrame frame, NSQConnection conn) throws NSQException {
         if (frame == null) {
-            logger.warn("SDK bug: the frame is null.");
+            logger.warn("the nsq frame is null.");
             return;
         }
         switch (frame.getType()) {

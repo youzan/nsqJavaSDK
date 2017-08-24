@@ -12,6 +12,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.InputStream;
+import java.util.Calendar;
 import java.util.Properties;
 import java.util.Random;
 
@@ -27,6 +28,9 @@ public class ITProducer {
 
     @BeforeClass
     public void init() throws Exception {
+        Calendar cal = Calendar.getInstance();
+        cal.set(2017, 7, 17, 7, 17, 0);
+        long ts = cal.getTimeInMillis();
         logger.info("At {} , initialize: {}", System.currentTimeMillis(), this.getClass().getName());
         final Properties props = new Properties();
         try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {

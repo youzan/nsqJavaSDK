@@ -189,9 +189,9 @@ public class ConnectionManager {
             assert newTotalrdy >= 0;
             int oldRdy = this.totalRdy.get();
             this.setLastProofread(System.currentTimeMillis());
+            //restore factor to defaut, anyway
+            this.proofreadFactor = PROOFREAD_FACTOR_DEFAULT;
             if(oldRdy != newTotalrdy && this.totalRdy.compareAndSet(oldRdy, newTotalrdy)) {
-                //restore factor to defaut
-                this.proofreadFactor = PROOFREAD_FACTOR_DEFAULT;
                 return oldRdy;
             }
             return -1;

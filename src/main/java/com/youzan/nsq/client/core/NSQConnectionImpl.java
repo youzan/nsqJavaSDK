@@ -5,6 +5,7 @@ import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.entity.Topic;
+import com.youzan.nsq.client.exception.NSQNoConnectionException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
@@ -22,6 +23,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
@@ -34,7 +36,6 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     private static final long serialVersionUID = 7139923487863469738L;
 
     private final ReentrantReadWriteLock conLock = new ReentrantReadWriteLock();
-    private final ReentrantReadWriteLock conClsLock = new ReentrantReadWriteLock();
     private final int id; // primary key
     private final long queryTimeoutInMillisecond;
 
@@ -144,7 +145,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         }
         assert channel.isActive();
         if(logger.isDebugEnabled())
-            logger.debug("Having initiated {}", this);
+            logger.debug("Having initialized {}", this);
     }
 
     @Override
@@ -198,19 +199,14 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     }
 
     @Override
-    public NSQFrame commandAndGetResponse(final NSQCommand command) throws TimeoutException {
-        if (!channel.isActive()) {
-            if (!closing.get()) {
-                throw new TimeoutException("The channel " + channel + " is closed. This is not closing.");
-            } else {
-                throw new TimeoutException("The channel " + channel + " is closed. This is closing.");
-            }
-        } else if(closing.get()) {
-            logger.info("NSQConnection is closing... command quite");
-        }
+    public NSQFrame commandAndGetResponse(final NSQCommand command) throws TimeoutException, NSQNoConnectionException {
         conLock.readLock().lock();
-        try {
-           return _commandAndGetResposne(command);
+        try{
+            if (!this._isConnected()) {
+                throw new NSQNoConnectionException(String.format("{} is not connected， command {} quit.", this, command));
+            }
+
+            return _commandAndGetResposne(command);
         } catch (InterruptedException e) {
             _close();
             Thread.currentThread().interrupt();
@@ -227,7 +223,6 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
             try {
                 responses.offer(frame, queryTimeoutInMillisecond * 2, TimeUnit.MILLISECONDS);
             } catch (InterruptedException e) {
-                close();
                 Thread.currentThread().interrupt();
                 logger.error("Thread was interrupted, probably shutting down!", e);
             }
@@ -259,10 +254,14 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     public boolean isConnected() {
         conLock.readLock().lock();
         try {
-            return channel.isActive() && !closing.get();
+            return this._isConnected();
         }finally {
             conLock.readLock().unlock();
         }
+    }
+
+    private boolean _isConnected() {
+        return !closing.get() && channel.isActive();
     }
 
     @Override
@@ -287,13 +286,12 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     public void close() {
         logger.info("Begin to clear {}", this);
         //extra lock to proof from more than one thread waiting for close
-        if (conClsLock.writeLock().tryLock()) {
+        if(this.closing.compareAndSet(false, true)) {
             conLock.writeLock().lock();
             try {
                 _close();
             } finally {
                 conLock.writeLock().unlock();
-                conClsLock.writeLock().unlock();
             }
         }
         logger.info("End clear {}", this);
@@ -376,12 +374,8 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     @Override
     public void onClose() {
-        conLock.writeLock().lock();
-        try {
-           _onClose();
-        }finally {
-            conLock.writeLock().unlock();
-        }
+        logger.info("[{}] onClose", this);
+        this.close();
     }
 
     private void _onClose() {

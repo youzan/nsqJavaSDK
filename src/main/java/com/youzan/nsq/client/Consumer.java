@@ -43,6 +43,12 @@ public interface Consumer extends Client, Closeable {
 
     void setAutoFinish(boolean autoFinish);
 
+    /**
+     * set message handler for current consumer, use this function to set up message handler BEFORE consumer starts.
+     * Invoking of current throws exception after consumer starts.
+     * @param handler
+     *              message handler to set up.
+     */
     void setMessageHandler(final MessageHandler handler);
 
     /**

@@ -25,6 +25,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * The intersection between {@link  com.youzan.nsq.client.Producer} and {@link com.youzan.nsq.client.Consumer}.
+ * Mainly works on maintaining topic to partition selectors.
  *
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
@@ -35,21 +36,33 @@ public class NSQSimpleClient implements Client, Closeable {
 
     private final static AtomicInteger CLIENT_ID = new AtomicInteger(0);
     private int lookupLocalID = -1;
-    //maintain a mapping from topic to producer broadcast addresses
-    private final ReentrantReadWriteLock topicSyncLock = new ReentrantReadWriteLock();
-
-    private final ReentrantLock lock = new ReentrantLock();
-
-    private final ConcurrentMap<String, TopicSync> topicSynMap = new ConcurrentHashMap<>();
+    //topic to partition selectors
     private final ConcurrentMap<String, IPartitionsSelector> topic_2_partitionsSelector = new ConcurrentHashMap<>();
     private final long TOPIC_PARTITION_TIMEOUT = 90L;
 
     private final Map<String, Long> ps_lastInvalidated = new ConcurrentHashMap<>();
+    /*
+     *topic synchronization lock for topicSyncMap updating, readLock applied upon the usage of topicSync for specified topic
+     *writeLock applied upon the update of topicSyncMap
+     */
+    private final ReentrantReadWriteLock topicSyncLock = new ReentrantReadWriteLock();
+    private final ConcurrentMap<String, TopicSync> topicSynMap = new ConcurrentHashMap<>();
 
+    /*
+     *lock for synchronization during start & close of simple client
+     */
+    private final ReentrantLock lock = new ReentrantLock();
     private volatile boolean started;
+
+    /*
+     *single schedule executor for maintaining topic to partition map
+     */
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.MAX_PRIORITY));
 
+    /*
+     * role of client current simple client nested
+     */
     private final Role role;
     private final LookupService lookup;
     private final boolean useLocalLookupd;
@@ -69,6 +82,9 @@ public class NSQSimpleClient implements Client, Closeable {
         logger.info("Global lookup local ID set back to 0.");
     }
 
+    /*
+     * simple client meta info string
+     */
     private static final String SIMPLECLIENT_META_FORMAT = "%s: [" +
             "started: %b," +
             "\t" + "role: %s," +
@@ -85,7 +101,7 @@ public class NSQSimpleClient implements Client, Closeable {
     }
 
     @Override
-    public synchronized void start() {
+    public void start() {
         if(!started && lock.tryLock()) {
             try {
                 if (!started) {
@@ -108,6 +124,9 @@ public class NSQSimpleClient implements Client, Closeable {
         return this.lookupLocalID;
     }
 
+    /**
+     * schedule job to keep maintaining {@link this#topic_2_partitionsSelector}
+     */
     private void keepDataNodes() {
         scheduler.scheduleWithFixedDelay(new Runnable() {
             @Override
@@ -121,6 +140,10 @@ public class NSQSimpleClient implements Client, Closeable {
         }, 0, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
     }
 
+    /**
+     * logic for maintain topic to {@link IPartitionsSelector}
+     * @throws NSQException
+     */
     private void newDataNodes() throws NSQException {
         //gather topics from topic_2_partitions
         final Set<String> topics = new HashSet<>();
@@ -246,11 +269,11 @@ public class NSQSimpleClient implements Client, Closeable {
     }
 
     /**
-     * function try fetch nsqd tcp addresses for pass in topic, sharding ID, and access(r/w)
+     * function try fetching nsqd tcp addresses for pass in topic, sharding ID, and if it is writing
      * @param topic             topic
      * @param topicShardingIDs  shartdingID, default value is {@link Message#NO_SHARDING}
-     * @param write             access control(r/w)
-     * @return array of nsqd
+     * @param write             write access control, {@link Boolean#TRUE} for write and otherwise read.
+     * @return array of nsqd nodes associated with passin topic
      * @throws NSQException exception raised in get nsqd node from lookup or nsqd partition node not found
      */
     public Address[] getPartitionNodes(Topic topic, Object[] topicShardingIDs, boolean write) throws NSQException, InterruptedException {
@@ -299,13 +322,13 @@ public class NSQSimpleClient implements Client, Closeable {
                 }
                 return nodes.toArray(new Address[0]);
             } else {
-                long start = 0l;
+                long start = 0L;
                 if (PERF_LOG.isDebugEnabled())
                     start = System.currentTimeMillis();
                 this.topicSyncLock.readLock().lock();
                 try {
                     TopicSync ts = this.topicSynMap.get(topic.getTopicText());
-
+                    //topic sync is removed by topic cleaner
                     if (null == ts) {
                         logger.warn("topic sync for {} does not exist. Try getting partition info in another round.", topic);
                         return null;
@@ -313,8 +336,8 @@ public class NSQSimpleClient implements Client, Closeable {
 
                     if (!ts.tryLock()) {
                         Thread.sleep(TOPIC_PARTITION_TIMEOUT);
-                        //access to topic 2 partition map
                         logger.info("Try again for partition selector for topic {}", topic.getTopicText());
+                        //partition selector is being updating, try again from top
                         continue;
                     }
 

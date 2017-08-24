@@ -128,7 +128,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
             Thread.sleep(timeout * 1000);
             logger.info("Wake up.");
 
-            ConnectionManager conMgr = ((ConsumerImplV2) consumer).getConnectionManager();
+            ConnectionManager conMgr = consumer.getConnectionManager();
             Set<ConnectionManager.NSQConnectionWrapper> connSet = conMgr.getSubscribeConnections(topicName);
             for (ConnectionManager.NSQConnectionWrapper wrapper : connSet) {
                 int actualRdy = wrapper.getConn().getCurrentRdyCount();
