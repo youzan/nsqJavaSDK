@@ -20,6 +20,7 @@ public abstract class AbstractITConsumer {
     protected final int rdy = 2;
     protected final NSQConfig config = new NSQConfig();
     protected Consumer consumer;
+    protected String adminHttp;
 
     @BeforeClass
     public void init() throws Exception {
@@ -33,7 +34,7 @@ public abstract class AbstractITConsumer {
         final String connTimeout = props.getProperty("connectTimeoutInMillisecond");
         final String msgTimeoutInMillisecond = props.getProperty("msgTimeoutInMillisecond");
         final String threadPoolSize4IO = props.getProperty("threadPoolSize4IO");
-
+        adminHttp = props.getProperty("admin-address");
         config.setUserSpecifiedLookupAddress(true);
         config.setLookupAddresses(lookups);
         config.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
