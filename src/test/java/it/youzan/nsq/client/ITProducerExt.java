@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Created by lin on 17/7/29.
  */
-public class ITProducerExt extends ITProducer {
+public class ITProducerExt {
     private static final Logger logger = LoggerFactory.getLogger(ITProducerExt.class);
 
     protected final NSQConfig config = new NSQConfig();

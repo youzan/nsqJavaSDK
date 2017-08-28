@@ -43,10 +43,4 @@ public abstract class AbstractITConsumer {
         config.setRdy(rdy);
         config.setConsumerName("BaseConsumer");
     }
-
-    @AfterClass
-    public void close() {
-        logger.info("Consumer closed.");
-        IOUtil.closeQuietly(consumer);
-    }
 }

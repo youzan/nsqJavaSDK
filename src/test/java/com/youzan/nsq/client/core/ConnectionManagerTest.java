@@ -157,7 +157,7 @@ public class ConnectionManagerTest {
     public void testRdyDecline() throws Exception {
         logger.info("[testRdyDecline] starts.");
         ConnectionManager conMgr = null;
-        String topic = "testRdyDec_" + System.currentTimeMillis();
+        String topic = "testRdyDec";
         String channel = "BaseConsumer";
         String adminHttp = "http://" + props.getProperty("admin-address");
         try {
@@ -233,7 +233,7 @@ public class ConnectionManagerTest {
             });
 
             int partitionNum = 5;
-            String topic = "testRdyInc_" + System.currentTimeMillis();
+            String topic = "testRdyInc";
             String channel = "BaseConsumer";
             String adminHttp = "http://" + props.getProperty("admin-address");
         try{
@@ -267,7 +267,7 @@ public class ConnectionManagerTest {
     public void testExpectedRdy() throws Exception {
         logger.info("[testExpectedRdy] starts.");
         ConnectionManager conMgr = null;
-        String topic = "test5Par1Rep_" + System.currentTimeMillis();
+        String topic = "test5Par1Rep";
         String adminHttp = "http://" + props.getProperty("admin-address");
         try {
             TopicUtil.createTopic(adminHttp, topic, 5, 1, "default");
@@ -326,10 +326,10 @@ public class ConnectionManagerTest {
     @Test
     public void testRemoveConnectionWrapper() throws Exception {
         logger.info("[testRemoveConnectionWrapper] starts.");
-        String topic = "testRemoveConWrapper_" + System.currentTimeMillis();
+        String topic = "testRemoveConWrapper";
         int par1 = 5;
 
-        String topicJ = "testRemoveConWrapper_j_" + System.currentTimeMillis();
+        String topicJ = "testRemoveConWrapper_j";
         int par2 = 1;
 
         String adminHttp = "http://" + props.getProperty("admin-address");
@@ -525,7 +525,7 @@ public class ConnectionManagerTest {
             }
         });
 
-        final String topic = "testInvalidateConnection_" + System.currentTimeMillis();
+        final String topic = "testInvalidateConnection";
         int par = 5;
         String adminHttp = "http://" + props.getProperty("admin-address");
         try{
@@ -560,7 +560,7 @@ public class ConnectionManagerTest {
     @Test(invocationCount = 3)
     public void testConcurrentBackoffAndResume() throws Exception {
         logger.info("[testConcurrentBackoffAncResume] starts");
-        final String topicName = "testConBackoffResume_" + System.currentTimeMillis();
+        final String topicName = "testConBackoffResume";
         String channel = "default";
         int parNum = 5;
         String adminUrl = "http://" + props.getProperty("admin-address");
@@ -723,7 +723,7 @@ public class ConnectionManagerTest {
         });
 
         MockedConsumer consumer = null;
-        final String topic = "testProofreadTotalRdy_" + System.currentTimeMillis();
+        final String topic = "testProofreadTotalRdy";
         int par = 5;
         String adminHttp = "http://" + props.getProperty("admin-address");
         try{
@@ -783,7 +783,7 @@ public class ConnectionManagerTest {
     @Test
     public void testMakebadOfRdyRedistribute() throws Exception {
         logger.info("[testMakebadOfRdyRedistribute] starts.");
-        String topicName = "testMakebadOfRdyDist_" + System.currentTimeMillis();
+        String topicName = "testMakebadOfRdyDist";
         String channel = "default";
         String admin = "http://" + props.getProperty("admin-address");
 
@@ -849,7 +849,7 @@ public class ConnectionManagerTest {
         int parNum = 4;
         int repNum = 1;
         for(int i = 0; i < topicsNum; i++) {
-            list.add("testConsume_" + i + "_" + System.currentTimeMillis());
+            list.add("testConsume_" + i);
         }
         MockedConsumer consumer = null;
         try {

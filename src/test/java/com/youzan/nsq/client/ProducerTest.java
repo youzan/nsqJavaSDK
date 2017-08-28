@@ -54,7 +54,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     @Test(expectedExceptions = {NSQTopicNotFoundException.class})
     public void testPubException2InvalidChannel() throws Exception {
         String adminUrlStr = "http://" + props.getProperty("admin-address");
-        String topicName = "topicHasNoChannel_" + System.currentTimeMillis();
+        String topicName = "topicHasNoChannel";
         String channel = "chanDel";
         //create topic
 
@@ -157,7 +157,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     public void testSendConsumeCompressedBytes() throws Exception {
         logger.info("[testSendConsumeCompressedBytes] starts.");
         String adminHttp = "http://" + props.getProperty("admin-address");
-        String topicName = "testSendConsumeCompressedBytes_" + System.currentTimeMillis();
+        String topicName = "testSendConsumeCompressedBytes";
         String channel = "default";
         try {
             TopicUtil.createTopic(adminHttp, topicName, channel);
@@ -216,7 +216,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     public void testCompressContent() throws Exception {
         logger.info("[testCompressContent] starts.");
         String adminHttp = "http://" + props.getProperty("admin-address");
-        String topicName = "testSendConsumeContent_" + System.currentTimeMillis();
+        String topicName = "testSendConsumeContent";
         String channel = "default";
         try {
             TopicUtil.createTopic(adminHttp, topicName, channel);
@@ -285,7 +285,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     public void testMessageWCompressedString() throws Exception {
         logger.info("[testMessageWCompressedString] starts.");
         String adminHttp = "http://" + props.getProperty("admin-address");
-        String topicName = "testSendConsumeContent_" + System.currentTimeMillis();
+        String topicName = "testSendConsumeString";
         String channel = "default";
 
         String raw  = "This is raw message for compress";
@@ -337,7 +337,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     public void testProducerConnEvict() throws Exception {
         logger.info("[testProducerConnEvict] starts.");
         String adminHttp = "http://" + props.getProperty("admin-address");
-        String topicName = "topicProducerEvict_" + System.currentTimeMillis();
+        String topicName = "topicProducerEvict";
         String channel = "default";
         String raw  = "This is raw message for compress";
 
@@ -389,7 +389,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
                     @Override
                     public void run() {
                         try {
-                            String topicName = "topic_" + idx + "_" + System.currentTimeMillis();
+                            String topicName = "topic_" + idx;
                             TopicUtil.createTopic(adminHttp, topicName, channel);
                             TopicUtil.createTopicChannel(adminHttp, topicName, channel);
                             topics.add(topicName);
@@ -491,7 +491,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     public void benchmarkPublish(int producerNum, final int messageNum, int msgSize) throws Exception {
         logger.info("[benchmarkPublish] start");
         String adminUrl = "http://" + props.getProperty("admin-address");
-        final String topic = "bench_producer_" + System.currentTimeMillis();
+        final String topic = "bench_producer";
         String channel = "default";
 
         NSQConfig config = new NSQConfig();
@@ -570,7 +570,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     @Test
     public void testPubExtNotChangeMap() throws Exception {
         logger.info("[testPubExtNotChangeMap] starts");
-        String topicName = "testPubNotChangeMap_" + System.currentTimeMillis();
+        String topicName = "testPubNotChangeMap";
         String channel = "default";
         String adminUrl = "http://" + props.getProperty("admin-address");
         Producer producer = null;
@@ -612,7 +612,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     public void testProducerPreallocate() throws Exception {
         logger.info("[testProducerPreallocate] starts");
         int topicNum = 5;
-        String topicName = "testProducerPreallocate_" + System.currentTimeMillis();
+        String topicName = "testProducerPreallocate";
         String channel = "default";
         String adminUrl = "http://" + props.getProperty("admin-address");
         ProducerImplV2 producer = null;

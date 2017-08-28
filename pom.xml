@@ -164,7 +164,6 @@
                         <suiteXmlFile>src/test/resources/testng-base-suite.xml</suiteXmlFile>
                         <suiteXmlFile>src/test/resources/testng-base-tag-suite.xml</suiteXmlFile>
                         <suiteXmlFile>src/test/resources/testng-complex-consumer-suite.xml</suiteXmlFile>
-                        <suiteXmlFile>src/test/resources/testng-finish-suite.xml</suiteXmlFile>
                         <suiteXmlFile>src/test/resources/testng-order-suite.xml</suiteXmlFile>
                         <suiteXmlFile>src/test/resources/testng-order-wdcc-suite.xml</suiteXmlFile>
                         <suiteXmlFile>src/test/resources/testng-partition-suite.xml</suiteXmlFile>

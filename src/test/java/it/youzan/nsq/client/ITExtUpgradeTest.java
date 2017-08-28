@@ -61,7 +61,7 @@ public class ITExtUpgradeTest {
 
     @Test
     public void testPublishAndConsumeWhileUpgrade() throws Exception {
-        final String topicName = "textExtUpgrade_" + System.currentTimeMillis();
+        final String topicName = "testPublishAndConsumeWhileUpgrade";
         ScheduledExecutorService exec = Executors.newSingleThreadScheduledExecutor();
         final Producer producer = new ProducerImplV2(config);
         Consumer consumer = null;
@@ -154,7 +154,7 @@ public class ITExtUpgradeTest {
 
     @Test
     public void testSubWTagToNormalTopic() throws Exception {
-        final String topicName = "textExtUpgrade_" + System.currentTimeMillis();
+        final String topicName = "testSubWTagToNormalTopic";
         final Producer producer = new ProducerImplV2(config);
         Consumer consumer = null;
         try {

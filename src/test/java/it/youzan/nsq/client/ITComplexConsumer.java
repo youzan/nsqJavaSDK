@@ -178,6 +178,7 @@ public class ITComplexConsumer {
 
     @Test
     public void testReQueue() throws Exception {
+        TopicUtil.emptyQueue(admin, "JavaTesting-ReQueue", consumerName);
         for (int i = 0; i < 10; i++) {
             final byte[] message = new byte[32];
             _r.nextBytes(message);
