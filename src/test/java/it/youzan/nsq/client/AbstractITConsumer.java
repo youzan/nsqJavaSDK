@@ -43,4 +43,11 @@ public abstract class AbstractITConsumer {
         config.setRdy(rdy);
         config.setConsumerName("BaseConsumer");
     }
+
+
+    public void close() {
+        if(null != consumer) {
+            consumer.close();
+        }
+    }
 }
