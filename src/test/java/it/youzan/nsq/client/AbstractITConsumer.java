@@ -44,7 +44,7 @@ public abstract class AbstractITConsumer {
         config.setConsumerName("BaseConsumer");
     }
 
-
+    @AfterClass
     public void close() {
         if(null != consumer) {
             consumer.close();

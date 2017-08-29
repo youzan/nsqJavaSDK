@@ -41,7 +41,6 @@ public class ITTagConsumer {
         try {
             final CountDownLatch latch = new CountDownLatch(20);
             final AtomicInteger receivedTag1 = new AtomicInteger(0);
-            final AtomicInteger receivedTag2 = new AtomicInteger(0);
             NSQConfig config = new NSQConfig("BaseConsumer");
             config.setLookupAddresses(props.getProperty("lookup-addresses"));
             config.setConsumerDesiredTag(new DesiredTag("TAG1"));

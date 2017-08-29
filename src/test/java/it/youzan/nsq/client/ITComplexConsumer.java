@@ -232,6 +232,7 @@ public class ITComplexConsumer {
                 public void process(NSQMessage message) {
                     int attempt = message.getReadableAttempts();
                     if (attempt - cnt.get() != 1) {
+                        logger.info("attempt read {}, cnt {}", attempt, cnt.get());
                         latch.countDown();
                     } else {
                         logger.info("msg attempt: {}", cnt.incrementAndGet());
@@ -246,7 +247,7 @@ public class ITComplexConsumer {
             });
             consumer.subscribe(topic);
             consumer.start();
-            Assert.assertFalse(latch.await(1, TimeUnit.MINUTES));
+            Assert.assertFalse(latch.await(100, TimeUnit.MILLISECONDS));
         }finally {
             consumer.close();
             TopicUtil.emptyQueue(admin, topic, "BaseConsumer");
