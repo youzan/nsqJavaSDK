@@ -66,7 +66,7 @@ public class ITConsumer extends AbstractITConsumer{
         consumer.subscribe("JavaTesting-Producer-Base");
         consumer.start();
         try {
-            Assert.assertTrue(latch.await(90, TimeUnit.MINUTES));
+            Assert.assertTrue(latch.await(2, TimeUnit.MINUTES));
             Thread.sleep(100);
         }finally {
             consumer.close();
@@ -96,7 +96,7 @@ public class ITConsumer extends AbstractITConsumer{
         consumer.subscribe("JavaTesting-Producer-Base");
         consumer.start();
         try {
-            Assert.assertTrue(latch.await(1, TimeUnit.MINUTES));
+            Assert.assertTrue(latch.await(2, TimeUnit.MINUTES));
             Thread.sleep(100);
         }finally {
             consumer.close();

@@ -18,9 +18,11 @@ public class NSQDecoder extends MessageToMessageDecoder<ByteBuf> {
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
         final int size = in.readInt();
         final int frameType = in.readInt();
-        Attribute<Boolean> att =  ctx.channel().attr(Client.ORDERED);
-        Boolean isOrdered = null == att.get() ? false : att.get();
-        boolean ext = ctx.channel().attr(NSQConnection.STATE).get().isExtend();
+        Attribute<Boolean> attrOrder =  ctx.channel().attr(Client.ORDERED);
+        Boolean isOrdered = null == attrOrder.get() ? false : attrOrder.get();
+
+        Attribute<Boolean> attrExt =  ctx.channel().attr(NSQConnection.EXTEND_SUPPORT);
+        Boolean ext = null == attrExt.get() ? false : attrExt.get();
 
         final NSQFrame frame = NSQFrame.newInstance(frameType, isOrdered);
         if (frame == null) {

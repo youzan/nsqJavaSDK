@@ -188,11 +188,11 @@ public class ProducerImplV2 implements Producer {
             this.poolConfig.setFairness(false);
             this.poolConfig.setTestOnBorrow(false);
             this.poolConfig.setTestOnReturn(false);
-            //If testWhileIdle is true, examined objects are validated when visited (and removed if invalid);
+            //If testWhileIdle is true, during idle eviction, examined objects are validated when visited (and removed if invalid);
             //otherwise only objects that have been idle for more than minEvicableIdleTimeMillis are removed.
             this.poolConfig.setTestWhileIdle(true);
             this.poolConfig.setJmxEnabled(true);
-            //connection need being validated after idle time, default to 15 min
+            //connection need being validated after idle time, default to 60 * heartbeat interval in millisec
             this.poolConfig.setMinEvictableIdleTimeMillis(30 * config.getHeartbeatIntervalInMillisecond());
             //number of milliseconds to sleep between runs of the idle object evictor thread
             this.poolConfig.setTimeBetweenEvictionRunsMillis(config.getProducerConnectionEvictIntervalInMillSec());
@@ -400,11 +400,6 @@ public class ProducerImplV2 implements Producer {
                 //check if address has partition info, if it does, update pub's partition
                 if(conn.getAddress().hasPartition()) {
                     pub.overrideDefaultPartition(conn.getAddress().getPartition());
-                }
-
-                //check desired tag
-                if (null != msg.getDesiredTag() && !msg.getDesiredTag().isEmpty() && !conn.isExtend()) {
-                    throw new NSQTopicNotExtendableException("Topic " + msg.getTopic().getTopicText() + " is not extendable. Address: " + conn.getAddress());
                 }
 
                 long pubAndWaitStart = System.currentTimeMillis();

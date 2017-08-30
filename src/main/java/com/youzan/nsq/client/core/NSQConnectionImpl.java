@@ -23,7 +23,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
@@ -285,8 +284,8 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     @Override
     public void close() {
         logger.info("Begin to clear {}", this);
-        //extra lock to proof from more than one thread waiting for close
-        if(this.closing.compareAndSet(false, true)) {
+        //extra lock to proof from more than none thread waiting for close
+        if (closing.compareAndSet(false, true)) {
             conLock.writeLock().lock();
             try {
                 _close();
@@ -301,8 +300,6 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         if (null != channel) {
             channel.attr(NSQConnection.STATE).remove();
             channel.attr(Client.STATE).remove();
-            if(channel.hasAttr(Client.ORDERED))
-                channel.attr(Client.ORDERED).remove();
             if (channel.isActive()) {
                 channel.close();
                 channel.deregister();
@@ -322,7 +319,6 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
      * 3. clear resources underneath
      */
     public void disconnect(final ConnectionManager conMgr) {
-        conLock.writeLock().lock();
         try {
             logger.info("Disconnect from nsqd {} ...", this.address);
             //1. backoff
@@ -332,9 +328,8 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         } finally {
             //3. clear resource
             if (channel.isActive())
-                this._close();
+                this.close();
             logger.info("nsqd {} disconnect", this.address);
-            conLock.writeLock().unlock();
         }
     }
 
@@ -380,14 +375,12 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     private void _onClose() {
         //closing signal is updated here
-        if (identitySent.compareAndSet(Boolean.TRUE, Boolean.FALSE) && closing.compareAndSet(Boolean.FALSE, Boolean.TRUE)) {
-            try {
-                this._commandAndGetResposne(Close.getInstance());
-            } catch (TimeoutException e) {
-                logger.warn("Timeout receiving response for Close command.");
-            } catch (InterruptedException e) {
-                logger.error("Interrupted waiting for response from CLS.");
-            }
+        try {
+            this._commandAndGetResposne(Close.getInstance());
+        } catch (TimeoutException e) {
+            logger.warn("Timeout receiving response for Close command.");
+        } catch (InterruptedException e) {
+            logger.error("Interrupted waiting for response from CLS.");
         }
     }
 

@@ -34,6 +34,40 @@ public class ProducerTest extends AbstractNSQClientTestcase {
         super.init();
     }
 
+    /**
+     * PUB_EXT is ALLOWED to send topic which is not ext_support after HA1.5.7
+     */
+    @Test
+    public void testPubExt2NormalTopic() throws Exception {
+        logger.info("[testPubExt2NormalTopic] starts");
+        String adminHttp = "http://" + props.getProperty("admin-address");
+        NSQConfig config = this.getNSQConfig();
+        config.setLookupAddresses(props.getProperty("lookup-addresses"));
+        Producer producer = this.createProducer(config);
+        String topic = "testPubExt2NormalTopic";
+        try{
+            TopicUtil.createTopic(adminHttp, topic, "BaseConsumer");
+            TopicUtil.createTopicChannel(adminHttp, topic, "BaseConsumer");
+            producer.start();
+
+            //json
+            Map<String, String> jsonExt = new HashMap<>();
+            jsonExt.put("key1", "val1");
+            jsonExt.put("key2", "val2");
+            jsonExt.put("key3", "val3");
+            jsonExt.put("key4", "val4");
+
+            Message msg = Message.create(new Topic(topic), "message");
+            msg.setDesiredTag(new DesiredTag("TAG"));
+            msg.setJsonHeaderExt(jsonExt);
+            producer.publish(msg);
+        }finally {
+            producer.close();
+            TopicUtil.deleteTopic(adminHttp, topic);
+            logger.info("[testPubExt2NormalTopic] ends");
+        }
+    }
+
     @Test(expectedExceptions = {NSQTopicNotFoundException.class})
     public void testPubException2InvalidTopic() throws NSQException {
         NSQConfig config = this.getNSQConfig();

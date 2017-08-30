@@ -68,7 +68,7 @@ public class TopicUtil {
         URL channelUrl = new URL(nsqadminUrl + "/api/topics/" + topic + "/" + channel);
         String content = "{\"action\":\"empty\"}";
         IOUtil.postToUrl(channelUrl, content);
-        Thread.sleep(3000);
+        Thread.sleep(5000);
     }
 
     public static void deleteTopicOld(String nsqdAddr, String topicName) throws IOException, InterruptedException {
@@ -156,7 +156,7 @@ public class TopicUtil {
     }
 
 
-    //@Test
+    @Test
     /**
      * remove @Test comment and run as test cases to remove topics in qa
      * @throws IOException
@@ -170,7 +170,7 @@ public class TopicUtil {
             props.load(is);
         }
         String adminHttp = "http://" + props.getProperty("admin-address");
-        String topicPattern = "testClsCon";
+        String topicPattern = "topic_";
         TopicUtil.deleteTopics(adminHttp, topicPattern);
         logger.info("[testTopicUtil] ends.");
     }
