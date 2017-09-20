@@ -4,7 +4,7 @@
 
     <groupId>com.youzan</groupId>
     <artifactId>NSQ-Client</artifactId>
-    <version>2.4.0.2-RELEASE</version>
+    <version>2.4.0.3-RELEASE</version>
     <packaging>jar</packaging>
 
     <name>NSQ-Client</name>
@@ -376,6 +376,9 @@
                 <resources>
                     <resource>
                         <directory>src/assembly/conf/youzan</directory>
+                        <excludes>
+                            <exclude>app-test.properties</exclude>
+                        </excludes>
                     </resource>
                 </resources>
                 <plugins>

@@ -120,4 +120,8 @@ Change type of schedule executor in ConnectionManager to optimize thread number.
 
 #2.4.0.2-RELEASE
 Note worthy:
-Print message extension json header and desired tag in error log during publish. 
+Print message extension json header and desired tag in error log during publish.
+ 
+#2.4.0.3-RELEASE
+Note worthy:
+Remove app-test.properties file when package.
