@@ -26,6 +26,7 @@ import java.util.concurrent.TimeoutException;
 public interface NSQConnection extends Closeable {
 
     AttributeKey<NSQConnection> STATE = AttributeKey.valueOf("Connection.State");
+    AttributeKey<Boolean> EXTEND_SUPPORT = AttributeKey.valueOf("ExtendSupport");
 
     Address getAddress();
 

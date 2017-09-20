@@ -389,7 +389,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
             consumer = new ConsumerImplV2(config, handler);
             consumer.subscribe(topic);
             consumer.start();
-            logger.info("Wait for 60s for consumer to start...");
+            logger.info("Wait for 30s for consumer to start...");
             Thread.sleep(30000L);
         }finally {
             exec.shutdownNow();

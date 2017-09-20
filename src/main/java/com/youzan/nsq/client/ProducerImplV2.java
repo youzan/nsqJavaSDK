@@ -188,11 +188,11 @@ public class ProducerImplV2 implements Producer {
             this.poolConfig.setFairness(false);
             this.poolConfig.setTestOnBorrow(false);
             this.poolConfig.setTestOnReturn(false);
-            //If testWhileIdle is true, examined objects are validated when visited (and removed if invalid);
+            //If testWhileIdle is true, during idle eviction, examined objects are validated when visited (and removed if invalid);
             //otherwise only objects that have been idle for more than minEvicableIdleTimeMillis are removed.
             this.poolConfig.setTestWhileIdle(true);
             this.poolConfig.setJmxEnabled(true);
-            //connection need being validated after idle time, default to 15 min
+            //connection need being validated after idle time, default to 60 * heartbeat interval in millisec
             this.poolConfig.setMinEvictableIdleTimeMillis(30 * config.getHeartbeatIntervalInMillisecond());
             //number of milliseconds to sleep between runs of the idle object evictor thread
             this.poolConfig.setTimeBetweenEvictionRunsMillis(config.getProducerConnectionEvictIntervalInMillSec());
@@ -402,11 +402,6 @@ public class ProducerImplV2 implements Producer {
                     pub.overrideDefaultPartition(conn.getAddress().getPartition());
                 }
 
-                //check desired tag
-                if (null != msg.getDesiredTag() && !msg.getDesiredTag().isEmpty() && !conn.isExtend()) {
-                    throw new NSQTopicNotExtendableException("Topic " + msg.getTopic().getTopicText() + " is not extendable. Address: " + conn.getAddress());
-                }
-
                 long pubAndWaitStart = System.currentTimeMillis();
                 final NSQFrame frame = conn.commandAndGetResponse(pub);
                 long pubAndWaitEnd = System.currentTimeMillis() - pubAndWaitStart;
@@ -436,12 +431,13 @@ public class ProducerImplV2 implements Producer {
                 }
                 String msgStr = msg.getMessageBody();
                 int maxlen = msgStr.length() > MAX_MSG_OUTPUT_LEN ? MAX_MSG_OUTPUT_LEN : msgStr.length();
-                logger.error("MaxRetries: {} , CurrentRetries: {} , Address: {} , Topic: {}, MessageLength: {}, RawMessage: {}, Exception:", retry, c,
-                        conn.getAddress(), msg.getTopic(), msgStr.length(), msgStr.substring(0, maxlen), e);
+                String errLog = String.format("MaxRetries: %d , CurrentRetries: %d , Address: %s , Topic: %s, MessageLength: %d, RawMessage: %s, ExtJsonHeader: %s, DesiredTag: %s.", retry, c,
+                        conn.getAddress(), msg.getTopic(), msgStr.length(), msgStr.substring(0, maxlen), msg.getJsonHeaderExt(), msg.getDesiredTag());
+                logger.error(errLog, e);
                 //as to NSQInvalidMessageException throw it out after connection close.
                 if(e instanceof NSQInvalidMessageException)
                     throw (NSQInvalidMessageException)e;
-                NSQException nsqE = new NSQException(e);
+                NSQException nsqE = new NSQException(errLog, e);
                 exceptions.add(nsqE);
                 if (c >= retry) {
                     throw new NSQPubException(exceptions);
@@ -517,6 +513,9 @@ public class ProducerImplV2 implements Producer {
                     case E_PUB_FAILED: {
                         logger.error("Address: {} , Frame: {}", conn.getAddress(), frame);
                         throw new NSQPubFailedException("publish to " + topic.getTopicText() + " failed. Address " + conn.getAddress() + ", Error Frame: " + frame);
+                    }
+                    case E_INVALID: {
+                        throw new NSQInvalidException(err.getMessage());
                     }
                     default: {
                         throw new NSQException("Unknown response error! The topic is " + topic + " . The error frame is " + err);

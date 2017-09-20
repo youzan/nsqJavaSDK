@@ -16,7 +16,6 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * Created by lin on 17/6/26.
@@ -33,9 +32,9 @@ public class ConnectionManager {
     private static final float PROOFREAD_FACTOR_DEFAULT = 1f;
 
     //executor for backoff & resume
-    private final ExecutorService exec = Executors.newCachedThreadPool(new NamedThreadFactory("connMgr-job", Thread.NORM_PRIORITY));
+    private final ExecutorService exec = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(), new NamedThreadFactory("connMgr-job", Thread.NORM_PRIORITY));
     //schedule executor for backoff resume
-    private final ScheduledExecutorService scheduleExec = Executors.newScheduledThreadPool(Runtime.getRuntime().availableProcessors(), new NamedThreadFactory("rdy-distribute", Thread.NORM_PRIORITY));
+    private final ScheduledExecutorService scheduleExec = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("rdy-distribute", Thread.NORM_PRIORITY));
 
     private final int INIT_DELAY = 5;
     private final int INTERVAL = 5;
@@ -48,8 +47,8 @@ public class ConnectionManager {
         public void run() {
             try {
                 redistributeRdy(ci.getLoadFactor(), ci.isConsumptionEstimateElapseTimeout(), ci.getRdyPerConnection());
-            }catch (Exception e) {
-                logger.error("error in redistribute rdy.", e);
+            }catch (Throwable e) {
+                logger.error("Error in redistribute rdy.", e);
             }
         }
     };

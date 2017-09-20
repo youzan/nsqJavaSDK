@@ -266,8 +266,8 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 try {
                     connect();
                     updateConsumptionRate();
-                } catch (Exception e) {
-                    logger.error("Exception", e);
+                } catch (Throwable e) {
+                    logger.error("Throwable in keep connection process:", e);
                 }
                 logger.info("Client received {} messages , success {} , finished {} , queue4Consume {}, reQueue explicitly {}. The values do not use a lock action.", received, success, finished, queue4Consume, re);
             }
@@ -457,6 +457,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             channel.attr(NSQConnection.STATE).set(conn);
             channel.attr(Client.STATE).set(this);
             channel.attr(Client.ORDERED).set(this.config.isOrdered());
+            channel.attr(NSQConnection.EXTEND_SUPPORT).set(conn.isExtend());
 
             Topic topic = new Topic(address.getTopic(), address.getPartition());
             try {
@@ -914,13 +915,15 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                             }
                         }
                     });
+                } else {
+                    logger.info("Connection for message {} is closed. Finish exits.", message);
                 }
             } else {
                 logger.error("message {} does not belong to current consumer's connection", message);
             }
         } else {
             throw new NSQNoConnectionException(
-                    "The connection is broken so that can not retry. Please wait next consuming.");
+                    "The connection is closed so that can not retry. Please wait next consuming.");
         }
     }
 

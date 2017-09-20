@@ -38,7 +38,7 @@ public class NSQSimpleClient implements Client, Closeable {
     private int lookupLocalID = -1;
     //topic to partition selectors
     private final ConcurrentMap<String, IPartitionsSelector> topic_2_partitionsSelector = new ConcurrentHashMap<>();
-    private final long TOPIC_PARTITION_TIMEOUT = 90L;
+    private static final long TOPIC_PARTITION_TIMEOUT = 90L;
 
     private final Map<String, Long> ps_lastInvalidated = new ConcurrentHashMap<>();
     /*
@@ -133,7 +133,7 @@ public class NSQSimpleClient implements Client, Closeable {
             public void run() {
                 try {
                     newDataNodes();
-                } catch (NSQException e) {
+                } catch (Throwable e) {
                     logger.error("Error fetching data node. Process restarts in another round...", e);
                 }
             }
