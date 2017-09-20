@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
+ * TODO: a description
  * <pre>
  * Expose to Client Code. Connect to one cluster(includes many brokers).
  * </pre>
@@ -42,56 +43,65 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     private static final Logger PERF_LOG = LoggerFactory.getLogger(ConsumerImplV2.class.getName() + ".perf");
 
     private final static AtomicInteger CONN_ID_GENERATOR = new AtomicInteger(0);
+    //max connect retry allowed
     private static final int MAX_CONSUME_RETRY = 3;
+
+    //consumer start&close synchronization and flags
     private final ReentrantReadWriteLock cLock = new ReentrantReadWriteLock();
     protected AtomicBoolean started = new AtomicBoolean(Boolean.FALSE);
     protected AtomicBoolean closing = new AtomicBoolean(Boolean.FALSE);
-    private volatile long lastConnecting = 0L;
 
+    private volatile long lastConnecting = 0L;
+    private volatile long lastSuccess = 0L;
+    private volatile float consumptionRate = 0f;
 
     private final AtomicInteger received = new AtomicInteger(0);
-    private volatile long lastSuccess = 0l;
-    private volatile float consumptionRate = 0f;
     private final AtomicInteger success = new AtomicInteger(0);
     private final AtomicInteger finished = new AtomicInteger(0);
     private final AtomicInteger re = new AtomicInteger(0); // have done reQueue
     private final AtomicInteger queue4Consume = new AtomicInteger(0); // have done reQueue
+
+    //connection manager
     protected ConnectionManager conMgr = new ConnectionManager(this);
 
     //netty component for consumer
     private final Bootstrap bootstrap = new Bootstrap();
 
-    /*-
-     * =========================================================================
-     * Topic set for containing topics user subscribes. keys are topic without partition
-     *
-     * =========================================================================
+    /*
+     * topics' partitions maintaining a sorted set of partitions number, example: {-1, 0, 2, 3}
      */
     private final HashMap<String, SortedSet<Long>> topics2Partitions = new HashMap<>();
-
-    // client subscribes
-    /*-
-      address_2_pool maps NSQd address to connections to topics specified by consumer.
-      Basically, consumer subscribe multi-topics to one NSQd, hence there is a mapping
-      between NSQd address and connections to topics
+    /*
+     * nsqd address to connection map in effect.
      */
     protected final ConcurrentHashMap<Address, NSQConnection> address_2_conn = new ConcurrentHashMap<>();
+
+    /*
+     * schedule executor for updating nsqd connections in effect
+     */
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getSimpleName(), Thread.NORM_PRIORITY));
-    /*-
-      * =========================================================================
-      *                          Client delegates to me
-      */
+    /*
+     * message handler
+     */
     private volatile MessageHandler handler;
+
+    /*
+     * message handler executor
+     */
     private final ExecutorService executor;
-    /*-
-     *                           Client delegates to me
-     * =========================================================================
+
+    /*
+     * auto finish flag
      */
     private volatile boolean autoFinish = true;
-
-
+    /*
+     *simple client
+     */
     private final NSQSimpleClient simpleClient;
+    /*
+     * config for consumer
+     */
     private final NSQConfig config;
 
 
@@ -107,14 +117,17 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         bootstrap.group(eventLoopGroup);
         bootstrap.channel(NioSocketChannel.class);
         bootstrap.handler(new NSQClientInitializer());
-        //initialize consuemr worker size
+        //initialize consumer worker size
         executor = Executors.newFixedThreadPool(this.config.getConsumerWorkerPoolSize(),
                 new NamedThreadFactory(this.getClass().getSimpleName() + "-ClientBusiness", Thread.MAX_PRIORITY));
     }
 
     /**
-     * @param config  NSQConfig
-     * @param handler the client code sets it
+     * Consumer constructor, with {@link NSQConfig}, and {@link MessageHandler}
+     * @param config
+     *                NSQConfig config to initialize consumer
+     * @param handler
+     *                the client message handler code sets it
      */
     public ConsumerImplV2(NSQConfig config, MessageHandler handler) {
         this(config);
@@ -197,34 +210,37 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
 
     @Override
     public void start() throws NSQException {
+        //validates config
         if (this.config.getConsumerName() == null || this.config.getConsumerName().isEmpty()) {
             throw new IllegalArgumentException("Consumer Name is blank! Please check it!");
         }
+        //validate message not null
         if (null == this.handler) {
             throw new IllegalArgumentException("Message handler is null");
         }
+        //validate there is topics for subscribe
         if (this.topics2Partitions.isEmpty()) {
             logger.warn("No topic subscribed.");
         }
-        if (this.started.compareAndSet(Boolean.FALSE, Boolean.TRUE)) {
-            //set subscribe status
-            // create the pools
-            //simple client starts and LookupAddressUpdate instance initialized there.
-            //validate that consumer have right lookup address source
-            if (!validateLookupdSource()) {
-                throw new IllegalArgumentException("Consumer could not start with invalid lookupd address sources.");
-            }
-            if (this.config.getUserSpecifiedLookupAddress()) {
-                LookupAddressUpdate.getInstance().setUpDefaultSeedLookupConfig(this.simpleClient.getLookupLocalID(), this.config.getLookupAddresses());
-            }
-            this.simpleClient.start();
+        //start consumer
+        if (this.started.compareAndSet(Boolean.FALSE, Boolean.TRUE) && cLock.writeLock().tryLock()) {
+            try {
+                //validate that consumer have right lookup address source
+                if (!validateLookupdSource()) {
+                    throw new IllegalArgumentException("Consumer could not start with invalid lookupd address sources.");
+                }
+                if (this.config.getUserSpecifiedLookupAddress()) {
+                    LookupAddressUpdate.getInstance().setUpDefaultSeedLookupConfig(this.simpleClient.getLookupLocalID(), this.config.getLookupAddresses());
+                }
+                this.simpleClient.start();
 
-            // -----------------------------------------------------------------
-            //                       First, async keep
-            keepConnecting();
-            // -----------------------------------------------------------------
-            conMgr.start();
-            logger.info("The consumer has been started.");
+                keepConnecting();
+                //start connection manager
+                conMgr.start();
+                logger.info("The consumer has been started.");
+            }finally {
+                cLock.writeLock().unlock();
+            }
         }
     }
 
@@ -241,20 +257,17 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     }
 
     /**
-     * schedule action
+     * keep updating topics' connections according to simple clients' topics to partitions selectors
      */
     private void keepConnecting() {
         scheduler.scheduleWithFixedDelay(new Runnable() {
             @Override
             public void run() {
-                if (closing.get()) {
-                    return;
-                }
                 try {
                     connect();
                     updateConsumptionRate();
-                } catch (Exception e) {
-                    logger.error("Exception", e);
+                } catch (Throwable e) {
+                    logger.error("Throwable in keep connection process:", e);
                 }
                 logger.info("Client received {} messages , success {} , finished {} , queue4Consume {}, reQueue explicitly {}. The values do not use a lock action.", received, success, finished, queue4Consume, re);
             }
@@ -271,6 +284,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         if (System.currentTimeMillis() < lastConnecting + TimeUnit.SECONDS.toMillis(_INTERVAL_IN_SECOND)) {
             return;
         }
+
         lastConnecting = System.currentTimeMillis();
         if (!this.started.get()) {
             if (closing.get()) {
@@ -278,14 +292,14 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             }
             return;
         }
+
         if (this.topics2Partitions.isEmpty()) {
             logger.error("No topic subscribed. Please check it right now!");
-            // Still check the resources , do not return right now
         }
 
         //broken set to collect Address of connection which is not connected
         final Set<ConnectionManager.NSQConnectionWrapper> broken = new HashSet<>();
-//        final ConcurrentHashMap<Address, Set<String>> address_2_topics = new ConcurrentHashMap<>();
+        //final ConcurrentHashMap<Address, Set<String>> address_2_topics = new ConcurrentHashMap<>();
         final Set<Address> targetAddresses = new TreeSet<>();
         /*-
          * =====================================================================
@@ -443,6 +457,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             channel.attr(NSQConnection.STATE).set(conn);
             channel.attr(Client.STATE).set(this);
             channel.attr(Client.ORDERED).set(this.config.isOrdered());
+            channel.attr(NSQConnection.EXTEND_SUPPORT).set(conn.isExtend());
 
             Topic topic = new Topic(address.getTopic(), address.getPartition());
             try {
@@ -614,14 +629,14 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             logger.error("Client business has one error. Original message: {}. Exception:", message.getReadableContent(), e);
         }
         if (!ok && retry) {
-            logger.warn("Client has told SDK to do again. {}", message);
+            logger.info("Client has told SDK to do again. {}", message);
             try {
                 handler.process(message);
                 ok = true;
             } catch (Exception e) {
                 ok = false;
                 retry = false;
-                logger.error("Client business has required SDK to do again, but still has one error. Original message: {}. Exception:", message.getReadableContent(), e);
+                logger.error("Client business retry fail. Original message: {}. Exception:", message.getReadableContent(), e);
             }
         }
         long end = System.currentTimeMillis() - start;
@@ -815,7 +830,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
 
     private boolean handleResponse(NSQFrame frame, NSQConnection connection) {
         if (frame == null) {
-            logger.warn("SDK bug: the frame is null.");
+            logger.warn("the nsq frame is null.");
             return false;
         }
         if (frame.getType() == FrameType.RESPONSE_FRAME) {
@@ -900,13 +915,15 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                             }
                         }
                     });
+                } else {
+                    logger.info("Connection for message {} is closed. Finish exits.", message);
                 }
             } else {
                 logger.error("message {} does not belong to current consumer's connection", message);
             }
         } else {
             throw new NSQNoConnectionException(
-                    "The connection is broken so that can not retry. Please wait next consuming.");
+                    "The connection is closed so that can not retry. Please wait next consuming.");
         }
     }
 

@@ -16,12 +16,18 @@ import java.util.List;
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
 public interface Producer extends Client, Closeable {
+
+    /**
+     * start producer
+     * @throws NSQException
+     */
     @Override
     void start() throws NSQException;
 
     /**
-     * start producer with specified topics for initializing nsq connection for later publish
-     * @param topics
+     * start producer with specified topics for initializing associated nsq connection for later publish. the number of
+     * nsq connection decided by min idle connection number, refer to {@link NSQConfig#getMinIdleConnectionForProducer()}
+     * @param topics topics for initialize
      * @throws NSQException
      */
     void start(String... topics) throws NSQException;
@@ -42,8 +48,6 @@ public interface Producer extends Client, Closeable {
     void publish(Message message) throws NSQException;
 
     /**
-     * 生产单条的'消息'
-     * <p>
      * Use it to produce only one 'message' sending to MQ.
      * partition info is not specified in this function,
      * use #{Producer.publish(byte[] messages, Topic topic)}

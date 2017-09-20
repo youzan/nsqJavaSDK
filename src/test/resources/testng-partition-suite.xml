@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
 <suite name="NSQ-Client Partition Suite">
-    <test name="consumer and producer with partition" parallel="methods" thread-count="4">
+    <test name="consumer and producer with partition">
         <classes>
             <class name="it.youzan.nsq.client.ITProducerWPartition">
                 <methods>
@@ -15,7 +15,7 @@
             </class>
         </classes>
     </test>
-    <test name="two consumers subscribe different partitions" parallel="methods">
+    <test name="two consumers subscribe different partitions">
         <classes>
             <class name="it.youzan.nsq.client.ITProducerWPartition">
                 <methods>

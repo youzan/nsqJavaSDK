@@ -8,6 +8,7 @@ import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.DesiredTag;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.exception.ConfigAccessAgentException;
+import com.youzan.nsq.client.exception.NSQNoConnectionException;
 import com.youzan.nsq.client.utils.ConnectionUtil;
 import com.youzan.util.IOUtil;
 import com.youzan.util.SystemUtil;
@@ -108,7 +109,7 @@ public class NSQConfigTestcase {
     }
 
     @Test
-    public void testIdentity() throws IOException, InterruptedException, TimeoutException {
+    public void testIdentity() throws IOException, InterruptedException, TimeoutException, NSQNoConnectionException {
         NSQConfig config = new NSQConfig("default");
         String defaultIdentifyJson = config.identify(false);
         JsonNode idenJson = SystemUtil.getObjectMapper().readTree(defaultIdentifyJson);

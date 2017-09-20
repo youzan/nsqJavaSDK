@@ -39,8 +39,8 @@ public class TopicUtil {
         List<String> topicsNeedDel = new ArrayList<>();
         if(topics.isArray()) {
             for(JsonNode topicNode : topics) {
-                if(topicNode.asText().startsWith(topicPattern)) {
-                    String topic = topicNode.asText();
+                if(topicNode.get("topic_name").asText().startsWith(topicPattern)) {
+                    String topic = topicNode.get("topic_name").asText();
                     topicsNeedDel.add(topic);
                 }
             }
@@ -68,6 +68,7 @@ public class TopicUtil {
         URL channelUrl = new URL(nsqadminUrl + "/api/topics/" + topic + "/" + channel);
         String content = "{\"action\":\"empty\"}";
         IOUtil.postToUrl(channelUrl, content);
+        Thread.sleep(5000);
     }
 
     public static void deleteTopicOld(String nsqdAddr, String topicName) throws IOException, InterruptedException {
@@ -154,7 +155,8 @@ public class TopicUtil {
         IOUtil.postToUrl(upgradeUrl, null);
     }
 
-//    @Test
+
+    @Test
     /**
      * remove @Test comment and run as test cases to remove topics in qa
      * @throws IOException
@@ -173,7 +175,7 @@ public class TopicUtil {
         logger.info("[testTopicUtil] ends.");
     }
 
-    @Test
+//    @Test
     public void testTopicUtil() throws Exception {
         Calendar cal = Calendar.getInstance();
         cal.set(2017, 7, 9, 17, 20, 0);
@@ -185,7 +187,7 @@ public class TopicUtil {
             props.load(is);
         }
         String adminHttp = "http://" + props.getProperty("admin-address");
-        String topicName = "topicUtilTest_" + System.currentTimeMillis();
+        String topicName = "topicUtilTest";
         TopicUtil.createTopic(adminHttp, topicName, "default");
         //publish to channel
         NSQConfig config = new NSQConfig("default");

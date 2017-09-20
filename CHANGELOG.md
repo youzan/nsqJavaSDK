@@ -111,3 +111,17 @@ Note worthy:
 # Fixes:
 + connection leak in producer in ordered topic production.[#76](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/76)
 + compressed message body should not treat as string.[#81](http://gitlab.qima-inc.com/paas/nsq-client-java/issues/81)
+
+## 2.4.0.1-RELEASE
+Note worthy:
+Validation removed when producer intends to PUB_EXT a message to nsq topic, regardless whether it is extend support.
+Fix a NPE risk, in the eviction(close) of producer idle connection, while heart beat validation arrives.
+Change type of schedule executor in ConnectionManager to optimize thread number.
+
+#2.4.0.2-RELEASE
+Note worthy:
+Print message extension json header and desired tag in error log during publish.
+ 
+#2.4.0.3-RELEASE
+Note worthy:
+Remove app-test.properties file when package.

@@ -29,9 +29,7 @@ public interface Client extends Closeable {
 
     Random _r = new Random(10000);
 
-    /**
-     * For NSQd(data-node).
-     */
+    //interval of updating topic 2 partition selector
     int _INTERVAL_IN_SECOND = 20;
 
     void start() throws NSQException;

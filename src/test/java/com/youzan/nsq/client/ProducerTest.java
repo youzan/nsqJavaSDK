@@ -34,6 +34,40 @@ public class ProducerTest extends AbstractNSQClientTestcase {
         super.init();
     }
 
+    /**
+     * PUB_EXT is ALLOWED to send topic which is not ext_support after HA1.5.7
+     */
+    @Test
+    public void testPubExt2NormalTopic() throws Exception {
+        logger.info("[testPubExt2NormalTopic] starts");
+        String adminHttp = "http://" + props.getProperty("admin-address");
+        NSQConfig config = this.getNSQConfig();
+        config.setLookupAddresses(props.getProperty("lookup-addresses"));
+        Producer producer = this.createProducer(config);
+        String topic = "testPubExt2NormalTopic";
+        try{
+            TopicUtil.createTopic(adminHttp, topic, "BaseConsumer");
+            TopicUtil.createTopicChannel(adminHttp, topic, "BaseConsumer");
+            producer.start();
+
+            //json
+            Map<String, String> jsonExt = new HashMap<>();
+            jsonExt.put("key1", "val1");
+            jsonExt.put("key2", "val2");
+            jsonExt.put("key3", "val3");
+            jsonExt.put("key4", "val4");
+
+            Message msg = Message.create(new Topic(topic), "message");
+            msg.setDesiredTag(new DesiredTag("TAG"));
+            msg.setJsonHeaderExt(jsonExt);
+            producer.publish(msg);
+        }finally {
+            producer.close();
+            TopicUtil.deleteTopic(adminHttp, topic);
+            logger.info("[testPubExt2NormalTopic] ends");
+        }
+    }
+
     @Test(expectedExceptions = {NSQTopicNotFoundException.class})
     public void testPubException2InvalidTopic() throws NSQException {
         NSQConfig config = this.getNSQConfig();
@@ -54,7 +88,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     @Test(expectedExceptions = {NSQTopicNotFoundException.class})
     public void testPubException2InvalidChannel() throws Exception {
         String adminUrlStr = "http://" + props.getProperty("admin-address");
-        String topicName = "topicHasNoChannel_" + System.currentTimeMillis();
+        String topicName = "topicHasNoChannel";
         String channel = "chanDel";
         //create topic
 
@@ -157,7 +191,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     public void testSendConsumeCompressedBytes() throws Exception {
         logger.info("[testSendConsumeCompressedBytes] starts.");
         String adminHttp = "http://" + props.getProperty("admin-address");
-        String topicName = "testSendConsumeCompressedBytes_" + System.currentTimeMillis();
+        String topicName = "testSendConsumeCompressedBytes";
         String channel = "default";
         try {
             TopicUtil.createTopic(adminHttp, topicName, channel);
@@ -216,7 +250,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     public void testCompressContent() throws Exception {
         logger.info("[testCompressContent] starts.");
         String adminHttp = "http://" + props.getProperty("admin-address");
-        String topicName = "testSendConsumeContent_" + System.currentTimeMillis();
+        String topicName = "testSendConsumeContent";
         String channel = "default";
         try {
             TopicUtil.createTopic(adminHttp, topicName, channel);
@@ -285,7 +319,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     public void testMessageWCompressedString() throws Exception {
         logger.info("[testMessageWCompressedString] starts.");
         String adminHttp = "http://" + props.getProperty("admin-address");
-        String topicName = "testSendConsumeContent_" + System.currentTimeMillis();
+        String topicName = "testSendConsumeString";
         String channel = "default";
 
         String raw  = "This is raw message for compress";
@@ -337,7 +371,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     public void testProducerConnEvict() throws Exception {
         logger.info("[testProducerConnEvict] starts.");
         String adminHttp = "http://" + props.getProperty("admin-address");
-        String topicName = "topicProducerEvict_" + System.currentTimeMillis();
+        String topicName = "topicProducerEvict";
         String channel = "default";
         String raw  = "This is raw message for compress";
 
@@ -389,7 +423,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
                     @Override
                     public void run() {
                         try {
-                            String topicName = "topic_" + idx + "_" + System.currentTimeMillis();
+                            String topicName = "topic_" + idx;
                             TopicUtil.createTopic(adminHttp, topicName, channel);
                             TopicUtil.createTopicChannel(adminHttp, topicName, channel);
                             topics.add(topicName);
@@ -491,7 +525,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     public void benchmarkPublish(int producerNum, final int messageNum, int msgSize) throws Exception {
         logger.info("[benchmarkPublish] start");
         String adminUrl = "http://" + props.getProperty("admin-address");
-        final String topic = "bench_producer_" + System.currentTimeMillis();
+        final String topic = "bench_producer";
         String channel = "default";
 
         NSQConfig config = new NSQConfig();
@@ -570,7 +604,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     @Test
     public void testPubExtNotChangeMap() throws Exception {
         logger.info("[testPubExtNotChangeMap] starts");
-        String topicName = "testPubNotChangeMap_" + System.currentTimeMillis();
+        String topicName = "testPubNotChangeMap";
         String channel = "default";
         String adminUrl = "http://" + props.getProperty("admin-address");
         Producer producer = null;
@@ -612,7 +646,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     public void testProducerPreallocate() throws Exception {
         logger.info("[testProducerPreallocate] starts");
         int topicNum = 5;
-        String topicName = "testProducerPreallocate_" + System.currentTimeMillis();
+        String topicName = "testProducerPreallocate";
         String channel = "default";
         String adminUrl = "http://" + props.getProperty("admin-address");
         ProducerImplV2 producer = null;
@@ -640,6 +674,44 @@ public class ProducerTest extends AbstractNSQClientTestcase {
             for(int i=0;i<topicNum;i++) {
                 TopicUtil.deleteTopic(adminUrl, topicName + "_" + i);
             }
+        }
+    }
+
+    @Test
+    public void testSendTagedMessageToNsqAll() throws IOException, InterruptedException, NSQException {
+        //what we need is tag and ext json
+        logger.info("[testSendTagedMessageToNsqAll] starts");
+        String topicName = "testSendTagedMessageToNsqAll";
+        String channel = "default";
+        String nsqdHttp = "http://" + props.getProperty("old-nsqd-http");
+        Producer producer = null;
+        try{
+            TopicUtil.createTopicChannelOld(nsqdHttp, topicName, channel);
+
+            NSQConfig config = (NSQConfig) this.config.clone();
+            config.turnOnLocalTrace(topicName);
+            config.setLookupAddresses(props.getProperty("old-lookup-addresses"));
+
+            producer = new ProducerImplV2(config);
+            producer.start();
+
+            final Topic topic = new Topic(topicName);
+            final Map<String, String> properties = new HashMap<>();
+            properties.put("key" ,"onlyVal");
+
+            final DesiredTag tag = new DesiredTag("testTag");
+            Message msg = Message.create(topic, 45678L, ("Message #0"));
+            msg.setDesiredTag(tag);
+            //add ext json
+            msg.setJsonHeaderExt(properties);
+            producer.publish(msg);
+            Assert.fail("should not hit this line");
+        } catch (NSQException e) {
+            String errorLog = e.getLocalizedMessage();
+            Assert.assertTrue(errorLog.contains("DesiredTag:"));
+        } finally {
+            logger.info("[testSendTagedMessageToNsqAll] ends");
+            producer.close();
         }
     }
 }

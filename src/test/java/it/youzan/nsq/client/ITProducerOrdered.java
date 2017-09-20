@@ -6,6 +6,7 @@ import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.NSQException;
+import com.youzan.nsq.client.utils.TopicUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeClass;
@@ -23,6 +24,7 @@ public class ITProducerOrdered {
     private static final Logger logger = LoggerFactory.getLogger(ITProducerOrdered.class);
     private NSQConfig config = new NSQConfig();
     private Producer producer;
+    private String adminHttp;
 
     @BeforeClass
     public void init() throws Exception {
@@ -35,7 +37,7 @@ public class ITProducerOrdered {
         final String connTimeout = props.getProperty("connectTimeoutInMillisecond");
         final String msgTimeoutInMillisecond = props.getProperty("msgTimeoutInMillisecond");
         final String threadPoolSize4IO = props.getProperty("threadPoolSize4IO");
-
+        adminHttp = "http://" + props.getProperty("admin-address");
 
         config.setLookupAddresses(lookups);
         config.setUserSpecifiedLookupAddress(true);
@@ -48,8 +50,8 @@ public class ITProducerOrdered {
         producer.start();
     }
 
-    public void publishOrdered() throws NSQException {
-
+    public void publishOrdered() throws Exception {
+        TopicUtil.emptyQueue(adminHttp, "JavaTesting-Order", "BaseConsumer");
         String[] lookupds = config.getLookupAddresses();
         if(config.getUserSpecifiedLookupAddress() && null != lookupds && lookupds[0].contains("nsq-"))
             return;

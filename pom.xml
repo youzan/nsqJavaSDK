@@ -4,7 +4,7 @@
 
     <groupId>com.youzan</groupId>
     <artifactId>NSQ-Client</artifactId>
-    <version>2.4-RELEASE</version>
+    <version>2.4.0.3-RELEASE</version>
     <packaging>jar</packaging>
 
     <name>NSQ-Client</name>
@@ -65,7 +65,7 @@
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-all</artifactId>
-            <version>4.1.14.Final</version>
+            <version>4.1.13.Final</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -164,9 +164,7 @@
                         <suiteXmlFile>src/test/resources/testng-base-suite.xml</suiteXmlFile>
                         <suiteXmlFile>src/test/resources/testng-base-tag-suite.xml</suiteXmlFile>
                         <suiteXmlFile>src/test/resources/testng-complex-consumer-suite.xml</suiteXmlFile>
-                        <suiteXmlFile>src/test/resources/testng-finish-suite.xml</suiteXmlFile>
                         <suiteXmlFile>src/test/resources/testng-order-suite.xml</suiteXmlFile>
-                        <suiteXmlFile>src/test/resources/testng-order-wdcc-suite.xml</suiteXmlFile>
                         <suiteXmlFile>src/test/resources/testng-partition-suite.xml</suiteXmlFile>
                         <suiteXmlFile>src/test/resources/testng-stable-dcc-suite.xml</suiteXmlFile>
                         <suiteXmlFile>src/test/resources/testng-stable-suite.xml</suiteXmlFile>
@@ -378,6 +376,9 @@
                 <resources>
                     <resource>
                         <directory>src/assembly/conf/youzan</directory>
+                        <excludes>
+                            <exclude>app-test.properties</exclude>
+                        </excludes>
                     </resource>
                 </resources>
                 <plugins>

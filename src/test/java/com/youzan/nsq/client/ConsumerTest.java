@@ -25,13 +25,120 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
 
     private final static Logger logger = LoggerFactory.getLogger(ConsumerTest.class);
 
+//    public void testHowBadCanItBeStable() throws Exception {
+//        logger.info("[testHowBadCanItBe] starts.");
+//        final String topic = "testHowBadCanItBe";//_" + System.currentTimeMillis();
+//        int expectRdy = 3;
+//        logger.info("ExpectedRdy: {}", expectRdy);
+//        final NSQConfig config = new NSQConfig("BaseConsumer");
+//        final Random ran1 = new Random();
+//        final Random ran2 = new Random();
+//        final Random ran3 = new Random();
+//        config.setLookupAddresses(props.getProperty("dcc-lookup"));
+//        config.setRdy(expectRdy);
+//        ScheduledExecutorService exec = null;
+//        Producer producer = null;
+//        Consumer consumer1 = null;
+//        Consumer consumer2 = null;
+//        Consumer consumer3 = null;
+//        String adminHttp = "http://" + props.getProperty("admin-address");
+//        try {
+////            TopicUtil.createTopic(adminHttp, topic, 5, 1, "default");
+////            TopicUtil.createTopicChannel(adminHttp, topic, "default");
+//
+//            producer = new ProducerImplV2(config);
+//            producer.start();
+//            exec = keepMessagePublish(producer, topic,10);
+//            final AtomicInteger cnt1 = new AtomicInteger(0);
+//            MessageHandler handler1 = new MessageHandler() {
+//                @Override
+//                public void process(NSQMessage message) {
+//                    try {
+//                        if (ran1.nextBoolean()) {
+//                            Thread.sleep(100);
+//                        } else {
+//                            if (cnt1.incrementAndGet() == 100) {
+//                                cnt1.set(0);
+//                                throw new RuntimeException("exp on purpose");
+//                            }
+//                        }
+//                    } catch (InterruptedException e) {
+//                        logger.error("Interrupted while sleep");
+//                    }
+//                }
+//            };
+//
+//            final AtomicInteger cnt2 = new AtomicInteger(0);
+//            MessageHandler handler2 = new MessageHandler() {
+//                @Override
+//                public void process(NSQMessage message) {
+//                    try {
+//                        if (ran2.nextBoolean()) {
+//                            Thread.sleep(100);
+//                        } else {
+//                            if (cnt2.incrementAndGet() == 100) {
+//                                cnt2.set(0);
+//                                throw new RuntimeException("exp on purpose");
+//                            }
+//                        }
+//                    } catch (InterruptedException e) {
+//                        logger.error("Interrupted while sleep");
+//                    }
+//                }
+//            };
+//
+//            final AtomicInteger cnt3 = new AtomicInteger(0);
+//            MessageHandler handler3 = new MessageHandler() {
+//                @Override
+//                public void process(NSQMessage message) {
+//                    try {
+//                        if (ran3.nextBoolean()) {
+//                            Thread.sleep(100);
+//                        } else {
+//                            if (cnt3.incrementAndGet() == 100) {
+//                                cnt3.set(0);
+//                                throw new RuntimeException("exp on purpose");
+//                            }
+//                        }
+//                    } catch (InterruptedException e) {
+//                        logger.error("Interrupted while sleep");
+//                    }
+//                }
+//            };
+//
+//            consumer1 = new ConsumerImplV2(config, handler1);
+//            consumer1.subscribe(topic);
+//            consumer1.start();
+//
+//            consumer2 = new ConsumerImplV2(config, handler2);
+//            consumer2.subscribe(topic);
+//            consumer2.start();
+//
+//            consumer3 = new ConsumerImplV2(config, handler3);
+//            consumer3.subscribe(topic);
+//            consumer3.start();
+//            CountDownLatch latch = new CountDownLatch(1);
+//            logger.info("Wait for 24h for consumers to play...");
+//            latch.await(24, TimeUnit.HOURS);
+//        }finally {
+//            exec.shutdownNow();
+//            Thread.sleep(1000L);
+//            producer.close();
+//            consumer1.close();
+//            consumer2.close();
+//            consumer3.close();
+////            TopicUtil.deleteTopic(adminHttp, topic);
+//            logger.info("[testHowBadCanItBe] ends.");
+//        }
+//    }
+
     @Test
     public void testNextConsumingTimeout() throws Exception {
         logger.info("[testNextConsumingTimeout] starts.");
         final NSQConfig config = new NSQConfig("BaseConsumer");
         config.setLookupAddresses(props.getProperty("lookup-addresses"));
         String adminHttp = "http://" + props.getProperty("admin-address");
-        String topicName = "testNextConsumingTimeout_" + System.currentTimeMillis();
+        String topicName = "testNextConsumingTimeout";
 
         final int requeueTimeout = 10;
         Consumer consumer = null;
@@ -90,7 +197,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
     @Test
     public void testRdyIncrease() throws Exception {
         logger.info("[testRdyIncrease] starts.");
-        final String topicName = "testRdyIncrease_" + System.currentTimeMillis();
+        final String topicName = "testRdyIncrease";
         Random ran = new Random();
         int expectRdy = ran.nextInt(6) + 5;
         logger.info("ExpectedRdy: {}", expectRdy);
@@ -128,7 +235,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
             Thread.sleep(timeout * 1000);
             logger.info("Wake up.");
 
-            ConnectionManager conMgr = ((ConsumerImplV2) consumer).getConnectionManager();
+            ConnectionManager conMgr = consumer.getConnectionManager();
             Set<ConnectionManager.NSQConnectionWrapper> connSet = conMgr.getSubscribeConnections(topicName);
             for (ConnectionManager.NSQConnectionWrapper wrapper : connSet) {
                 int actualRdy = wrapper.getConn().getCurrentRdyCount();
@@ -147,7 +254,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
     @Test
     public void testLoadFactor() throws Exception {
         logger.info("[testLoadFactor] starts.");
-        final String topic = "testLoadFactor_" + System.currentTimeMillis();
+        final String topic = "testLoadFactor";
         int expectRdy = 10;
         logger.info("ExpectedRdy: {}", expectRdy);
         final NSQConfig config = new NSQConfig("BaseConsumer");
@@ -200,7 +307,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
     @Test
     public void testCloseConsumerWhileConsumption() throws Exception {
         logger.info("[testCloseConsumerWhileConsumption] starts.");
-        final String topic = "testClsConsumeWhileConsume_" + System.currentTimeMillis();
+        final String topic = "testClsConsumeWhileConsume";
         int expectRdy = 10;
         logger.info("ExpectedRdy: {}", expectRdy);
         final NSQConfig config = new NSQConfig("BaseConsumer");
@@ -250,7 +357,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
     @Test
     public void testHowBadCanItBe() throws Exception {
         logger.info("[testHowBadCanItBe] starts.");
-        final String topic = "testHowBadCanItBe_" + System.currentTimeMillis();
+        final String topic = "testHowBadCanItBeBasic";
         int expectRdy = 100;
         logger.info("ExpectedRdy: {}", expectRdy);
         final NSQConfig config = new NSQConfig("BaseConsumer");
@@ -282,7 +389,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
             consumer = new ConsumerImplV2(config, handler);
             consumer.subscribe(topic);
             consumer.start();
-            logger.info("Wait for 60s for consumer to start...");
+            logger.info("Wait for 30s for consumer to start...");
             Thread.sleep(30000L);
         }finally {
             exec.shutdownNow();

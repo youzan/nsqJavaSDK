@@ -8,6 +8,7 @@ import com.youzan.nsq.client.entity.DesiredTag;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.exception.NSQException;
+import com.youzan.nsq.client.exception.NSQNoConnectionException;
 import com.youzan.nsq.client.utils.ConnectionUtil;
 import com.youzan.nsq.client.utils.TopicUtil;
 import com.youzan.util.IOUtil;
@@ -19,8 +20,6 @@ import org.testng.annotations.Test;
 
 import java.io.InputStream;
 import java.net.URL;
-import java.util.Calendar;
-import java.util.Date;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -61,7 +60,7 @@ public class ITExtUpgradeTest {
 
     @Test
     public void testPublishAndConsumeWhileUpgrade() throws Exception {
-        final String topicName = "textExtUpgrade_" + System.currentTimeMillis();
+        final String topicName = "testPublishAndConsumeWhileUpgrade";
         ScheduledExecutorService exec = Executors.newSingleThreadScheduledExecutor();
         final Producer producer = new ProducerImplV2(config);
         Consumer consumer = null;
@@ -100,10 +99,10 @@ public class ITExtUpgradeTest {
             });
             consumer.subscribe(topicName);
             consumer.start();
-            //sleep 60 sec to pub/consume normal topic
+            //sleep 20 sec to pub/consume normal topic
             Thread.sleep(20000);
-
-            JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topicName + "&access=r"));
+            JsonNode lookupResp = null;
+            lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topicName + "&access=r&metainfo=true"));
             JsonNode partition = lookupResp.get("partitions").get("0");
             Address addr = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topicName, 0, false);
             NSQConnection mConn = ConnectionUtil.connect(addr, "BaseConsumer", config);
@@ -119,13 +118,26 @@ public class ITExtUpgradeTest {
             long pubNormal = success.get();
             long conNormal = consumeCnt.get();
             //then wait for recover
-            Thread.sleep(30000);
+            Thread.sleep(50000);
+
+            boolean extSupport = false;
+            int i=0;
+            while(i++ < 3) {
+                lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topicName + "&access=r&metainfo=true"));
+                extSupport = lookupResp.get("meta").get("extend_support").asBoolean();
+                if(extSupport) {
+                    break;
+                } else {
+                    Thread.sleep(10000);
+                }
+            }
+            Assert.assertTrue(extSupport);
 
             addr = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topicName, 0, false);
             try {
             mConn = ConnectionUtil.connect(addr, "BaseConsumer", config);
-            Assert.fail("connection should not connect.");
-            } catch (IllegalStateException e) {
+//            Assert.fail("connection should not connect.");
+             } catch (NSQNoConnectionException | IllegalStateException e) {
                 logger.error("intend failure to connect topic without ext support.", e);
             }
             mConn.close();
@@ -154,7 +166,7 @@ public class ITExtUpgradeTest {
 
     @Test
     public void testSubWTagToNormalTopic() throws Exception {
-        final String topicName = "textExtUpgrade_" + System.currentTimeMillis();
+        final String topicName = "testSubWTagToNormalTopic";
         final Producer producer = new ProducerImplV2(config);
         Consumer consumer = null;
         try {

@@ -13,6 +13,7 @@ import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.Role;
 import com.youzan.nsq.client.entity.Topic;
+import com.youzan.nsq.client.exception.NSQNoConnectionException;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.netty.NSQClientInitializer;
 import io.netty.bootstrap.Bootstrap;
@@ -44,7 +45,7 @@ public class ConnectionUtil {
         bootstrap.handler(new NSQClientInitializer());
     }
 
-    public static NSQConnection connect(Address addr, String channel, NSQConfig config) throws InterruptedException, TimeoutException {
+    public static NSQConnection connect(Address addr, String channel, NSQConfig config) throws InterruptedException, TimeoutException, NSQNoConnectionException {
         ChannelFuture chFuture = bootstrap.connect(addr.getHost(), addr.getPort());
         final CountDownLatch connLatch = new CountDownLatch(1);
         chFuture.addListener(new ChannelFutureListener() {
