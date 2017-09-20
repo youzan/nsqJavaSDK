@@ -676,4 +676,42 @@ public class ProducerTest extends AbstractNSQClientTestcase {
             }
         }
     }
+
+    @Test
+    public void testSendTagedMessageToNsqAll() throws IOException, InterruptedException, NSQException {
+        //what we need is tag and ext json
+        logger.info("[testSendTagedMessageToNsqAll] starts");
+        String topicName = "testSendTagedMessageToNsqAll";
+        String channel = "default";
+        String nsqdHttp = "http://" + props.getProperty("old-nsqd-http");
+        Producer producer = null;
+        try{
+            TopicUtil.createTopicChannelOld(nsqdHttp, topicName, channel);
+
+            NSQConfig config = (NSQConfig) this.config.clone();
+            config.turnOnLocalTrace(topicName);
+            config.setLookupAddresses(props.getProperty("old-lookup-addresses"));
+
+            producer = new ProducerImplV2(config);
+            producer.start();
+
+            final Topic topic = new Topic(topicName);
+            final Map<String, String> properties = new HashMap<>();
+            properties.put("key" ,"onlyVal");
+
+            final DesiredTag tag = new DesiredTag("testTag");
+            Message msg = Message.create(topic, 45678L, ("Message #0"));
+            msg.setDesiredTag(tag);
+            //add ext json
+            msg.setJsonHeaderExt(properties);
+            producer.publish(msg);
+            Assert.fail("should not hit this line");
+        } catch (NSQException e) {
+            String errorLog = e.getLocalizedMessage();
+            Assert.assertTrue(errorLog.contains("DesiredTag:"));
+        } finally {
+            logger.info("[testSendTagedMessageToNsqAll] ends");
+            producer.close();
+        }
+    }
 }

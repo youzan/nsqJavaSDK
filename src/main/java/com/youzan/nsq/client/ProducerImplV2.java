@@ -431,12 +431,13 @@ public class ProducerImplV2 implements Producer {
                 }
                 String msgStr = msg.getMessageBody();
                 int maxlen = msgStr.length() > MAX_MSG_OUTPUT_LEN ? MAX_MSG_OUTPUT_LEN : msgStr.length();
-                logger.error("MaxRetries: {} , CurrentRetries: {} , Address: {} , Topic: {}, MessageLength: {}, RawMessage: {}, Exception:", retry, c,
-                        conn.getAddress(), msg.getTopic(), msgStr.length(), msgStr.substring(0, maxlen), e);
+                String errLog = String.format("MaxRetries: %d , CurrentRetries: %d , Address: %s , Topic: %s, MessageLength: %d, RawMessage: %s, ExtJsonHeader: %s, DesiredTag: %s.", retry, c,
+                        conn.getAddress(), msg.getTopic(), msgStr.length(), msgStr.substring(0, maxlen), msg.getJsonHeaderExt(), msg.getDesiredTag());
+                logger.error(errLog, e);
                 //as to NSQInvalidMessageException throw it out after connection close.
                 if(e instanceof NSQInvalidMessageException)
                     throw (NSQInvalidMessageException)e;
-                NSQException nsqE = new NSQException(e);
+                NSQException nsqE = new NSQException(errLog, e);
                 exceptions.add(nsqE);
                 if (c >= retry) {
                     throw new NSQPubException(exceptions);
@@ -512,6 +513,9 @@ public class ProducerImplV2 implements Producer {
                     case E_PUB_FAILED: {
                         logger.error("Address: {} , Frame: {}", conn.getAddress(), frame);
                         throw new NSQPubFailedException("publish to " + topic.getTopicText() + " failed. Address " + conn.getAddress() + ", Error Frame: " + frame);
+                    }
+                    case E_INVALID: {
+                        throw new NSQInvalidException(err.getMessage());
                     }
                     default: {
                         throw new NSQException("Unknown response error! The topic is " + topic + " . The error frame is " + err);

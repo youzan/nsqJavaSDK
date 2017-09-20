@@ -117,3 +117,7 @@ Note worthy:
 Validation removed when producer intends to PUB_EXT a message to nsq topic, regardless whether it is extend support.
 Fix a NPE risk, in the eviction(close) of producer idle connection, while heart beat validation arrives.
 Change type of schedule executor in ConnectionManager to optimize thread number.
+
+#2.4.0.2-RELEASE
+Note worthy:
+Print message extension json header and desired tag in error log during publish. 
