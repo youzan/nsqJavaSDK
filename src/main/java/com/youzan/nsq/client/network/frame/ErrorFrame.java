@@ -66,6 +66,9 @@ public class ErrorFrame extends NSQFrame {
             if (content.startsWith(Response.E_BAD_TAG.getContent())) {
                 return Response.E_BAD_TAG;
             }
+            if (content.startsWith(Response.E_EXT_NOT_SUPPORT.getContent())) {
+                return Response.E_EXT_NOT_SUPPORT;
+            }
         }
         return null;
     }

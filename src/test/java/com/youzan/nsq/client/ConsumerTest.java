@@ -1,6 +1,7 @@
 package com.youzan.nsq.client;
 
 import com.youzan.nsq.client.core.ConnectionManager;
+import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.entity.*;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.utils.TopicUtil;
@@ -9,6 +10,8 @@ import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -399,6 +402,88 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
             TopicUtil.deleteTopic(adminHttp, topic);
             logger.info("[testHowBadCanItBe] ends.");
         }
+    }
+
+    @Test
+    public void testConsumerExpireTopic() throws Exception {
+        logger.info("[testConsumerExpireTopic] starts");
+        final String topic1 = "testConsumerExpireTopic1";
+        final String topic2 = "testConsumerExpireTopic2";
+        final NSQConfig config = new NSQConfig("default");
+        config.setLookupAddresses(props.getProperty("lookup-addresses"));
+        ScheduledExecutorService exec = null;
+        Producer producer = null;
+        MockedConsumer consumer = null;
+        String adminHttp = "http://" + props.getProperty("admin-address");
+        try {
+            TopicUtil.createTopic(adminHttp, topic1, 2, 1,"default");
+            TopicUtil.createTopicChannel(adminHttp, topic1, "default");
+
+            TopicUtil.createTopic(adminHttp, topic2, 2, 1, "default");
+            TopicUtil.createTopicChannel(adminHttp, topic2, "default");
+
+            MessageHandler handler = new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    try {
+                        Thread.sleep(100);
+                        throw new RuntimeException("exp on purpose");
+                    } catch (InterruptedException e) {
+                        logger.error("Interrupted while sleep");
+                    }
+                }
+            };
+
+            consumer = new MockedConsumer(config, handler);
+            consumer.subscribe(topic1);
+            consumer.startParent();
+            logger.info("Wait for 30s for consumer to start...");
+            Thread.sleep(30000L);
+            consumer.unsubscribe(topic1);
+            consumer.subscribe(topic2);
+            logger.info("Wait for 30s for consumer to resubscribe...");
+            Thread.sleep(30000);
+            Map<Address, NSQConnection> addr2Conn = consumer.getAddress2Conn();
+            Assert.assertEquals(addr2Conn.size(), 2, "existing partition num does not match");
+            for(NSQConnection conn : addr2Conn.values()) {
+                Assert.assertEquals(conn.getTopic().getTopicText(), topic2);
+            }
+        }finally {
+            Thread.sleep(1000L);
+            consumer.close();
+            TopicUtil.deleteTopic(adminHttp, topic1);
+            TopicUtil.deleteTopic(adminHttp, topic2);
+            logger.info("[testConsumerExpireTopic] ends.");
+        }
+    }
+
+    @Test
+    public void testSkipMessage() {
+        NSQConfig config = new NSQConfig();
+        Map<String, String> skipKV1 = new HashMap<>();
+        skipKV1.put("zan_test", "true");
+        config.setMessageSkipExtensionKVMap(skipKV1);
+
+        Map<String, Object> jsonHeader = new HashMap<>();
+        jsonHeader.put("zan_test", "true");
+        jsonHeader.put("desiredTag", "another");
+        NSQMessage msg = new NSQMessage();
+        msg.setJsonExtHeader(jsonHeader);
+
+        MockedConsumer consumer = new MockedConsumer(config, null);
+        boolean skipped = consumer.needSkip(msg);
+        Assert.assertTrue(skipped);
+
+        Map<String, String> skipKV2 = new HashMap<>();
+        skipKV2.put("zan_test", "false");
+        config.setMessageSkipExtensionKVMap(skipKV2);
+        skipped = consumer.needSkip(msg);
+        Assert.assertFalse(skipped);
+
+        NSQMessage msg2 = new NSQMessage();
+        //msg2.setJsonExtHeader(jsonHeader);
+        skipped = consumer.needSkip(msg2);
+        Assert.assertFalse(skipped);
     }
 
     private ScheduledExecutorService keepMessagePublish(final Producer producer, final String topic, long interval) throws NSQException {

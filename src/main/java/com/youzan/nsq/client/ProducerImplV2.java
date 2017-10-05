@@ -418,7 +418,7 @@ public class ProducerImplV2 implements Producer {
                     TraceLogger.trace(this, conn, (MessageMetadata) frame);
                 break;
             }
-            catch(NSQPubFactoryInitializeException | NSQTagException | NSQTopicNotExtendableException expShouldFail) {
+            catch(NSQPubFactoryInitializeException | NSQTagException | NSQTopicNotExtendableException | NSQExtNotSupportedException expShouldFail) {
                 throw expShouldFail;
             }
             catch (Exception e) {
@@ -505,6 +505,10 @@ public class ProducerImplV2 implements Producer {
                         }
                         logger.info("Partitions info for {} invalidated and related lookup force updated.", topic);
                         throw new NSQInvalidDataNodeException(topic.getTopicText());
+                    }
+                    case E_EXT_NOT_SUPPORT: {
+                        logger.error("Json extension header not support in target topic.", err.getMessage());
+                        throw new NSQExtNotSupportedException(topic.getTopicText() + " Error:" + err.getMessage());
                     }
                     case E_TAG_NOT_SUPPORT: {
                         logger.error("Tag not support in target topic.", err.getMessage());

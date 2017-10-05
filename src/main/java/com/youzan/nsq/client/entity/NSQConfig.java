@@ -5,12 +5,14 @@ import com.youzan.util.HostUtil;
 import com.youzan.util.NotThreadSafe;
 import com.youzan.util.SystemUtil;
 import io.netty.handler.ssl.SslContext;
+import org.apache.commons.collections.map.UnmodifiableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -887,6 +889,35 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     public int getConsumerWorkerPoolSize() {
         return this.consumerWorkerPoolSize;
+    }
+
+    private enum ConsumePolicy {
+        SKIP
+    }
+
+    private Map<ConsumePolicy, Map<String, String>> consumePolcyMap = new ConcurrentHashMap<>();
+
+    /**
+     * Set extension key/value map for consumer to skip, when json extension header in one message
+     * contains all or any subset of extensionKV, consumer will skip(ACK directly without passing to message handler)
+     * this message.
+     * extension
+     * @param extensionKV
+     * @return {@link NSQConfig} current NSQConfig
+     */
+    public NSQConfig setMessageSkipExtensionKVMap(final Map<String, String> extensionKV) {
+        if(null == extensionKV || extensionKV.size() == 0)
+            return this;
+        this.consumePolcyMap.put(ConsumePolicy.SKIP, Collections.unmodifiableMap(extensionKV));
+        return this;
+    }
+
+    /**
+     * Get extension key/value map for consumer to skip.
+     * @return extension key/value map for consumer to skip, which is {@link UnmodifiableMap}.
+     */
+    public Map<String, String> getMessageSkipExtensionKVMap() {
+        return this.consumePolcyMap.get(ConsumePolicy.SKIP);
     }
 
     @Override

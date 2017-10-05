@@ -60,6 +60,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     private final AtomicInteger finished = new AtomicInteger(0);
     private final AtomicInteger re = new AtomicInteger(0); // have done reQueue
     private final AtomicInteger queue4Consume = new AtomicInteger(0); // have done reQueue
+    private final AtomicInteger skipped = new AtomicInteger(0);
 
     //connection manager
     protected ConnectionManager conMgr = new ConnectionManager(this);
@@ -70,7 +71,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     /*
      * topics' partitions maintaining a sorted set of partitions number, example: {-1, 0, 2, 3}
      */
-    private final HashMap<String, SortedSet<Long>> topics2Partitions = new HashMap<>();
+    protected final HashMap<String, SortedSet<Long>> topics2Partitions = new HashMap<>();
     /*
      * nsqd address to connection map in effect.
      */
@@ -386,11 +387,12 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
          * =====================================================================
          */
         final Set<Address> except2 = new HashSet<>(oldAddresses);
+        final Set<NSQConnection> conns2ClsSet = new HashSet<>();
         except2.removeAll(targetAddresses);
         if (!except2.isEmpty()) {
             logger.info("Delete unused data-nodes: {}", except2);
             for (Address address : except2) {
-                clearDataNode(address);
+                conns2ClsSet.addAll(clearDataNode(address));
             }
         }
         /*-
@@ -418,6 +420,14 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
          *                          Clean up local resources
          * =====================================================================
          */
+        //close connections need expiration
+        if(conns2ClsSet.size() > 0) {
+            logger.info("Close nsqd connections need expire: {}", conns2ClsSet);
+            for (NSQConnection conn2Close : conns2ClsSet) {
+                conn2Close.close();
+            }
+            logger.info("Done expiring nsqd connections.");
+        }
         except1.clear();
         except2.clear();
         oldAddresses.clear();
@@ -494,7 +504,6 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         else
             return new Sub(topic, channel);
     }
-
     /**
      * No any exception
      * The method does not close the TCP-Connection
@@ -570,6 +579,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                     throw new NSQInvalidMessageException("Invalid internalID or diskQueueOffset in order mode.");
                 }
 //                conn.setMessageTouched(System.currentTimeMillis());
+
                 processMessage(message, conn);
             }
         }
@@ -606,6 +616,28 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         }
     }
 
+    boolean needSkip(final NSQMessage msg) {
+        //skip if:
+        //1. message has extension header;
+        //2. skip extension KV not empty;
+        //3. 1 & 2 has subset;
+        boolean skip = false;
+        Map<String, Object> jsonExtHeader = msg.getJsonExtHeader();
+        if(null != jsonExtHeader && jsonExtHeader.size() > 0) {
+            Map<String, String> skipKV = this.config.getMessageSkipExtensionKVMap();
+            if(null != skipKV && skipKV.size() > 0) {
+                //create a copy
+                Set<Map.Entry<String, Object>> subset = new HashSet(jsonExtHeader.entrySet());
+                subset.retainAll(skipKV.entrySet());
+                if(subset.size() > 0) {
+                    logger.info("message skipped as KV for skip found in json extension header. message: {}, subset: {}", msg, subset);
+                    skip = true;
+                }
+            }
+        }
+        return skip;
+    }
+
     /**
      * @param message    a NSQMessage
      * @param connection a NSQConnection
@@ -614,10 +646,14 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     private void consume(final NSQMessage message, final NSQConnection connection) {
         boolean ok;
         boolean retry;
+        boolean skip = needSkip(message);
 
         long start = System.currentTimeMillis();
         try {
-            handler.process(message);
+            if(!skip)
+                handler.process(message);
+            else
+                skipped.incrementAndGet();
             ok = true;
             retry = false;
         } catch (RetryBusinessException e) {
