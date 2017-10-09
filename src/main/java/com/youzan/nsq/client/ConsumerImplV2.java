@@ -40,6 +40,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  */
 public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     private static final Logger logger = LoggerFactory.getLogger(ConsumerImplV2.class);
+    private static final Logger LOG_CONSUME_POLICY = LoggerFactory.getLogger(ConsumerImplV2.class.getName() + ".consume.policy");
     private static final Logger PERF_LOG = LoggerFactory.getLogger(ConsumerImplV2.class.getName() + ".perf");
 
     private final static AtomicInteger CONN_ID_GENERATOR = new AtomicInteger(0);
@@ -630,7 +631,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 Set<Map.Entry<String, Object>> subset = new HashSet(jsonExtHeader.entrySet());
                 subset.retainAll(skipKV.entrySet());
                 if(subset.size() > 0) {
-                    logger.info("message skipped as KV for skip found in json extension header. message: {}, subset: {}", msg, subset);
+                    LOG_CONSUME_POLICY.info("Message skipped as KV for skip found in json extension header. message: {}, subset: {}", msg, subset);
                     skip = true;
                 }
             }

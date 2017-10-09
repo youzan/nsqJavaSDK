@@ -169,7 +169,7 @@ public class NSQMessage implements MessageMetadata{
 
     //set json extension header, for test purpose
     public void setJsonExtHeader(final Map<String, Object> newJsonExtHeader) {
-        logger.info("json extension header is override");
+        logger.info("json extension header is override with {}", newJsonExtHeader);
         this.jsonExtHeader = newJsonExtHeader;
     }
 

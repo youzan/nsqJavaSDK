@@ -484,6 +484,17 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         //msg2.setJsonExtHeader(jsonHeader);
         skipped = consumer.needSkip(msg2);
         Assert.assertFalse(skipped);
+
+        Map<String, String> skipKV3 = new HashMap<>();
+        skipKV3.put("zan_test", "false");
+        config.setMessageSkipExtensionKVMap(skipKV3);
+
+        Map<String, Object> jsonHeader3 = new HashMap<>();
+        jsonHeader3.put("zan_test", "false");
+        msg = new NSQMessage();
+        msg.setJsonExtHeader(jsonHeader3);
+        skipped = consumer.needSkip(msg);
+        Assert.assertTrue(skipped);
     }
 
     private ScheduledExecutorService keepMessagePublish(final Producer producer, final String topic, long interval) throws NSQException {

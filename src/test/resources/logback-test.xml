@@ -80,6 +80,23 @@
         </encoder>
     </appender>
 
+    <appender name="CONSUME_POLICY" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>DEBUG</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <file>${LOG_HOME}/consume_policy.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_HOME}/nsq_sdk_consume_policy.%d{yyyyMMdd}.log</fileNamePattern>
+            <maxHistory>3</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${CONSOLE_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
     <appender name="INFO" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <filter class="ch.qos.logback.classic.filter.LevelFilter">
             <level>INFO</level>
@@ -133,6 +150,9 @@
     </logger>
     <logger name="com.youzan.nsq.client.trace" additivity="false">
         <appender-ref ref="TraceDEBUG"/>
+    </logger>
+    <logger name="com.youzan.nsq.client.ConsumerImplV2.consume.policy" additivity="false">
+        <appender-ref ref="CONSUME_POLICY"/>
     </logger>
 
     <root level="DEBUG">
