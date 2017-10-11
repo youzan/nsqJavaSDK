@@ -51,15 +51,15 @@ public class ProducerTest extends AbstractNSQClientTestcase {
             producer.start();
 
             //json
-            Map<String, String> jsonExt = new HashMap<>();
-            jsonExt.put("key1", "val1");
-            jsonExt.put("key2", "val2");
-            jsonExt.put("key3", "val3");
-            jsonExt.put("key4", "val4");
+//            Map<String, String> jsonExt = new HashMap<>();
+//            jsonExt.put("key1", "val1");
+//            jsonExt.put("key2", "val2");
+//            jsonExt.put("key3", "val3");
+//            jsonExt.put("key4", "val4");
 
             Message msg = Message.create(new Topic(topic), "message");
             msg.setDesiredTag(new DesiredTag("TAG"));
-            msg.setJsonHeaderExt(jsonExt);
+//            msg.setJsonHeaderExt(jsonExt);
             producer.publish(msg);
         }finally {
             producer.close();

@@ -1,16 +1,22 @@
 package com.youzan.nsq.client.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.youzan.nsq.client.Version;
 import com.youzan.util.HostUtil;
 import com.youzan.util.NotThreadSafe;
 import com.youzan.util.SystemUtil;
 import io.netty.handler.ssl.SslContext;
+import org.apache.commons.collections.map.UnmodifiableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -24,6 +30,25 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     private static final long serialVersionUID = 6624842850216901700L;
     private static final Logger logger = LoggerFactory.getLogger(NSQConfig.class);
+    private static final ObjectMapper MAPPER_CONFIG = new ObjectMapper();
+    static {
+        MAPPER_CONFIG.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+    }
+
+    /**
+     * parse nsqconfig meta info
+     * @param config
+     */
+    public static String parseNSQConfig(final NSQConfig config) {
+        String configJson = null;
+        try {
+            configJson = MAPPER_CONFIG.writeValueAsString(config);
+        }catch (Throwable e) {
+            logger.error("fail to parse NSQConfig to string", e);
+        }finally {
+            return configJson;
+        }
+    }
 
     private IExpectedRdyUpdatePolicy DEFAULT_EXP_RDY_POLICY = new IExpectedRdyUpdatePolicy() {
         @Override
@@ -889,6 +914,49 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         return this.consumerWorkerPoolSize;
     }
 
+    private enum ConsumePolicy {
+        SKIP
+    }
+
+    private Map<ConsumePolicy, Map<String, Object>> consumePolcyMap = new ConcurrentHashMap<>();
+
+    /**
+     * Set extension key/value map for consumer to skip, when json extension header in one message
+     * contains Any subset of extensionKV, consumer will skip(ACK directly without passing to message handler)
+     * this message.
+     * extension
+     * @param extensionKV
+     * @return {@link NSQConfig} current NSQConfig
+     */
+    NSQConfig setMessageSkipExtensionKVMap(final Map<String, Object> extensionKV) {
+        if(null == extensionKV || extensionKV.size() == 0)
+            return this;
+        this.consumePolcyMap.put(ConsumePolicy.SKIP, Collections.unmodifiableMap(extensionKV));
+        return this;
+    }
+
+    /**
+     * Set extension key for consumer to skip, when json extension header in one message
+     * contains specified key, consumer will skip(ACK directly without passing to message handler)
+     * this message.
+     * extension
+     * @param key
+     * @return {@link NSQConfig} current NSQConfig
+     */
+    public NSQConfig setMessageSkipExtensionKey(final String key) {
+        Map<String, Object> map = new HashMap<>();
+        map.put(key, "*");
+        return this.setMessageSkipExtensionKVMap(map);
+    }
+
+    /**
+     * Get extension key/value map for consumer to skip.
+     * @return extension key/value map for consumer to skip, which is {@link UnmodifiableMap}.
+     */
+    public Map<String, Object> getMessageSkipExtensionKVMap() {
+        return this.consumePolcyMap.get(ConsumePolicy.SKIP);
+    }
+
     @Override
     public Object clone() {
         NSQConfig newCfg = null;
@@ -921,6 +989,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * @return threshold of requeue time for one message.
      */
     @Deprecated
+    @JsonIgnore
     public int getMaxRequeueTimes() {
         return -1;
     }
@@ -944,6 +1013,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * @return false
      */
     @Deprecated
+    @JsonIgnore
     public boolean getSendAndACKAfterMaxRequeue() {
         return false;
     }
@@ -974,6 +1044,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      *
      */
     @Deprecated
+    @JsonIgnore
     public int getProducerRetryIntervalBaseInMilliSeconds() {
         return this.producerRetryIntervalBase;
     }

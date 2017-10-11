@@ -177,6 +177,8 @@ public class ProducerImplV2 implements Producer {
     @Override
     public void start() throws NSQException {
         if (started.compareAndSet(Boolean.FALSE, Boolean.TRUE)) {
+            String configJsonStr = NSQConfig.parseNSQConfig(this.config);
+            logger.info("Config for producer {}: {}", this, configJsonStr);
             if (!validateLookupdSource()) {
                 throw new IllegalArgumentException("Producer could not start with invalid lookupd address sources.");
             }
@@ -210,7 +212,7 @@ public class ProducerImplV2 implements Producer {
             //simple client starts and LookupAddressUpdate instance initialized there.
             this.simpleClient.start();
             scheduler.scheduleAtFixedRate(EXPIRED_TOPIC_CLEANER, 30, 30, TimeUnit.MINUTES);
-            logger.info("The producer has been started.");
+            logger.info("The producer {} has been started.", this);
         }
     }
 
@@ -418,7 +420,7 @@ public class ProducerImplV2 implements Producer {
                     TraceLogger.trace(this, conn, (MessageMetadata) frame);
                 break;
             }
-            catch(NSQPubFactoryInitializeException | NSQTagException | NSQTopicNotExtendableException expShouldFail) {
+            catch(NSQPubFactoryInitializeException | NSQTagException | NSQTopicNotExtendableException | NSQExtNotSupportedException expShouldFail) {
                 throw expShouldFail;
             }
             catch (Exception e) {
@@ -505,6 +507,10 @@ public class ProducerImplV2 implements Producer {
                         }
                         logger.info("Partitions info for {} invalidated and related lookup force updated.", topic);
                         throw new NSQInvalidDataNodeException(topic.getTopicText());
+                    }
+                    case E_EXT_NOT_SUPPORT: {
+                        logger.error("Json extension header not support in target topic.", err.getMessage());
+                        throw new NSQExtNotSupportedException(topic.getTopicText() + " Error:" + err.getMessage());
                     }
                     case E_TAG_NOT_SUPPORT: {
                         logger.error("Tag not support in target topic.", err.getMessage());
