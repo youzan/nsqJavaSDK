@@ -460,9 +460,10 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
     @Test
     public void testSkipMessage() {
         NSQConfig config = new NSQConfig();
-        Map<String, String> skipKV1 = new HashMap<>();
-        skipKV1.put("zan_test", "true");
-        config.setMessageSkipExtensionKVMap(skipKV1);
+//        Map<String, String> skipKV1 = new HashMap<>();
+//        skipKV1.put("zan_test", "true");
+//        config.setMessageSkipExtensionKVMap(skipKV1);
+        config.setMessageSkipExtensionKey("zan_test");
 
         Map<String, Object> jsonHeader = new HashMap<>();
         jsonHeader.put("zan_test", "true");
@@ -474,20 +475,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         boolean skipped = consumer.needSkip(msg);
         Assert.assertTrue(skipped);
 
-        Map<String, String> skipKV2 = new HashMap<>();
-        skipKV2.put("zan_test", "false");
-        config.setMessageSkipExtensionKVMap(skipKV2);
-        skipped = consumer.needSkip(msg);
-        Assert.assertFalse(skipped);
-
-        NSQMessage msg2 = new NSQMessage();
-        //msg2.setJsonExtHeader(jsonHeader);
-        skipped = consumer.needSkip(msg2);
-        Assert.assertFalse(skipped);
-
-        Map<String, String> skipKV3 = new HashMap<>();
-        skipKV3.put("zan_test", "false");
-        config.setMessageSkipExtensionKVMap(skipKV3);
+        config.setMessageSkipExtensionKey("zan_test");
 
         Map<String, Object> jsonHeader3 = new HashMap<>();
         jsonHeader3.put("zan_test", "false");
@@ -495,6 +483,20 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         msg.setJsonExtHeader(jsonHeader3);
         skipped = consumer.needSkip(msg);
         Assert.assertTrue(skipped);
+
+
+        NSQConfig config2 = new NSQConfig();
+        config2.setMessageSkipExtensionKey("zan_test_not");
+
+        Map<String, Object> jsonHeader2 = new HashMap<>();
+        jsonHeader2.put("zan_test", Boolean.TRUE);
+        jsonHeader2.put("desiredTag", "another");
+        NSQMessage msg3 = new NSQMessage();
+        msg3.setJsonExtHeader(jsonHeader2);
+
+        MockedConsumer consumer2 = new MockedConsumer(config2, null);
+        skipped = consumer2.needSkip(msg3);
+        Assert.assertFalse(skipped);
     }
 
     private ScheduledExecutorService keepMessagePublish(final Producer producer, final String topic, long interval) throws NSQException {

@@ -177,6 +177,8 @@ public class ProducerImplV2 implements Producer {
     @Override
     public void start() throws NSQException {
         if (started.compareAndSet(Boolean.FALSE, Boolean.TRUE)) {
+            String configJsonStr = NSQConfig.parseNSQConfig(this.config);
+            logger.info("Config for producer {}: {}", this, configJsonStr);
             if (!validateLookupdSource()) {
                 throw new IllegalArgumentException("Producer could not start with invalid lookupd address sources.");
             }
@@ -210,7 +212,7 @@ public class ProducerImplV2 implements Producer {
             //simple client starts and LookupAddressUpdate instance initialized there.
             this.simpleClient.start();
             scheduler.scheduleAtFixedRate(EXPIRED_TOPIC_CLEANER, 30, 30, TimeUnit.MINUTES);
-            logger.info("The producer has been started.");
+            logger.info("The producer {} has been started.", this);
         }
     }
 

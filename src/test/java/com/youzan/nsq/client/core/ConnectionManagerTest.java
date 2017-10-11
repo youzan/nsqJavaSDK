@@ -85,7 +85,7 @@ public class ConnectionManagerTest {
         String topicName = "JavaTesting-Producer-Base";
         JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topicName + "&access=r"));
         JsonNode partition = lookupResp.get("partitions").get("0");
-        Address addr1 = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topicName, 0, true);
+        Address addr1 = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topicName, 0, false);
         NSQConnection con1 = connect(addr1, topicName, 0, "BaseConsumer", config);
 
         ConnectionManager conMgr = new ConnectionManager(new IConsumeInfo() {

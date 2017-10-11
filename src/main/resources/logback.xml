@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration debug="false" scan="true" scanPeriod="60 seconds">
-    <property name="LOG_HOME" value="./logs/nsq-client-java"/>
+    <property name="NSQ_SDK_LOG_HOME" value="${log.path}/nsq_sdk_client" />
     <property name="CONSOLE_PATTERN" value="%d{HH:mm:ss.SSS} [%thread] %-5level -- %class [%3line] -- %msg%n"/>
     <property name="MSG_PATTERN" value="%d{ISO8601} -- %msg%n"/>
     <property name="NORMAL_PATTERN" value="%d{ISO8601} -- %-60.60class [%3line] -- %msg%n"/>
@@ -11,9 +11,9 @@
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>INFO</level>
         </filter>
-        <file>${LOG_HOME}/nsq_sdk_consume_policy.log</file>
+        <file>${NSQ_SDK_LOG_HOME}/nsq_sdk_consume_policy.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_HOME}/nsq_sdk_consume_policy.%d{yyyyMMdd}.log</fileNamePattern>
+            <fileNamePattern>${NSQ_SDK_LOG_HOME}/nsq_sdk_consume_policy.%d{yyyyMMdd}.log</fileNamePattern>
             <maxHistory>7</maxHistory>
         </rollingPolicy>
         <encoder>

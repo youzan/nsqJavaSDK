@@ -107,6 +107,10 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     private final NSQConfig config;
 
 
+    /**
+     * Initialize Consumer with passin {@link NSQConfig}, consumer keep reference to passin config object.
+     * @param config
+     */
     public ConsumerImplV2(NSQConfig config) {
         this.config = config;
         this.simpleClient = new NSQSimpleClient(Role.Consumer, this.config.getUserSpecifiedLookupAddress());
@@ -226,6 +230,8 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         }
         //start consumer
         if (this.started.compareAndSet(Boolean.FALSE, Boolean.TRUE) && cLock.writeLock().tryLock()) {
+            String configJsonStr = NSQConfig.parseNSQConfig(this.config);
+            logger.info("Config for consumer {}: {}", this, configJsonStr);
             try {
                 //validate that consumer have right lookup address source
                 if (!validateLookupdSource()) {
@@ -239,7 +245,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 keepConnecting();
                 //start connection manager
                 conMgr.start();
-                logger.info("The consumer has been started.");
+                logger.info("The consumer {} has been started.", this);
             }finally {
                 cLock.writeLock().unlock();
             }
@@ -625,13 +631,13 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         boolean skip = false;
         Map<String, Object> jsonExtHeader = msg.getJsonExtHeader();
         if(null != jsonExtHeader && jsonExtHeader.size() > 0) {
-            Map<String, String> skipKV = this.config.getMessageSkipExtensionKVMap();
+            Map<String, Object> skipKV = this.config.getMessageSkipExtensionKVMap();
             if(null != skipKV && skipKV.size() > 0) {
                 //create a copy
-                Set<Map.Entry<String, Object>> subset = new HashSet(jsonExtHeader.entrySet());
-                subset.retainAll(skipKV.entrySet());
+                Set<String> subset = new HashSet(jsonExtHeader.keySet());
+                subset.retainAll(skipKV.keySet());
                 if(subset.size() > 0) {
-                    LOG_CONSUME_POLICY.info("Message skipped as KV for skip found in json extension header. message: {}, subset: {}", msg, subset);
+                    LOG_CONSUME_POLICY.info("Message skipped as Key for skip found in json extension header. message: {}, subset: {}", msg, subset);
                     skip = true;
                 }
             }
