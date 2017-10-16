@@ -106,7 +106,8 @@ public class Address implements java.io.Serializable, Comparable<Address> {
         final int hostComparator = o1.host.compareTo(o2.getHost());
         final int portComparator = hostComparator == 0 ? o1.port - o2.port : hostComparator;
         final int topicComparator = portComparator == 0 ? o1.topic.compareTo(o2.topic) : portComparator;
-        return topicComparator == 0 ? o1.partition - o2.partition : topicComparator;
+        final int partitionComparator = topicComparator == 0 ? o1.partition - o2.partition : topicComparator;
+        return partitionComparator == 0 ? (extend == o2.extend ? 0 : 1) : partitionComparator;
     }
 
     @Override
@@ -117,6 +118,7 @@ public class Address implements java.io.Serializable, Comparable<Address> {
         result = prime * result + port;
         result = prime * result + topic.hashCode();
         result = prime * result + partition;
+        result = prime * result + (extend ? 1 : 0);
         return result;
     }
 
@@ -142,8 +144,10 @@ public class Address implements java.io.Serializable, Comparable<Address> {
             return false;
         } else if (!topic.equals(other.topic)) {
             return false;
+        } else if (partition != other.partition) {
+            return false;
         }
-        return partition == other.partition;
+        return extend == other.extend;
     }
 
 }
