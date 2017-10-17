@@ -134,3 +134,8 @@ publish problem in producers at start up when lookup address and dcc remove cont
 NSQExtNotSupportedException added for new error in youzan nsqd.
 
 feature: filter to skip message according to extension header key specified in NSQConfig for consumer.
+
+#2.4.1.1-RELEASE
+Note worthy:
+fix remove nested logback.xml imported in 2.4.1-RELEASE.
+Add ExplicitRequeueException in message consumption to depress log. 
