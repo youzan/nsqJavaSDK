@@ -653,6 +653,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     private void consume(final NSQMessage message, final NSQConnection connection) {
         boolean ok;
         boolean retry;
+        boolean explicitRequeue = false;
         boolean skip = needSkip(message);
 
         long start = System.currentTimeMillis();
@@ -663,6 +664,14 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 skipped.incrementAndGet();
             ok = true;
             retry = false;
+        } catch (ExplicitRequeueException e) {
+            ok = false;
+            retry = false;
+            explicitRequeue = true;
+            logger.info("Message {} explicit requeue by client business, in {} sec. {}", message, message.getNextConsumingInSecond(), e.getMessage());
+            if(!e.isWarnLogDepressed()) {
+                logger.warn("Client business has one error. Original message: {}. Exception:", message.getReadableContent(), e);
+            }
         } catch (RetryBusinessException e) {
             ok = false;
             retry = true;
@@ -715,7 +724,8 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                         logger.info("Do a Finish by SDK, given that client process handler has failed and next consuming time elapse not specified. MessageID: {} , Hex: {}", id, message.newHexString(id));
                     }
                 }
-                connection.declineExpectedRdy();
+                if(!explicitRequeue)
+                    connection.declineExpectedRdy();
             }
         } else {
             // Client code does finish explicitly.
@@ -759,7 +769,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         //log warn
         if (!ok) {
             //TODO: connection.setMessageConsumptionFailed(start);
-            logger.warn("Exception occurs in message handler. Please check it right now {} , Original message: {}.", message, message.getReadableContent());
+//            logger.warn("Exception occurs in message handler. Please check it right now {} , Original message: {}.", message, message.getReadableContent());
         } else if (!this.config.isOrdered()){
             connection.increaseExpectedRdy();
         }

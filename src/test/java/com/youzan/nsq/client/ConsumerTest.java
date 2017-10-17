@@ -3,6 +3,7 @@ package com.youzan.nsq.client;
 import com.youzan.nsq.client.core.ConnectionManager;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.entity.*;
+import com.youzan.nsq.client.exception.ExplicitRequeueException;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.utils.TopicUtil;
 import org.slf4j.Logger;
@@ -454,6 +455,52 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
             TopicUtil.deleteTopic(adminHttp, topic1);
             TopicUtil.deleteTopic(adminHttp, topic2);
             logger.info("[testConsumerExpireTopic] ends.");
+        }
+    }
+
+    @Test
+    public void testExplicitReQueueMessage() throws Exception {
+        logger.info("[testExplicitReQueueMessage] starts");
+        final NSQConfig config = new NSQConfig("default");
+        config.setLookupAddresses(props.getProperty("lookup-addresses"));
+        final String topic = "testExplicitReQueueMessage";
+        String adminHttp = "http://" + props.getProperty("admin-address");
+        Producer producer = new ProducerImplV2(config);
+        producer.start();
+        Consumer consumer = new ConsumerImplV2(config);
+        try{
+            TopicUtil.createTopic(adminHttp, topic, 2, 1,"default");
+            TopicUtil.createTopicChannel(adminHttp, topic, "default");
+            final CountDownLatch latch = new CountDownLatch(1);
+            producer.publish("message requeue explicit", topic);
+
+            MessageHandler handler = new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    try {
+                        if(message.getReadableAttempts() == 1) {
+                            message.setNextConsumingInSecond(1);
+                            throw new ExplicitRequeueException("exp on purpose requeue");
+                        }
+                        if(message.getReadableAttempts() == 2) {
+                            logger.info("requeue message received. {}", message);
+                            latch.countDown();
+                        }
+                    } catch (NSQException e) {
+                        logger.error("Interrupted while sleep");
+                    }
+                }
+            };
+            consumer.setMessageHandler(handler);
+            consumer.subscribe(topic);
+            consumer.start();
+            Assert.assertTrue(latch.await(90, TimeUnit.SECONDS));
+        } finally {
+            producer.close();
+            consumer.close();
+            Thread.sleep(5000);
+            TopicUtil.deleteTopic(adminHttp, topic);
+            logger.info("[testExplicitReQueueMessage] ends.");
         }
     }
 
