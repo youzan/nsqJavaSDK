@@ -1,19 +1,13 @@
 package com.youzan.nsq.client.network.connections;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.youzan.nsq.client.IConsumeInfo;
-import com.youzan.nsq.client.MockedConsumer;
-import com.youzan.nsq.client.MockedNSQConnectionImpl;
-import com.youzan.nsq.client.MockedNSQSimpleClient;
+import com.youzan.nsq.client.*;
 import com.youzan.nsq.client.core.*;
 import com.youzan.nsq.client.core.command.Identify;
 import com.youzan.nsq.client.core.command.Magic;
 import com.youzan.nsq.client.core.command.Rdy;
 import com.youzan.nsq.client.core.command.Sub;
-import com.youzan.nsq.client.entity.Address;
-import com.youzan.nsq.client.entity.NSQConfig;
-import com.youzan.nsq.client.entity.Role;
-import com.youzan.nsq.client.entity.Topic;
+import com.youzan.nsq.client.entity.*;
 import com.youzan.nsq.client.network.netty.NSQClientInitializer;
 import com.youzan.util.IOUtil;
 import io.netty.bootstrap.Bootstrap;
@@ -22,6 +16,7 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -151,5 +146,38 @@ public class NSQConnectionTest {
         conMgr.subscribe(topicName, con2);
         consumer.close(con3);
         con3.close();
+    }
+
+    @Test
+    public void testCloseExpiredConnection() throws Exception {
+        logger.info("[testCloseExpiredConnection] starts");
+        NSQConfig config = (NSQConfig) this.config.clone();
+        config.setConsumerName("default");
+        try{
+            String topicName = "JavaTesting-Producer-Base";
+            JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topicName + "&access=r"));
+            JsonNode partition = lookupResp.get("partitions").get("0");
+
+            Address addr1 = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topicName, 0, false);
+
+            MockedConsumer consumer = new MockedConsumer(config, new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    //do nothing
+                }
+            });
+//            consumer.start();
+            consumer.startParent();
+            consumer.connect(addr1);
+            consumer.subscribe("JavaTesting-Finish");
+            //2 times the consumer connection interval
+            long timeout = 40000;
+            logger.info("sleep {} for old node to be closed", timeout);
+            Thread.sleep(timeout);
+            NSQConnection con1 = consumer.getAddress2Conn().get(addr1);
+            Assert.assertNull(con1);
+        }finally {
+            logger.info("[testCloseExpiredConnection] ends");
+        }
     }
 }

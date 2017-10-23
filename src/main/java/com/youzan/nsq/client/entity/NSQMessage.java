@@ -401,8 +401,11 @@ public class NSQMessage implements MessageMetadata{
     }
 
     public String toString() {
+        String tag = null;
+        if(null != this.tag)
+            tag = this.tag.getTagName();
         String msgStr = "NSQMessage [messageID=" + readableMsgID + ", internalID=" + internalID + ", traceID=" + traceID + ", diskQueueOffset=" + diskQueueOffset + ", diskQueueDataSize=" + diskQueueDataSize + ", datetime=" + datetime + ", readableAttempts="
-                + readableAttempts + ", address=" + address + ", connectionID=" + connectionID + "]";
+                + readableAttempts + ", address=" + address + ", connectionID=" + connectionID + ", tag=" + tag + ", extJsonHeader=" + jsonExtHeader + "]";
         return msgStr;
     }
 
@@ -411,6 +414,9 @@ public class NSQMessage implements MessageMetadata{
     @Override
     public String toMetadataStr() {
         if(null == this.metaDataStr) {
+            String tag = null;
+            if(null != this.tag)
+                tag = this.tag.getTagName();
             String objStr = getClass().getName() + "@" + Integer.toHexString(hashCode());
             StringBuilder sb = new StringBuilder();
             sb.append(objStr + " meta-data:\n");
@@ -422,6 +428,8 @@ public class NSQMessage implements MessageMetadata{
             sb.append("\t[diskQueueOffset]:\t").append(this.diskQueueOffset).append("\n");
             sb.append("\t[diskQueueDataSize]:\t").append(this.diskQueueDataSize).append("\n");
             sb.append("\t[NSQd address]:\t").append(this.address.toString()).append("\n");
+            sb.append("\t[tag]:\t").append(tag).append("\n");
+            sb.append("\t[extJsonHeader]:\t").append(this.jsonExtHeader).append("\n");
             sb.append(objStr + " end.");
             this.metaDataStr = sb.toString();
         }
