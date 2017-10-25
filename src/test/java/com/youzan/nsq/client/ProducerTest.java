@@ -8,6 +8,7 @@ import com.youzan.nsq.client.utils.CompressUtil;
 import com.youzan.nsq.client.utils.TopicUtil;
 import com.youzan.util.IOUtil;
 import io.netty.util.internal.ConcurrentSet;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -149,7 +150,12 @@ public class ProducerTest extends AbstractNSQClientTestcase {
         try {
             System.clearProperty("nsq.sdk.configFilePath");
             NSQConfig cnf = new NSQConfig();
-            cnf.setLookupAddresses(props.getProperty("dcc-lookup"));
+            String dccLookupAddr = props.getProperty("dcc-lookup");
+            if(StringUtils.isBlank(dccLookupAddr)) {
+                logger.info("dcc lookup address is null, [testStartWDCCLookupSource] exits.");
+                return;
+            }
+            cnf.setLookupAddresses(dccLookupAddr);
             Producer prod = new ProducerImplV2(cnf);
             try {
                 prod.start();
