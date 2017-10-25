@@ -8,7 +8,6 @@ import com.youzan.util.HostUtil;
 import com.youzan.util.NotThreadSafe;
 import com.youzan.util.SystemUtil;
 import io.netty.handler.ssl.SslContext;
-import org.apache.commons.collections.map.UnmodifiableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -951,7 +950,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     /**
      * Get extension key/value map for consumer to skip.
-     * @return extension key/value map for consumer to skip, which is {@link UnmodifiableMap}.
+     * @return extension key/value map for consumer to skip, which is {@link Collections.UnmodifiableMap}.
      */
     public Map<String, Object> getMessageSkipExtensionKVMap() {
         return this.consumePolcyMap.get(ConsumePolicy.SKIP);
