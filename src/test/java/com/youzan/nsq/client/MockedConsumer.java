@@ -4,6 +4,7 @@ import com.youzan.nsq.client.core.ConnectionManager;
 import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.exception.NSQException;
 
 import java.util.Map;
@@ -38,5 +39,23 @@ public class MockedConsumer extends ConsumerImplV2 {
 
     public void start() {
         super.started.set(Boolean.TRUE);
+    }
+
+    public void startParent() throws NSQException {
+        super.start();
+    }
+
+    public boolean needSkip(NSQMessage msg) {
+        return super.needSkip(msg);
+    }
+
+    /**
+     * unscribe topic from consumer
+     * @param topic topic to remove
+     */
+    public void unsubscribe(String topic) {
+        if(topics2Partitions.containsKey(topic)) {
+            topics2Partitions.remove(topic);
+        }
     }
 }

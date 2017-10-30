@@ -5,6 +5,7 @@ import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.entity.Topic;
+import com.youzan.nsq.client.exception.NSQException;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,6 +87,44 @@ public class ITProducerExt {
             Thread.sleep(1000);
             consumer.close();
             logger.info("[publishExt] ends.");
+        }
+    }
+
+    @Test
+    public void publishExtZanTest() throws NSQException, InterruptedException {
+        logger.info("[publishExtZanTest] starts.");
+        String topicName = "JavaTesting-Ext";
+//        TopicUtil.emptyQueue(adminHttp, topicName, "default");
+        //set trace id, which is a long(8-byte-length)
+        Topic topic = new Topic(topicName);
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("zan_test" , Boolean.TRUE);
+        Consumer consumer = null;
+        try {
+            for (int i = 0; i < 10; i++) {
+                Message msg = Message.create(topic, 45678L, ("Message #" + i));
+                //add ext json
+                msg.setJsonHeaderExt(properties);
+                producer.publish(msg);
+            }
+
+            producer.close();
+            config.setConsumerName("default");
+            config.setMessageSkipExtensionKey("zan_test");
+            final CountDownLatch failLatch = new CountDownLatch(1);
+            consumer = new ConsumerImplV2(config, new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    failLatch.countDown();
+                }
+            });
+            consumer.subscribe(topicName);
+            consumer.start();
+            Assert.assertFalse(failLatch.await(60, TimeUnit.SECONDS));
+        } finally {
+            Thread.sleep(1000);
+            consumer.close();
+            logger.info("[publishExtZanTest] ends.");
         }
     }
 

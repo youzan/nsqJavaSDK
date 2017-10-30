@@ -63,6 +63,23 @@ public class NSQMessage implements MessageMetadata{
     }
 
     /**
+     * NSQMessage constructor, for test purpose
+     */
+    public NSQMessage() {
+        timestamp = null;
+        attempts = null;
+        messageID = null;
+        messageBody = null;
+        address = null;
+        connectionID = null;
+        datetime= null;
+        readableAttempts = 1;
+        readableMsgID = null;
+        internalID = 0l;
+        traceID = 0l;
+    }
+
+    /**
      * all the parameters is the NSQ message format!
      *
      * @param timestamp    the raw bytes from the data-node
@@ -148,6 +165,12 @@ public class NSQMessage implements MessageMetadata{
                 }
             }
         }
+    }
+
+    //set json extension header, for test purpose
+    public void setJsonExtHeader(final Map<String, Object> newJsonExtHeader) {
+        logger.info("json extension header is override with {}", newJsonExtHeader);
+        this.jsonExtHeader = newJsonExtHeader;
     }
 
     public Map<String, Object> getJsonExtHeader() {
@@ -378,8 +401,11 @@ public class NSQMessage implements MessageMetadata{
     }
 
     public String toString() {
+        String tag = null;
+        if(null != this.tag)
+            tag = this.tag.getTagName();
         String msgStr = "NSQMessage [messageID=" + readableMsgID + ", internalID=" + internalID + ", traceID=" + traceID + ", diskQueueOffset=" + diskQueueOffset + ", diskQueueDataSize=" + diskQueueDataSize + ", datetime=" + datetime + ", readableAttempts="
-                + readableAttempts + ", address=" + address + ", connectionID=" + connectionID + "]";
+                + readableAttempts + ", address=" + address + ", connectionID=" + connectionID + ", tag=" + tag + ", extJsonHeader=" + jsonExtHeader + "]";
         return msgStr;
     }
 
@@ -388,6 +414,9 @@ public class NSQMessage implements MessageMetadata{
     @Override
     public String toMetadataStr() {
         if(null == this.metaDataStr) {
+            String tag = null;
+            if(null != this.tag)
+                tag = this.tag.getTagName();
             String objStr = getClass().getName() + "@" + Integer.toHexString(hashCode());
             StringBuilder sb = new StringBuilder();
             sb.append(objStr + " meta-data:\n");
@@ -399,6 +428,8 @@ public class NSQMessage implements MessageMetadata{
             sb.append("\t[diskQueueOffset]:\t").append(this.diskQueueOffset).append("\n");
             sb.append("\t[diskQueueDataSize]:\t").append(this.diskQueueDataSize).append("\n");
             sb.append("\t[NSQd address]:\t").append(this.address.toString()).append("\n");
+            sb.append("\t[tag]:\t").append(tag).append("\n");
+            sb.append("\t[extJsonHeader]:\t").append(this.jsonExtHeader).append("\n");
             sb.append(objStr + " end.");
             this.metaDataStr = sb.toString();
         }

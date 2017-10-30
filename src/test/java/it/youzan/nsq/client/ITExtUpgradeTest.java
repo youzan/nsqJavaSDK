@@ -60,7 +60,11 @@ public class ITExtUpgradeTest {
 
     @Test
     public void testPublishAndConsumeWhileUpgrade() throws Exception {
-        final String topicName = "testPublishAndConsumeWhileUpgrade";
+        if(lookupAddr.contains("qa")) {
+            logger.info("testPublishAndConsumeWhileUpgrade not validated in QA.");
+            return;
+        }
+        final String topicName = "textExtUpgrade_" + System.currentTimeMillis();
         ScheduledExecutorService exec = Executors.newSingleThreadScheduledExecutor();
         final Producer producer = new ProducerImplV2(config);
         Consumer consumer = null;

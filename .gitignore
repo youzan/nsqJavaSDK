@@ -57,3 +57,6 @@ data/
 target/
 out/
 *.iml
+/src/assembly/conf/dev/app-test.properties
+/src/assembly/conf/openSource/app-test.properties
+/src/assembly/conf/youzan/app-test.properties

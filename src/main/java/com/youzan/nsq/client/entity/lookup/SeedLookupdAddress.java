@@ -52,9 +52,11 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
      * Fetch lookup addresses of current {@link SeedLookupdAddress}. Update references to lookupaddresses
      */
     private void listLookup(boolean force) throws IOException {
+        int lookupAddrRefSize = 0;
         try {
             this.lookupAddressLock.readLock().lock();
-            if (!force && this.lookupAddressesRefs.size() > 0)
+            lookupAddrRefSize = this.lookupAddressesRefs.size();
+            if (!force && lookupAddrRefSize > 0)
                 return;
         } finally {
             this.lookupAddressLock.readLock().unlock();
@@ -62,7 +64,7 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
 
         String seed = this.getAddress();
         long current_inMills = System.currentTimeMillis();
-        if(!force) {
+        if(!force && lookupAddrRefSize > 0) {
             long lastUpdated_inMills = LISTLOOKUP_LASTUPDATED.get(seed);
             if (current_inMills - lastUpdated_inMills < NSQConfig.getListLookupIntervalInSecond() * 1000) {
                 if (logger.isDebugEnabled()) {

@@ -40,6 +40,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  */
 public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     private static final Logger logger = LoggerFactory.getLogger(ConsumerImplV2.class);
+    private static final Logger LOG_CONSUME_POLICY = LoggerFactory.getLogger(ConsumerImplV2.class.getName() + ".consume.policy");
     private static final Logger PERF_LOG = LoggerFactory.getLogger(ConsumerImplV2.class.getName() + ".perf");
 
     private final static AtomicInteger CONN_ID_GENERATOR = new AtomicInteger(0);
@@ -60,6 +61,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     private final AtomicInteger finished = new AtomicInteger(0);
     private final AtomicInteger re = new AtomicInteger(0); // have done reQueue
     private final AtomicInteger queue4Consume = new AtomicInteger(0); // have done reQueue
+    private final AtomicInteger skipped = new AtomicInteger(0);
 
     //connection manager
     protected ConnectionManager conMgr = new ConnectionManager(this);
@@ -70,7 +72,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     /*
      * topics' partitions maintaining a sorted set of partitions number, example: {-1, 0, 2, 3}
      */
-    private final HashMap<String, SortedSet<Long>> topics2Partitions = new HashMap<>();
+    protected final HashMap<String, SortedSet<Long>> topics2Partitions = new HashMap<>();
     /*
      * nsqd address to connection map in effect.
      */
@@ -105,6 +107,10 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     private final NSQConfig config;
 
 
+    /**
+     * Initialize Consumer with passin {@link NSQConfig}, consumer keep reference to passin config object.
+     * @param config
+     */
     public ConsumerImplV2(NSQConfig config) {
         this.config = config;
         this.simpleClient = new NSQSimpleClient(Role.Consumer, this.config.getUserSpecifiedLookupAddress());
@@ -224,6 +230,8 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         }
         //start consumer
         if (this.started.compareAndSet(Boolean.FALSE, Boolean.TRUE) && cLock.writeLock().tryLock()) {
+            String configJsonStr = NSQConfig.parseNSQConfig(this.config);
+            logger.info("Config for consumer {}: {}", this, configJsonStr);
             try {
                 //validate that consumer have right lookup address source
                 if (!validateLookupdSource()) {
@@ -237,7 +245,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 keepConnecting();
                 //start connection manager
                 conMgr.start();
-                logger.info("The consumer has been started.");
+                logger.info("The consumer {} has been started.", this);
             }finally {
                 cLock.writeLock().unlock();
             }
@@ -386,11 +394,12 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
          * =====================================================================
          */
         final Set<Address> except2 = new HashSet<>(oldAddresses);
+        final Set<NSQConnection> conns2ClsSet = new HashSet<>();
         except2.removeAll(targetAddresses);
         if (!except2.isEmpty()) {
             logger.info("Delete unused data-nodes: {}", except2);
             for (Address address : except2) {
-                clearDataNode(address);
+                conns2ClsSet.addAll(clearDataNode(address));
             }
         }
         /*-
@@ -418,6 +427,14 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
          *                          Clean up local resources
          * =====================================================================
          */
+        //close connections need expiration
+        if(conns2ClsSet.size() > 0) {
+            logger.info("Close nsqd connections need expire: {}", conns2ClsSet);
+            for (NSQConnection conn2Close : conns2ClsSet) {
+                conn2Close.close();
+            }
+            logger.info("Done expiring nsqd connections.");
+        }
         except1.clear();
         except2.clear();
         oldAddresses.clear();
@@ -494,7 +511,6 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         else
             return new Sub(topic, channel);
     }
-
     /**
      * No any exception
      * The method does not close the TCP-Connection
@@ -570,6 +586,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                     throw new NSQInvalidMessageException("Invalid internalID or diskQueueOffset in order mode.");
                 }
 //                conn.setMessageTouched(System.currentTimeMillis());
+
                 processMessage(message, conn);
             }
         }
@@ -606,6 +623,28 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         }
     }
 
+    boolean needSkip(final NSQMessage msg) {
+        //skip if:
+        //1. message has extension header;
+        //2. skip extension KV not empty;
+        //3. 1 & 2 has subset;
+        boolean skip = false;
+        Map<String, Object> jsonExtHeader = msg.getJsonExtHeader();
+        if(null != jsonExtHeader && jsonExtHeader.size() > 0) {
+            Map<String, Object> skipKV = this.config.getMessageSkipExtensionKVMap();
+            if(null != skipKV && skipKV.size() > 0) {
+                //create a copy
+                Set<String> subset = new HashSet(jsonExtHeader.keySet());
+                subset.retainAll(skipKV.keySet());
+                if(subset.size() > 0) {
+                    LOG_CONSUME_POLICY.info("Message skipped as Key for skip found in json extension header. message: {}, subset: {}", msg, subset);
+                    skip = true;
+                }
+            }
+        }
+        return skip;
+    }
+
     /**
      * @param message    a NSQMessage
      * @param connection a NSQConnection
@@ -614,12 +653,25 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     private void consume(final NSQMessage message, final NSQConnection connection) {
         boolean ok;
         boolean retry;
+        boolean explicitRequeue = false;
+        boolean skip = needSkip(message);
 
         long start = System.currentTimeMillis();
         try {
-            handler.process(message);
+            if(!skip)
+                handler.process(message);
+            else
+                skipped.incrementAndGet();
             ok = true;
             retry = false;
+        } catch (ExplicitRequeueException e) {
+            ok = false;
+            retry = false;
+            explicitRequeue = true;
+            logger.info("Message {} explicit requeue by client business, in {} sec. {}", message, message.getNextConsumingInSecond(), e.getMessage());
+            if(!e.isWarnLogDepressed()) {
+                logger.warn("Client business has one error. Original message: {}. Exception:", message.getReadableContent(), e);
+            }
         } catch (RetryBusinessException e) {
             ok = false;
             retry = true;
@@ -672,7 +724,8 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                         logger.info("Do a Finish by SDK, given that client process handler has failed and next consuming time elapse not specified. MessageID: {} , Hex: {}", id, message.newHexString(id));
                     }
                 }
-                connection.declineExpectedRdy();
+                if(!explicitRequeue)
+                    connection.declineExpectedRdy();
             }
         } else {
             // Client code does finish explicitly.
@@ -716,7 +769,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         //log warn
         if (!ok) {
             //TODO: connection.setMessageConsumptionFailed(start);
-            logger.warn("Exception occurs in message handler. Please check it right now {} , Original message: {}.", message, message.getReadableContent());
+//            logger.warn("Exception occurs in message handler. Please check it right now {} , Original message: {}.", message, message.getReadableContent());
         } else if (!this.config.isOrdered()){
             connection.increaseExpectedRdy();
         }
