@@ -203,7 +203,7 @@ public class ProducerImplV2 implements Producer {
             this.poolConfig.setMaxTotalPerKey(this.config.getConnectionSize());
             // acquire connection waiting time
             this.poolConfig.setMaxWaitMillis(this.config.getConnWaitTimeoutForProducerInMilliSec());
-            this.poolConfig.setBlockWhenExhausted(false);
+            this.poolConfig.setBlockWhenExhausted(true);
             // new instance without performing to connect
             this.bigPool = new GenericKeyedObjectPool<>(this.factory, this.poolConfig);
             if (this.config.getUserSpecifiedLookupAddress()) {
