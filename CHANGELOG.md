@@ -139,3 +139,10 @@ feature: filter to skip message according to extension header key specified in N
 Note worthy:
 fix remove nested logback.xml imported in 2.4.1-RELEASE.
 Add ExplicitRequeueException in message consumption to depress log. 
+
+#2.4.1.3-RELEASE
+Note worthy:
+* Producer: block connection borrowing when pool exhausted. Producer maintain a pool of nsqd connections per nsqd partition
+address. When concurrent # exceeds connection pool size, publish process fails with pool exhausted. In current release, 
+connection borrowing is blocked for a specified timeout(default 200ms) when pool exhausted.
+    
