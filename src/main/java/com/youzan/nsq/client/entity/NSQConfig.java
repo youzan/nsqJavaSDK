@@ -839,8 +839,15 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         return this.nextConsumingInSecond;
     }
 
-    public void setConnWaitTimeoutForProducerInMilliSec(long timeout) {
+    /**
+     * Specify timeout for waiting for connection for producer, when it waits for connection. Default is 200ms.
+     * When {@link NSQConfig#setBlockWhenBorrowConn4Producer(boolean)} set to false, connection wait timeout takes NO
+     * effect.
+     * @param timeout timeout in milliseconds
+     */
+    public NSQConfig setConnWaitTimeoutForProducerInMilliSec(long timeout) {
         this.maxConnWait = timeout;
+        return this;
     }
 
     public long getConnWaitTimeoutForProducerInMilliSec() {
@@ -946,6 +953,24 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         Map<String, Object> map = new HashMap<>();
         map.put(key, "*");
         return this.setMessageSkipExtensionKVMap(map);
+    }
+
+    private boolean blockWhenBorrow = true;
+
+    /**
+     * Whether block producer from borrowing nsqd connection when producer pool exhausted. Default behavior is
+     * {@link Boolean#TRUE}, and block timeout is decided by {@link NSQConfig#setConnWaitTimeoutForProducerInMilliSec(long)}
+     * @param block indicate whether blocking producer from borrowing connection.
+     * @return NSQConfig
+     * @since 2.4.1.3-RELEASE
+     */
+    public NSQConfig setBlockWhenBorrowConn4Producer(boolean block) {
+        this.blockWhenBorrow = block;
+        return this;
+    }
+
+    public boolean getBlockWhenBorrowConn4Producer() {
+        return this.blockWhenBorrow;
     }
 
     /**

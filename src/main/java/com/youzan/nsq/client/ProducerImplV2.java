@@ -187,7 +187,8 @@ public class ProducerImplV2 implements Producer {
             this.offset = _r.nextInt(100);
 
             this.poolConfig.setLifo(false);
-            this.poolConfig.setFairness(false);
+            //set fairness true, for blocked thread try borrowing connection
+            this.poolConfig.setFairness(true);
             this.poolConfig.setTestOnBorrow(false);
             this.poolConfig.setTestOnReturn(false);
             //If testWhileIdle is true, during idle eviction, examined objects are validated when visited (and removed if invalid);
@@ -202,8 +203,8 @@ public class ProducerImplV2 implements Producer {
             this.poolConfig.setMaxIdlePerKey(this.config.getConnectionSize());
             this.poolConfig.setMaxTotalPerKey(this.config.getConnectionSize());
             // acquire connection waiting time
+            this.poolConfig.setBlockWhenExhausted(this.config.getBlockWhenBorrowConn4Producer());
             this.poolConfig.setMaxWaitMillis(this.config.getConnWaitTimeoutForProducerInMilliSec());
-            this.poolConfig.setBlockWhenExhausted(false);
             // new instance without performing to connect
             this.bigPool = new GenericKeyedObjectPool<>(this.factory, this.poolConfig);
             if (this.config.getUserSpecifiedLookupAddress()) {
