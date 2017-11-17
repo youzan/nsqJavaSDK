@@ -35,7 +35,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     private static final long serialVersionUID = 7139923487863469738L;
 
     private final ReentrantReadWriteLock conLock = new ReentrantReadWriteLock();
-    private final int id; // primary key
+    private final Long id; // primary key
     private final long queryTimeoutInMillisecond;
 
     private AtomicBoolean closing = new AtomicBoolean(Boolean.FALSE);
@@ -58,7 +58,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     //start ready cnt for current count
     private AtomicInteger currentRdy = new AtomicInteger(0);
     private AtomicInteger lastRdy = new AtomicInteger(0);
-    private AtomicInteger expectedRdy = new AtomicInteger(1);
+    private AtomicInteger expectedRdy = new AtomicInteger(0);
 
     private final AtomicLong latestInternalID = new AtomicLong(-1L);
     private final AtomicLong latestDiskQueueOffset = new AtomicLong(-1L);
@@ -66,7 +66,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     private volatile long lastMsgTouched;
     private volatile long lastMsgConsumptionFailed;
 
-    public NSQConnectionImpl(int id, Address address, Channel channel, NSQConfig config) {
+    public NSQConnectionImpl(long id, Address address, Channel channel, NSQConfig config) {
         this.id = id;
         this.address = address;
         this.channel = channel;
@@ -468,6 +468,12 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         return this.expectedRdy.get();
     }
 
+    public void setExpectedRdy(int expectedRdy) {
+        int originalExpectedRdy = this.expectedRdy.get();
+        this.expectedRdy.set(expectedRdy);
+        logger.info("Expected rdy set to {} from {}, connection: {}", expectedRdy, originalExpectedRdy, this);
+    }
+
     public int getCurrentRdyCount() {
         return this.currentRdy.get();
     }
@@ -475,7 +481,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
      * @return the id , the primary key of the object
      */
     @Override
-    public int getId() {
+    public long getId() {
         return id;
     }
 
@@ -495,7 +501,14 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     @Override
     public int compareTo(Object o) {
-        return getId() - ((NSQConnectionImpl) o).getId();
+        long res = getId() - ((NSQConnectionImpl) o).getId();
+        if(res > 0l){
+            return 1;
+        } else if(res < 0l) {
+            return -1;
+        } else {
+            return 0;
+        }
     }
 
     @Override
@@ -512,7 +525,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     @Override
     public int hashCode() {
         int result = 0;
-        result = 31 * result + id;
+        result = 31 * result + id.hashCode();
         result = 31 * result + (closing.get() ? 1 : 0);
         result = 31 * result + (identitySent.get() ? 1 : 0);
         result = 31 * result + (address != null ? address.hashCode() : 0);

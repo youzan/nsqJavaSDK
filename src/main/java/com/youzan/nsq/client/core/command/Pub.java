@@ -36,6 +36,10 @@ public class Pub implements NSQCommand {
         this.body.add(msg.getMessageBodyInByte());
     }
 
+    Pub(Topic topic) {
+        this.topic = topic;
+    }
+
     @Override
     /**
      * returns:

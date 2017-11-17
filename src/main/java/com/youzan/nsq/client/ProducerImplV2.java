@@ -21,10 +21,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -54,6 +51,10 @@ public class ProducerImplV2 implements Producer {
     private GenericKeyedObjectPool<Address, NSQConnection> bigPool = null;
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
+
+
+    private final ExecutorService pubExec;
+
     private final ConcurrentHashMap<String, Long> topic_2_lastActiveTime = new ConcurrentHashMap<>();
 
     private final AtomicInteger success = new AtomicInteger(0);
@@ -71,6 +72,7 @@ public class ProducerImplV2 implements Producer {
 
         this.poolConfig = new GenericKeyedObjectPoolConfig();
         this.factory = new KeyedPooledConnectionFactory(this.config, this);
+        this.pubExec = Executors.newFixedThreadPool(this.config.getPublishWorkerPoolSize(), new NamedThreadFactory(this.getClass().getName() + "-pubExec", Thread.NORM_PRIORITY));
     }
 
     public NSQConfig getConfig() {
@@ -347,6 +349,97 @@ public class ProducerImplV2 implements Producer {
         publish(msg);
     }
 
+    private class MpubCallable implements Callable<List> {
+        private final Producer producer;
+        private final List<byte[]> msgs;
+        private final Topic topic;
+
+        public MpubCallable(Producer producer, List<byte[]> messages, Topic topic) {
+            this.producer = producer;
+            this.msgs = messages;
+            this.topic = topic;
+        }
+
+        @Override
+        public List call() throws Exception {
+            List<byte[]> failed = null;
+            try {
+                this.producer.publishMulti(this.msgs, this.topic);
+            }catch (Throwable e) {
+                failed = this.msgs;
+            } finally {
+                return failed;
+            }
+        }
+    }
+
+    public List<byte[]> publish(List<byte[]> messages, Topic topic, int batchSize) throws NSQException {
+        int batchNum = messages.size()/batchSize;
+        int leftOver = messages.size()%batchSize;
+
+        int idx = 0;
+        List<Future<List>> pubFutures = new ArrayList<>(batchNum);
+        for(int batch = 0; batch < batchNum; batch++) {
+            final List<byte[]> subMsgs = messages.subList(idx, idx + batchSize);
+            idx += batchSize;
+            Future<List> future = pubExec.submit(new MpubCallable(this, subMsgs, topic));
+            pubFutures.add(future);
+        }
+        //for leftOver
+        if(leftOver != 0) {
+            final List<byte[]> subMsgs = messages.subList(idx, idx + leftOver);
+            Future<List> future = pubExec.submit(new MpubCallable(this, subMsgs, topic));
+            pubFutures.add(future);
+        }
+
+        List<byte[]> failedTotalMsgs = new LinkedList<>();
+        int batchIdx = -1;
+        for(Future<List> future:pubFutures) {
+            batchIdx++;
+            List<byte[]> failedBatchMsgs = null;
+            int idxStar=0, idxEnd=0;
+            try {
+                failedBatchMsgs = future.get();
+            } catch (Exception e) {
+                //figure out failed message from batch index
+                if(batchIdx < batchNum) {
+                    idxStar = batchIdx*batchSize;
+                    idxEnd = batchIdx*batchSize + batchSize;
+                } else {
+                    //for leftover
+                    idxStar = idx;
+                    idxEnd = idx + leftOver;
+                }
+                failedBatchMsgs = messages.subList(idxStar, idxEnd);
+            }
+            //calculate batch index, succeed or fail
+            if(idxStar == 0 && idxEnd == 0) {
+                if(batchIdx < batchNum) {
+                    idxStar = batchIdx*batchSize;
+                    idxEnd = batchIdx*batchSize + batchSize;
+                } else {
+                    //for leftover
+                    idxStar = idx;
+                    idxEnd = idx + leftOver;
+                }
+            }
+
+            if(null != failedBatchMsgs && failedBatchMsgs.size() > 0) {
+                failedTotalMsgs.addAll(failedBatchMsgs);
+                logger.error("fail to send batch message to {}. batchSize {}, batchIdx {}, message idx range [{}, {})", topic.getTopicText(), batchSize, batchIdx, idxStar, idxEnd);
+            } else {
+                //batch publish succeed
+                logger.info("batch message sent to {}. batchSize {}, batchIdx {}, message idx range [{}, {})", topic.getTopicText(), batchSize, batchIdx, idxStar, idxEnd);
+            }
+        }
+        return failedTotalMsgs;
+    }
+
+    @Override
+    public void publishMulti(List<byte[]> messages, String topic) throws NSQException {
+        this.publishMulti(messages, new Topic(topic));
+    }
+
     private void sendPUB(final Message msg, Context cxt) throws NSQException {
         int c = 0; // be continuous
         boolean returnCon;
@@ -356,10 +449,6 @@ public class ProducerImplV2 implements Producer {
         int retry = this.config.getPublishRetry();
         while (c++ < retry) {
             returnCon = true;
-//            if (c > 1) {
-//                logger.debug("Sleep. CurrentRetries: {}", c);
-                //sleep((1 << (c - 1)) * this.config.getProducerRetryIntervalBaseInMilliSeconds());
-//            }
             //while put topic, topic expiration is not allowed
             topic_2_lastActiveTime.put(msg.getTopic().getTopicText(), start);
             this.simpleClient.putTopic(msg.getTopic().getTopicText());
@@ -416,7 +505,7 @@ public class ProducerImplV2 implements Producer {
                 }
 
                 handleResponse(msg.getTopic(), frame, conn);
-                success.incrementAndGet();
+                success.addAndGet(msg.getMessageCount());
                 if(msg.isTraced() && frame instanceof MessageMetadata && TraceLogger.isTraceLoggerEnabled() && conn.getAddress().isHA())
                     TraceLogger.trace(this, conn, (MessageMetadata) frame);
                 break;
@@ -432,10 +521,17 @@ public class ProducerImplV2 implements Producer {
                 } catch (Exception e1) {
                     logger.error("Fail to destroy connection {}.", conn.toString(), e1);
                 }
-                String msgStr = msg.getMessageBody();
-                int maxlen = msgStr.length() > MAX_MSG_OUTPUT_LEN ? MAX_MSG_OUTPUT_LEN : msgStr.length();
-                String errLog = String.format("MaxRetries: %d , CurrentRetries: %d , Address: %s , Topic: %s, MessageLength: %d, RawMessage: %s, ExtJsonHeader: %s, DesiredTag: %s.", retry, c,
-                        conn.getAddress(), msg.getTopic(), msgStr.length(), msgStr.substring(0, maxlen), msg.getJsonHeaderExt(), msg.getDesiredTag());
+
+                String errLog;
+                if(msg.getMessageCount() > 1) {
+                    errLog = String.format("MaxRetries: %d , CurrentRetries: %d , Address: %s , Topic: %s， Message count: %d.", retry, c,
+                            conn.getAddress(), msg.getTopic(), msg.getMessageCount());
+                } else {
+                    String msgStr = msg.getMessageBody();
+                    int maxlen = msgStr.length() > MAX_MSG_OUTPUT_LEN ? MAX_MSG_OUTPUT_LEN : msgStr.length();
+                    errLog = String.format("MaxRetries: %d , CurrentRetries: %d , Address: %s , Topic: %s, MessageLength: %d, RawMessage: %s, ExtJsonHeader: %s, DesiredTag: %s.", retry, c,
+                            conn.getAddress(), msg.getTopic(), msgStr.length(), msgStr.substring(0, maxlen), msg.getJsonHeaderExt(), msg.getDesiredTag());
+                }
                 logger.error(errLog, e);
                 //as to NSQInvalidMessageException throw it out after connection close.
                 if(e instanceof NSQInvalidMessageException)
@@ -517,6 +613,7 @@ public class ProducerImplV2 implements Producer {
                         logger.error("Tag not support in target topic.", err.getMessage());
                         throw new NSQTagNotSupportedException(topic.getTopicText() + " Error:" + err.getMessage());
                     }
+                    case E_MPUB_FAILED:
                     case E_PUB_FAILED: {
                         logger.error("Address: {} , Frame: {}", conn.getAddress(), frame);
                         throw new NSQPubFailedException("publish to " + topic.getTopicText() + " failed. Address " + conn.getAddress() + ", Error Frame: " + frame);
@@ -562,11 +659,37 @@ public class ProducerImplV2 implements Producer {
 
     @Override
     public void backoff(NSQConnection conn) {
+
     }
 
-
     @Override
-    public void publishMulti(List<byte[]> messages, String topic) throws NSQException {
+    public void publishMulti(List<byte[]> messages, final Topic topic) throws NSQException {
+        final Context cxt = new Context();
+        if(PERF_LOG.isDebugEnabled()) {
+            cxt.setTraceID(pubTraceIdGen.getAndIncrement());
+        }
+        if (null == messages || messages.size() == 0) {
+            throw new IllegalArgumentException("Publish multi exits as messages input is empty.");
+        }
+
+        if (null == topic || null == topic.getTopicText() || topic.getTopicText().isEmpty()) {
+            throw new IllegalArgumentException("Your input topic name is blank!");
+        }
+        if (!started.get() || closing.get()) {
+            throw new IllegalStateException("Producer must be started before producing messages!");
+        }
+        total.addAndGet(messages.size());
+
+        try{
+            //TODO: poll before timeout
+            Message msgWrapper = Message.create(topic, messages);
+            sendPUB(msgWrapper, cxt);
+        }catch (NSQPubException pubE){
+            logger.error(pubE.getLocalizedMessage());
+            pubE.punchExceptions(logger);
+            List<? extends NSQException> exceptions = pubE.getNestedExceptions();
+            throw exceptions.get(exceptions.size() - 1);
+        }
     }
 
     @Override

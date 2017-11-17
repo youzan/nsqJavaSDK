@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -44,7 +43,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     private static final Logger LOG_CONSUME_POLICY = LoggerFactory.getLogger(ConsumerImplV2.class.getName() + ".consume.policy");
     private static final Logger PERF_LOG = LoggerFactory.getLogger(ConsumerImplV2.class.getName() + ".perf");
 
-    private final static AtomicInteger CONN_ID_GENERATOR = new AtomicInteger(0);
+    private final static AtomicLong CONN_ID_GENERATOR = new AtomicLong(0);
     //max connect retry allowed
     private static final int MAX_CONSUME_RETRY = 3;
 
@@ -585,6 +584,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 if (this.config.isOrdered()
                         && !conn.checkOrder(message.getInternalID(), message.getDiskQueueOffset(), message)) {
                     //order problem
+                    //TODO: invalid message
                     throw new NSQInvalidMessageException("Invalid internalID or diskQueueOffset in order mode.");
                 }
 //                conn.setMessageTouched(System.currentTimeMillis());
@@ -648,10 +648,11 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     }
 
     /**
+     * DO NOT change signature of this method
      * @param message    a NSQMessage
      * @param connection a NSQConnection
+     * ==Important Note: through it is private method, signature of method will NOT change as it is used as cut point for service-chain AOP==
      */
-    // through it is private method, signature of method will NOT change as it is used as cut point
     private void consume(final NSQMessage message, final NSQConnection connection) {
         boolean ok;
         boolean retry;

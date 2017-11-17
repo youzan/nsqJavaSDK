@@ -46,6 +46,33 @@ public class ITConsumer extends AbstractITConsumer{
         }
     }
 
+    public void testMpub() throws Exception {
+        final CountDownLatch latch = new CountDownLatch(30);
+        final AtomicInteger received = new AtomicInteger(0);
+        final String msgStr = "The quick brow";
+        consumer = new ConsumerImplV2(config, new MessageHandler() {
+            @Override
+            public void process(NSQMessage message) {
+                logger.info("Message received: " + message.getReadableContent());
+                org.testng.Assert.assertTrue(message.getReadableContent().startsWith(msgStr));
+                Assert.assertNotNull(message.getTopicInfo());
+                received.incrementAndGet();
+                latch.countDown();
+            }
+        });
+        consumer.setAutoFinish(true);
+        consumer.subscribe("JavaTesting-Producer-Base");
+        consumer.start();
+        try {
+            Assert.assertTrue(latch.await(1, TimeUnit.MINUTES));
+            Thread.sleep(100);
+        }finally {
+            consumer.close();
+            logger.info("Consumer received {} messages.", received.get());
+            TopicUtil.emptyQueue("http://" + adminHttp, "JavaTesting-Producer-Base", "BaseConsumer");
+        }
+    }
+
     public void testSnappy() throws Exception {
         final CountDownLatch latch = new CountDownLatch(10);
         final AtomicInteger received = new AtomicInteger(0);
