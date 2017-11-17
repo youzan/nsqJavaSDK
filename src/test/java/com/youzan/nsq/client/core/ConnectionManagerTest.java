@@ -153,61 +153,61 @@ public class ConnectionManagerTest {
         return con1;
     }
 
-    @Test
-    public void testRdyDecline() throws Exception {
-        logger.info("[testRdyDecline] starts.");
-        ConnectionManager conMgr = null;
-        String topic = "testRdyDec";
-        String channel = "BaseConsumer";
-        String adminHttp = "http://" + props.getProperty("admin-address");
-        try {
-            TopicUtil.createTopic(adminHttp, topic, 5, 1, channel);
-            TopicUtil.createTopicChannel(adminHttp, topic, channel);
-
-            NSQConfig config = (NSQConfig) this.config.clone();
-            config.setRdy(5);
-            conMgr = new ConnectionManager(new IConsumeInfo() {
-                @Override
-                public float getLoadFactor() {
-                    //water high
-                    return 2;
-                }
-
-                @Override
-                public int getRdyPerConnection() {
-                    return 6;
-                }
-
-                @Override
-                public boolean isConsumptionEstimateElapseTimeout() {
-                    return true;
-                }
-            });
-
-            int partitionNum = 5;
-            JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topic + "&access=r"));
-            List<NSQConnection> connList = new ArrayList<>(partitionNum);
-            for (int i = 0; i < partitionNum; i++) {
-                JsonNode partition = lookupResp.get("partitions").get("" + i);
-                Address addr1 = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topic, 0, false);
-                NSQConnection con = connect(addr1, topic, i, channel, config);
-                conMgr.subscribe(topic, con, 5);
-                connList.add(con);
-            }
-
-            conMgr.start(0);
-            logger.info("Sleep 30sec to wait for rdy declining");
-            Thread.sleep(30000);
-
-            for (NSQConnection conn : connList) {
-                Assert.assertEquals(conn.getCurrentRdyCount(), 1);
-            }
-        } finally {
-            conMgr.close();
-            TopicUtil.deleteTopicChannel(adminHttp, topic, channel);
-            logger.info("[testRdyDecline] ends.");
-        }
-    }
+//    @Test
+//    public void testRdyDecline() throws Exception {
+//        logger.info("[testRdyDecline] starts.");
+//        ConnectionManager conMgr = null;
+//        String topic = "testRdyDec";
+//        String channel = "BaseConsumer";
+//        String adminHttp = "http://" + props.getProperty("admin-address");
+//        try {
+//            TopicUtil.createTopic(adminHttp, topic, 5, 1, channel);
+//            TopicUtil.createTopicChannel(adminHttp, topic, channel);
+//
+//            NSQConfig config = (NSQConfig) this.config.clone();
+//            config.setRdy(5);
+//            conMgr = new ConnectionManager(new IConsumeInfo() {
+//                @Override
+//                public float getLoadFactor() {
+//                    //water high
+//                    return 2;
+//                }
+//
+//                @Override
+//                public int getRdyPerConnection() {
+//                    return 6;
+//                }
+//
+//                @Override
+//                public boolean isConsumptionEstimateElapseTimeout() {
+//                    return true;
+//                }
+//            });
+//
+//            int partitionNum = 5;
+//            JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topic + "&access=r"));
+//            List<NSQConnection> connList = new ArrayList<>(partitionNum);
+//            for (int i = 0; i < partitionNum; i++) {
+//                JsonNode partition = lookupResp.get("partitions").get("" + i);
+//                Address addr1 = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topic, 0, false);
+//                NSQConnection con = connect(addr1, topic, i, channel, config);
+//                conMgr.subscribe(topic, con, 5);
+//                connList.add(con);
+//            }
+//
+//            conMgr.start(0);
+//            logger.info("Sleep 30sec to wait for rdy declining");
+//            Thread.sleep(30000);
+//
+//            for (NSQConnection conn : connList) {
+//                Assert.assertEquals(conn.getCurrentRdyCount(), 1);
+//            }
+//        } finally {
+//            conMgr.close();
+//            TopicUtil.deleteTopicChannel(adminHttp, topic, channel);
+//            logger.info("[testRdyDecline] ends.");
+//        }
+//    }
 
     @Test
     public void testRdyIncrease() throws Exception {

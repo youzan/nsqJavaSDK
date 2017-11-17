@@ -25,6 +25,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
@@ -56,12 +57,12 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     private volatile long lastSuccess = 0L;
     private volatile float consumptionRate = 0f;
 
-    private final AtomicInteger received = new AtomicInteger(0);
-    private final AtomicInteger success = new AtomicInteger(0);
-    private final AtomicInteger finished = new AtomicInteger(0);
-    private final AtomicInteger re = new AtomicInteger(0); // have done reQueue
-    private final AtomicInteger queue4Consume = new AtomicInteger(0); // have done reQueue
-    private final AtomicInteger skipped = new AtomicInteger(0);
+    private final AtomicLong received = new AtomicLong(0);
+    private final AtomicLong success = new AtomicLong(0);
+    private final AtomicLong finished = new AtomicLong(0);
+    private final AtomicLong re = new AtomicLong(0); // have done reQueue
+    private final AtomicLong queue4Consume = new AtomicLong(0); // have done reQueue
+    private final AtomicLong skipped = new AtomicLong(0);
 
     //connection manager
     protected ConnectionManager conMgr = new ConnectionManager(this);
@@ -261,7 +262,8 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     }
 
     public boolean isConsumptionEstimateElapseTimeout() {
-        return consumptionRate * queue4Consume.get() *1000 >= this.config.getMsgTimeoutInMillisecond();
+//        return consumptionRate * queue4Consume.get() *1000 >= this.config.getMsgTimeoutInMillisecond();
+        return false;
     }
 
     /**
@@ -273,7 +275,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             public void run() {
                 try {
                     connect();
-                    updateConsumptionRate();
+//                    updateConsumptionRate();
                 } catch (Throwable e) {
                     logger.error("Throwable in keep connection process:", e);
                 }
@@ -1048,14 +1050,15 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
 
     @Override
     public float getLoadFactor() {
-        ThreadPoolExecutor pool = (ThreadPoolExecutor) executor;
-        int active = pool.getActiveCount();
-        int queueSize = queue4Consume.get();
-        if(active > 0)
-            return (float)queueSize/active;
-        else {
-            return 0f;
-        }
+//        ThreadPoolExecutor pool = (ThreadPoolExecutor) executor;
+//        int active = pool.getActiveCount();
+//        long queueSize = queue4Consume.get();
+//        if(active > 0)
+//            return (float)queueSize/active;
+//        else {
+//            return 0f;
+//        }
+        return 0f;
     }
 
     @Override

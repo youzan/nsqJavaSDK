@@ -506,6 +506,37 @@ public class ConnectionManager {
         }
     }
 
+    /**
+     *
+     * @param con   nsqd partition connection
+     * @param conSet
+     * @param latch
+     */
+    private void mayUpdateRdy(final NSQConnection con, final ConnectionWrapperSet conSet, final CountDownLatch latch) {
+        int currentRdy = con.getCurrentRdyCount();
+        final int expectedRdy = con.getExpectedRdy();
+        if (expectedRdy != currentRdy) {
+            final int newRdy = expectedRdy;
+            ChannelFuture future = con.command(new Rdy(newRdy));
+            if(null != future) {
+                future.addListener(new ChannelFutureListener() {
+                    @Override
+                    public void operationComplete(ChannelFuture channelFuture) throws Exception {
+                        if (channelFuture.isSuccess()) {
+                            int lastRdy = con.getCurrentRdyCount();
+                            con.setCurrentRdyCount(newRdy);
+                            conSet.addTotalRdy(newRdy - lastRdy);
+                            logger.info("{}: rdy adjust from {} to {}", con.getAddress(), lastRdy, newRdy);
+                        }
+                        latch.countDown();
+                    }
+                });
+            }
+        } else {
+            latch.countDown();
+        }
+    }
+
     private void mayIncreaseRdy(final NSQConnection con, int availableRdy, final ConnectionWrapperSet conSet, final CountDownLatch latch) {
         int currentRdy = con.getCurrentRdyCount();
         final int expectedRdy = con.getExpectedRdy();
@@ -575,26 +606,13 @@ public class ConnectionManager {
                    //coutn down latch for synchronization
                    final CountDownLatch latch = new CountDownLatch(conCount);
                    //availiable Rdy # for current topic
-                   final int extraRdy = maxRdyPerCon * conCount - subs.getTotalRdy(); //+ con.getCurrentRdy()
-                   if (!subs.isBackoff() && this.policyWrapper.rdyShouldIncrease(topic, scheduleLoad, mayTimeout, maxRdyPerCon, extraRdy)) {
-                       for (NSQConnectionWrapper sub : subs) {
-                           final NSQConnection con = sub.getConn();
-                           final int availableRdy = extraRdy + con.getCurrentRdyCount();
-                           exec.submit(new Runnable() {
-                               @Override
-                               public void run() {
-                                   mayIncreaseRdy(con, availableRdy, subs, latch);
-                               }
-                           });
-                       }
-                   } else if (!subs.isBackoff() && this.policyWrapper.rdyShouldDecline(topic, scheduleLoad, mayTimeout, maxRdyPerCon, extraRdy)) {
-                       //rdy decrease
+                   if (!subs.isBackoff()) {
                        for (NSQConnectionWrapper sub : subs) {
                            final NSQConnection con = sub.getConn();
                            exec.submit(new Runnable() {
                                @Override
                                public void run() {
-                                   mayDeclineRdy(con, subs, latch);
+                                   mayUpdateRdy(con, subs, latch);
                                }
                            });
                        }
