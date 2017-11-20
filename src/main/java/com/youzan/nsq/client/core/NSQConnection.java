@@ -34,9 +34,11 @@ public interface NSQConnection extends Closeable {
 
     boolean isConnected();
 
-    int getId();
+    long getId();
 
     int getExpectedRdy();
+
+    void setExpectedRdy(int expectedRdy);
 
     int getCurrentRdyCount();
 

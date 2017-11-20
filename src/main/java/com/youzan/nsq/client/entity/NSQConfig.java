@@ -13,10 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -979,6 +976,23 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      */
     public Map<String, Object> getMessageSkipExtensionKVMap() {
         return this.consumePolcyMap.get(ConsumePolicy.SKIP);
+    }
+
+    private int producerPoolSize = 4;
+
+    /**
+     * set worker thread pool szie for producer, a synchronized publish will not use this work pool, unless
+     * {@link com.youzan.nsq.client.Producer#publish(List, Topic, int)} invoked.
+     * @param size pool size for producer publish
+     * @return NSQConfig
+     */
+    public NSQConfig setPublishWorkerPoolSize(int size) {
+        this.producerPoolSize = size;
+        return this;
+    }
+
+    public int getPublishWorkerPoolSize() {
+        return this.producerPoolSize;
     }
 
     @Override

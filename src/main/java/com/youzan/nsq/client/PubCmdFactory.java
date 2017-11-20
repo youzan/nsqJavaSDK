@@ -1,10 +1,12 @@
 package com.youzan.nsq.client;
 
 import com.youzan.nsq.client.configs.*;
+import com.youzan.nsq.client.core.command.Mpub;
 import com.youzan.nsq.client.core.command.Pub;
 import com.youzan.nsq.client.core.command.PubExt;
 import com.youzan.nsq.client.core.command.PubTrace;
 import com.youzan.nsq.client.entity.Message;
+import com.youzan.nsq.client.entity.MessagesWrapper;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.exception.ConfigAccessAgentException;
@@ -101,12 +103,19 @@ public class PubCmdFactory implements IConfigAccessSubscriber{
 
     /**
      * Create Pub command, given pass in Message object
+     * Mpub goes first, then PubTrace, and dcc trace
      * @param msg msg object passin
      * @return Pub command instance
+     * @throws IllegalArgumentException
      */
-    public Pub create(final Message msg, final NSQConfig config){
-        boolean isTraced = isTracedMessage(config, msg);
+    public Pub create(final Message msg, final NSQConfig config) throws IllegalArgumentException {
         boolean containJsonHeader = (null != msg.getJsonHeaderExt() || (null != msg.getDesiredTag() && !msg.getDesiredTag().isEmpty()));
+
+        if(msg instanceof MessagesWrapper) {
+            return new Mpub(msg.getTopic(), msg.getMessageBodiesInByte());
+        }
+
+        boolean isTraced = isTracedMessage(config, msg);
         if(isTraced && !containJsonHeader){
             return new PubTrace(msg);
         }else if (containJsonHeader) {
@@ -126,6 +135,10 @@ public class PubCmdFactory implements IConfigAccessSubscriber{
     private boolean isTracedMessage(final NSQConfig config, final Message msg) {
         String flag;
         Topic topic = msg.getTopic();
+
+        if(msg.isTraced())
+            return true;
+
         if(config.getUserSpecifiedLookupAddress()) {
             flag = config.getLocalTraceMap().get(topic.getTopicText());
         } else {

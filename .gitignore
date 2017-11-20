@@ -60,3 +60,4 @@ out/
 /src/assembly/conf/dev/app-test.properties
 /src/assembly/conf/openSource/app-test.properties
 /src/assembly/conf/youzan/app-test.properties
+!/src/test/resources/app-test.properties

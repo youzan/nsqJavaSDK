@@ -809,7 +809,7 @@ public class ConnectionManagerTest {
             TopicUtil.createTopic(admin, topicName, parNum, 1, channel, false, false);
             TopicUtil.createTopicChannel(admin, topicName, channel);
             //then we have 5 channel
-            conMgr.setRdyUpdatePolicyClass(BadRdyUpdatePolicy.class.getName());
+//            conMgr.setRdyUpdatePolicyClass(BadRdyUpdatePolicy.class.getName());
 
             final List<NSQConnection> connList = new ArrayList<>(parNum);
             JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topicName + "&access=r"));

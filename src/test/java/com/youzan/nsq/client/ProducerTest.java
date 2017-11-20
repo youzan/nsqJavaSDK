@@ -394,10 +394,10 @@ public class ProducerTest extends AbstractNSQClientTestcase {
             producer.start();
             producer.publish(raw.getBytes(IOUtil.UTF8), topic);
 
-            int id = producer.getNSQConnection(topic, Message.NO_SHARDING, new Context()).getId();
+            long id = producer.getNSQConnection(topic, Message.NO_SHARDING, new Context()).getId();
             logger.info("sleep 60 sec for pool evict connection.");
             Thread.sleep(60000);
-            int newId =  producer.getNSQConnection(topic, Message.NO_SHARDING, new Context()).getId();
+            long newId =  producer.getNSQConnection(topic, Message.NO_SHARDING, new Context()).getId();
             Assert.assertNotEquals(newId, id);
         }finally {
             producer.close();
@@ -715,6 +715,8 @@ public class ProducerTest extends AbstractNSQClientTestcase {
         } catch (NSQException e) {
             String errorLog = e.getLocalizedMessage();
             Assert.assertTrue(errorLog.contains("DesiredTag:"));
+        } catch(Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
         } finally {
             logger.info("[testSendTagedMessageToNsqAll] ends");
             producer.close();

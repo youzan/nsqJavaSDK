@@ -5,6 +5,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.charset.Charset;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * NSQ message class. Instance of Message presents one NSQ message will be sent from producer.
@@ -47,6 +49,10 @@ public class Message {
         return new Message(topic, messageBody.getBytes(IOUtil.DEFAULT_CHARSET));
     }
 
+    public static Message create(Topic topic, List<byte[]> messageBodies) {
+        return new MessagesWrapper(topic, messageBodies);
+    }
+
     Message(long traceID, final Topic topic, byte[] messageBody) {
         this.traceID = traceID;
         this.topic = Topic.newInstacne(topic, false);
@@ -73,6 +79,14 @@ public class Message {
         return this.messageBody;
     }
 
+    public List<byte[]> getMessageBodiesInByte(){
+        return Arrays.asList(this.messageBody);
+    }
+
+    public int getMessageCount() {
+        return 1;
+    }
+
     public Topic getTopic(){
         if(null != this.topic)
         return this.topic;
@@ -82,6 +96,10 @@ public class Message {
         }
     }
 
+    /**
+     * mark message as tarced, and producer will try publishing it with PUB_TRACE.
+     * @return {@link Message}
+     */
     public Message traced(){
         this.traced = true;
         return this;

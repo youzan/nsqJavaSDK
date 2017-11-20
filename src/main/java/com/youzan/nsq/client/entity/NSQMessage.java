@@ -25,7 +25,7 @@ public class NSQMessage implements MessageMetadata{
     private final byte[] messageID;
     private final byte[] messageBody;
     final Address address;
-    final Integer connectionID; // be sure that is not null
+    final Long connectionID; // be sure that is not null
 
     private long diskQueueOffset = -1L;
     private int diskQueueDataSize = -1;
@@ -93,7 +93,7 @@ public class NSQMessage implements MessageMetadata{
      * @param nextConsumingInSecond time elapse for requeued message to send
      */
     public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
-                     byte[] messageBody, Address address, Integer connectionID, int nextConsumingInSecond, final Topic topic, boolean isExt) {
+                     byte[] messageBody, Address address, Long connectionID, int nextConsumingInSecond, final Topic topic, boolean isExt) {
         this.timestamp = timestamp;
         this.attempts = attempts;
         this.messageID = messageID;
@@ -134,7 +134,7 @@ public class NSQMessage implements MessageMetadata{
      */
     public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
                       final byte[] diskQueueOffset, final byte[] diskQueueDataSize, byte[] messageBody, Address address,
-                      Integer connectionID, int nextConsumingInSecond, final Topic topic, boolean isExt) {
+                      Long connectionID, int nextConsumingInSecond, final Topic topic, boolean isExt) {
         this(timestamp, attempts, messageID, internalID, traceID, messageBody, address, connectionID, nextConsumingInSecond, topic, isExt);
         ByteBuffer buf = ByteBuffer.wrap(diskQueueOffset);
         this.diskQueueOffset = buf.getLong();
@@ -290,7 +290,7 @@ public class NSQMessage implements MessageMetadata{
     /**
      * @return the connectionID
      */
-    public Integer getConnectionID() {
+    public Long getConnectionID() {
         return connectionID;
     }
 
