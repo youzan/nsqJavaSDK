@@ -1,6 +1,7 @@
 package com.youzan.nsq.client.entity;
 
 /**
+ * @deprecated
  * Created by lin on 17/7/31.
  */
 public interface IRdyUpdatePolicy {

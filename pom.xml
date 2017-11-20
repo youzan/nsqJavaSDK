@@ -128,6 +128,11 @@
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.7.9</version>
+                <configuration>
+                    <excludes>
+                        <exclude>**/com/youzan/nsq/client/core/pool/consumer/**.class</exclude>
+                    </excludes>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>

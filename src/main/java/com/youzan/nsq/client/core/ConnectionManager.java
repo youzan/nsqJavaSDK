@@ -3,8 +3,6 @@ package com.youzan.nsq.client.core;
 import com.youzan.nsq.client.IConsumeInfo;
 import com.youzan.nsq.client.core.command.Rdy;
 import com.youzan.nsq.client.entity.Address;
-import com.youzan.nsq.client.entity.DefaultRdyUpdatePolicy;
-import com.youzan.nsq.client.entity.IRdyUpdatePolicy;
 import com.youzan.util.NamedThreadFactory;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
@@ -46,7 +44,7 @@ public class ConnectionManager {
         @Override
         public void run() {
             try {
-                redistributeRdy(ci.getLoadFactor(), ci.isConsumptionEstimateElapseTimeout(), ci.getRdyPerConnection());
+                redistributeRdy();
             }catch (Throwable e) {
                 logger.error("Error in redistribute rdy.", e);
             }
@@ -54,87 +52,12 @@ public class ConnectionManager {
     };
 
     private final IConsumeInfo ci;
-    private RdyUpdatePolicyWrapper policyWrapper = new RdyUpdatePolicyWrapper();
-
     public ConnectionManager(IConsumeInfo consumer) {
         this.ci = consumer;
     }
 
     public Runnable getRedistributeRunnable() {
         return this.REDISTRIBUTE_RUNNABLE;
-    }
-
-    public void setRdyUpdatePolicyClass(String policyClass) {
-        try {
-            Class<?> clazz;
-            try {
-                clazz = Class.forName(policyClass, true,
-                        Thread.currentThread().getContextClassLoader());
-            } catch (ClassNotFoundException e) {
-                clazz = Class.forName(policyClass);
-            }
-            Object policy = clazz.newInstance();
-            if (policy instanceof IRdyUpdatePolicy) {
-                @SuppressWarnings("unchecked") // safe, because we just checked the class
-                         IRdyUpdatePolicy evicPolicy = (IRdyUpdatePolicy) policy;
-                policyWrapper.setInnerPolicy(evicPolicy);
-            }
-        } catch (ClassNotFoundException e) {
-            throw new IllegalArgumentException(
-                    "Unable to create RdyUpdatePolicy instance of type " +
-                            policyClass, e);
-        } catch (InstantiationException e) {
-            throw new IllegalArgumentException(
-                    "Unable to create RdyUpdatePolicy instance of type " +
-                            policyClass, e);
-        } catch (IllegalAccessException e) {
-            throw new IllegalArgumentException(
-                    "Unable to create RdyUpdatePolicy instance of type " +
-                            policyClass, e);
-        }
-    }
-
-    //Rdy update policy wrapper
-    class RdyUpdatePolicyWrapper implements IRdyUpdatePolicy{
-
-        private volatile IRdyUpdatePolicy rdyUpdatePolicy = new DefaultRdyUpdatePolicy();
-
-        void setInnerPolicy(final IRdyUpdatePolicy newPolicy) {
-            logger.info("RdyUpdatePolicy instance change from {} to {}", this.rdyUpdatePolicy, newPolicy);
-            this.rdyUpdatePolicy = newPolicy;
-        }
-
-        @Override
-        public boolean rdyShouldIncrease(String topic, float scheduleLoad, boolean mayTimeout, int maxRdyPerCon, int extraRdy) {
-            long start = 0l;
-            boolean debug = logger.isDebugEnabled();
-            if(debug) {
-                start = System.currentTimeMillis();
-            }
-            try {
-                return this.rdyUpdatePolicy.rdyShouldIncrease(topic, scheduleLoad, mayTimeout, maxRdyPerCon, extraRdy);
-            }finally {
-                if(debug){
-                    logger.debug("{}.rdyShouldIncrease ends in {} millisec", this.rdyUpdatePolicy ,System.currentTimeMillis() - start);
-                }
-            }
-        }
-
-        @Override
-        public boolean rdyShouldDecline(String topic, float scheduleLoad, boolean mayTimeout, int maxRdyPerCon, int extraRdy) {
-            long start = 0l;
-            boolean debug = logger.isDebugEnabled();
-            if(debug) {
-                start = System.currentTimeMillis();
-            }
-            try {
-                return this.rdyUpdatePolicy.rdyShouldDecline(topic, scheduleLoad, mayTimeout, maxRdyPerCon, extraRdy);
-            }finally {
-                if(debug){
-                    logger.debug("{}.rdyShouldDecline ends in {} millisec", this.rdyUpdatePolicy, System.currentTimeMillis() - start);
-                }
-            }
-        }
     }
 
     /**
@@ -507,7 +430,7 @@ public class ConnectionManager {
     }
 
     /**
-     *
+     *update connection rdy, if connection's expected rdy diffs from current rdy.
      * @param con   nsqd partition connection
      * @param conSet
      * @param latch
@@ -537,65 +460,7 @@ public class ConnectionManager {
         }
     }
 
-    private void mayIncreaseRdy(final NSQConnection con, int availableRdy, final ConnectionWrapperSet conSet, final CountDownLatch latch) {
-        int currentRdy = con.getCurrentRdyCount();
-        final int expectedRdy = con.getExpectedRdy();
-        if (availableRdy > 0) {
-            int ceilingRdy = availableRdy > expectedRdy ? expectedRdy : availableRdy;
-//                                  TODO now we do not exceed expected per connection
-//                                  if(currentRdy >= expectedRdy && availableRdy > ceilingRdy)
-//                                  ceilingRdy = availableRdy;
-            //increase rdy as quickly as inorder to get closer to expected rdy
-            final int newRdy = Math.min(ceilingRdy, currentRdy * 2);
-            if (newRdy > currentRdy) {
-                ChannelFuture future = con.command(new Rdy(newRdy));
-                if(null != future)
-                    future.addListener(new ChannelFutureListener() {
-                        @Override
-                        public void operationComplete(ChannelFuture channelFuture) throws Exception {
-                            if (channelFuture.isSuccess()) {
-                                int lastRdy = con.getCurrentRdyCount();
-                                con.setCurrentRdyCount(newRdy);
-                                conSet.addTotalRdy(newRdy - lastRdy);
-                            }
-                            latch.countDown();
-                        }
-                    });
-            } else {
-                latch.countDown();
-            }
-        } else {
-            latch.countDown();
-        }
-    }
-
-    private void mayDeclineRdy(final NSQConnection con, final ConnectionWrapperSet conSet, final CountDownLatch latch) {
-        int currentRdy = con.getCurrentRdyCount();
-        if (currentRdy > 1) {
-            //update rdy
-            final int expectedRdy = con.getExpectedRdy();
-            final int newRdy = Math.min(currentRdy - 1, expectedRdy);
-            ChannelFuture future = con.command(new Rdy(newRdy));
-            if(null != future)
-                future.addListener(new ChannelFutureListener() {
-                    @Override
-                    public void operationComplete(ChannelFuture channelFuture) throws Exception {
-                        if (channelFuture.isSuccess()) {
-                            int lastRdy = con.getCurrentRdyCount();
-                            con.setCurrentRdyCount(newRdy);
-                            conSet.addTotalRdy(newRdy - lastRdy);
-                        }
-                        //latch count down
-                        latch.countDown();
-                    }
-                });
-        } else {
-            //latch count down
-            latch.countDown();
-        }
-    }
-
-    private void redistributeRdy(float scheduleLoad, boolean mayTimeout, final int maxRdyPerCon) {
+    private void redistributeRdy() {
        for(String topic:topic2Subs.keySet()) {
            final ConnectionWrapperSet subs = topic2Subs.get(topic);
            if(null != subs) {

@@ -1,7 +1,6 @@
 package com.youzan.nsq.client.network.frame;
 
 import com.youzan.nsq.client.MessageMetadata;
-import com.youzan.nsq.client.entity.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
