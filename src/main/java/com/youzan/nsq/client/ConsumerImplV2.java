@@ -27,8 +27,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import static com.youzan.nsq.client.core.command.PubExt.FILTER_EXT_KEY;
-
 /**
  * TODO: a description
  * <pre>
@@ -56,7 +54,6 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
 
     private volatile long lastConnecting = 0L;
     private volatile long lastSuccess = 0L;
-    private volatile float consumptionRate = 0f;
 
     private final AtomicLong received = new AtomicLong(0);
     private final AtomicLong success = new AtomicLong(0);
@@ -252,14 +249,6 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 cLock.writeLock().unlock();
             }
         }
-    }
-
-    /**
-     * update consumption rate according to message consumption last _INTERVAL_IN_SECOND
-     */
-    private void updateConsumptionRate() {
-        consumptionRate = ((long)success.get() - lastSuccess) / _INTERVAL_IN_SECOND;
-        lastSuccess = success.get();
     }
 
     public boolean isConsumptionEstimateElapseTimeout() {
@@ -1074,14 +1063,6 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
 
     @Override
     public float getLoadFactor() {
-//        ThreadPoolExecutor pool = (ThreadPoolExecutor) executor;
-//        int active = pool.getActiveCount();
-//        long queueSize = queue4Consume.get();
-//        if(active > 0)
-//            return (float)queueSize/active;
-//        else {
-//            return 0f;
-//        }
         return 0f;
     }
 

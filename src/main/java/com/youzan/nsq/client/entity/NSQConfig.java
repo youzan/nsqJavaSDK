@@ -929,7 +929,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         SKIP
     }
 
-    private Map<ConsumePolicy, Map<String, Object>> consumePolcyMap = new ConcurrentHashMap<>();
+    private Map<ConsumePolicy, Map<String, Object>> consumePolicyMap = new ConcurrentHashMap<>();
 
     /**
      * Set extension key/value map for consumer to skip, when json extension header in one message
@@ -942,7 +942,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     NSQConfig setMessageSkipExtensionKVMap(final Map<String, Object> extensionKV) {
         if(null == extensionKV || extensionKV.size() == 0)
             return this;
-        this.consumePolcyMap.put(ConsumePolicy.SKIP, Collections.unmodifiableMap(extensionKV));
+        this.consumePolicyMap.put(ConsumePolicy.SKIP, Collections.unmodifiableMap(extensionKV));
         return this;
     }
 
@@ -983,7 +983,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * @return extension key/value map for consumer to skip, which is {@link Collections.UnmodifiableMap}.
      */
     public Map<String, Object> getMessageSkipExtensionKVMap() {
-        return this.consumePolcyMap.get(ConsumePolicy.SKIP);
+        return this.consumePolicyMap.get(ConsumePolicy.SKIP);
     }
 
     private int producerPoolSize = 4;
