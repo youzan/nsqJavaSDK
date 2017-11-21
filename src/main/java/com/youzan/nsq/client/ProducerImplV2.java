@@ -14,6 +14,7 @@ import com.youzan.nsq.client.network.frame.ResponseFrame;
 import com.youzan.util.HostUtil;
 import com.youzan.util.IOUtil;
 import com.youzan.util.NamedThreadFactory;
+import com.youzan.util.ProducerWorkerThreadFactory;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 import org.slf4j.Logger;
@@ -50,7 +51,7 @@ public class ProducerImplV2 implements Producer {
     private final KeyedPooledConnectionFactory factory;
     private GenericKeyedObjectPool<Address, NSQConnection> bigPool = null;
     private final ScheduledExecutorService scheduler = Executors
-            .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
+            .newSingleThreadScheduledExecutor(new ProducerWorkerThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
 
 
     private final ExecutorService pubExec;

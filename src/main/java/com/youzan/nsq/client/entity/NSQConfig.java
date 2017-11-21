@@ -8,6 +8,8 @@ import com.youzan.util.HostUtil;
 import com.youzan.util.NotThreadSafe;
 import com.youzan.util.SystemUtil;
 import io.netty.handler.ssl.SslContext;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,6 +17,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+
+import static org.apache.commons.lang3.tuple.Pair.of;
 
 /**
  * It is used for Producer or Consumer, and not both two.
@@ -796,7 +800,11 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
             buffer.append("\"desired_tag\":\"" + tag.getTagName() + "\",");
         }
         buffer.append("\"extend_support\":" + topicExt + ",");
-        buffer.append("\"user_agent\": \"" + userAgent + "\"}");
+        buffer.append("\"user_agent\": \"" + userAgent + "\"");
+        //ext header feature
+        if(StringUtils.isNotBlank(this.getConsumeMessageFilterKey()))
+            buffer.append(", \"ext_filter\":{\"type\":" + this.getConsumeMessageFilterMode().getFilter().getType() + ", \"filter_ext_key\":\"" + this.getConsumeMessageFilterKey() + "\", \"filter_data\":\"" + this.getConsumeMessageFilterValue() + "\"}");
+        buffer.append("}");
         return buffer.toString();
     }
 
@@ -993,6 +1001,54 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     public int getPublishWorkerPoolSize() {
         return this.producerPoolSize;
+    }
+
+    //consume message filter value default value is null, which means no filter applied
+    private Pair<String, String> consumeMsgFilterKV = null;
+
+    /**
+     * set consume message filter value, default value is null, which means there is NO message filter applied for
+     * message consumer which has current {@link NSQConfig} applied.
+     * @param filterVal
+     * @return NSQConfig
+     */
+    public NSQConfig setConsumeMessageFilter(String key, String filterVal) {
+        this.consumeMsgFilterKV = of(key, filterVal);
+        return this;
+    }
+
+    public String getConsumeMessageFilterKey() {
+        if(null != this.consumeMsgFilterKV)
+            return this.consumeMsgFilterKV.getKey();
+        else
+            return "";
+    }
+
+    public String getConsumeMessageFilterValue() {
+        if(null != this.consumeMsgFilterKV)
+            return this.consumeMsgFilterKV.getValue();
+        else
+            return "";
+    }
+
+    private ConsumeMessageFilterMode consumeMessageFilterMode = ConsumeMessageFilterMode.EXACT_MATCH;
+
+    /**
+     * specify message consume filter, default value is {@link ConsumeMessageFilterMode#EXACT_MATCH}
+     * @param filterMode
+     * @return {@link NSQConfig}
+     */
+    public NSQConfig setConsumeMessageFilterMode(ConsumeMessageFilterMode filterMode) {
+        if(null == filterMode) {
+            logger.error("null filter mode is not allowed ");
+        } else {
+            this.consumeMessageFilterMode = filterMode;
+        }
+        return this;
+    }
+
+    public ConsumeMessageFilterMode getConsumeMessageFilterMode() {
+        return this.consumeMessageFilterMode;
     }
 
     @Override

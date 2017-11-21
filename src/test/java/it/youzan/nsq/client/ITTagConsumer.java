@@ -6,6 +6,7 @@ import com.youzan.nsq.client.MessageHandler;
 import com.youzan.nsq.client.entity.DesiredTag;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
+import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.utils.TopicUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,6 +65,7 @@ public class ITTagConsumer {
                 public void process(NSQMessage message) {
                     logger.error("Message should not received: " + message.getReadableContent());
                     logger.error("message tag: " + message.getTag().toString());
+
                 }
             });
             consumer.setAutoFinish(true);
@@ -203,6 +205,36 @@ public class ITTagConsumer {
             consumer.close();
         }finally {
             TopicUtil.emptyQueue("http://" + props.getProperty("admin-address"), topic, "BaseConsumer");
+        }
+    }
+
+    public void testConsumerWithHeaderFilter() throws Exception {
+        String topic = "JavaTesting-Ext";
+        Consumer consumer = null;
+        try{
+            logger.info("[testConsumerWithHeaderFilter] starts");
+            NSQConfig config = new NSQConfig("BaseConsumer");
+            config.setLookupAddresses(props.getProperty("lookup-addresses"));
+            config.setConsumeMessageFilter("filter_key1", "filter_val1");
+            final AtomicBoolean fail = new AtomicBoolean(false);
+            final CountDownLatch latch = new CountDownLatch(5);
+            consumer = new ConsumerImplV2(config, new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    if (null == message.getExtByName("filter_key1") || !message.getExtByName("filter_key1").equals("filter_val1"))
+                        fail.set(true);
+                    latch.countDown();
+                }
+            });
+            consumer.setAutoFinish(true);
+            consumer.subscribe(topic);
+            consumer.start();
+            latch.await(1, TimeUnit.MINUTES);
+            Assert.assertFalse(fail.get());
+        }finally {
+            consumer.close();
+            TopicUtil.emptyQueue("http://" + props.getProperty("admin-address"), topic, "BaseConsumer");
+            logger.info("[testConsumerWithHeaderFilter] ends");
         }
     }
 }

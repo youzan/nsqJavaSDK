@@ -27,6 +27,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import static com.youzan.nsq.client.core.command.PubExt.FILTER_EXT_KEY;
+
 /**
  * TODO: a description
  * <pre>
@@ -579,6 +581,11 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                     return;
                 }
 
+                if(!checkExtFilter(message, conn)) {
+                    _finish(message, conn);
+                    return;
+                }
+
                 if (TraceLogger.isTraceLoggerEnabled() && conn.getAddress().isHA())
                     TraceLogger.trace(this, conn, message);
                 if (this.config.isOrdered()
@@ -592,6 +599,18 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 processMessage(message, conn);
             }
         }
+    }
+
+    protected boolean checkExtFilter(final NSQMessage message, final NSQConnection conn) {
+        String filterKey = this.config.getConsumeMessageFilterKey();
+        if (conn.isExtend() && StringUtils.isNotBlank(filterKey)) {
+            String filterDataInHeader = (String) message.getExtByName(filterKey);
+            String filterDataInConf = this.config.getConsumeMessageFilterValue();
+            if(!this.config.getConsumeMessageFilterMode().getFilter().apply(filterDataInConf, filterDataInHeader)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private void processMessage(final NSQMessage message, final NSQConnection connection) {
@@ -957,6 +976,10 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             return;
         }
         final NSQConnection conn = address_2_conn.get(message.getAddress());
+        _finish(message, conn);
+    }
+
+    private void _finish(final NSQMessage message, final NSQConnection conn) throws NSQNoConnectionException {
         if (conn != null) {
             if (conn.getId() == message.getConnectionID().intValue()) {
                 if (conn.isConnected()) {
