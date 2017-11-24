@@ -296,6 +296,11 @@ public class ProducerImplV2 implements Producer {
 
     @Override
     public void publish(final Message message) throws NSQException {
+        this.publishAndGetReceipt(message);
+    }
+
+    @Override
+    public MessageReceipt publishAndGetReceipt(final Message message) throws NSQException {
         final Context cxt = new Context();
         if(PERF_LOG.isDebugEnabled()) {
             cxt.setTraceID(pubTraceIdGen.getAndIncrement());
@@ -314,7 +319,7 @@ public class ProducerImplV2 implements Producer {
 
         try{
             //TODO: poll before timeout
-            sendPUB(message, cxt);
+            return sendPUB(message, cxt);
         }catch (NSQPubException pubE){
             logger.error(pubE.getLocalizedMessage());
             pubE.punchExceptions(logger);
@@ -441,7 +446,7 @@ public class ProducerImplV2 implements Producer {
         this.publishMulti(messages, new Topic(topic));
     }
 
-    private void sendPUB(final Message msg, Context cxt) throws NSQException {
+    private MessageReceipt sendPUB(final Message msg, Context cxt) throws NSQException {
         int c = 0; // be continuous
         boolean returnCon;
         NSQConnection conn = null;
@@ -488,11 +493,17 @@ public class ProducerImplV2 implements Producer {
             }
             //create PUB command
             try {
+                String host = conn.getAddress().getHost();
+                int port = conn.getAddress().getPort();
+                String topic = conn.getAddress().getTopic();
+                int partition = -1;
+
                 final Pub pub = createPubCmd(msg);
 
                 //check if address has partition info, if it does, update pub's partition
                 if(conn.getAddress().hasPartition()) {
-                    pub.overrideDefaultPartition(conn.getAddress().getPartition());
+                    partition = conn.getAddress().getPartition();
+                    pub.overrideDefaultPartition(partition);
                 }
 
                 long pubAndWaitStart = System.currentTimeMillis();
@@ -506,10 +517,21 @@ public class ProducerImplV2 implements Producer {
                 }
 
                 handleResponse(msg.getTopic(), frame, conn);
+                //when hit this line what we have are response frame
                 success.addAndGet(msg.getMessageCount());
-                if(msg.isTraced() && frame instanceof MessageMetadata && TraceLogger.isTraceLoggerEnabled() && conn.getAddress().isHA())
-                    TraceLogger.trace(this, conn, (MessageMetadata) frame);
-                break;
+                if(msg.isTraced() && frame instanceof ResponseFrame && conn.getAddress().isHA()) {
+                    if (TraceLogger.isTraceLoggerEnabled())
+                        TraceLogger.trace(this, conn, (MessageMetadata) frame);
+                }
+                ResponseFrame response = (ResponseFrame) frame;
+                MessageReceipt receipt = response.getReceipt();
+                receipt.setNsqdAddr(host + ":" + port);
+                receipt.setTopicName(topic);
+                receipt.setPartition(partition);
+                if(PERF_LOG.isDebugEnabled()){
+                    PERF_LOG.debug("{}: Producer took {} milliSec to send message to {}", cxt.getTraceID(), System.currentTimeMillis() - start, conn.getAddress());
+                }
+                return receipt;
             }
             catch(NSQPubFactoryInitializeException | NSQTagException | NSQTopicNotExtendableException | NSQExtNotSupportedException expShouldFail) {
                 throw expShouldFail;
@@ -555,12 +577,7 @@ public class ProducerImplV2 implements Producer {
                 }
             }
         } // end loop
-        if (c >= retry) {
-            throw new NSQPubException(exceptions);
-        }
-        if(PERF_LOG.isDebugEnabled()){
-            PERF_LOG.debug("{}: Producer took {} milliSec to send message to {}", cxt.getTraceID(), System.currentTimeMillis() - start, conn.getAddress());
-        }
+        throw new NSQPubException(exceptions);
     }
 
     /**

@@ -779,6 +779,21 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         // Post
         //log warn
         if (!ok) {
+            int attempt = message.getReadableAttempts();
+            int warningThreshold = this.config.getAttemptWarningThresdhold();
+            int errorThreshold = this.config.getAttemptErrorThresdhold();
+
+            if(errorThreshold > 0 && attempt > errorThreshold){
+                if(0==attempt%errorThreshold) {
+                    logger.error("Message attempts number has been {}, consider logging message content and finish. {}", attempt, message.toString());
+                }
+            } else if (warningThreshold > 0 && attempt > warningThreshold){
+                if(attempt > warningThreshold) {
+                    if(0==attempt%warningThreshold) {
+                        logger.warn("Message attempts number has been {}, consider logging message content and finish. {}", attempt, message.toString());
+                    }
+                }
+            }
             //TODO: connection.setMessageConsumptionFailed(start);
 //            logger.warn("Exception occurs in message handler. Please check it right now {} , Original message: {}.", message, message.getReadableContent());
         } else if (!this.config.isOrdered()){

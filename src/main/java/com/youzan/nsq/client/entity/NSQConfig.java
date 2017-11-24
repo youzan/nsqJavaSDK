@@ -31,6 +31,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private static final long serialVersionUID = 6624842850216901700L;
     private static final Logger logger = LoggerFactory.getLogger(NSQConfig.class);
     private static final ObjectMapper MAPPER_CONFIG = new ObjectMapper();
+
     static {
         MAPPER_CONFIG.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
     }
@@ -88,7 +89,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
                 clazz = Class.forName(policyClass);
             }
             Object policy = clazz.newInstance();
-            if (policy instanceof IRdyUpdatePolicy) {
+            if (policy instanceof IExpectedRdyUpdatePolicy) {
                 @SuppressWarnings("unchecked")
                         IExpectedRdyUpdatePolicy expRdyPolicy = (IExpectedRdyUpdatePolicy) policy;
                 this.expRdyUpdatePolicy = expRdyPolicy;
@@ -147,6 +148,28 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private boolean featureNegotiation;
     private boolean userSpecifiedLookupd = false;
     private Map<String, String> localTraceMap = new ConcurrentHashMap<>();
+
+    public int getAttemptWarningThresdhold() {
+        return attemptWarningThresdhold;
+    }
+
+    public NSQConfig setAttemptWarningThresdhold(int attemptWarningThresdhold) {
+        this.attemptWarningThresdhold = attemptWarningThresdhold;
+        return this;
+    }
+
+    public int getAttemptErrorThresdhold() {
+        return attemptErrorThresdhold;
+    }
+
+    public NSQConfig setAttemptErrorThresdhold(int attemptErrorThresdhold) {
+        this.attemptErrorThresdhold = attemptErrorThresdhold;
+        return this;
+    }
+
+    private int attemptWarningThresdhold = 10;
+    private int attemptErrorThresdhold = 50;
+
     /*-
      * =========================================================================
      *                             All of Timeout
