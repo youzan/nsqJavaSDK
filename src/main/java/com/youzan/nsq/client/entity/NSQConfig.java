@@ -1032,7 +1032,8 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     /**
      * set consume message filter value, default value is null, which means there is NO message filter applied for
      * message consumer which has current {@link NSQConfig} applied.
-     * @param filterVal
+     * @param key       extension filter key to locate extension value
+     * @param filterVal expected extension value to match
      * @return NSQConfig
      */
     public NSQConfig setConsumeMessageFilter(String key, String filterVal) {

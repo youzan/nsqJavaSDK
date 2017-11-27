@@ -53,7 +53,6 @@ public class ProducerImplV2 implements Producer {
     private final ScheduledExecutorService scheduler = Executors
             .newSingleThreadScheduledExecutor(new ProducerWorkerThreadFactory(this.getClass().getName(), Thread.NORM_PRIORITY));
 
-
     private final ExecutorService pubExec;
 
     private final ConcurrentHashMap<String, Long> topic_2_lastActiveTime = new ConcurrentHashMap<>();
@@ -69,7 +68,7 @@ public class ProducerImplV2 implements Producer {
      */
     public ProducerImplV2(NSQConfig config) {
         this.config = config;
-        this.simpleClient = new NSQSimpleClient(Role.Producer, this.config.getUserSpecifiedLookupAddress());
+        this.simpleClient = new NSQSimpleClient(Role.Producer, this.config.getUserSpecifiedLookupAddress(), this.config);
 
         this.poolConfig = new GenericKeyedObjectPoolConfig();
         this.factory = new KeyedPooledConnectionFactory(this.config, this);
@@ -758,6 +757,6 @@ public class ProducerImplV2 implements Producer {
         } catch (IOException e) {
             logger.warn(e.getLocalizedMessage());
         }
-        return "[Producer] at " + ipStr;
+        return "[Producer] " + super.toString() + " at " + ipStr;
     }
 }

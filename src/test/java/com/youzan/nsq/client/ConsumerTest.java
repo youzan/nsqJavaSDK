@@ -596,6 +596,14 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         Assert.assertTrue(consumer.checkExtFilter(message, conn));
     }
 
+    @Test
+    public void testConsumerToString() {
+        NSQConfig config = new NSQConfig("BaseConsumer");
+        Consumer consumer = new ConsumerImplV2(config);
+        String consumerString = consumer.toString();
+        Assert.assertTrue(consumerString.contains("BaseConsumer"));
+    }
+
     private ScheduledExecutorService keepMessagePublish(final Producer producer, final String topic, long interval) throws NSQException {
         ScheduledExecutorService exec = Executors.newSingleThreadScheduledExecutor();
         exec.scheduleWithFixedDelay(new Runnable() {

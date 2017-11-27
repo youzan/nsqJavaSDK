@@ -3,10 +3,10 @@ package it.youzan.nsq.client;
 import com.youzan.nsq.client.Consumer;
 import com.youzan.nsq.client.ConsumerImplV2;
 import com.youzan.nsq.client.MessageHandler;
+import com.youzan.nsq.client.entity.ConsumeMessageFilterMode;
 import com.youzan.nsq.client.entity.DesiredTag;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
-import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.utils.TopicUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -216,6 +216,7 @@ public class ITTagConsumer {
             NSQConfig config = new NSQConfig("BaseConsumer");
             config.setLookupAddresses(props.getProperty("lookup-addresses"));
             config.setConsumeMessageFilter("filter_key1", "filter_val1");
+            config.setConsumeMessageFilterMode(ConsumeMessageFilterMode.EXACT_MATCH);
             final AtomicBoolean fail = new AtomicBoolean(false);
             final CountDownLatch latch = new CountDownLatch(5);
             consumer = new ConsumerImplV2(config, new MessageHandler() {

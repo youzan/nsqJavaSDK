@@ -80,8 +80,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     /*
      * schedule executor for updating nsqd connections in effect
      */
-    private final ScheduledExecutorService scheduler = Executors
-            .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getSimpleName(), Thread.NORM_PRIORITY));
+    private ScheduledExecutorService scheduler;
     /*
      * message handler
      */
@@ -112,7 +111,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
      */
     public ConsumerImplV2(NSQConfig config) {
         this.config = config;
-        this.simpleClient = new NSQSimpleClient(Role.Consumer, this.config.getUserSpecifiedLookupAddress());
+        this.simpleClient = new NSQSimpleClient(Role.Consumer, this.config.getUserSpecifiedLookupAddress(), this.config);
 
         //initialize netty component
         EventLoopGroup eventLoopGroup = new NioEventLoopGroup(config.getNettyPoolSize());
@@ -124,7 +123,11 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         bootstrap.handler(new NSQClientInitializer());
         //initialize consumer worker size
         executor = Executors.newFixedThreadPool(this.config.getConsumerWorkerPoolSize(),
-                new NamedThreadFactory(this.getClass().getSimpleName() + "-ClientBusiness", Thread.MAX_PRIORITY));
+                new NamedThreadFactory(this.getClass().getSimpleName() + "-ClientBusiness-" + this.config.getConsumerName(), Thread.MAX_PRIORITY));
+        String consumerName = (null == this.config) ? "-null" : "-" + this.config.getConsumerName();
+        //intialize consumer simple client thread
+        scheduler = Executors
+                .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getSimpleName() + consumerName, Thread.NORM_PRIORITY));
     }
 
     /**
@@ -230,7 +233,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         //start consumer
         if (this.started.compareAndSet(Boolean.FALSE, Boolean.TRUE) && cLock.writeLock().tryLock()) {
             String configJsonStr = NSQConfig.parseNSQConfig(this.config);
-            logger.info("Config for consumer {}: {}", this, configJsonStr);
+            logger.info("Consumer {} starts with config: {}", this, configJsonStr);
             try {
                 //validate that consumer have right lookup address source
                 if (!validateLookupdSource()) {
@@ -570,11 +573,6 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                     return;
                 }
 
-                if(!checkExtFilter(message, conn)) {
-                    _finish(message, conn);
-                    return;
-                }
-
                 if (TraceLogger.isTraceLoggerEnabled() && conn.getAddress().isHA())
                     TraceLogger.trace(this, conn, message);
                 if (this.config.isOrdered()
@@ -666,6 +664,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         boolean retry;
         boolean explicitRequeue = false;
         boolean skip = needSkip(message);
+        skip = skip || !checkExtFilter(message, connection);
 
         long start = System.currentTimeMillis();
         try {
@@ -748,6 +747,9 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                     final byte[] id = message.getMessageID();
                     logger.info("Client does a re-queue explicitly. MessageID: {} , Hex: {}", id, message.newHexString(id));
                 }
+            } else if (skip) {
+                // Finish
+                cmd = new Finish(message.getMessageID());
             } else {
                 // ignore actions
                 cmd = null;
@@ -768,10 +770,12 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                             }
                         }
                     });
-                    if (cmd instanceof Finish) {
-                        finished.incrementAndGet();
-                    } else {
-                        re.incrementAndGet();
+                    if(!skip) {
+                        if (cmd instanceof Finish) {
+                            finished.incrementAndGet();
+                        } else {
+                            re.incrementAndGet();
+                        }
                     }
                 }
             }
@@ -1073,7 +1077,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         } catch (IOException e) {
             logger.warn(e.getLocalizedMessage());
         }
-        return "[Consumer] at " + ipStr;
+        return "[Consumer@" + this.config.getConsumerName() + "] " + super.toString() + " at " + ipStr;
     }
 
     @Override
