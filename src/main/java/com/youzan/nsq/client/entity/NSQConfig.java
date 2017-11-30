@@ -216,7 +216,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     // 1 seconds
     public static final int _MIN_NEXT_CONSUMING_IN_SECOND = 0;
     // one hour is the limit
-    public static final int _MAX_NEXT_CONSUMING_IN_SECOND = 3600;
+    public static final int _MAX_NEXT_CONSUMING_IN_SECOND = 24 * 3600;
     private int nextConsumingInSecond = 60;
     private long maxConnWait = 200L;
     private int minIdleConn = 2;
@@ -850,10 +850,8 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         if (timeout < NSQConfig._MIN_NEXT_CONSUMING_IN_SECOND) {
             throw new IllegalArgumentException(
                     "Next consuming in second is illegal. It is too small. " + NSQConfig._MIN_NEXT_CONSUMING_IN_SECOND);
-        }
-        if (timeout > NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND) {
-            throw new IllegalArgumentException(
-                    "Next consuming in second is illegal. It is too big. " + NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND);
+        } else if (timeout > NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND) {
+            logger.warn("Next consuming in second is larger than {}. It may be limited to max value in server side.", NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND);
         }
         this.nextConsumingInSecond = timeout;
         return this;
