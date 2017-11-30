@@ -18,6 +18,9 @@ public class PubExt extends Pub {
     private byte[] jsonHeaderBytes;
     public static final String CLIENT_TAG_KEY = "##client_dispatch_tag";
     public static final String TRACE_ID_KEY = "##trace_id";
+    public static final String FILTER_EXT_KEY = "filter_ext_key";
+    public static final String FILTER_DATA = "filter_data";
+
 
     /**
      * @param msg message object

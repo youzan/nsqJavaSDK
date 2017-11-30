@@ -57,8 +57,7 @@ public class NSQSimpleClient implements Client, Closeable {
     /*
      *single schedule executor for maintaining topic to partition map
      */
-    private final ScheduledExecutorService scheduler = Executors
-            .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName(), Thread.MAX_PRIORITY));
+    private ScheduledExecutorService scheduler;
 
     /*
      * role of client current simple client nested
@@ -67,11 +66,14 @@ public class NSQSimpleClient implements Client, Closeable {
     private final LookupService lookup;
     private final boolean useLocalLookupd;
 
-    public NSQSimpleClient(Role role, boolean localLookupd) {
+    public NSQSimpleClient(Role role, boolean localLookupd, final NSQConfig config) {
         this.role = role;
         this.lookupLocalID = CLIENT_ID.incrementAndGet();
         this.lookup = new LookupServiceImpl(role, this.lookupLocalID);
         this.useLocalLookupd = localLookupd;
+        String consumerName = (null == config || role != Role.Consumer) ? "-null" : "-" + config.getConsumerName();
+        scheduler = Executors
+                .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getName() + "-" + role.getRoleTxt() + consumerName, Thread.MAX_PRIORITY));
     }
 
     /**

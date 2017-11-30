@@ -759,27 +759,6 @@ public class ConnectionManagerTest {
         }
     }
 
-    public static class BadRdyUpdatePolicy implements IRdyUpdatePolicy {
-
-        @Override
-        public boolean rdyShouldIncrease(String topic, float scheduleLoad, boolean mayTimeout, int maxRdyPerCon, int extraRdy) {
-            boolean flag = true;
-            if(flag) {
-                throw new RuntimeException("expected exp in rdy update policy");
-            }
-            return true;
-        }
-
-        @Override
-        public boolean rdyShouldDecline(String topic, float scheduleLoad, boolean mayTimeout, int maxRdyPerCon, int extraRdy) {
-            boolean flag = true;
-            if(flag) {
-                throw new RuntimeException("expected exp in rdy update policy");
-            }
-            return false;
-        }
-    }
-
     @Test
     public void testMakebadOfRdyRedistribute() throws Exception {
         logger.info("[testMakebadOfRdyRedistribute] starts.");

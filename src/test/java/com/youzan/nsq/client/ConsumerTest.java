@@ -6,6 +6,7 @@ import com.youzan.nsq.client.entity.*;
 import com.youzan.nsq.client.exception.ExplicitRequeueException;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.utils.TopicUtil;
+import org.apache.commons.collections.map.HashedMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -544,6 +545,63 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         MockedConsumer consumer2 = new MockedConsumer(config2, null);
         skipped = consumer2.needSkip(msg3);
         Assert.assertFalse(skipped);
+    }
+
+    @Test
+    public void testMessageHeaderFilter() {
+        NSQConfig config = new NSQConfig("BaseConsumer");
+        config.setConsumeMessageFilter("filter_key1", "filter_val1");
+        ConsumerImplV2 consumer = new ConsumerImplV2(config, new MessageHandler() {
+            @Override
+            public void process(NSQMessage message) {
+                //nothing happen
+            }
+        });
+        //mock a message frame, and NSQConnection
+        Map<String, Object> jsonExt = new HashedMap();
+        jsonExt.put("filter_key1", "filter_val1");
+        jsonExt.put("filter_key2", "filter_val2");
+
+        NSQMessage message = new NSQMessage();
+        message.setJsonExtHeader(jsonExt);
+
+        MockedNSQConnectionImpl conn = new MockedNSQConnectionImpl(0, new Address("127.0.0.1", 4150, "ha", "fakeTopic", 1, true), null, config);
+
+        Assert.assertTrue(consumer.checkExtFilter(message, conn));
+
+        Map<String, Object> jsonExtMissing = new HashedMap();
+        jsonExtMissing.put("filter_key3", "filter_val3");
+        jsonExtMissing.put("filter_key2", "filter_val2");
+
+        message.setJsonExtHeader(jsonExtMissing);
+        Assert.assertFalse(consumer.checkExtFilter(message, conn));
+
+        jsonExtMissing = new HashedMap();
+        jsonExtMissing.put("filter_key1", "filter_val1_missing");
+        jsonExtMissing.put("filter_key2", "filter_val2");
+
+        message.setJsonExtHeader(jsonExtMissing);
+        Assert.assertFalse(consumer.checkExtFilter(message, conn));
+
+        //test default
+        config = new NSQConfig("BaseConsumer");
+        consumer = new ConsumerImplV2(config, new MessageHandler() {
+            @Override
+            public void process(NSQMessage message) {
+                //nothing happen
+            }
+        });
+
+        message.setJsonExtHeader(jsonExtMissing);
+        Assert.assertTrue(consumer.checkExtFilter(message, conn));
+    }
+
+    @Test
+    public void testConsumerToString() {
+        NSQConfig config = new NSQConfig("BaseConsumer");
+        Consumer consumer = new ConsumerImplV2(config);
+        String consumerString = consumer.toString();
+        Assert.assertTrue(consumerString.contains("BaseConsumer"));
     }
 
     private ScheduledExecutorService keepMessagePublish(final Producer producer, final String topic, long interval) throws NSQException {
