@@ -48,6 +48,15 @@ public interface Producer extends Client, Closeable {
     void publish(Message message) throws NSQException;
 
     /**
+     * publish message and return receipt contains target nsqd&topic info for normal publish,
+     * and message meta info(internal id, disk offset, disk size, trace id) if message is traced.
+     * @param message
+     * @return receipt
+     * @throws NSQException
+     */
+    MessageReceipt publishAndGetReceipt(Message message) throws NSQException;
+
+    /**
      * Use it to produce only one 'message' sending to MQ.
      * partition info is not specified in this function,
      * use #{Producer.publish(byte[] messages, Topic topic)}

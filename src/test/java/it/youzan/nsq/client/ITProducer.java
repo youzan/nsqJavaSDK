@@ -1,6 +1,7 @@
 package it.youzan.nsq.client;
 
 import com.youzan.nsq.client.*;
+import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.entity.Topic;
@@ -49,9 +50,8 @@ public class ITProducer {
         config.setThreadPoolSize4IO(Integer.valueOf(threadPoolSize4IO));
     }
 
-    @Test
     public void multiPublishBatchError2() throws Exception {
-        logger.info("[ITProducer#multiPublishBatch] starts");
+        logger.info("[ITProducer#multiPublishBatchError2] starts");
         Producer producer = null;
         Consumer consumer = null;
         Topic topic = new Topic("JavaTesting-Producer-Base");
@@ -98,9 +98,8 @@ public class ITProducer {
         }
     }
 
-    @Test
     public void multiPublishBatchError1() throws Exception {
-        logger.info("[ITProducer#multiPublishBatch] starts");
+        logger.info("[ITProducer#multiPublishBatchError1] starts");
         Producer producer = null;
         Consumer consumer = null;
         Topic topic = new Topic("JavaTesting-Producer-Base");
@@ -149,7 +148,6 @@ public class ITProducer {
         }
     }
 
-    @Test
     public void multiPublishBatch() throws Exception {
         logger.info("[ITProducer#multiPublishBatch] starts");
         Producer producer = null;
@@ -263,6 +261,31 @@ public class ITProducer {
             }
         }finally {
             producer.close();
+            logger.info("[ITProducer#publishDeflate] ends");
+        }
+    }
+
+    public void publishTrace() throws Exception {
+        logger.info("[ITProducer#publishTrace] starts");
+        TopicUtil.emptyQueue(adminHttp, "JavaTesting-Producer-Base", "BaseConsumer");
+        Producer producer = new ProducerImplV2(config);
+        try {
+            Topic topic = new Topic("JavaTesting-Producer-Base");
+            producer.start();
+            String msgStr = "The quick brown fox jumps over the lazy dog, 那只迅捷的灰狐狸跳过了那条懒狗";
+            for (int i = 0; i < 10; i++) {
+                Message msg = Message.create(topic, msgStr);
+                msg.traced();
+                MessageReceipt receipt = producer.publishAndGetReceipt(msg);
+                Assert.assertNotNull(receipt.getTopicName());
+                Assert.assertNotNull(receipt.getNsqdAddr());
+                Assert.assertEquals(0, receipt.getTraceID());
+                Assert.assertNotEquals(-1, receipt.getDiskQueueOffset());
+                Assert.assertNotEquals(-1, receipt.getDiskQueueSize());
+            }
+        }finally {
+            producer.close();
+            TopicUtil.emptyQueue(adminHttp, "JavaTesting-Producer-Base", "BaseConsumer");
             logger.info("[ITProducer#publishDeflate] ends");
         }
     }
