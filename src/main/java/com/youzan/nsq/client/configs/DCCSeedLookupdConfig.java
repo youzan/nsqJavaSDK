@@ -93,7 +93,7 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
     }
 
     @Override
-    public List<SoftReference<SeedLookupdAddress>> getSeedLookupAddress(String categorization, final String topic) {
+    public List<SeedLookupdAddress> getSeedLookupAddress(String categorization, final String topic) {
         AbstractControlConfig ctrlCnf = getTopicCtrlCnf(LookupAddressUpdate.formatCategorizationTopic(categorization, topic));
         if (null == ctrlCnf)
             return null;
@@ -113,17 +113,16 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
         AbstractControlConfig ctrlCnf = getTopicCtrlCnf(LookupAddressUpdate.formatCategorizationTopic(categorization, topic));
         if (null == ctrlCnf)
             return null;
-        List<SoftReference<SeedLookupdAddress>> curRefs = ctrlCnf.getCurrentReferences();
-        List<SoftReference<SeedLookupdAddress>> preRefs = ctrlCnf.getPreviousReferences();
+        List<SeedLookupdAddress> curRefs = ctrlCnf.getCurrentReferences();
+        List<SeedLookupdAddress> preRefs = ctrlCnf.getPreviousReferences();
 
         //use a set here to category seed lookups belong to different cluster by hostname
         Set<String> clusterIds = new HashSet<>();
         List<String> curLookupds = new ArrayList<>();
         List<String> curClusterIds = new ArrayList<>();
         if (null != curRefs && curRefs.size() > 0) {
-            for(SoftReference<SeedLookupdAddress> seedRef : curRefs){
+            for(SeedLookupdAddress aCurSeed : curRefs){
                 try {
-                    SeedLookupdAddress aCurSeed = seedRef.get();
                     String clusterId = aCurSeed.getClusterId();
                     //clusterIds set is used to make sure that there is only ONE lookupd address from one NSQd cluster
                     if(!clusterIds.contains(clusterId)){
@@ -145,8 +144,7 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
         List<String> preLookupds = new ArrayList<>();
         List<String> preClusterIds = new ArrayList<>();
         if (null != preRefs && preRefs.size() > 0) {
-            for(SoftReference<SeedLookupdAddress> seedRef : preRefs){
-                SeedLookupdAddress aPreSeed = seedRef.get();
+            for(SeedLookupdAddress aPreSeed : preRefs){
                 String clusterId = aPreSeed.getClusterId();
                 String address = aPreSeed.getAddress();
                 try {

@@ -14,7 +14,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-@Test(groups = {"ITConsumer-Base"}, dependsOnGroups = {"ITProducer-Base"}, priority = 5)
+@Test(groups = {"ITConsumer-Base"}, /*dependsOnGroups = {"ITProducer-Base"}, */priority = 5)
 public class ITConsumer extends AbstractITConsumer{
     private static final Logger logger = LoggerFactory.getLogger(ITConsumer.class);
 

@@ -13,6 +13,7 @@ import io.netty.channel.ChannelFuture;
 import io.netty.util.AttributeKey;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 
 /**
@@ -51,14 +52,14 @@ public interface NSQConnection extends Closeable {
      *
      * @throws TimeoutException a timeout error
      */
-    void init() throws TimeoutException;
+    void init() throws TimeoutException, IOException;
 
     /**
      * initialization of NSQConnection for consumer, with topic name passin.
      * @param topic topic this NSQConenction subscribe to
      * @throws TimeoutException raised when timeout in initialization
      */
-    void init(final Topic topic) throws TimeoutException;
+    void init(final Topic topic) throws TimeoutException, IOException;
 
     /**
      * Check internalID and disk queue offset of message received in current connection, config of current connection
@@ -132,5 +133,5 @@ public interface NSQConnection extends Closeable {
     void setMessageConsumptionFailed(long timeStamp);
     long lastMessageConsumptionFailed();
     boolean declineExpectedRdy();
-    boolean increaseExpectedRdy();
+    boolean increaseExpectedRdy(int rdyCeiling);
 }

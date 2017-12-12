@@ -245,7 +245,10 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private Compression compression = Compression.NO_COMPRESSION;
     // ...
     private SslContext sslContext = null;
-    private int rdy = 3;
+    private int rdy = DEFAULT_RDY;
+    private volatile boolean rdyOverride = false;
+    public static final int DEFAULT_RDY = 3;
+
 
     private long producerConnectionEvictIntervalMillSec = 10 * 60 * 1000;
 
@@ -726,11 +729,15 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      */
     public NSQConfig setRdy(int rdy) {
         if (rdy <= 0) {
-            this.rdy = 1;
             throw new IllegalArgumentException("expect rdy smaller than 1 not allowed.");
         }
         this.rdy = rdy;
+        this.rdyOverride = Boolean.TRUE;
         return this;
+    }
+
+    public boolean isRdyOverride() {
+        return this.rdyOverride;
     }
 
     public static int getListLookupIntervalInSecond() {

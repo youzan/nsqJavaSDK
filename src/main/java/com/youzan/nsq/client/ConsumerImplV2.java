@@ -435,6 +435,22 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         oldAddresses.clear();
         broken.clear();
         targetAddresses.clear();
+        expectedRdyPerConn = calculateExpectedRdyPerConn();
+    }
+
+    private int expectedRdyPerConn = NSQConfig.DEFAULT_RDY;
+
+    private int calculateExpectedRdyPerConn() {
+        int computedExpectedRdy = NSQConfig.DEFAULT_RDY;
+        int poolSize = this.config.getConsumerWorkerPoolSize();
+        int connNum = this.address_2_conn.keySet().size();
+        if(connNum > 0) {
+            int computedExpectedRdyTmp = poolSize/connNum;
+            if(computedExpectedRdyTmp > computedExpectedRdy)
+                computedExpectedRdy = computedExpectedRdyTmp;
+        }
+        assert computedExpectedRdy > 0;
+        return computedExpectedRdy;
     }
 
     protected void connect(Address address) throws Exception {
@@ -461,8 +477,16 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 throw new NSQNoConnectionException("Connect " + address + " is wrong.", future.cause());
             }
 
-            final NSQConnection conn = new NSQConnectionImpl(CONN_ID_GENERATOR.incrementAndGet(), address, channel,
-                    config);
+            NSQConnection conn = null;
+            //calculate expected rdy
+            if(this.config.isRdyOverride()) {
+                int computedExpectedRdy = this.expectedRdyPerConn;
+                conn = new NSQConnectionImpl(CONN_ID_GENERATOR.incrementAndGet(), address, channel,
+                        config, computedExpectedRdy);
+            } else {
+                conn = new NSQConnectionImpl(CONN_ID_GENERATOR.incrementAndGet(), address, channel,
+                        config);
+            }
             address_2_conn.put(address, conn);
 
             // Netty async+sync programming
@@ -801,7 +825,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             //TODO: connection.setMessageConsumptionFailed(start);
 //            logger.warn("Exception occurs in message handler. Please check it right now {} , Original message: {}.", message, message.getReadableContent());
         } else if (!this.config.isOrdered()){
-            connection.increaseExpectedRdy();
+            connection.increaseExpectedRdy(this.expectedRdyPerConn);
         }
     }
 
@@ -1087,7 +1111,11 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
 
     @Override
     public int getRdyPerConnection() {
-        return this.config.getRdy();
+        if(this.config.isRdyOverride()) {
+            return this.config.getRdy();
+        } else {
+            return this.expectedRdyPerConn;
+        }
     }
 
     public ConnectionManager getConnectionManager() {

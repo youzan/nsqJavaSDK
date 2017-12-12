@@ -31,7 +31,7 @@ public class ConnectionManager {
 
     //executor for backoff & resume
     private final ExecutorService exec = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(), new NamedThreadFactory("connMgr-job", Thread.NORM_PRIORITY));
-    //schedule executor for backoff resume
+    //schedule executor for rdy redistribute & expected rdy update
     private final ScheduledExecutorService scheduleExec = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("rdy-distribute", Thread.NORM_PRIORITY));
 
     private final int INIT_DELAY = 5;

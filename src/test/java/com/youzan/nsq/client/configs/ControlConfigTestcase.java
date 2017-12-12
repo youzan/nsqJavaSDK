@@ -7,7 +7,6 @@ import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.lang.ref.SoftReference;
 import java.util.List;
 
 /**
@@ -58,10 +57,9 @@ public class ControlConfigTestcase {
             AbstractControlConfig.Gradation aGradation = ctrlCnf.getGradation();
             Assert.assertEquals(aGradation.getPercentage().getFactor(), 10d);
 
-            List<SoftReference<SeedLookupdAddress>> curSeedRefs = ctrlCnf.getCurrentReferences();
+            List<SeedLookupdAddress> curSeedRefs = ctrlCnf.getCurrentReferences();
             Assert.assertEquals(curSeedRefs.size(), 2);
-            for (SoftReference<SeedLookupdAddress> ref : curSeedRefs) {
-                SeedLookupdAddress aSeed = ref.get();
+            for (SeedLookupdAddress aSeed : curSeedRefs) {
                 Assert.assertNotNull(aSeed);
                 Assert.assertEquals("http://sqs.s.qima-inc.com:4161", aSeed.getAddress());
                 Assert.assertEquals("http://sqs.s.qima-inc.com:4161", aSeed.getClusterId());
@@ -69,10 +67,9 @@ public class ControlConfigTestcase {
                 Assert.assertNull(lookupdNonexist);
             }
 
-            List<SoftReference<SeedLookupdAddress>> preSeedRefs = ctrlCnf.getPreviousReferences();
+            List<SeedLookupdAddress> preSeedRefs = ctrlCnf.getPreviousReferences();
             Assert.assertEquals(preSeedRefs.size(), 1);
-            for (SoftReference<SeedLookupdAddress> ref : preSeedRefs) {
-                SeedLookupdAddress aSeed = ref.get();
+            for (SeedLookupdAddress aSeed : preSeedRefs) {
                 Assert.assertNotNull(aSeed);
                 Assert.assertEquals("http://global.s.qima-inc.com:4161", aSeed.getAddress());
                 Assert.assertEquals("http://global.s.qima-inc.com:4161", aSeed.getClusterId());

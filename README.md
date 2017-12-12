@@ -1,7 +1,7 @@
 # NSQ-Client-Java
 
 ## Server
-* https://github.com/absolute8511/nsq
+* https://github.com/youyzan/nsq
 * Feature: strong consistent replication
 
 ## Guide
