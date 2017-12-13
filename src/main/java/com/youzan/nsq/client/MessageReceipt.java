@@ -86,6 +86,8 @@ public class MessageReceipt implements MessageMetadata {
     public String toMetadataStr() {
         StringBuilder sb = new StringBuilder();
         sb.append(this.getClass().toString() + " meta-data:").append("\n");
+        sb.append("\t[topic]:\t").append(topicName).append(", ").append(partition).append("\n");
+        sb.append("\t[nsqdAddr]:\t").append(nsqdAddr).append("\n");
         sb.append("\t[internalID]:\t").append(internalID).append("\n");
         sb.append("\t[traceID]:\t").append(traceID).append("\n");
         sb.append("\t[diskQueueOffset]:\t").append(diskQueueOffset).append("\n");

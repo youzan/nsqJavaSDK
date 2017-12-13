@@ -223,7 +223,7 @@ public class ConnectionManagerTest {
 
                 @Override
                 public int getRdyPerConnection() {
-                    return 6;
+                    return 5;
                 }
 
                 @Override
@@ -264,17 +264,16 @@ public class ConnectionManagerTest {
     }
 
     @Test
-    public void testExpectedRdy() throws Exception {
-        logger.info("[testExpectedRdy] starts.");
+    public void testRdyCeiling() throws Exception {
+        logger.info("[testRdyCeiling] starts.");
         ConnectionManager conMgr = null;
-        String topic = "test5Par1Rep";
+        String topic = "testReyCeiling";
         String adminHttp = "http://" + props.getProperty("admin-address");
         try {
             TopicUtil.createTopic(adminHttp, topic, 5, 1, "default");
             TopicUtil.createTopicChannel(adminHttp, topic, "default");
 
             NSQConfig config = (NSQConfig) this.config.clone();
-            config.setRdy(6);
             conMgr = new ConnectionManager(new IConsumeInfo() {
                 @Override
                 public float getLoadFactor() {
@@ -283,7 +282,7 @@ public class ConnectionManagerTest {
 
                 @Override
                 public int getRdyPerConnection() {
-                    return 6;
+                    return 4;
                 }
 
                 @Override
@@ -311,9 +310,68 @@ public class ConnectionManagerTest {
             connList.get(1).declineExpectedRdy();
 
             conMgr.start(0);
-            Thread.sleep(30000);
+            Thread.sleep(10000);
 
-            Assert.assertEquals(connList.get(0).getCurrentRdyCount(), 4);
+            Assert.assertEquals(connList.get(0).getCurrentRdyCount(), 2);
+            Assert.assertEquals(connList.get(1).getCurrentRdyCount(), 1);
+        } finally {
+            conMgr.close();
+            TopicUtil.deleteTopic(adminHttp, topic);
+            logger.info("[testExpectedRdy] ends.");
+        }
+    }
+
+    @Test
+    public void testExpectedRdy() throws Exception {
+        logger.info("[testExpectedRdy] starts.");
+        ConnectionManager conMgr = null;
+        String topic = "test5Par1Rep";
+        String adminHttp = "http://" + props.getProperty("admin-address");
+        try {
+            TopicUtil.createTopic(adminHttp, topic, 5, 1, "default");
+            TopicUtil.createTopicChannel(adminHttp, topic, "default");
+
+            NSQConfig config = (NSQConfig) this.config.clone();
+            config.setRdy(6);
+            conMgr = new ConnectionManager(new IConsumeInfo() {
+                @Override
+                public float getLoadFactor() {
+                    return 0.5f;
+                }
+
+                @Override
+                public int getRdyPerConnection() {
+                    return 4;
+                }
+
+                @Override
+                public boolean isConsumptionEstimateElapseTimeout() {
+                    return false;
+                }
+            });
+
+            int partitionNum = 5;
+            JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topic + "&access=r"));
+            List<NSQConnection> connList = new ArrayList<>(partitionNum);
+            for (int i = 0; i < partitionNum; i++) {
+                JsonNode partition = lookupResp.get("partitions").get("" + i);
+                Address addr1 = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topic, 0, false);
+                NSQConnection con = connect(addr1, topic, i, "BaseConsumer", config);
+                conMgr.subscribe(topic, con);
+                connList.add(con);
+            }
+            //pick 2 connection and fix another rdy
+            connList.get(0).declineExpectedRdy();
+
+            connList.get(1).declineExpectedRdy();
+            connList.get(1).declineExpectedRdy();
+            connList.get(1).declineExpectedRdy();
+            connList.get(1).declineExpectedRdy();
+
+            conMgr.start(0);
+            Thread.sleep(10000);
+
+            Assert.assertEquals(connList.get(0).getCurrentRdyCount(), 2);
             Assert.assertEquals(connList.get(1).getCurrentRdyCount(), 1);
         } finally {
             conMgr.close();
@@ -572,7 +630,7 @@ public class ConnectionManagerTest {
 
             @Override
             public int getRdyPerConnection() {
-                return 4;
+                return 3;
             }
 
             @Override

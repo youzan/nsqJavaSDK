@@ -22,7 +22,7 @@ public class Message {
     };
     //trace id per message attached
     //meta-data need initialized in received message
-    private final long traceID;
+    private long traceID;
     //topic sharding ID, when larger than 0L, it is a valid sharding
     private Object topicSharding = NO_SHARDING;
     private boolean traced = false;
@@ -65,6 +65,10 @@ public class Message {
 
     public long getTraceID(){
         return this.traceID;
+    }
+
+    public void setTraceID(long traceId) {
+        this.traceID = traceId;
     }
 
     public String getTraceIDStr() {

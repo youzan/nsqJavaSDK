@@ -434,7 +434,8 @@ public class ProducerImplV2 implements Producer {
                 logger.error("fail to send batch message to {}. batchSize {}, batchIdx {}, message idx range [{}, {})", topic.getTopicText(), batchSize, batchIdx, idxStar, idxEnd);
             } else {
                 //batch publish succeed
-                logger.info("batch message sent to {}. batchSize {}, batchIdx {}, message idx range [{}, {})", topic.getTopicText(), batchSize, batchIdx, idxStar, idxEnd);
+                if(logger.isDebugEnabled())
+                    logger.info("batch message sent to {}. batchSize {}, batchIdx {}, message idx range [{}, {})", topic.getTopicText(), batchSize, batchIdx, idxStar, idxEnd);
             }
         }
         return failedTotalMsgs;
@@ -546,15 +547,16 @@ public class ProducerImplV2 implements Producer {
 
                 String errLog;
                 if(msg.getMessageCount() > 1) {
-                    errLog = String.format("MaxRetries: %d , CurrentRetries: %d , Address: %s , Topic: %s， Message count: %d.", retry, c,
+                    errLog = String.format("%s, MaxRetries: %d , CurrentRetries: %d , Address: %s , Topic: %s， Message count: %d.", e.getLocalizedMessage(), retry, c,
                             conn.getAddress(), msg.getTopic(), msg.getMessageCount());
                 } else {
                     String msgStr = msg.getMessageBody();
                     int maxlen = msgStr.length() > MAX_MSG_OUTPUT_LEN ? MAX_MSG_OUTPUT_LEN : msgStr.length();
-                    errLog = String.format("MaxRetries: %d , CurrentRetries: %d , Address: %s , Topic: %s, MessageLength: %d, RawMessage: %s, ExtJsonHeader: %s, DesiredTag: %s.", retry, c,
+                    errLog = String.format("%s, MaxRetries: %d , CurrentRetries: %d , Address: %s , Topic: %s, MessageLength: %d, RawMessage: %s, ExtJsonHeader: %s, DesiredTag: %s.", e.getLocalizedMessage(), retry, c,
                             conn.getAddress(), msg.getTopic(), msgStr.length(), msgStr.substring(0, maxlen), msg.getJsonHeaderExt(), msg.getDesiredTag());
                 }
-                logger.error(errLog, e);
+                //degrade to warning
+                logger.warn(errLog);
                 //as to NSQInvalidMessageException throw it out after connection close.
                 if(e instanceof NSQInvalidMessageException)
                     throw (NSQInvalidMessageException)e;

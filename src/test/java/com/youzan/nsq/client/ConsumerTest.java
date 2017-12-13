@@ -6,7 +6,6 @@ import com.youzan.nsq.client.entity.*;
 import com.youzan.nsq.client.exception.ExplicitRequeueException;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.utils.TopicUtil;
-import org.apache.commons.collections.map.HashedMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -558,7 +557,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
             }
         });
         //mock a message frame, and NSQConnection
-        Map<String, Object> jsonExt = new HashedMap();
+        Map<String, Object> jsonExt = new HashMap();
         jsonExt.put("filter_key1", "filter_val1");
         jsonExt.put("filter_key2", "filter_val2");
 
@@ -569,14 +568,14 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
 
         Assert.assertTrue(consumer.checkExtFilter(message, conn));
 
-        Map<String, Object> jsonExtMissing = new HashedMap();
+        Map<String, Object> jsonExtMissing = new HashMap();
         jsonExtMissing.put("filter_key3", "filter_val3");
         jsonExtMissing.put("filter_key2", "filter_val2");
 
         message.setJsonExtHeader(jsonExtMissing);
         Assert.assertFalse(consumer.checkExtFilter(message, conn));
 
-        jsonExtMissing = new HashedMap();
+        jsonExtMissing = new HashMap();
         jsonExtMissing.put("filter_key1", "filter_val1_missing");
         jsonExtMissing.put("filter_key2", "filter_val2");
 

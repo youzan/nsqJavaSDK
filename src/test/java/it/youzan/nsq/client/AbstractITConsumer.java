@@ -21,6 +21,7 @@ public abstract class AbstractITConsumer {
     protected final NSQConfig config = new NSQConfig();
     protected Consumer consumer;
     protected String adminHttp;
+    protected String lookups;
 
     @BeforeClass
     public void init() throws Exception {
@@ -30,7 +31,7 @@ public abstract class AbstractITConsumer {
             props.load(is);
         }
 
-        final String lookups = props.getProperty("lookup-addresses");
+        lookups = props.getProperty("lookup-addresses");
         final String connTimeout = props.getProperty("connectTimeoutInMillisecond");
         final String msgTimeoutInMillisecond = props.getProperty("msgTimeoutInMillisecond");
         final String threadPoolSize4IO = props.getProperty("threadPoolSize4IO");
