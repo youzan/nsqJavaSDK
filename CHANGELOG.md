@@ -151,3 +151,11 @@ Note worthy:
 * Consumer: 
   * type of counters including success, received, queue4Consume, finished, skipped improved to long;
   * remove RdyUpdatePolicy, rdy update are related to subscribe error received from nsqd. 
+
+#2.4.2
+Note worthy:
+* Producer:
+  * mpub support.
+  * traceId API in Message class simplify.
+* Consumer:
+  * consume message filter.[#14](https://github.com/youzan/nsqJavaSDK/pull/14)
