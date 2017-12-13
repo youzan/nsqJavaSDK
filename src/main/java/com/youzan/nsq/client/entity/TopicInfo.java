@@ -8,6 +8,10 @@ public class TopicInfo {
     private int partition;
     private boolean isExt;
 
+    public TopicInfo() {
+
+    }
+
     public TopicInfo(String topicName, int partition, boolean isExt) {
         this.topicName = topicName;
         this.partition = partition;
