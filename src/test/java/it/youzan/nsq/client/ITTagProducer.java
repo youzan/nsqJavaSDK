@@ -121,6 +121,32 @@ public class ITTagProducer {
         }
     }
 
+    public void publishWFilterHeader() throws Exception {
+        TopicUtil.emptyQueue("http://" + props.getProperty("admin-address"), "testExt2Par2Rep", "BaseConsumer");
+        Topic topic = new Topic("JavaTesting-Ext");
+
+        Map<String, String> ext = new HashMap<>();
+        ext.put("filter_key1" ,"filter_val1");
+        ext.put("key1" ,"this is value 1");
+
+        Map<String, String> extMissing = new HashMap<>();
+        extMissing.put("filter_key1", "filter_val2");
+        extMissing.put("filter_key2" ,"filter_val2");
+
+
+        for (int i = 0; i < 5; i++) {
+            Message msg = Message.create(topic, "message");
+            msg.setJsonHeaderExt(ext);
+            producer.publish(msg);
+        }
+
+        for (int i = 0; i < 5; i++) {
+            Message msg = Message.create(topic, "message");
+            msg.setJsonHeaderExt(extMissing);
+            producer.publish(msg);
+        }
+    }
+
     @AfterClass
     public void close() {
         IOUtil.closeQuietly(producer);

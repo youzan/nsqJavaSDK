@@ -57,3 +57,10 @@ data/
 target/
 out/
 *.iml
+/src/assembly/conf/dev/app-test.properties
+/src/assembly/conf/openSource/app-test.properties
+/src/assembly/conf/youzan/app-test.properties
+/src/test/resources/app-test.properties
+/src/test/resources/nsq/
+/src/test/resources/configClientTestStableWDCC.properties
+/src/test/resources/configClientTest.properties

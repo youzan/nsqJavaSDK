@@ -8,17 +8,17 @@ import com.youzan.util.HostUtil;
 import com.youzan.util.NotThreadSafe;
 import com.youzan.util.SystemUtil;
 import io.netty.handler.ssl.SslContext;
-import org.apache.commons.collections.map.UnmodifiableMap;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+
+import static org.apache.commons.lang3.tuple.Pair.of;
 
 /**
  * It is used for Producer or Consumer, and not both two.
@@ -31,6 +31,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private static final long serialVersionUID = 6624842850216901700L;
     private static final Logger logger = LoggerFactory.getLogger(NSQConfig.class);
     private static final ObjectMapper MAPPER_CONFIG = new ObjectMapper();
+
     static {
         MAPPER_CONFIG.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
     }
@@ -88,7 +89,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
                 clazz = Class.forName(policyClass);
             }
             Object policy = clazz.newInstance();
-            if (policy instanceof IRdyUpdatePolicy) {
+            if (policy instanceof IExpectedRdyUpdatePolicy) {
                 @SuppressWarnings("unchecked")
                         IExpectedRdyUpdatePolicy expRdyPolicy = (IExpectedRdyUpdatePolicy) policy;
                 this.expRdyUpdatePolicy = expRdyPolicy;
@@ -147,6 +148,28 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private boolean featureNegotiation;
     private boolean userSpecifiedLookupd = false;
     private Map<String, String> localTraceMap = new ConcurrentHashMap<>();
+
+    public int getAttemptWarningThresdhold() {
+        return attemptWarningThresdhold;
+    }
+
+    public NSQConfig setAttemptWarningThresdhold(int attemptWarningThresdhold) {
+        this.attemptWarningThresdhold = attemptWarningThresdhold;
+        return this;
+    }
+
+    public int getAttemptErrorThresdhold() {
+        return attemptErrorThresdhold;
+    }
+
+    public NSQConfig setAttemptErrorThresdhold(int attemptErrorThresdhold) {
+        this.attemptErrorThresdhold = attemptErrorThresdhold;
+        return this;
+    }
+
+    private int attemptWarningThresdhold = 10;
+    private int attemptErrorThresdhold = 50;
+
     /*-
      * =========================================================================
      *                             All of Timeout
@@ -193,7 +216,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     // 1 seconds
     public static final int _MIN_NEXT_CONSUMING_IN_SECOND = 0;
     // one hour is the limit
-    public static final int _MAX_NEXT_CONSUMING_IN_SECOND = 3600;
+    public static final int _MAX_NEXT_CONSUMING_IN_SECOND = 24 * 3600;
     private int nextConsumingInSecond = 60;
     private long maxConnWait = 200L;
     private int minIdleConn = 2;
@@ -222,7 +245,10 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private Compression compression = Compression.NO_COMPRESSION;
     // ...
     private SslContext sslContext = null;
-    private int rdy = 3;
+    private int rdy = DEFAULT_RDY;
+    private volatile boolean rdyOverride = false;
+    public static final int DEFAULT_RDY = 3;
+
 
     private long producerConnectionEvictIntervalMillSec = 10 * 60 * 1000;
 
@@ -703,11 +729,15 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      */
     public NSQConfig setRdy(int rdy) {
         if (rdy <= 0) {
-            this.rdy = 1;
             throw new IllegalArgumentException("expect rdy smaller than 1 not allowed.");
         }
         this.rdy = rdy;
+        this.rdyOverride = Boolean.TRUE;
         return this;
+    }
+
+    public boolean isRdyOverride() {
+        return this.rdyOverride;
     }
 
     public static int getListLookupIntervalInSecond() {
@@ -800,7 +830,11 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
             buffer.append("\"desired_tag\":\"" + tag.getTagName() + "\",");
         }
         buffer.append("\"extend_support\":" + topicExt + ",");
-        buffer.append("\"user_agent\": \"" + userAgent + "\"}");
+        buffer.append("\"user_agent\": \"" + userAgent + "\"");
+        //ext header feature
+        if(StringUtils.isNotBlank(this.getConsumeMessageFilterKey()))
+            buffer.append(", \"ext_filter\":{\"type\":" + this.getConsumeMessageFilterMode().getFilter().getType() + ", \"filter_ext_key\":\"" + this.getConsumeMessageFilterKey() + "\", \"filter_data\":\"" + this.getConsumeMessageFilterValue() + "\"}");
+        buffer.append("}");
         return buffer.toString();
     }
 
@@ -823,10 +857,8 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         if (timeout < NSQConfig._MIN_NEXT_CONSUMING_IN_SECOND) {
             throw new IllegalArgumentException(
                     "Next consuming in second is illegal. It is too small. " + NSQConfig._MIN_NEXT_CONSUMING_IN_SECOND);
-        }
-        if (timeout > NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND) {
-            throw new IllegalArgumentException(
-                    "Next consuming in second is illegal. It is too big. " + NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND);
+        } else if (timeout > NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND) {
+            logger.warn("Next consuming in second is larger than {}. It may be limited to max value in server side.", NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND);
         }
         this.nextConsumingInSecond = timeout;
         return this;
@@ -840,8 +872,15 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         return this.nextConsumingInSecond;
     }
 
-    public void setConnWaitTimeoutForProducerInMilliSec(long timeout) {
+    /**
+     * Specify timeout for waiting for connection for producer, when it waits for connection. Default is 200ms.
+     * When {@link NSQConfig#setBlockWhenBorrowConn4Producer(boolean)} set to false, connection wait timeout takes NO
+     * effect.
+     * @param timeout timeout in milliseconds
+     */
+    public NSQConfig setConnWaitTimeoutForProducerInMilliSec(long timeout) {
         this.maxConnWait = timeout;
+        return this;
     }
 
     public long getConnWaitTimeoutForProducerInMilliSec() {
@@ -918,7 +957,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         SKIP
     }
 
-    private Map<ConsumePolicy, Map<String, Object>> consumePolcyMap = new ConcurrentHashMap<>();
+    private Map<ConsumePolicy, Map<String, Object>> consumePolicyMap = new ConcurrentHashMap<>();
 
     /**
      * Set extension key/value map for consumer to skip, when json extension header in one message
@@ -931,7 +970,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     NSQConfig setMessageSkipExtensionKVMap(final Map<String, Object> extensionKV) {
         if(null == extensionKV || extensionKV.size() == 0)
             return this;
-        this.consumePolcyMap.put(ConsumePolicy.SKIP, Collections.unmodifiableMap(extensionKV));
+        this.consumePolicyMap.put(ConsumePolicy.SKIP, Collections.unmodifiableMap(extensionKV));
         return this;
     }
 
@@ -949,12 +988,96 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         return this.setMessageSkipExtensionKVMap(map);
     }
 
+    private boolean blockWhenBorrow = true;
+
+    /**
+     * Whether block producer from borrowing nsqd connection when producer pool exhausted. Default behavior is
+     * {@link Boolean#TRUE}, and block timeout is decided by {@link NSQConfig#setConnWaitTimeoutForProducerInMilliSec(long)}
+     * @param block indicate whether blocking producer from borrowing connection.
+     * @return NSQConfig
+     * @since 2.4.1.3-RELEASE
+     */
+    public NSQConfig setBlockWhenBorrowConn4Producer(boolean block) {
+        this.blockWhenBorrow = block;
+        return this;
+    }
+
+    public boolean getBlockWhenBorrowConn4Producer() {
+        return this.blockWhenBorrow;
+    }
+
     /**
      * Get extension key/value map for consumer to skip.
-     * @return extension key/value map for consumer to skip, which is {@link UnmodifiableMap}.
+     * @return extension key/value map for consumer to skip, which is {@link Collections.UnmodifiableMap}.
      */
     public Map<String, Object> getMessageSkipExtensionKVMap() {
-        return this.consumePolcyMap.get(ConsumePolicy.SKIP);
+        return this.consumePolicyMap.get(ConsumePolicy.SKIP);
+    }
+
+    private int producerPoolSize = 4;
+
+    /**
+     * set worker thread pool szie for producer, a synchronized publish will not use this work pool, unless
+     * {@link com.youzan.nsq.client.Producer#publish(List, Topic, int)} invoked.
+     * @param size pool size for producer publish
+     * @return NSQConfig
+     */
+    public NSQConfig setPublishWorkerPoolSize(int size) {
+        this.producerPoolSize = size;
+        return this;
+    }
+
+    public int getPublishWorkerPoolSize() {
+        return this.producerPoolSize;
+    }
+
+    //consume message filter value default value is null, which means no filter applied
+    private Pair<String, String> consumeMsgFilterKV = null;
+
+    /**
+     * set consume message filter value, default value is null, which means there is NO message filter applied for
+     * message consumer which has current {@link NSQConfig} applied.
+     * @param key       extension filter key to locate extension value
+     * @param filterVal expected extension value to match
+     * @return NSQConfig
+     */
+    public NSQConfig setConsumeMessageFilter(String key, String filterVal) {
+        this.consumeMsgFilterKV = of(key, filterVal);
+        return this;
+    }
+
+    public String getConsumeMessageFilterKey() {
+        if(null != this.consumeMsgFilterKV)
+            return this.consumeMsgFilterKV.getKey();
+        else
+            return "";
+    }
+
+    public String getConsumeMessageFilterValue() {
+        if(null != this.consumeMsgFilterKV)
+            return this.consumeMsgFilterKV.getValue();
+        else
+            return "";
+    }
+
+    private ConsumeMessageFilterMode consumeMessageFilterMode = ConsumeMessageFilterMode.EXACT_MATCH;
+
+    /**
+     * specify message consume filter, default value is {@link ConsumeMessageFilterMode#EXACT_MATCH}
+     * @param filterMode
+     * @return {@link NSQConfig}
+     */
+    public NSQConfig setConsumeMessageFilterMode(ConsumeMessageFilterMode filterMode) {
+        if(null == filterMode) {
+            logger.error("null filter mode is not allowed ");
+        } else {
+            this.consumeMessageFilterMode = filterMode;
+        }
+        return this;
+    }
+
+    public ConsumeMessageFilterMode getConsumeMessageFilterMode() {
+        return this.consumeMessageFilterMode;
     }
 
     @Override

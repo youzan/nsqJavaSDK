@@ -1,5 +1,6 @@
 package com.youzan.nsq.client.core;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.youzan.nsq.client.core.command.*;
 import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
@@ -9,12 +10,14 @@ import com.youzan.nsq.client.exception.NSQNoConnectionException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
+import com.youzan.util.SystemUtil;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -35,7 +38,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     private static final long serialVersionUID = 7139923487863469738L;
 
     private final ReentrantReadWriteLock conLock = new ReentrantReadWriteLock();
-    private final int id; // primary key
+    private final Long id; // primary key
     private final long queryTimeoutInMillisecond;
 
     private AtomicBoolean closing = new AtomicBoolean(Boolean.FALSE);
@@ -58,20 +61,39 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     //start ready cnt for current count
     private AtomicInteger currentRdy = new AtomicInteger(0);
     private AtomicInteger lastRdy = new AtomicInteger(0);
-    private AtomicInteger expectedRdy = new AtomicInteger(1);
+    private AtomicInteger expectedRdy = new AtomicInteger(0);
 
     private final AtomicLong latestInternalID = new AtomicLong(-1L);
     private final AtomicLong latestDiskQueueOffset = new AtomicLong(-1L);
 
+    //msg_timeout
+    private int msgTimeout = 0;
+    //max_msg_timeout
+    private int maxMsgTimeout = 0;
+
     private volatile long lastMsgTouched;
     private volatile long lastMsgConsumptionFailed;
 
-    public NSQConnectionImpl(int id, Address address, Channel channel, NSQConfig config) {
+    public NSQConnectionImpl(long id, Address address, Channel channel, NSQConfig config) {
         this.id = id;
         this.address = address;
         this.channel = channel;
         this.config = config;
-        this.expectedRdy.set(this.config.getRdy());
+        this.expectedRdy.set(NSQConfig.DEFAULT_RDY);
+        this.queryTimeoutInMillisecond = config.getQueryTimeoutInMillisecond();
+        if(address.isTopicExtend()) {
+            isExtend = Boolean.TRUE;
+        } else {
+            isExtend = Boolean.FALSE;
+        }
+    }
+
+    public NSQConnectionImpl(long id, Address address, Channel channel, NSQConfig config, int computedRdyCeiling) {
+        this.id = id;
+        this.address = address;
+        this.channel = channel;
+        this.config = config;
+        this.expectedRdy.set(computedRdyCeiling);
         this.queryTimeoutInMillisecond = config.getQueryTimeoutInMillisecond();
         if(address.isTopicExtend()) {
             isExtend = Boolean.TRUE;
@@ -105,7 +127,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
      * initialize NSQConnection to NSQd by sending Identify Command
      */
     @Override
-    public void init() throws TimeoutException {
+    public void init() throws TimeoutException, IOException {
         conLock.writeLock().lock();
         try {
            _init();
@@ -115,7 +137,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     }
 
     @Override
-    public void init(final Topic topic) throws TimeoutException {
+    public void init(final Topic topic) throws TimeoutException, IOException {
         conLock.writeLock().lock();
         try {
             this._init();
@@ -126,7 +148,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         }
     }
 
-    private void _init() throws TimeoutException {
+    private void _init() throws TimeoutException, IOException {
         assert address != null;
         assert config != null;
         if (identitySent.compareAndSet(Boolean.FALSE, Boolean.TRUE)) {
@@ -140,6 +162,15 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
             }
             if (null == response) {
                 throw new IllegalStateException("Bad Identify Response! Close connection!");
+            }
+            JsonNode respIdentify =  SystemUtil.getObjectMapper().readTree(response.getData());
+            JsonNode msgTimeoutNode = respIdentify.get(Identify.MSG_TIMEOUT);
+            if(null != msgTimeoutNode) {
+                this.msgTimeout = msgTimeoutNode.asInt();
+            }
+            JsonNode maxMsgTimeoutNode = respIdentify.get(Identify.MAX_MSG_TIMEOUT);
+            if(null != maxMsgTimeoutNode) {
+                this.maxMsgTimeout = maxMsgTimeoutNode.asInt();
             }
         }
         assert channel.isActive();
@@ -457,15 +488,22 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         return this.expectedRdy.compareAndSet(currentExpRdy, newExpRdy);
     }
 
-    public boolean increaseExpectedRdy() {
+    public boolean increaseExpectedRdy(int rdyCeiling) {
         int currentExpRdy = this.expectedRdy.get();
+        rdyCeiling = this.config.isRdyOverride() ? this.config.getRdy() : rdyCeiling;
         int newExpRdy = this.config.getExpectedRdyUpdatePolicy().expectedRdyIncrease(currentExpRdy,
-                this.config.getRdy());
+                rdyCeiling);
         return this.expectedRdy.compareAndSet(currentExpRdy, newExpRdy);
     }
 
     public int getExpectedRdy() {
         return this.expectedRdy.get();
+    }
+
+    public void setExpectedRdy(int expectedRdy) {
+        int originalExpectedRdy = this.expectedRdy.get();
+        if(originalExpectedRdy != expectedRdy && this.expectedRdy.compareAndSet(originalExpectedRdy, expectedRdy))
+            logger.info("Expected rdy set to {} from {}, connection: {}", expectedRdy, originalExpectedRdy, this);
     }
 
     public int getCurrentRdyCount() {
@@ -475,7 +513,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
      * @return the id , the primary key of the object
      */
     @Override
-    public int getId() {
+    public long getId() {
         return id;
     }
 
@@ -495,7 +533,14 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     @Override
     public int compareTo(Object o) {
-        return getId() - ((NSQConnectionImpl) o).getId();
+        long res = getId() - ((NSQConnectionImpl) o).getId();
+        if(res > 0l){
+            return 1;
+        } else if(res < 0l) {
+            return -1;
+        } else {
+            return 0;
+        }
     }
 
     @Override
@@ -512,7 +557,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     @Override
     public int hashCode() {
         int result = 0;
-        result = 31 * result + id;
+        result = 31 * result + id.hashCode();
         result = 31 * result + (closing.get() ? 1 : 0);
         result = 31 * result + (identitySent.get() ? 1 : 0);
         result = 31 * result + (address != null ? address.hashCode() : 0);

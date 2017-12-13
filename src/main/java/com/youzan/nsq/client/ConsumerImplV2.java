@@ -24,7 +24,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
@@ -43,7 +43,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     private static final Logger LOG_CONSUME_POLICY = LoggerFactory.getLogger(ConsumerImplV2.class.getName() + ".consume.policy");
     private static final Logger PERF_LOG = LoggerFactory.getLogger(ConsumerImplV2.class.getName() + ".perf");
 
-    private final static AtomicInteger CONN_ID_GENERATOR = new AtomicInteger(0);
+    private final static AtomicLong CONN_ID_GENERATOR = new AtomicLong(0);
     //max connect retry allowed
     private static final int MAX_CONSUME_RETRY = 3;
 
@@ -54,14 +54,13 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
 
     private volatile long lastConnecting = 0L;
     private volatile long lastSuccess = 0L;
-    private volatile float consumptionRate = 0f;
 
-    private final AtomicInteger received = new AtomicInteger(0);
-    private final AtomicInteger success = new AtomicInteger(0);
-    private final AtomicInteger finished = new AtomicInteger(0);
-    private final AtomicInteger re = new AtomicInteger(0); // have done reQueue
-    private final AtomicInteger queue4Consume = new AtomicInteger(0); // have done reQueue
-    private final AtomicInteger skipped = new AtomicInteger(0);
+    private final AtomicLong received = new AtomicLong(0);
+    private final AtomicLong success = new AtomicLong(0);
+    private final AtomicLong finished = new AtomicLong(0);
+    private final AtomicLong re = new AtomicLong(0); // have done reQueue
+    private final AtomicLong queue4Consume = new AtomicLong(0); // have done reQueue
+    private final AtomicLong skipped = new AtomicLong(0);
 
     //connection manager
     protected ConnectionManager conMgr = new ConnectionManager(this);
@@ -81,8 +80,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     /*
      * schedule executor for updating nsqd connections in effect
      */
-    private final ScheduledExecutorService scheduler = Executors
-            .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getSimpleName(), Thread.NORM_PRIORITY));
+    private ScheduledExecutorService scheduler;
     /*
      * message handler
      */
@@ -113,7 +111,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
      */
     public ConsumerImplV2(NSQConfig config) {
         this.config = config;
-        this.simpleClient = new NSQSimpleClient(Role.Consumer, this.config.getUserSpecifiedLookupAddress());
+        this.simpleClient = new NSQSimpleClient(Role.Consumer, this.config.getUserSpecifiedLookupAddress(), this.config);
 
         //initialize netty component
         EventLoopGroup eventLoopGroup = new NioEventLoopGroup(config.getNettyPoolSize());
@@ -125,7 +123,11 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         bootstrap.handler(new NSQClientInitializer());
         //initialize consumer worker size
         executor = Executors.newFixedThreadPool(this.config.getConsumerWorkerPoolSize(),
-                new NamedThreadFactory(this.getClass().getSimpleName() + "-ClientBusiness", Thread.MAX_PRIORITY));
+                new NamedThreadFactory(this.getClass().getSimpleName() + "-ClientBusiness-" + this.config.getConsumerName(), Thread.MAX_PRIORITY));
+        String consumerName = (null == this.config) ? "-null" : "-" + this.config.getConsumerName();
+        //intialize consumer simple client thread
+        scheduler = Executors
+                .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getSimpleName() + consumerName, Thread.NORM_PRIORITY));
     }
 
     /**
@@ -231,7 +233,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         //start consumer
         if (this.started.compareAndSet(Boolean.FALSE, Boolean.TRUE) && cLock.writeLock().tryLock()) {
             String configJsonStr = NSQConfig.parseNSQConfig(this.config);
-            logger.info("Config for consumer {}: {}", this, configJsonStr);
+            logger.info("Consumer {} starts with config: {}", this, configJsonStr);
             try {
                 //validate that consumer have right lookup address source
                 if (!validateLookupdSource()) {
@@ -252,16 +254,9 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         }
     }
 
-    /**
-     * update consumption rate according to message consumption last _INTERVAL_IN_SECOND
-     */
-    private void updateConsumptionRate() {
-        consumptionRate = ((long)success.get() - lastSuccess) / _INTERVAL_IN_SECOND;
-        lastSuccess = success.get();
-    }
-
     public boolean isConsumptionEstimateElapseTimeout() {
-        return consumptionRate * queue4Consume.get() *1000 >= this.config.getMsgTimeoutInMillisecond();
+//        return consumptionRate * queue4Consume.get() *1000 >= this.config.getMsgTimeoutInMillisecond();
+        return false;
     }
 
     /**
@@ -273,7 +268,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             public void run() {
                 try {
                     connect();
-                    updateConsumptionRate();
+//                    updateConsumptionRate();
                 } catch (Throwable e) {
                     logger.error("Throwable in keep connection process:", e);
                 }
@@ -440,6 +435,22 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         oldAddresses.clear();
         broken.clear();
         targetAddresses.clear();
+        expectedRdyPerConn = calculateExpectedRdyPerConn();
+    }
+
+    private int expectedRdyPerConn = NSQConfig.DEFAULT_RDY;
+
+    private int calculateExpectedRdyPerConn() {
+        int computedExpectedRdy = NSQConfig.DEFAULT_RDY;
+        int poolSize = this.config.getConsumerWorkerPoolSize();
+        int connNum = this.address_2_conn.keySet().size();
+        if(connNum > 0) {
+            int computedExpectedRdyTmp = poolSize/connNum;
+            if(computedExpectedRdyTmp > computedExpectedRdy)
+                computedExpectedRdy = computedExpectedRdyTmp;
+        }
+        assert computedExpectedRdy > 0;
+        return computedExpectedRdy;
     }
 
     protected void connect(Address address) throws Exception {
@@ -466,8 +477,16 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 throw new NSQNoConnectionException("Connect " + address + " is wrong.", future.cause());
             }
 
-            final NSQConnection conn = new NSQConnectionImpl(CONN_ID_GENERATOR.incrementAndGet(), address, channel,
-                    config);
+            NSQConnection conn = null;
+            //calculate expected rdy
+            if(this.config.isRdyOverride()) {
+                int computedExpectedRdy = this.expectedRdyPerConn;
+                conn = new NSQConnectionImpl(CONN_ID_GENERATOR.incrementAndGet(), address, channel,
+                        config, computedExpectedRdy);
+            } else {
+                conn = new NSQConnectionImpl(CONN_ID_GENERATOR.incrementAndGet(), address, channel,
+                        config);
+            }
             address_2_conn.put(address, conn);
 
             // Netty async+sync programming
@@ -583,6 +602,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 if (this.config.isOrdered()
                         && !conn.checkOrder(message.getInternalID(), message.getDiskQueueOffset(), message)) {
                     //order problem
+                    //TODO: invalid message
                     throw new NSQInvalidMessageException("Invalid internalID or diskQueueOffset in order mode.");
                 }
 //                conn.setMessageTouched(System.currentTimeMillis());
@@ -590,6 +610,18 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 processMessage(message, conn);
             }
         }
+    }
+
+    protected boolean checkExtFilter(final NSQMessage message, final NSQConnection conn) {
+        String filterKey = this.config.getConsumeMessageFilterKey();
+        if (conn.isExtend() && StringUtils.isNotBlank(filterKey)) {
+            String filterDataInHeader = (String) message.getExtByName(filterKey);
+            String filterDataInConf = this.config.getConsumeMessageFilterValue();
+            if(!this.config.getConsumeMessageFilterMode().getFilter().apply(filterDataInConf, filterDataInHeader)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private void processMessage(final NSQMessage message, final NSQConnection connection) {
@@ -646,15 +678,17 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     }
 
     /**
+     * DO NOT change signature of this method
      * @param message    a NSQMessage
      * @param connection a NSQConnection
+     * ==Important Note: through it is private method, signature of method will NOT change as it is used as cut point for service-chain AOP==
      */
-    // through it is private method, signature of method will NOT change as it is used as cut point
     private void consume(final NSQMessage message, final NSQConnection connection) {
         boolean ok;
         boolean retry;
         boolean explicitRequeue = false;
         boolean skip = needSkip(message);
+        skip = skip || !checkExtFilter(message, connection);
 
         long start = System.currentTimeMillis();
         try {
@@ -737,6 +771,9 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                     final byte[] id = message.getMessageID();
                     logger.info("Client does a re-queue explicitly. MessageID: {} , Hex: {}", id, message.newHexString(id));
                 }
+            } else if (skip) {
+                // Finish
+                cmd = new Finish(message.getMessageID());
             } else {
                 // ignore actions
                 cmd = null;
@@ -757,10 +794,12 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                             }
                         }
                     });
-                    if (cmd instanceof Finish) {
-                        finished.incrementAndGet();
-                    } else {
-                        re.incrementAndGet();
+                    if(!skip) {
+                        if (cmd instanceof Finish) {
+                            finished.incrementAndGet();
+                        } else {
+                            re.incrementAndGet();
+                        }
                     }
                 }
             }
@@ -768,10 +807,25 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         // Post
         //log warn
         if (!ok) {
+            int attempt = message.getReadableAttempts();
+            int warningThreshold = this.config.getAttemptWarningThresdhold();
+            int errorThreshold = this.config.getAttemptErrorThresdhold();
+
+            if(errorThreshold > 0 && attempt > errorThreshold){
+                if(0==attempt%errorThreshold) {
+                    logger.error("Message attempts number has been {}, consider logging message content and finish. {}", attempt, message.toString());
+                }
+            } else if (warningThreshold > 0 && attempt > warningThreshold){
+                if(attempt > warningThreshold) {
+                    if(0==attempt%warningThreshold) {
+                        logger.warn("Message attempts number has been {}, consider logging message content and finish. {}", attempt, message.toString());
+                    }
+                }
+            }
             //TODO: connection.setMessageConsumptionFailed(start);
 //            logger.warn("Exception occurs in message handler. Please check it right now {} , Original message: {}.", message, message.getReadableContent());
         } else if (!this.config.isOrdered()){
-            connection.increaseExpectedRdy();
+            connection.increaseExpectedRdy(this.expectedRdyPerConn);
         }
     }
 
@@ -954,6 +1008,10 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             return;
         }
         final NSQConnection conn = address_2_conn.get(message.getAddress());
+        _finish(message, conn);
+    }
+
+    private void _finish(final NSQMessage message, final NSQConnection conn) throws NSQNoConnectionException {
         if (conn != null) {
             if (conn.getId() == message.getConnectionID().intValue()) {
                 if (conn.isConnected()) {
@@ -1043,24 +1101,21 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         } catch (IOException e) {
             logger.warn(e.getLocalizedMessage());
         }
-        return "[Consumer] at " + ipStr;
+        return "[Consumer@" + this.config.getConsumerName() + "] " + super.toString() + " at " + ipStr;
     }
 
     @Override
     public float getLoadFactor() {
-        ThreadPoolExecutor pool = (ThreadPoolExecutor) executor;
-        int active = pool.getActiveCount();
-        int queueSize = queue4Consume.get();
-        if(active > 0)
-            return (float)queueSize/active;
-        else {
-            return 0f;
-        }
+        return 0f;
     }
 
     @Override
     public int getRdyPerConnection() {
-        return this.config.getRdy();
+        if(this.config.isRdyOverride()) {
+            return this.config.getRdy();
+        } else {
+            return this.expectedRdyPerConn;
+        }
     }
 
     public ConnectionManager getConnectionManager() {

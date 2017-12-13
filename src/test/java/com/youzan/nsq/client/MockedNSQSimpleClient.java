@@ -21,7 +21,7 @@ public class MockedNSQSimpleClient extends NSQSimpleClient {
     private final Logger logger = LoggerFactory.getLogger(MockedNSQSimpleClient.class.getName());
 
     public MockedNSQSimpleClient(Role role, boolean localLookupd) {
-        super(role, localLookupd);
+        super(role, localLookupd, null);
     }
 
     @Override

@@ -8,6 +8,7 @@ import com.youzan.nsq.client.utils.CompressUtil;
 import com.youzan.nsq.client.utils.TopicUtil;
 import com.youzan.util.IOUtil;
 import io.netty.util.internal.ConcurrentSet;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -149,7 +150,12 @@ public class ProducerTest extends AbstractNSQClientTestcase {
         try {
             System.clearProperty("nsq.sdk.configFilePath");
             NSQConfig cnf = new NSQConfig();
-            cnf.setLookupAddresses(props.getProperty("dcc-lookup"));
+            String dccLookupAddr = props.getProperty("dcc-lookup");
+            if(StringUtils.isBlank(dccLookupAddr)) {
+                logger.info("dcc lookup address is null, [testStartWDCCLookupSource] exits.");
+                return;
+            }
+            cnf.setLookupAddresses(dccLookupAddr);
             Producer prod = new ProducerImplV2(cnf);
             try {
                 prod.start();
@@ -388,10 +394,10 @@ public class ProducerTest extends AbstractNSQClientTestcase {
             producer.start();
             producer.publish(raw.getBytes(IOUtil.UTF8), topic);
 
-            int id = producer.getNSQConnection(topic, Message.NO_SHARDING, new Context()).getId();
+            long id = producer.getNSQConnection(topic, Message.NO_SHARDING, new Context()).getId();
             logger.info("sleep 60 sec for pool evict connection.");
             Thread.sleep(60000);
-            int newId =  producer.getNSQConnection(topic, Message.NO_SHARDING, new Context()).getId();
+            long newId =  producer.getNSQConnection(topic, Message.NO_SHARDING, new Context()).getId();
             Assert.assertNotEquals(newId, id);
         }finally {
             producer.close();
@@ -709,6 +715,8 @@ public class ProducerTest extends AbstractNSQClientTestcase {
         } catch (NSQException e) {
             String errorLog = e.getLocalizedMessage();
             Assert.assertTrue(errorLog.contains("DesiredTag:"));
+        } catch(Exception e) {
+            logger.error(e.getLocalizedMessage(), e);
         } finally {
             logger.info("[testSendTagedMessageToNsqAll] ends");
             producer.close();

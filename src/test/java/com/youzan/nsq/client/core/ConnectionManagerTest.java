@@ -153,61 +153,61 @@ public class ConnectionManagerTest {
         return con1;
     }
 
-    @Test
-    public void testRdyDecline() throws Exception {
-        logger.info("[testRdyDecline] starts.");
-        ConnectionManager conMgr = null;
-        String topic = "testRdyDec";
-        String channel = "BaseConsumer";
-        String adminHttp = "http://" + props.getProperty("admin-address");
-        try {
-            TopicUtil.createTopic(adminHttp, topic, 5, 1, channel);
-            TopicUtil.createTopicChannel(adminHttp, topic, channel);
-
-            NSQConfig config = (NSQConfig) this.config.clone();
-            config.setRdy(5);
-            conMgr = new ConnectionManager(new IConsumeInfo() {
-                @Override
-                public float getLoadFactor() {
-                    //water high
-                    return 2;
-                }
-
-                @Override
-                public int getRdyPerConnection() {
-                    return 6;
-                }
-
-                @Override
-                public boolean isConsumptionEstimateElapseTimeout() {
-                    return true;
-                }
-            });
-
-            int partitionNum = 5;
-            JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topic + "&access=r"));
-            List<NSQConnection> connList = new ArrayList<>(partitionNum);
-            for (int i = 0; i < partitionNum; i++) {
-                JsonNode partition = lookupResp.get("partitions").get("" + i);
-                Address addr1 = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topic, 0, false);
-                NSQConnection con = connect(addr1, topic, i, channel, config);
-                conMgr.subscribe(topic, con, 5);
-                connList.add(con);
-            }
-
-            conMgr.start(0);
-            logger.info("Sleep 30sec to wait for rdy declining");
-            Thread.sleep(30000);
-
-            for (NSQConnection conn : connList) {
-                Assert.assertEquals(conn.getCurrentRdyCount(), 1);
-            }
-        } finally {
-            conMgr.close();
-            TopicUtil.deleteTopicChannel(adminHttp, topic, channel);
-            logger.info("[testRdyDecline] ends.");
-        }
-    }
+//    @Test
+//    public void testRdyDecline() throws Exception {
+//        logger.info("[testRdyDecline] starts.");
+//        ConnectionManager conMgr = null;
+//        String topic = "testRdyDec";
+//        String channel = "BaseConsumer";
+//        String adminHttp = "http://" + props.getProperty("admin-address");
+//        try {
+//            TopicUtil.createTopic(adminHttp, topic, 5, 1, channel);
+//            TopicUtil.createTopicChannel(adminHttp, topic, channel);
+//
+//            NSQConfig config = (NSQConfig) this.config.clone();
+//            config.setRdy(5);
+//            conMgr = new ConnectionManager(new IConsumeInfo() {
+//                @Override
+//                public float getLoadFactor() {
+//                    //water high
+//                    return 2;
+//                }
+//
+//                @Override
+//                public int getRdyPerConnection() {
+//                    return 6;
+//                }
+//
+//                @Override
+//                public boolean isConsumptionEstimateElapseTimeout() {
+//                    return true;
+//                }
+//            });
+//
+//            int partitionNum = 5;
+//            JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topic + "&access=r"));
+//            List<NSQConnection> connList = new ArrayList<>(partitionNum);
+//            for (int i = 0; i < partitionNum; i++) {
+//                JsonNode partition = lookupResp.get("partitions").get("" + i);
+//                Address addr1 = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topic, 0, false);
+//                NSQConnection con = connect(addr1, topic, i, channel, config);
+//                conMgr.subscribe(topic, con, 5);
+//                connList.add(con);
+//            }
+//
+//            conMgr.start(0);
+//            logger.info("Sleep 30sec to wait for rdy declining");
+//            Thread.sleep(30000);
+//
+//            for (NSQConnection conn : connList) {
+//                Assert.assertEquals(conn.getCurrentRdyCount(), 1);
+//            }
+//        } finally {
+//            conMgr.close();
+//            TopicUtil.deleteTopicChannel(adminHttp, topic, channel);
+//            logger.info("[testRdyDecline] ends.");
+//        }
+//    }
 
     @Test
     public void testRdyIncrease() throws Exception {
@@ -223,7 +223,7 @@ public class ConnectionManagerTest {
 
                 @Override
                 public int getRdyPerConnection() {
-                    return 6;
+                    return 5;
                 }
 
                 @Override
@@ -264,17 +264,16 @@ public class ConnectionManagerTest {
     }
 
     @Test
-    public void testExpectedRdy() throws Exception {
-        logger.info("[testExpectedRdy] starts.");
+    public void testRdyCeiling() throws Exception {
+        logger.info("[testRdyCeiling] starts.");
         ConnectionManager conMgr = null;
-        String topic = "test5Par1Rep";
+        String topic = "testReyCeiling";
         String adminHttp = "http://" + props.getProperty("admin-address");
         try {
             TopicUtil.createTopic(adminHttp, topic, 5, 1, "default");
             TopicUtil.createTopicChannel(adminHttp, topic, "default");
 
             NSQConfig config = (NSQConfig) this.config.clone();
-            config.setRdy(6);
             conMgr = new ConnectionManager(new IConsumeInfo() {
                 @Override
                 public float getLoadFactor() {
@@ -283,7 +282,7 @@ public class ConnectionManagerTest {
 
                 @Override
                 public int getRdyPerConnection() {
-                    return 6;
+                    return 4;
                 }
 
                 @Override
@@ -311,9 +310,68 @@ public class ConnectionManagerTest {
             connList.get(1).declineExpectedRdy();
 
             conMgr.start(0);
-            Thread.sleep(30000);
+            Thread.sleep(10000);
 
-            Assert.assertEquals(connList.get(0).getCurrentRdyCount(), 4);
+            Assert.assertEquals(connList.get(0).getCurrentRdyCount(), 2);
+            Assert.assertEquals(connList.get(1).getCurrentRdyCount(), 1);
+        } finally {
+            conMgr.close();
+            TopicUtil.deleteTopic(adminHttp, topic);
+            logger.info("[testExpectedRdy] ends.");
+        }
+    }
+
+    @Test
+    public void testExpectedRdy() throws Exception {
+        logger.info("[testExpectedRdy] starts.");
+        ConnectionManager conMgr = null;
+        String topic = "test5Par1Rep";
+        String adminHttp = "http://" + props.getProperty("admin-address");
+        try {
+            TopicUtil.createTopic(adminHttp, topic, 5, 1, "default");
+            TopicUtil.createTopicChannel(adminHttp, topic, "default");
+
+            NSQConfig config = (NSQConfig) this.config.clone();
+            config.setRdy(6);
+            conMgr = new ConnectionManager(new IConsumeInfo() {
+                @Override
+                public float getLoadFactor() {
+                    return 0.5f;
+                }
+
+                @Override
+                public int getRdyPerConnection() {
+                    return 4;
+                }
+
+                @Override
+                public boolean isConsumptionEstimateElapseTimeout() {
+                    return false;
+                }
+            });
+
+            int partitionNum = 5;
+            JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topic + "&access=r"));
+            List<NSQConnection> connList = new ArrayList<>(partitionNum);
+            for (int i = 0; i < partitionNum; i++) {
+                JsonNode partition = lookupResp.get("partitions").get("" + i);
+                Address addr1 = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topic, 0, false);
+                NSQConnection con = connect(addr1, topic, i, "BaseConsumer", config);
+                conMgr.subscribe(topic, con);
+                connList.add(con);
+            }
+            //pick 2 connection and fix another rdy
+            connList.get(0).declineExpectedRdy();
+
+            connList.get(1).declineExpectedRdy();
+            connList.get(1).declineExpectedRdy();
+            connList.get(1).declineExpectedRdy();
+            connList.get(1).declineExpectedRdy();
+
+            conMgr.start(0);
+            Thread.sleep(10000);
+
+            Assert.assertEquals(connList.get(0).getCurrentRdyCount(), 2);
             Assert.assertEquals(connList.get(1).getCurrentRdyCount(), 1);
         } finally {
             conMgr.close();
@@ -572,7 +630,7 @@ public class ConnectionManagerTest {
 
             @Override
             public int getRdyPerConnection() {
-                return 4;
+                return 3;
             }
 
             @Override
@@ -759,27 +817,6 @@ public class ConnectionManagerTest {
         }
     }
 
-    public static class BadRdyUpdatePolicy implements IRdyUpdatePolicy {
-
-        @Override
-        public boolean rdyShouldIncrease(String topic, float scheduleLoad, boolean mayTimeout, int maxRdyPerCon, int extraRdy) {
-            boolean flag = true;
-            if(flag) {
-                throw new RuntimeException("expected exp in rdy update policy");
-            }
-            return true;
-        }
-
-        @Override
-        public boolean rdyShouldDecline(String topic, float scheduleLoad, boolean mayTimeout, int maxRdyPerCon, int extraRdy) {
-            boolean flag = true;
-            if(flag) {
-                throw new RuntimeException("expected exp in rdy update policy");
-            }
-            return false;
-        }
-    }
-
     @Test
     public void testMakebadOfRdyRedistribute() throws Exception {
         logger.info("[testMakebadOfRdyRedistribute] starts.");
@@ -809,7 +846,7 @@ public class ConnectionManagerTest {
             TopicUtil.createTopic(admin, topicName, parNum, 1, channel, false, false);
             TopicUtil.createTopicChannel(admin, topicName, channel);
             //then we have 5 channel
-            conMgr.setRdyUpdatePolicyClass(BadRdyUpdatePolicy.class.getName());
+//            conMgr.setRdyUpdatePolicyClass(BadRdyUpdatePolicy.class.getName());
 
             final List<NSQConnection> connList = new ArrayList<>(parNum);
             JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topicName + "&access=r"));

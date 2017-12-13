@@ -116,7 +116,7 @@ public class Topic implements Comparable<Topic> {
     }
 
     public String toString() {
-        return String.format("topic: %s, %d.", this.topic, this.partitionID);
+        return String.format("topic: %s, %d", this.topic, this.partitionID);
     }
 
     public Topic setTopicSharding(TopicSharding topicSharding) {

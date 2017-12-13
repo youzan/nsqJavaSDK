@@ -10,7 +10,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.lang.ref.SoftReference;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,7 +21,7 @@ public abstract class AbstractControlConfig {
     private static final Logger logger = LoggerFactory.getLogger(AbstractControlConfig.class);
 
     private volatile boolean invalid = false;
-    private List<SoftReference<SeedLookupdAddress>> seedsRef = new ArrayList<>();
+    private List<SeedLookupdAddress> seedsRef = new ArrayList<>();
     private int previous = 0, current = 0;
     private Gradation gradation;
 
@@ -38,13 +37,13 @@ public abstract class AbstractControlConfig {
         this.gradation = grad;
     }
 
-    public List<SoftReference<SeedLookupdAddress>> getPreviousReferences() {
+    public List<SeedLookupdAddress> getPreviousReferences() {
         if(invalid)
             return null;
         return this.seedsRef.subList(this.previous, this.current);
     }
 
-    public List<SoftReference<SeedLookupdAddress>> getCurrentReferences() {
+    public List<SeedLookupdAddress> getCurrentReferences() {
         if(invalid)
             return null;
         return this.seedsRef.subList(this.current, this.seedsRef.size());
@@ -55,11 +54,11 @@ public abstract class AbstractControlConfig {
     }
 
     protected void addSeedReference(SeedLookupdAddress seed) {
-        this.seedsRef.add(new SoftReference<>(seed));
+        this.seedsRef.add(seed);
         SeedLookupdAddress.addReference(seed);
     }
 
-    public List<SoftReference<SeedLookupdAddress>> getSeeds() {
+    public List<SeedLookupdAddress> getSeeds() {
         return this.seedsRef;
     }
 
@@ -70,13 +69,13 @@ public abstract class AbstractControlConfig {
         //set all index to 0
         this.invalid = true;
         //clean seed lookup address and underline lookup address, all are reference
-        for (SoftReference<SeedLookupdAddress> seedRef : this.seedsRef) {
-            SeedLookupdAddress aSeed = seedRef.get();
+        for (SeedLookupdAddress aSeed : this.seedsRef) {
             if (null != aSeed)
                 SeedLookupdAddress.removeReference(aSeed);
             //clear anyway
-            seedRef.clear();
         }
+        if(null != this.seedsRef)
+            this.seedsRef.clear();
     }
 
     public static AbstractControlConfig create(final String ctrlcnfStr) {

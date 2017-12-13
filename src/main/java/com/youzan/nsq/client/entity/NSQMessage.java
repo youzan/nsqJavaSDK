@@ -25,7 +25,7 @@ public class NSQMessage implements MessageMetadata{
     private final byte[] messageID;
     private final byte[] messageBody;
     final Address address;
-    final Integer connectionID; // be sure that is not null
+    final Long connectionID; // be sure that is not null
 
     private long diskQueueOffset = -1L;
     private int diskQueueDataSize = -1;
@@ -33,34 +33,6 @@ public class NSQMessage implements MessageMetadata{
     private TopicInfo ti;
     private DesiredTag tag;
     private Map<String, Object> jsonExtHeader;
-
-    public class TopicInfo {
-        private String topicName;
-        private int partition;
-        private boolean isExt;
-
-        public TopicInfo(String topicName, int partition, boolean isExt) {
-            this.topicName = topicName;
-            this.partition = partition;
-            this.isExt = isExt;
-        }
-
-        public String getTopicName() {
-            return this.topicName;
-        }
-
-        public int getTopicPartition() {
-            return this.partition;
-        }
-
-        public boolean isExt() {
-            return this.isExt;
-        }
-
-        public String toString() {
-            return this.topicName + ", " + this.partition + ", " + this.isExt;
-        }
-    }
 
     /**
      * NSQMessage constructor, for test purpose
@@ -93,7 +65,7 @@ public class NSQMessage implements MessageMetadata{
      * @param nextConsumingInSecond time elapse for requeued message to send
      */
     public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
-                     byte[] messageBody, Address address, Integer connectionID, int nextConsumingInSecond, final Topic topic, boolean isExt) {
+                     byte[] messageBody, Address address, Long connectionID, int nextConsumingInSecond, final Topic topic, boolean isExt) {
         this.timestamp = timestamp;
         this.attempts = attempts;
         this.messageID = messageID;
@@ -134,7 +106,7 @@ public class NSQMessage implements MessageMetadata{
      */
     public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
                       final byte[] diskQueueOffset, final byte[] diskQueueDataSize, byte[] messageBody, Address address,
-                      Integer connectionID, int nextConsumingInSecond, final Topic topic, boolean isExt) {
+                      Long connectionID, int nextConsumingInSecond, final Topic topic, boolean isExt) {
         this(timestamp, attempts, messageID, internalID, traceID, messageBody, address, connectionID, nextConsumingInSecond, topic, isExt);
         ByteBuffer buf = ByteBuffer.wrap(diskQueueOffset);
         this.diskQueueOffset = buf.getLong();
@@ -290,7 +262,7 @@ public class NSQMessage implements MessageMetadata{
     /**
      * @return the connectionID
      */
-    public Integer getConnectionID() {
+    public Long getConnectionID() {
         return connectionID;
     }
 
@@ -324,10 +296,8 @@ public class NSQMessage implements MessageMetadata{
             if (timeout < NSQConfig._MIN_NEXT_CONSUMING_IN_SECOND) {
                 throw new IllegalArgumentException(
                         "NextConsumingInSecond is illegal. It is too small. " + NSQConfig._MIN_NEXT_CONSUMING_IN_SECOND);
-            }
-            if (timeout > NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND) {
-                throw new IllegalArgumentException(
-                        "NextConsumingInSecond is illegal. It is too big. " + NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND);
+            } else if (timeout > NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND) {
+                logger.warn("Next consuming in second is larger than {}. It may be limited to max value in server side.", NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND);
             }
         }
         this.nextConsumingInSecond = nextConsumingInSecond;
@@ -401,8 +371,11 @@ public class NSQMessage implements MessageMetadata{
     }
 
     public String toString() {
+        String tag = null;
+        if(null != this.tag)
+            tag = this.tag.getTagName();
         String msgStr = "NSQMessage [messageID=" + readableMsgID + ", internalID=" + internalID + ", traceID=" + traceID + ", diskQueueOffset=" + diskQueueOffset + ", diskQueueDataSize=" + diskQueueDataSize + ", datetime=" + datetime + ", readableAttempts="
-                + readableAttempts + ", address=" + address + ", connectionID=" + connectionID + "]";
+                + readableAttempts + ", address=" + address + ", connectionID=" + connectionID + ", tag=" + tag + ", extJsonHeader=" + jsonExtHeader + "]";
         return msgStr;
     }
 
@@ -411,6 +384,9 @@ public class NSQMessage implements MessageMetadata{
     @Override
     public String toMetadataStr() {
         if(null == this.metaDataStr) {
+            String tag = null;
+            if(null != this.tag)
+                tag = this.tag.getTagName();
             String objStr = getClass().getName() + "@" + Integer.toHexString(hashCode());
             StringBuilder sb = new StringBuilder();
             sb.append(objStr + " meta-data:\n");
@@ -422,6 +398,8 @@ public class NSQMessage implements MessageMetadata{
             sb.append("\t[diskQueueOffset]:\t").append(this.diskQueueOffset).append("\n");
             sb.append("\t[diskQueueDataSize]:\t").append(this.diskQueueDataSize).append("\n");
             sb.append("\t[NSQd address]:\t").append(this.address.toString()).append("\n");
+            sb.append("\t[tag]:\t").append(tag).append("\n");
+            sb.append("\t[extJsonHeader]:\t").append(this.jsonExtHeader).append("\n");
             sb.append(objStr + " end.");
             this.metaDataStr = sb.toString();
         }

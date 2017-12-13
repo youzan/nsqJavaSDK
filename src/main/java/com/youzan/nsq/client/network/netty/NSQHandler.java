@@ -79,12 +79,12 @@ class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
             });
         } else {
             if (null == conn) {
-                logger.warn("No connection set for {}", ctx.channel());
+                logger.info("No connection set for {}", ctx.channel());
             }
             if (null == worker) {
-                logger.warn("No worker set for {}", ctx.channel());
+                logger.info("No worker set for {}", ctx.channel());
             }
-            logger.warn("The original NSQFrame: {}", msg);
+            logger.info("The original NSQFrame: {}", msg);
             destroy(ctx);
             ctx.close();
         }

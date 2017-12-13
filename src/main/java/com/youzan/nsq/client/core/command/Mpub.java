@@ -15,14 +15,12 @@ import java.util.List;
  *
  * 
  */
-public class Mpub implements NSQCommand{
+public class Mpub extends Pub implements NSQCommand{
     private static final Logger logger = LoggerFactory.getLogger(Mpub.class);
-
-    private final Topic topic;
     private final List<byte[]> messages;
 
     public Mpub(Topic topic, List<byte[]> messages) {
-        this.topic = topic;
+        super(topic);
         this.messages = messages;
     }
 
@@ -34,13 +32,13 @@ public class Mpub implements NSQCommand{
         List<byte[]> bodyL = this.getBody();
         if (bodyL.size() > 1) {
             // write total body size and message size
-            int bodySize = 4; // 4 for total messages int.
+            int bodySize = 4 + 4; // 4 for total messages int, another 4 for body size.
             for (byte[] data : bodyL) {
                 bodySize += 4; // message size
                 bodySize += data.length;
             }
 
-            buf = ByteBuffer.allocate(bodySize);
+            buf = ByteBuffer.allocate(header.length + bodySize);
             buf.put(header);
             buf.putInt(bodySize);
             buf.putInt(bodyL.size());
