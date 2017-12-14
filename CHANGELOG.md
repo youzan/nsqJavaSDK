@@ -157,5 +157,6 @@ Note worthy:
 * Producer:
   * mpub support.
   * traceId API in Message class simplify.
+  * touch support
 * Consumer:
   * consume message filter.[#14](https://github.com/youzan/nsqJavaSDK/pull/14)

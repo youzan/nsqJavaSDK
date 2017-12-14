@@ -283,6 +283,8 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * Turn on passin topic for Pub/Sub Trace. Local trace works when {@link com.youzan.nsq.client.configs.ConfigAccessAgent}
      * running in local mode.
      * @param topics topics whose trace to turn on.
+     *
+     * Note: Invoke {@link Message#traced()} is another way to send trace message, it enables message trace per message base.
      */
     public void turnOnLocalTrace(String... topics) {
         for(String aTopic:topics)
@@ -294,6 +296,8 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * Remove pass in topics from local topic trace mapping. Local trace works when {@link com.youzan.nsq.client.configs.ConfigAccessAgent}
      * running in local mode.
      * @param topics topic to remove from local trace map
+     *
+     * Note: Invoke {@link Message#traced()} is another way to send trace message, it enables message trace per message base.
      */
     public void turnOffLocalTrace(String... topics) {
         for(String aTopic:topics)
@@ -1017,7 +1021,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private int producerPoolSize = 4;
 
     /**
-     * set worker thread pool szie for producer, a synchronized publish will not use this work pool, unless
+     * set worker thread pool size for producer, a synchronized publish will not use this work pool, unless
      * {@link com.youzan.nsq.client.Producer#publish(List, Topic, int)} invoked.
      * @param size pool size for producer publish
      * @return NSQConfig
