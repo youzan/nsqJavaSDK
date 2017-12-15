@@ -378,7 +378,7 @@ public class ProducerImplV2 implements Producer {
         }
     }
 
-    public List<byte[]> publish(List<byte[]> messages, Topic topic, int batchSize) throws NSQException {
+    public List<byte[]> publishMulti(List<byte[]> messages, Topic topic, int batchSize) throws NSQException {
         int batchNum = messages.size()/batchSize;
         int leftOver = messages.size()%batchSize;
 

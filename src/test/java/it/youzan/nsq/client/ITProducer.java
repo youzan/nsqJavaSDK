@@ -89,7 +89,7 @@ public class ITProducer {
                     msgs.add(msgBytes);
             }
             //last batch, add an invalid one
-            List<byte[]> failedMsgs = producer.publish(msgs, topic, 100);
+            List<byte[]> failedMsgs = producer.publishMulti(msgs, topic, 100);
             Assert.assertEquals(2300, failedMsgs.size());
             Assert.assertTrue(latch.await(1, TimeUnit.MINUTES));
         } finally {
@@ -138,7 +138,7 @@ public class ITProducer {
             }
             //last batch, add an invalid one
             msgs.add(bf.array());
-            List<byte[]> failedMsgs = producer.publish(msgs, topic, 100);
+            List<byte[]> failedMsgs = producer.publishMulti(msgs, topic, 100);
             Assert.assertEquals(45, failedMsgs.size());
             latch.await(1, TimeUnit.MINUTES);
             Assert.assertFalse(failed.get());
@@ -178,7 +178,7 @@ public class ITProducer {
             for(int cnt = 0; cnt < 2345; cnt++) {
                 msgs.add(msgBytes);
             }
-            List<byte[]> failedMsgs = producer.publish(msgs, topic, 100);
+            List<byte[]> failedMsgs = producer.publishMulti(msgs, topic, 100);
             Assert.assertEquals(0, failedMsgs.size());
             latch.await(1, TimeUnit.MINUTES);
             Assert.assertFalse(failed.get());
