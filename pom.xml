@@ -129,24 +129,34 @@
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.7.9</version>
                 <configuration>
+                    <destFile>${sonar.jacoco.reportPath}</destFile>
+                    <append>true</append>
                     <excludes>
+                        <!--如果想把某些文件排除在统计之外，在这里配置-->
                         <exclude>**/com/youzan/nsq/client/core/pool/consumer/**.class</exclude>
                     </excludes>
                 </configuration>
                 <executions>
                     <execution>
+                        <id>default-prepare-agent</id>
                         <goals>
                             <goal>prepare-agent</goal>
                         </goals>
                     </execution>
                     <execution>
-                        <id>generate-code-coverage-report</id>
-                        <phase>test</phase>
+                        <id>default-report</id>
+                        <phase>prepare-package</phase>
                         <goals>
                             <goal>report</goal>
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>sonar-maven-plugin</artifactId>
+                <version>3.2</version>
             </plugin>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>

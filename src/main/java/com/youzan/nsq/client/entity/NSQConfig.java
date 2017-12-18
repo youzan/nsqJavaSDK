@@ -486,7 +486,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
-     * Specify connection pool size for producer, or default value(30) applies.
+     * Specify connection pool size for producer per nsqd partition, or default value(30) applies.
      * @param connectionPoolSize
      *      connection pool size for producer connection pool.
      * @return current NSQConfig
