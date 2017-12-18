@@ -410,9 +410,6 @@
                 <resources>
                     <resource>
                         <directory>src/assembly/conf/youzan</directory>
-                        <excludes>
-                            <exclude>app-test.properties</exclude>
-                        </excludes>
                     </resource>
                 </resources>
                 <plugins>
