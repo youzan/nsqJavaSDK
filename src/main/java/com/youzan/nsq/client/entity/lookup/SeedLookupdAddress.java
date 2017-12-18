@@ -219,7 +219,7 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
      * @param   aSeed seed lookupd address
      * @return  reference count after addReference
      */
-    static long addReference(SeedLookupdAddress aSeed) {
+    static long addReference(final SeedLookupdAddress aSeed) {
         if (seedLookupMap.containsValue(aSeed)) {
             synchronized (aSeed) {
                 return aSeed.updateRefCounter(1);
@@ -235,7 +235,7 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
      * @param   aSeed seed lookupd address
      * @return  reference after removeReference.
      */
-    static long removeReference(SeedLookupdAddress aSeed) {
+    static long removeReference(final SeedLookupdAddress aSeed) {
         if (seedLookupMap.containsValue(aSeed)) {
             synchronized (aSeed) {
                 if (seedLookupMap.containsValue(aSeed)) {

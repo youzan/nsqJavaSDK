@@ -111,7 +111,10 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
     }
 
     private static final Object LOCK = new Object();
-    private static LookupAddressUpdate _INSTANCE = null;
+    private static class LookupAddressUpdateHolder {
+        public static LookupAddressUpdate _INSTANCE = new LookupAddressUpdate();
+    }
+
 
     public LookupAddressUpdate(){
         categorizationsInUsed = new HashSet<>();
@@ -123,24 +126,16 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
     }
 
     public static LookupAddressUpdate getInstance(boolean touch){
-        if(null == _INSTANCE){
-            synchronized (LOCK){
-                if(null == _INSTANCE){
-                    //init domain and keys
-                    _INSTANCE = new LookupAddressUpdate();
-                    logger.info("LookupAddressUpdate instance initialized.");
-                }
-            }
+        LookupAddressUpdate instance = LookupAddressUpdateHolder._INSTANCE;
+        if(touch) {
+            instance.touch();
         }
-        if(touch){
-            _INSTANCE.touched();
-        }
-        return _INSTANCE;
+        return instance;
     }
 
     public static void setInstance(final LookupAddressUpdate lau) {
         synchronized (LOCK){
-           _INSTANCE = lau;
+            LookupAddressUpdateHolder._INSTANCE = lau;
         }
     }
 
@@ -325,6 +320,7 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
                 }
             } catch (InterruptedException e) {
                 logger.error("Thread interrupted waiting for seed lookup address update.");
+                Thread.currentThread().interrupt();
             }
     }
 
@@ -345,6 +341,7 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
                                     Thread.sleep(500);
                                 } catch (InterruptedException e) {
                                     logger.error("Interrupted while waiting for new seed lookupd address.");
+                                    Thread.currentThread().interrupt();
                                 }
                             }
                             int success;
@@ -440,6 +437,7 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
                     Thread.sleep(NSQConfig.getQueryTimeout4TopicSeedInMillisecond());
                 } catch (InterruptedException e) {
                     logger.error("Interrupted while waiting for another lookup process for categorization {}", categorization);
+                    Thread.currentThread().interrupt();
                 }
         }
 
@@ -454,6 +452,7 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
                 }
             }catch (InterruptedException e) {
                 logger.warn("Thread interrupted waiting for new lookup address incoming.");
+                Thread.currentThread().interrupt();
             }
         }
 
@@ -483,7 +482,7 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
                 seedCnf.clean();
             this.cat2SeedLookupCnfMap.clear();
             this.categorizationsInUsed.clear();
-            _INSTANCE = null;
+            LookupAddressUpdateHolder._INSTANCE = null;
         }
         logger.info("LookupAddressUpdate instance closed.");
     }

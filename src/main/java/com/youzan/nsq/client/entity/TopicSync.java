@@ -1,6 +1,5 @@
 package com.youzan.nsq.client.entity;
 
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**

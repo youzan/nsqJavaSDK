@@ -248,6 +248,7 @@ public class ConnectionManager {
                     latch.await(RDY_TIMEOUT, TimeUnit.MILLISECONDS);
                 } catch (InterruptedException e) {
                     logger.error("Interrupted waiting for rdy update for subscribe, topic {}, Connection {}", topic, subscriber);
+                    Thread.currentThread().interrupt();
                 }
             } else {
                 backoff(subscriber);
@@ -258,6 +259,7 @@ public class ConnectionManager {
     }
 
     public void subscribe(String topic, final NSQConnection subscriber) {
+       subscriber.setCurrentRdyCount(INIT_RDY);
        subscribe(topic, subscriber, INIT_RDY);
     }
 
@@ -316,6 +318,7 @@ public class ConnectionManager {
                     }
                 } catch (InterruptedException e) {
                     logger.error("Interrupted waiting for rdy update for backoff, connection {}", conn);
+                    Thread.currentThread().interrupt();
                 }
             } else {
                 logger.error("Connection {} does not belong to current consumer.", conn);
@@ -372,6 +375,7 @@ public class ConnectionManager {
                     }
                 } catch (InterruptedException e) {
                     logger.error("Interrupted while waiting for back off on all connections for {}", topic);
+                    Thread.currentThread().interrupt();
                 }
             } finally {
                 subs.writeUnlock();
@@ -422,6 +426,7 @@ public class ConnectionManager {
                     }
                 } catch (InterruptedException e) {
                     logger.error("Interrupted while waiting for resume on all connections for {}", topic);
+                    Thread.currentThread().interrupt();
                 }
             } finally {
                 subs.writeUnlock();
@@ -493,6 +498,7 @@ public class ConnectionManager {
                        }
                    } catch (InterruptedException e) {
                        logger.error("Interrupted while waiting for resume on all connections for {}", topic);
+                       Thread.currentThread().interrupt();
                    }
                } finally {
                    subs.writeUnlock();

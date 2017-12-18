@@ -245,6 +245,7 @@ public class ConnectionManagerTest {
                 JsonNode partition = lookupResp.get("partitions").get("" + i);
                 Address addr1 = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topic, 0, false);
                 NSQConnection con = connect(addr1, topic, i, "BaseConsumer", config);
+                con.setExpectedRdy(5);
                 conMgr.subscribe(topic, con);
                 connList.add(con);
             }
@@ -263,61 +264,17 @@ public class ConnectionManagerTest {
         }
     }
 
-    @Test
-    public void testRdyCeiling() throws Exception {
-        logger.info("[testRdyCeiling] starts.");
+    public void testSettingRdy() throws Exception {
+        logger.info("[testSettingRdy] starts.");
+        //default with
         ConnectionManager conMgr = null;
-        String topic = "testReyCeiling";
+        String topic = "testSettingRey";
         String adminHttp = "http://" + props.getProperty("admin-address");
         try {
-            TopicUtil.createTopic(adminHttp, topic, 5, 1, "default");
+            TopicUtil.createTopic(adminHttp, topic, 2, 1, "default");
             TopicUtil.createTopicChannel(adminHttp, topic, "default");
-
-            NSQConfig config = (NSQConfig) this.config.clone();
-            conMgr = new ConnectionManager(new IConsumeInfo() {
-                @Override
-                public float getLoadFactor() {
-                    return 0.5f;
-                }
-
-                @Override
-                public int getRdyPerConnection() {
-                    return 4;
-                }
-
-                @Override
-                public boolean isConsumptionEstimateElapseTimeout() {
-                    return false;
-                }
-            });
-
-            int partitionNum = 5;
-            JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topic + "&access=r"));
-            List<NSQConnection> connList = new ArrayList<>(partitionNum);
-            for (int i = 0; i < partitionNum; i++) {
-                JsonNode partition = lookupResp.get("partitions").get("" + i);
-                Address addr1 = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topic, 0, false);
-                NSQConnection con = connect(addr1, topic, i, "BaseConsumer", config);
-                conMgr.subscribe(topic, con);
-                connList.add(con);
-            }
-            //pick 2 connection and fix another rdy
-            connList.get(0).declineExpectedRdy();
-
-            connList.get(1).declineExpectedRdy();
-            connList.get(1).declineExpectedRdy();
-            connList.get(1).declineExpectedRdy();
-            connList.get(1).declineExpectedRdy();
-
-            conMgr.start(0);
-            Thread.sleep(10000);
-
-            Assert.assertEquals(connList.get(0).getCurrentRdyCount(), 2);
-            Assert.assertEquals(connList.get(1).getCurrentRdyCount(), 1);
         } finally {
-            conMgr.close();
-            TopicUtil.deleteTopic(adminHttp, topic);
-            logger.info("[testExpectedRdy] ends.");
+
         }
     }
 
@@ -803,6 +760,9 @@ public class ConnectionManagerTest {
 
             conMgr.start(0);
             ConnectionManager.ConnectionWrapperSet cws = (ConnectionManager.ConnectionWrapperSet)conMgr.getSubscribeConnections(topic);
+            for(ConnectionManager.NSQConnectionWrapper wrapper:cws) {
+                wrapper.getConn().setExpectedRdy(4);
+            }
             //sleep 30 for rdy to increase
             Thread.sleep(30000);
             cws.setTotalRdy(40);
@@ -874,17 +834,21 @@ public class ConnectionManagerTest {
         return new Object[][]{
 //                {new Integer(2)},
 //                {new Integer(4)},
-                {new Integer(6)},
-                {new Integer(8)}
+                {new Integer(6)}
+//                {new Integer(8)}
         };
     }
 
     @Test(dataProvider = "topicNums", dataProviderClass = ConnectionManagerTest.class)
     public void testConsumeMultiTopicsRdy(int topicsNum) throws Exception {
+        int rdyMax = Runtime.getRuntime().availableProcessors() * 4;
         String adminHtp = "http://" + props.getProperty("admin-address");
         final List<String> list = new ArrayList<>();
         int parNum = 4;
         int repNum = 1;
+        if(parNum * topicsNum > rdyMax) {
+            rdyMax = parNum * topicsNum;
+        }
         for(int i = 0; i < topicsNum; i++) {
             list.add("testConsume_" + i);
         }
@@ -895,9 +859,8 @@ public class ConnectionManagerTest {
                 TopicUtil.createTopicChannel(adminHtp, topic, "default");
             }
 
-            NSQConfig localConfig = (NSQConfig) config.clone();
+            NSQConfig localConfig = new NSQConfig();
             localConfig.setConsumerName("default");
-            localConfig.setRdy(4);
 
             final ConnectionManager conMgr = new ConnectionManager(new IConsumeInfo() {
                 @Override
@@ -930,15 +893,15 @@ public class ConnectionManagerTest {
             }
 
             conMgr.start(0);
-            Thread.sleep(topicsNum * 10000);
+            Thread.sleep(topicsNum * 5000);
 
             //assert all topics has same rdy
             for(String topic : list) {
                 logger.info("Check rdy for {}", topic);
                 ConnectionManager.ConnectionWrapperSet conSet = (ConnectionManager.ConnectionWrapperSet) conMgr.getSubscribeConnections(topic);
-                Assert.assertEquals(conSet.getTotalRdy(), 4 * parNum, "total rdy does not match");
+                Assert.assertEquals(conSet.getTotalRdy(), 3 * parNum, "total rdy does not match");
                 for(ConnectionManager.NSQConnectionWrapper connWrapper : conSet) {
-                    Assert.assertEquals( connWrapper.getConn().getCurrentRdyCount(), 4);
+                    Assert.assertEquals( connWrapper.getConn().getCurrentRdyCount(), 3);
                 }
             }
 

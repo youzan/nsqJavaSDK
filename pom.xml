@@ -282,26 +282,6 @@
                         <artifactId>maven-resources-plugin</artifactId>
                         <executions>
                             <execution>
-                                <id>copy-test-resources</id>
-                                <phase>compile</phase>
-                                <goals>
-                                    <goal>copy-resources</goal>
-                                </goals>
-                                <configuration>
-                                    <resources>
-                                        <resource>
-                                            <filtering>false</filtering>
-                                            <directory>src/assembly/conf/openSource/</directory>
-                                        </resource>
-                                        <resource>
-                                            <filtering>false</filtering>
-                                            <directory>src/main/resources</directory>
-                                        </resource>
-                                    </resources>
-                                    <outputDirectory>target/test-classes</outputDirectory>
-                                </configuration>
-                            </execution>
-                            <execution>
                                 <id>copy-resources</id>
                                 <phase>compile</phase>
                                 <goals>
@@ -347,26 +327,6 @@
                         <artifactId>maven-resources-plugin</artifactId>
                         <executions>
                             <execution>
-                                <id>copy-test-resources</id>
-                                <phase>compile</phase>
-                                <goals>
-                                    <goal>copy-resources</goal>
-                                </goals>
-                                <configuration>
-                                    <resources>
-                                        <resource>
-                                            <filtering>false</filtering>
-                                            <directory>src/assembly/conf/dev/</directory>
-                                        </resource>
-                                        <resource>
-                                            <filtering>false</filtering>
-                                            <directory>src/main/resources</directory>
-                                        </resource>
-                                    </resources>
-                                    <outputDirectory>target/test-classes</outputDirectory>
-                                </configuration>
-                            </execution>
-                            <execution>
                                 <id>copy-resources</id>
                                 <phase>compile</phase>
                                 <goals>
@@ -375,9 +335,6 @@
                                 <configuration>
                                     <resources>
                                         <resource>
-                                            <excludes>
-                                                <exclude>app-test.properties</exclude>
-                                            </excludes>
                                             <filtering>false</filtering>
                                             <directory>src/assembly/conf/dev/</directory>
                                         </resource>
@@ -410,9 +367,6 @@
                 <resources>
                     <resource>
                         <directory>src/assembly/conf/youzan</directory>
-                        <excludes>
-                            <exclude>app-test.properties</exclude>
-                        </excludes>
                     </resource>
                 </resources>
                 <plugins>
@@ -420,26 +374,6 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-resources-plugin</artifactId>
                         <executions>
-                            <execution>
-                                <id>copy-test-resources</id>
-                                <phase>compile</phase>
-                                <goals>
-                                    <goal>copy-resources</goal>
-                                </goals>
-                                <configuration>
-                                    <resources>
-                                        <resource>
-                                            <filtering>false</filtering>
-                                            <directory>src/assembly/conf/youzan/</directory>
-                                        </resource>
-                                        <resource>
-                                            <filtering>false</filtering>
-                                            <directory>src/main/resources</directory>
-                                        </resource>
-                                    </resources>
-                                    <outputDirectory>target/test-classes</outputDirectory>
-                                </configuration>
-                            </execution>
                             <execution>
                                 <id>copy-resources</id>
                                 <phase>compile</phase>
@@ -450,9 +384,6 @@
                                     <resources>
                                         <resource>
                                             <filtering>false</filtering>
-                                            <excludes>
-                                                <exclude>app-test.properties</exclude>
-                                            </excludes>
                                             <directory>src/assembly/conf/youzan/</directory>
                                         </resource>
                                         <resource>

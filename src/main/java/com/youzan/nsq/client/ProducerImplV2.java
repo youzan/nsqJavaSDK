@@ -164,6 +164,7 @@ public class ProducerImplV2 implements Producer {
                     );
                 } catch (InterruptedException e) {
                     logger.error("error waiting for topic 2 partition info updating.");
+                    Thread.currentThread().interrupt();
                 }
             }
             logger.info("total {} addresses to initialize");
@@ -239,6 +240,7 @@ public class ProducerImplV2 implements Producer {
             partitonAddrs = simpleClient.getPartitionNodes(topic, new Object[]{topicShardingID}, true);
         } catch (InterruptedException e) {
             logger.warn("Thread interrupted waiting for partition selector update, Topic {}. Ignore if SDK is shutting down.", topic.getTopicText());
+            Thread.currentThread().interrupt();
             return null;
         }
         if(null == partitonAddrs) {
@@ -372,9 +374,8 @@ public class ProducerImplV2 implements Producer {
                 this.producer.publishMulti(this.msgs, this.topic);
             }catch (Throwable e) {
                 failed = this.msgs;
-            } finally {
-                return failed;
             }
+            return failed;
         }
     }
 
@@ -620,6 +621,7 @@ public class ProducerImplV2 implements Producer {
                             Thread.sleep(NSQ_LEADER_NOT_READY_TIMEOUT);
                         } catch (InterruptedException e) {
                             logger.error("Publish process interrupted waiting for nsqd consensus.");
+                            Thread.currentThread().interrupt();
                         }
                         logger.info("Partitions info for {} invalidated and related lookup force updated.", topic);
                         throw new NSQInvalidDataNodeException(topic.getTopicText());
