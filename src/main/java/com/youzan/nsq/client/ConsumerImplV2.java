@@ -124,7 +124,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         //initialize consumer worker size
         executor = Executors.newFixedThreadPool(this.config.getConsumerWorkerPoolSize(),
                 new NamedThreadFactory(this.getClass().getSimpleName() + "-ClientBusiness-" + this.config.getConsumerName(), Thread.MAX_PRIORITY));
-        String consumerName = (null == this.config) ? "-null" : "-" + this.config.getConsumerName();
+        String consumerName = "-" + this.config.getConsumerName();
         //intialize consumer simple client thread
         scheduler = Executors
                 .newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getSimpleName() + consumerName, Thread.NORM_PRIORITY));
@@ -363,7 +363,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                     }
                 } catch (InterruptedException e) {
                     logger.warn("Thread interrupted waiting for partition selector update, Topic {}. Ignore if SDK is shutting down.", topic);
-                    //retry for now
+                    Thread.currentThread().interrupt();
                 }
             }
             final List<Address> dataNodeLst = Arrays.asList(partitionDataNodes);

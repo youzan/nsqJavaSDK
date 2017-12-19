@@ -159,6 +159,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
                 response = _commandAndGetResposne(identify);
             } catch (InterruptedException e) {
                 logger.error("Identity fail to {}", this.address);
+                Thread.currentThread().interrupt();
             }
             if (null == response) {
                 throw new IllegalStateException("Bad Identify Response! Close connection!");
@@ -412,6 +413,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
             logger.warn("Timeout receiving response for Close command.");
         } catch (InterruptedException e) {
             logger.error("Interrupted waiting for response from CLS.");
+            Thread.currentThread().interrupt();
         }
     }
 
