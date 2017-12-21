@@ -17,6 +17,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
@@ -172,6 +173,19 @@ public class TopicUtil {
         String topicPattern = "topic_";
         TopicUtil.deleteTopics(adminHttp, topicPattern);
         logger.info("[testTopicUtil] ends.");
+    }
+
+    public static String findLookupLeader(String lookupUrlStr) throws IOException {
+        URL lookupUrl = new URL(lookupUrlStr + "/listlookup");
+        JsonNode root = IOUtil.readFromUrl(lookupUrl);
+        if(null != root) {
+            JsonNode leader = root.get("lookupdleader");
+            String ip = leader.get("NodeIP").asText();
+            String port = leader.get("HttpPort").asText();
+            return ip + ":" + port;
+        } else {
+            return null;
+        }
     }
 
 //    @Test

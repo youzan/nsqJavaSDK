@@ -4,7 +4,7 @@
 
     <groupId>com.youzan</groupId>
     <artifactId>NSQ-Client</artifactId>
-    <version>2.4.2-os-SNAPSHOT</version>
+    <version>2.4.2-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>NSQ-Client</name>
@@ -131,10 +131,6 @@
                 <configuration>
                     <destFile>${sonar.jacoco.reportPath}</destFile>
                     <append>true</append>
-                    <excludes>
-                        <!--如果想把某些文件排除在统计之外，在这里配置-->
-                        <exclude>**/com/youzan/nsq/client/core/pool/consumer/**.class</exclude>
-                    </excludes>
                 </configuration>
                 <executions>
                     <execution>

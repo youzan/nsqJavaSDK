@@ -4,13 +4,14 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Serializable;
 import java.util.regex.Pattern;
 
 /**
  * set desired tag for consumer would lile to receive, a valid tag is:
  * smaller than 100 bytes in length and it is th combination of alphabet[a-zA-Z] and number[0-9]
  */
-public class DesiredTag {
+public class DesiredTag implements Serializable {
     //tag limitation in length
     private static final int TAG_FILTER_LIMIT = 100;
     private static final Pattern VALID_TAG_REFEX = Pattern.compile("^[a-zA-Z0-9_-]+$");
@@ -25,7 +26,7 @@ public class DesiredTag {
      * @throws IllegalArgumentException thrown when passin filter is not valid.
      */
     public DesiredTag(String tag) throws IllegalArgumentException {
-        if (null != tag && tag.isEmpty())
+        if (null == tag || tag.isEmpty())
             return;
         if(validateTag(tag)) {
             this.tag = tag;

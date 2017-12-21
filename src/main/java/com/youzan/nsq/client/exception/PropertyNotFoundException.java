@@ -1,4 +1,4 @@
-package com.youzan.nsq.client;
+package com.youzan.nsq.client.exception;
 
 /**
  * Created by lin on 16/10/27.

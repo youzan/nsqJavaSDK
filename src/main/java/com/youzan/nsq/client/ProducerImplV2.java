@@ -483,7 +483,7 @@ public class ProducerImplV2 implements Producer {
                 throw exp;
             }
             catch (NSQNoConnectionException badConnExp) {
-                logger.info("Try invalidating partition selectors for {}, due to NSQNoConnectionException.");
+                logger.info("Try invalidating partition selectors for {}, due to NSQNoConnectionException.", msg.getTopic());
                 this.simpleClient.invalidatePartitionsSelector(msg.getTopic().getTopicText());
                 exceptions.add(badConnExp);
                 continue;
@@ -539,12 +539,9 @@ public class ProducerImplV2 implements Producer {
             }
             catch (Exception e) {
                 returnCon = false;
-                try {
-                    bigPool.invalidateObject(conn.getAddress(), conn);
-                    logger.info("Connection to {} invalidated.", conn.getAddress());
-                } catch (Exception e1) {
-                    logger.error("Fail to destroy connection {}.", conn.toString(), e1);
-                }
+                logger.info("Try invalidating partition selectors for {}, due to exception {}.", msg.getTopic(), e.getMessage());
+                this.simpleClient.invalidatePartitionsSelector(msg.getTopic().getTopicText());
+                invalidConnection(conn);
 
                 String errLog;
                 if(msg.getMessageCount() > 1) {
@@ -569,7 +566,7 @@ public class ProducerImplV2 implements Producer {
             } finally {
                 if(returnCon) {
                     long returnConnStart = System.currentTimeMillis();
-                    bigPool.returnObject(conn.getAddress(), conn);
+                    returnConnection(conn);
                     long returnConnEnd = System.currentTimeMillis() - returnConnStart;
                     if(PERF_LOG.isDebugEnabled())
                         PERF_LOG.debug("{}: took {} milliSec to return NSQ connection.", cxt.getTraceID(), returnConnEnd);
@@ -580,6 +577,22 @@ public class ProducerImplV2 implements Producer {
             }
         } // end loop
         throw new NSQPubException(exceptions);
+    }
+
+    private void invalidConnection(final NSQConnection conn) {
+        if(null != conn) {
+            Address addr = conn.getAddress();
+            try {
+                this.bigPool.invalidateObject(addr, conn);
+                logger.info("Connection to {} invalidated.", conn.getAddress());
+            } catch (Exception e) {
+                logger.error("Fail to invalidate nsq connection to {}", addr);
+            }
+        }
+    }
+
+    private void returnConnection(final NSQConnection conn) {
+        this.bigPool.returnObject(conn.getAddress(), conn);
     }
 
     /**

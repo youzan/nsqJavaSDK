@@ -63,11 +63,11 @@ public class ITPubConfigAccess {
         valueMap.put("JavaTesting-Migration", controlCnfStr);
         Topic topic = new Topic("JavaTesting-Migration");
         DCCMigrationConfigAccessDomain domain = (DCCMigrationConfigAccessDomain) DCCMigrationConfigAccessDomain.getInstance(topic.getTopicText());
-        Role aRole = Role.getInstance("producer");
+        Role aRole = Role.Producer;
         DCCMigrationConfigAccessKey keyProducer = (DCCMigrationConfigAccessKey) DCCMigrationConfigAccessKey.getInstance(aRole);
         TestConfigAccessAgent.updateValue(domain, new AbstractConfigAccessKey[]{keyProducer}, valueMap, true);
 
-        Role aRoleConsumer = Role.getInstance("consumer");
+        Role aRoleConsumer = Role.Consumer;
         DCCMigrationConfigAccessKey keyConsumer = (DCCMigrationConfigAccessKey) DCCMigrationConfigAccessKey.getInstance(aRoleConsumer);
         TestConfigAccessAgent.updateValue(domain, new AbstractConfigAccessKey[]{keyConsumer}, valueMap, true);
 

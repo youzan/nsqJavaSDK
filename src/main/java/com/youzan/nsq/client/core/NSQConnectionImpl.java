@@ -234,7 +234,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         conLock.readLock().lock();
         try{
             if (!this._isConnected()) {
-                throw new NSQNoConnectionException(String.format("{} is not connected， command {} quit.", this, command));
+                throw new NSQNoConnectionException(String.format("%s is not connected， command %s quit.", this, command));
             }
 
             return _commandAndGetResposne(command);

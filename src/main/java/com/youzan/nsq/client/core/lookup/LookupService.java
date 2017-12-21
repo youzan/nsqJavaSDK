@@ -6,7 +6,6 @@ import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQLookupException;
 
 import java.io.Closeable;
-import java.util.Random;
 
 /**
  * One lookup cluster
@@ -16,7 +15,6 @@ import java.util.Random;
  * 
  */
 public interface LookupService extends java.io.Serializable, Closeable {
-    Random _r = new Random(10000);
 
     /**
      *

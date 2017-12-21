@@ -42,7 +42,8 @@ class NSQHandler extends SimpleChannelInboundHandler<NSQFrame> {
         logger.warn("Uncaught exception in connection pipeline", cause);
         //add cause into error frame
         destroy(ctx);
-        ctx.close();
+        if(null != ctx)
+            ctx.close();
     }
 
     /**

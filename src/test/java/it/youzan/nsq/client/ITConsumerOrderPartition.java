@@ -65,11 +65,11 @@ public class ITConsumerOrderPartition {
         Topic topic = new Topic("java_test_ordered_multi_topic");
 
         DCCMigrationConfigAccessDomain domain = (DCCMigrationConfigAccessDomain) DCCMigrationConfigAccessDomain.getInstance(topic.getTopicText());
-        Role aRole = Role.getInstance("producer");
+        Role aRole = Role.Producer;
         DCCMigrationConfigAccessKey keyProducer = (DCCMigrationConfigAccessKey) DCCMigrationConfigAccessKey.getInstance(aRole);
         TestConfigAccessAgent.updateValue(domain, new AbstractConfigAccessKey[]{keyProducer}, valueMap, true);
 
-        Role aRoleConsumer = Role.getInstance("consumer");
+        Role aRoleConsumer = Role.Consumer;
         DCCMigrationConfigAccessKey keyConsumer = (DCCMigrationConfigAccessKey) DCCMigrationConfigAccessKey.getInstance(aRoleConsumer);
         TestConfigAccessAgent.updateValue(domain, new AbstractConfigAccessKey[]{keyConsumer}, valueMap, true);
 
@@ -144,11 +144,11 @@ public class ITConsumerOrderPartition {
         final Topic topic = new Topic("java_test_ordered_multi_topic");
 
         DCCMigrationConfigAccessDomain domain = (DCCMigrationConfigAccessDomain) DCCMigrationConfigAccessDomain.getInstance(topic.getTopicText());
-        Role aRole = Role.getInstance("producer");
+        Role aRole = Role.Producer;
         DCCMigrationConfigAccessKey keyProducer = (DCCMigrationConfigAccessKey) DCCMigrationConfigAccessKey.getInstance(aRole);
         TestConfigAccessAgent.updateValue(domain, new AbstractConfigAccessKey[]{keyProducer}, valueMap, true);
 
-        Role aRoleConsumer = Role.getInstance("consumer");
+        Role aRoleConsumer = Role.Consumer;
         DCCMigrationConfigAccessKey keyConsumer = (DCCMigrationConfigAccessKey) DCCMigrationConfigAccessKey.getInstance(aRoleConsumer);
         TestConfigAccessAgent.updateValue(domain, new AbstractConfigAccessKey[]{keyConsumer}, valueMap, true);
 
