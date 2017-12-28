@@ -128,24 +128,14 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
      */
     @Override
     public void init() throws TimeoutException, IOException {
-        conLock.writeLock().lock();
-        try {
-           _init();
-        } finally {
-            conLock.writeLock().unlock();
-        }
+       _init();
     }
 
     @Override
     public void init(final Topic topic) throws TimeoutException, IOException {
-        conLock.writeLock().lock();
-        try {
-            this._init();
-            Topic topicCon = Topic.newInstacne(topic, true);
-            setTopic(topicCon);
-        }finally {
-            conLock.writeLock().unlock();
-        }
+        this._init();
+        Topic topicCon = Topic.newInstacne(topic, true);
+        setTopic(topicCon);
     }
 
     private void _init() throws TimeoutException, IOException {
@@ -231,7 +221,6 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     @Override
     public NSQFrame commandAndGetResponse(final NSQCommand command) throws TimeoutException, NSQNoConnectionException {
-        conLock.readLock().lock();
         try{
             if (!this._isConnected()) {
                 throw new NSQNoConnectionException(String.format("%s is not connected， command %s quit.", this, command));
@@ -239,13 +228,10 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
             return _commandAndGetResposne(command);
         } catch (InterruptedException e) {
-            _close();
-            Thread.currentThread().interrupt();
             logger.error("Thread was interrupted, probably shutting down! Close connection!", e);
-        } finally {
-            conLock.readLock().unlock();
+            close();
+            throw new NSQNoConnectionException(String.format("%s is interrupted， command %s quit.", this, command));
         }
-        return null;
     }
 
     @Override
@@ -283,12 +269,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     @Override
     public boolean isConnected() {
-        conLock.readLock().lock();
-        try {
-            return this._isConnected();
-        }finally {
-            conLock.readLock().unlock();
-        }
+        return this._isConnected();
     }
 
     private boolean _isConnected() {
@@ -297,12 +278,12 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     @Override
     public boolean isIdentitySent() {
-        return identitySent.get();
+        return _isConnected() && identitySent.get();
     }
 
     @Override
     public boolean isSubSent() {
-        return this.subSent.get();
+        return _isConnected() && this.subSent.get();
     }
 
     @Override
@@ -318,17 +299,13 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         logger.info("Begin to clear {}", this);
         //extra lock to proof from more than none thread waiting for close
         if (closing.compareAndSet(false, true)) {
-            conLock.writeLock().lock();
-            try {
-                _close();
-            } finally {
-                conLock.writeLock().unlock();
-            }
+            this.onClose();
+            _clear();
         }
         logger.info("End clear {}", this);
     }
 
-    private void _close() {
+    private void _clear() {
         if (null != channel) {
             channel.attr(NSQConnection.STATE).remove();
             channel.attr(Client.STATE).remove();
@@ -351,18 +328,12 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
      * 3. clear resources underneath
      */
     public void disconnect(final ConnectionManager conMgr) {
-        try {
-            logger.info("Disconnect from nsqd {} ...", this.address);
-            //1. backoff
-            conMgr.backoff(this);
-            //2. send CLS
-            this._onClose();
-        } finally {
-            //3. clear resource
-            if (channel.isActive())
-                this.close();
-            logger.info("nsqd {} disconnect", this.address);
-        }
+        logger.info("Disconnect from nsqd {} ...", this.address);
+        //1. backoff
+        conMgr.backoff(this);
+        //2. send CLS
+        this.close();
+        logger.info("nsqd {} disconnect", this.address);
     }
 
     @Override
@@ -401,8 +372,13 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     @Override
     public void onClose() {
-        logger.info("[{}] onClose", this);
-        this.close();
+        if(!this.channel.isActive() || !this.closing.get()) {
+            logger.info("Connection is not connected nor NSQConnection.close  is not invoked. onClose quit. {}", this);
+            return;
+        } else {
+            this._onClose();
+            logger.info("[{}] onClose sent", this);
+        }
     }
 
     private void _onClose() {
