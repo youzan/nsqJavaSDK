@@ -1,6 +1,6 @@
 package com.youzan.nsq.client.configs;
 
-import com.youzan.nsq.client.PropertyNotFoundException;
+import com.youzan.nsq.client.exception.PropertyNotFoundException;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.exception.ConfigAccessAgentException;
 import com.youzan.nsq.client.exception.ConfigAccessAgentInitializeException;

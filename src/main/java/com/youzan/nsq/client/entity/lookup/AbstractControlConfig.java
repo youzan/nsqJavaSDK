@@ -96,7 +96,8 @@ public abstract class AbstractControlConfig {
             JsonNode currentNodes = ctrlCnfNode.get("current");
             if (null != currentNodes) {
                 //set current position
-                dccCtrlCnf.setCurrent(previousNodes.size());
+                int currentStart = null==previousNodes ? 0 : previousNodes.size();
+                dccCtrlCnf.setCurrent(currentStart);
                 for (JsonNode curNode : currentNodes) {
                     dccCtrlCnf.addSeedReference(SeedLookupdAddress.create(curNode.asText()));
                 }

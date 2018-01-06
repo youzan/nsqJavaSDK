@@ -60,8 +60,7 @@ public final class HostUtil {
             hostname = InetAddress.getLocalHost().getHostName();
         } catch (UnknownHostException e) {
             logger.error("Could not get host name for local host.", e);
-        }finally {
-            return hostname;
         }
+        return hostname;
     }
 }

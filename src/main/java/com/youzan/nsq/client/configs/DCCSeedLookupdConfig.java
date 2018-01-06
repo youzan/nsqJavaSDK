@@ -42,7 +42,6 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
     private static final Logger logger = LoggerFactory.getLogger(DCCSeedLookupdConfig.class);
 
     private static final String DEFAULT_PREFIX = "##_default";
-    private volatile int INDEX = 0;
     private ReentrantReadWriteLock defaultLock = new ReentrantReadWriteLock();
     private ConcurrentHashMap<String, DefaultSeedLookupd> defaultcnfMap = new ConcurrentHashMap<>();
     private final String categorization;
@@ -57,6 +56,7 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
      * Not used in 2.3
      * @param clusterInfo cluster info
      * @param seedLookup  seed lookupd address of default cluster
+     * @deprecated
      */
     @Deprecated
     public void putDefaultCluster(String clusterInfo, String seedLookup) {
@@ -76,6 +76,7 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
      * Not used in 2.3
      * @param clusterInfo default clusterinfo
      * @return seed lookupd address for default cluster
+     * @deprecated
      */
     @Deprecated
     public String getDefaultCluster(String clusterInfo) {

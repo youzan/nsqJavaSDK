@@ -91,14 +91,16 @@ public class ConnectionManager {
             this.lastProofread = proofreadTimeStamp;
         }
 
-        public void addTotalRdy(int rdy) {
-            int rdyTotal = this.totalRdy.addAndGet(rdy);
-            assert rdyTotal >= 0;
-            float proofreadFactor = this.proofreadFactor;
-            if(proofreadFactor - PROOFREAD_FACTOR_DELTA >= PROOFREAD_FACTOR_FLOOR)
-                this.proofreadFactor = proofreadFactor - PROOFREAD_FACTOR_DELTA;
-            else {
-                this.proofreadFactor = PROOFREAD_FACTOR_FLOOR;
+        public synchronized void addTotalRdy(int rdy) {
+            if(!(rdy < 0 && this.totalRdy.get() == 0)) {
+                int rdyTotal = this.totalRdy.addAndGet(rdy);
+                assert rdyTotal >= 0;
+                float proofreadFactor = this.proofreadFactor;
+                if (proofreadFactor - PROOFREAD_FACTOR_DELTA >= PROOFREAD_FACTOR_FLOOR)
+                    this.proofreadFactor = proofreadFactor - PROOFREAD_FACTOR_DELTA;
+                else {
+                    this.proofreadFactor = PROOFREAD_FACTOR_FLOOR;
+                }
             }
         }
 
@@ -107,7 +109,7 @@ public class ConnectionManager {
          * @param newTotalrdy new total rdy for current connection wrapper set
          * @return old total rdy, or -1 if update total rdy action fails.
          */
-        public int setTotalRdy(int newTotalrdy) {
+        public synchronized int setTotalRdy(int newTotalrdy) {
             assert newTotalrdy >= 0;
             int oldRdy = this.totalRdy.get();
             this.setLastProofread(System.currentTimeMillis());
@@ -259,6 +261,7 @@ public class ConnectionManager {
     }
 
     public void subscribe(String topic, final NSQConnection subscriber) {
+       subscriber.setCurrentRdyCount(INIT_RDY);
        subscribe(topic, subscriber, INIT_RDY);
     }
 

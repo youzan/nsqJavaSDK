@@ -14,7 +14,6 @@ import java.util.SortedSet;
 public class Topic implements Comparable<Topic>, Serializable {
     private static final Logger logger = LoggerFactory.getLogger(Topic.class);
     public static final Topic TOPIC_DEFAULT = new Topic("*");
-    private String key = "";
 
     //topic sharding
     private static final TopicSharding<Object> TOPIC_SHARDING = new TopicSharding<Object>() {

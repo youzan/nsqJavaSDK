@@ -120,7 +120,7 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
         final NSQConnection connection = p.getObject();
         // another implementation : use client.heartbeat,or called
         // client.validateConnection
-        if (null != connection && connection.isConnected() && connection.isIdentitySent()) {
+        if (null != connection && connection.isIdentitySent()) {
             return client.validateHeartbeat(connection);
         }
         logger.warn("NSQConnection {} fails validation.", address);

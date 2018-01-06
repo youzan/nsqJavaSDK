@@ -44,11 +44,11 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         String configJson = null;
         try {
             configJson = MAPPER_CONFIG.writeValueAsString(config);
-        }catch (Throwable e) {
+        } catch (Throwable e) {
             logger.error("fail to parse NSQConfig to string", e);
-        }finally {
-            return configJson;
         }
+        return configJson;
+
     }
 
     private IExpectedRdyUpdatePolicy DEFAULT_EXP_RDY_POLICY = new IExpectedRdyUpdatePolicy() {

@@ -60,11 +60,11 @@ public class ITExtUpgradeTest {
 
     @Test
     public void testPublishAndConsumeWhileUpgrade() throws Exception {
-        if(lookupAddr.contains("qa")) {
-            logger.info("testPublishAndConsumeWhileUpgrade not validated in QA.");
+        if(!lookupAddr.contains("qa")) {
+            logger.info("testPublishAndConsumeWhileUpgrade validated in QA.");
             return;
         }
-        final String topicName = "textExtUpgrade_" + System.currentTimeMillis();
+        final String topicName = "textExtUpgrade";
         ScheduledExecutorService exec = Executors.newSingleThreadScheduledExecutor();
         final Producer producer = new ProducerImplV2(config);
         Consumer consumer = null;
@@ -117,7 +117,8 @@ public class ITExtUpgradeTest {
             Assert.assertEquals(consumeExtCnt.get(), 0);
 
             //then start upgrade
-            TopicUtil.upgradeTopic("http://" + lookupAddr, topicName);
+            String lookupLeader = TopicUtil.findLookupLeader("http://" + lookupAddr);
+            TopicUtil.upgradeTopic("http://" + lookupLeader, topicName);
             Thread.sleep(3000);
             long pubNormal = success.get();
             long conNormal = consumeCnt.get();
