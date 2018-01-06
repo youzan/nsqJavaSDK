@@ -9,9 +9,10 @@ import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.entity.Topic;
 import com.youzan.util.IOUtil;
 import com.youzan.util.SystemUtil;
-import org.junit.Assert;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.io.IOException;

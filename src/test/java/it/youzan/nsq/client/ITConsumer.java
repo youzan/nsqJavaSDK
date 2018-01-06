@@ -6,9 +6,9 @@ import com.youzan.nsq.client.core.ConnectionManager;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.utils.TopicUtil;
-import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.CountDownLatch;

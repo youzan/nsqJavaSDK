@@ -4,7 +4,7 @@
 
     <groupId>com.youzan</groupId>
     <artifactId>NSQ-Client</artifactId>
-    <version>2.4.2-SNAPSHOT</version>
+    <version>2.4.2-os-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>NSQ-Client</name>
@@ -107,11 +107,11 @@
         </dependency>
     </dependencies>
 
-    <parent>
-        <artifactId>parent-pom</artifactId>
-        <groupId>com.youzan</groupId>
-        <version>1.0.2</version>
-    </parent>
+    <!--<parent>-->
+        <!--<artifactId>parent-pom</artifactId>-->
+        <!--<groupId>com.youzan</groupId>-->
+        <!--<version>1.0.2</version>-->
+    <!--</parent>-->
 
     <build>
         <pluginManagement>
