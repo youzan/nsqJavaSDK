@@ -22,10 +22,10 @@ public class ITConsumer extends AbstractITConsumer{
     public void testExpectedRdy() throws Exception {
         final CountDownLatch latch = new CountDownLatch(10);
         final AtomicInteger received = new AtomicInteger(0);
-        int expectedRdy = 6;
+        int expectedRdy = 3;
         NSQConfig config = new NSQConfig("BaseConsumer");
         config.setLookupAddresses(lookups)
-                .setConsumerWorkerPoolSize(expectedRdy * 2);
+                .setConsumerWorkerPoolSize(expectedRdy * 4);
         //so rdy should be 12/2 = 6
         consumer = new ConsumerImplV2(config, new MessageHandler() {
             @Override
@@ -42,7 +42,7 @@ public class ITConsumer extends AbstractITConsumer{
             Thread.sleep(20000);
             //verify rdy
             ConsumerImplV2 consumerImpl = (ConsumerImplV2)consumer;
-            Assert.assertEquals(expectedRdy, consumerImpl.getRdyPerConnection());
+            Assert.assertEquals(consumerImpl.getRdyPerConnection(), expectedRdy);
             ConnectionManager conMgr = consumerImpl.getConnectionManager();
             ConnectionManager.NSQConnectionWrapper connWrapper = conMgr.getSubscribeConnections("JavaTesting-Producer-Base").iterator().next();
             int currentRdy = connWrapper.getConn().getCurrentRdyCount();

@@ -2,7 +2,6 @@ package com.youzan.nsq.client;
 
 import com.youzan.nsq.client.core.Client;
 import com.youzan.nsq.client.core.ConnectionManager;
-import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.entity.Topic;
@@ -37,9 +36,26 @@ public interface Consumer extends Client, Closeable {
     @Override
     void start() throws NSQException;
 
+    /**
+     * Finish(ACK) paasin message with current consumer, it is used for consumer which disable autofinish.
+     * by default when autoFinish is {@link Boolean#TRUE}, there is no need for invoke of finish.
+     * @param message
+     * @throws NSQException NSQNoConnectionException when connection which convey pass in message is lost.
+     */
     void finish(final NSQMessage message) throws NSQException;
 
     void touch(final NSQMessage message) throws NSQException;
+
+    /**
+     * Requeue passin message with current consumer, there is no need user to invoke requeue for message which raise any
+     * exception in message, as SDK rqueue message atomically when there is any exception raised in message handler.
+     * This method is open for user who would like to manage message requeue by themselves due to their need, with autoFinish
+     * {@link Boolean#FALSE}.
+     *
+     * @param message
+     * @throws NSQException
+     */
+    void requeue(final NSQMessage message) throws NSQException;
 
     void setAutoFinish(boolean autoFinish);
 

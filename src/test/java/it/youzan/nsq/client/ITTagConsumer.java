@@ -39,13 +39,15 @@ public class ITTagConsumer {
 
     public void testConsumeOneTagOneNormal() throws Exception {
         String topic = "testExt2Par2Rep";
+        Consumer consumer = null;
+        Consumer consumerTag = null;
         try {
             final CountDownLatch latch = new CountDownLatch(20);
             final AtomicInteger receivedTag1 = new AtomicInteger(0);
             NSQConfig config = new NSQConfig("BaseConsumer");
             config.setLookupAddresses(props.getProperty("lookup-addresses"));
             config.setConsumerDesiredTag(new DesiredTag("TAG1"));
-            Consumer consumerTag = new ConsumerImplV2(config, new MessageHandler() {
+            consumerTag = new ConsumerImplV2(config, new MessageHandler() {
                 @Override
                 public void process(NSQMessage message) {
                     logger.info("Message received: " + message.getReadableContent());
@@ -60,7 +62,7 @@ public class ITTagConsumer {
 
             NSQConfig configTag = new NSQConfig("BaseConsumer");
             configTag.setLookupAddresses(props.getProperty("lookup-addresses"));
-            Consumer consumer = new ConsumerImplV2(configTag, new MessageHandler() {
+            consumer = new ConsumerImplV2(configTag, new MessageHandler() {
                 @Override
                 public void process(NSQMessage message) {
                     logger.error("Message should not received: " + message.getReadableContent());
@@ -74,10 +76,11 @@ public class ITTagConsumer {
 
             Assert.assertTrue(latch.await(1, TimeUnit.MINUTES));
             Assert.assertEquals(receivedTag1.get(), 20);
-
-            consumer.close();
-            consumerTag.close();
         }finally {
+            if(null != consumer)
+                consumer.close();
+            if(null != consumerTag)
+                consumerTag.close();
             TopicUtil.emptyQueue("http://" + props.getProperty("admin-address"), topic, "BaseConsumer");
         }
     }
@@ -133,13 +136,14 @@ public class ITTagConsumer {
 
     public void testConsumeTagMix() throws Exception {
         String topic = "testExt2Par2Rep";
+        Consumer consumer = null;
         try {
             final CountDownLatch latch = new CountDownLatch(20);
             final AtomicInteger received = new AtomicInteger(0);
             final AtomicInteger receivedTag = new AtomicInteger(0);
             NSQConfig config = new NSQConfig("BaseConsumer");
             config.setLookupAddresses(props.getProperty("lookup-addresses"));
-            Consumer consumer = new ConsumerImplV2(config, new MessageHandler() {
+            consumer = new ConsumerImplV2(config, new MessageHandler() {
                 @Override
                 public void process(NSQMessage message) {
                     logger.info("Message received: " + message.getReadableContent());
@@ -158,15 +162,16 @@ public class ITTagConsumer {
             Assert.assertTrue(latch.await(1, TimeUnit.MINUTES));
             Assert.assertEquals(received.get(), 10);
             Assert.assertEquals(receivedTag.get(), 10);
-
-            consumer.close();
         }finally {
+            if(null != consumer)
+                consumer.close();
             TopicUtil.emptyQueue("http://" + props.getProperty("admin-address"), topic, "BaseConsumer");
         }
     }
 
     public void testConsumeTagMixWHeader() throws Exception {
         String topic = "testExt2Par2Rep";
+        Consumer consumer = null;
         try {
             final AtomicBoolean fail = new AtomicBoolean(false);
             final CountDownLatch latch = new CountDownLatch(20);
@@ -174,7 +179,7 @@ public class ITTagConsumer {
             final AtomicInteger receivedTag = new AtomicInteger(0);
             NSQConfig config = new NSQConfig("BaseConsumer");
             config.setLookupAddresses(props.getProperty("lookup-addresses"));
-            Consumer consumer = new ConsumerImplV2(config, new MessageHandler() {
+            consumer = new ConsumerImplV2(config, new MessageHandler() {
                 @Override
                 public void process(NSQMessage message) {
                     logger.info("Message received: " + message.getReadableContent());
@@ -202,8 +207,9 @@ public class ITTagConsumer {
             Assert.assertEquals(received.get(), 10);
             Assert.assertEquals(receivedTag.get(), 10);
 
-            consumer.close();
         }finally {
+            if(null != consumer)
+                consumer.close();
             TopicUtil.emptyQueue("http://" + props.getProperty("admin-address"), topic, "BaseConsumer");
         }
     }

@@ -655,7 +655,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         }
     }
 
-    boolean needSkip(final NSQMessage msg) {
+    boolean needSkip4MsgKV(final NSQMessage msg) {
         //skip if:
         //1. message has extension header;
         //2. skip extension KV not empty;
@@ -687,7 +687,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         boolean ok;
         boolean retry;
         boolean explicitRequeue = false;
-        boolean skip = needSkip(message);
+        boolean skip = needSkip4MsgKV(message);
         skip = skip || !checkExtFilter(message, connection);
 
         long start = System.currentTimeMillis();
@@ -1002,11 +1002,55 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
 
     @Override
     public void finish(final NSQMessage message) throws NSQException {
+        if(this.closing.get()) {
+            logger.warn("Could not finish message during closing consumer.");
+            return;
+        }
         if (message == null) {
             return;
         }
         final NSQConnection conn = address_2_conn.get(message.getAddress());
         _finish(message, conn);
+    }
+
+    @Override
+    public void requeue(final NSQMessage message) throws NSQException {
+        if(this.closing.get()) {
+            logger.warn("Could not requeue message during closing consumer.");
+            return;
+        }
+        if (message == null) {
+            return;
+        }
+        final NSQConnection conn = address_2_conn.get(message.getAddress());
+        _requeue(message, conn);
+    }
+
+    private void _requeue(final NSQMessage message, final NSQConnection conn) throws NSQNoConnectionException {
+        if (conn != null) {
+            if (conn.getId() == message.getConnectionID().intValue()) {
+                if (conn.isConnected()) {
+                    ChannelFuture future = conn.command(new ReQueue(message.getMessageID(), message.getNextConsumingInSecond().intValue()));
+                    future.addListener(new ChannelFutureListener() {
+                        @Override
+                        public void operationComplete(ChannelFuture future) throws Exception {
+                            if(future.isSuccess()) {
+                                re.incrementAndGet();
+                            } else {
+                                logger.warn("Fail to REQUEUE {}.", message, future.cause());
+                            }
+                        }
+                    });
+                } else {
+                    logger.info("Connection for message {} is closed. REQUEUE exits.", message);
+                }
+            } else {
+                logger.error("message {} does not belong to current consumer's connection", message);
+            }
+        } else {
+            throw new NSQNoConnectionException(
+                    "The connection is closed so that can not retry. Please wait next consuming.");
+        }
     }
 
     private void _finish(final NSQMessage message, final NSQConnection conn) throws NSQNoConnectionException {
@@ -1038,6 +1082,10 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
 
     @Override
     public void touch(final NSQMessage message) throws NSQException {
+        if(this.closing.get()) {
+            logger.warn("Could not touch message during closing consumer.");
+            return;
+        }
         if (message == null) {
             return;
         }
