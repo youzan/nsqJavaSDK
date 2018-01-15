@@ -519,7 +519,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         msg.setJsonExtHeader(jsonHeader);
 
         MockedConsumer consumer = new MockedConsumer(config, null);
-        boolean skipped = consumer.needSkip(msg);
+        boolean skipped = consumer.needSkip4MsgKV(msg);
         Assert.assertTrue(skipped);
 
         config.setMessageSkipExtensionKey("zan_test");
@@ -528,7 +528,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         jsonHeader3.put("zan_test", "false");
         msg = new NSQMessage();
         msg.setJsonExtHeader(jsonHeader3);
-        skipped = consumer.needSkip(msg);
+        skipped = consumer.needSkip4MsgKV(msg);
         Assert.assertTrue(skipped);
 
 
@@ -542,7 +542,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         msg3.setJsonExtHeader(jsonHeader2);
 
         MockedConsumer consumer2 = new MockedConsumer(config2, null);
-        skipped = consumer2.needSkip(msg3);
+        skipped = consumer2.needSkip4MsgKV(msg3);
         Assert.assertFalse(skipped);
     }
 

@@ -45,8 +45,8 @@ public class MockedConsumer extends ConsumerImplV2 {
         super.start();
     }
 
-    public boolean needSkip(NSQMessage msg) {
-        return super.needSkip(msg);
+    public boolean needSkip4MsgKV(NSQMessage msg) {
+        return super.needSkip4MsgKV(msg);
     }
 
     /**
