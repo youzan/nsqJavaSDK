@@ -10,9 +10,9 @@
     <name>NSQ-Client</name>
 
     <parent>
-        <groupId>org.sonatype.oss</groupId>
-        <artifactId>oss-parent</artifactId>
-        <version>9</version>
+        <artifactId>parent-pom</artifactId>
+        <groupId>com.youzan</groupId>
+        <version>1.0.2</version>
     </parent>
 
     <properties>

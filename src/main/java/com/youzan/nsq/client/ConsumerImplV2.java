@@ -461,7 +461,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             final ChannelFuture future = bootstrap.connect(address.getHost(), address.getPort());
             // Wait until the connection attempt succeeds or fails.
             if (!future.awaitUninterruptibly(config.getConnectTimeoutInMillisecond(), TimeUnit.MILLISECONDS)) {
-                throw new NSQNoConnectionException(future.cause());
+                throw new NSQNoConnectionException("timeout connecting to remote nsqd address " + address.toString(), future.cause());
             }
             final Channel channel = future.channel();
             if (!future.isSuccess()) {
