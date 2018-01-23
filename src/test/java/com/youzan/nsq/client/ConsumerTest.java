@@ -624,6 +624,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
 
             ///consume with requeue
             final CountDownLatch latch = new CountDownLatch(1);
+            final CountDownLatch secLatch = new CountDownLatch(1);
             final CountDownLatch successLatch = new CountDownLatch(1);
             final Set<NSQMessage> set = new HashSet();
             consumer = new ConsumerImplV2(config, new MessageHandler() {
@@ -633,8 +634,12 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
                     if(message.getReadableAttempts() == 1) {
                         set.add(message);
                         latch.countDown();
-                    } else if(message.getReadableAttempts() == 2 && msgContent.equals(message.getReadableContent())){
+                    } else if(message.getReadableAttempts() == 2 && msgContent.equals(message.getReadableContent())) {
+                        set.add(message);
+                        secLatch.countDown();
+                    } else if(message.getReadableAttempts() == 3 && msgContent.equals(message.getReadableContent())) {
                         successLatch.countDown();
+
                     }
                 }
             });
@@ -646,7 +651,13 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
             NSQMessage msgInSet = set.iterator().next();
             msgInSet.setNextConsumingInSecond(0);
             consumer.requeue(msgInSet);
-            Assert.assertTrue(successLatch.await(30, TimeUnit.SECONDS));
+            set.clear();
+            Assert.assertTrue(secLatch.await(30, TimeUnit.SECONDS));
+
+            msgInSet = set.iterator().next();
+            consumer.requeue(msgInSet, 10);
+            set.clear();
+            Assert.assertTrue(successLatch.await(60, TimeUnit.SECONDS));
         }finally {
             producer.close();
             consumer.close();

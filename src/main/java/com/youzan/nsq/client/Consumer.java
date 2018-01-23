@@ -57,6 +57,18 @@ public interface Consumer extends Client, Closeable {
      */
     void requeue(final NSQMessage message) throws NSQException;
 
+    /**
+     * Requeue passin message with current consumer, there is no need user to invoke requeue for message which raise any
+     * exception in message, as SDK rqueue message atomically when there is any exception raised in message handler.
+     * This method is open for user who would like to manage message requeue by themselves due to their need, with autoFinish
+     * {@link Boolean#FALSE}.
+     *
+     * @param message, message to requeue
+     * @param expectedNextConsumeDelay, expected next consume delay in SECOND, which is NOT negative.
+     * @throws NSQException
+     */
+    void requeue(final NSQMessage message, int expectedNextConsumeDelay) throws NSQException;
+
     void setAutoFinish(boolean autoFinish);
 
     /**
