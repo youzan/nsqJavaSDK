@@ -1019,7 +1019,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     }
 
     @Override
-    public void requeue(final NSQMessage message, int expectedRdyPerConn) throws NSQException {
+    public void requeue(final NSQMessage message, int nextConsumingInSecond) throws NSQException {
         if(this.closing.get()) {
             logger.warn("Could not requeue message during closing consumer.");
             return;
@@ -1028,8 +1028,8 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             return;
         }
         final NSQConnection conn = address_2_conn.get(message.getAddress());
-        if(expectedRdyPerConn >= 0)
-            message.setNextConsumingInSecond(expectedRdyPerConn);
+        if(nextConsumingInSecond >= 0)
+            message.setNextConsumingInSecond(nextConsumingInSecond);
         _requeue(message, conn);
     }
 
