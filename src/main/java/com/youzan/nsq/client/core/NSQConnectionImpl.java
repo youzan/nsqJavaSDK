@@ -299,7 +299,8 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         logger.info("Begin to clear {}", this);
         //extra lock to proof from more than none thread waiting for close
         if (closing.compareAndSet(false, true)) {
-            this.onClose();
+            if(this.isSubSent())
+                this.onClose();
             _clear();
         }
         logger.info("End clear {}", this);
