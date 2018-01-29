@@ -289,8 +289,7 @@ public class NSQMessage implements MessageMetadata, Serializable{
     }
 
     /**
-     * @param nextConsumingInSecond 1s less-equals the nextConsumingInSecond to set less-equals
-     *                              180 days
+     * @param nextConsumingInSecond 1s less-equals the nextConsumingInSecond to
      * @throws NSQException if an invalid parameter error occurs
      */
     public void setNextConsumingInSecond(Integer nextConsumingInSecond) throws NSQException {

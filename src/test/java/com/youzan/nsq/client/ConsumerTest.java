@@ -11,10 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -601,6 +598,72 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         Consumer consumer = new ConsumerImplV2(config);
         String consumerString = consumer.toString();
         Assert.assertTrue(consumerString.contains("BaseConsumer"));
+    }
+
+    @Test
+    public void testConsumerRequeue() throws Exception {
+        logger.info("[testConsumerRequeue] starts.");
+        final String topicName = "testConsumerRequeue";
+
+        final NSQConfig config = new NSQConfig("BaseConsumer");
+        config.setLookupAddresses(props.getProperty("lookup-addresses"));
+        ScheduledExecutorService exec = null;
+        Producer producer = null;
+        Consumer consumer = null;
+        String adminHttp = "http://" + props.getProperty("admin-address");
+        try {
+            TopicUtil.createTopic(adminHttp, topicName, 1, 1, "BaseConsumer");
+            TopicUtil.createTopicChannel(adminHttp, topicName, "BaseConsumer");
+
+            producer = new ProducerImplV2(config);
+            producer.start();
+            Topic topic = new Topic(topicName);
+            final String msgContent = "message should be requeue";
+            Message msg = Message.create(topic, msgContent);
+            producer.publish(msg);
+
+            ///consume with requeue
+            final CountDownLatch latch = new CountDownLatch(1);
+            final CountDownLatch secLatch = new CountDownLatch(1);
+            final CountDownLatch successLatch = new CountDownLatch(1);
+            final Set<NSQMessage> set = new HashSet();
+            consumer = new ConsumerImplV2(config, new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    //nothing happen
+                    if(message.getReadableAttempts() == 1) {
+                        set.add(message);
+                        latch.countDown();
+                    } else if(message.getReadableAttempts() == 2 && msgContent.equals(message.getReadableContent())) {
+                        set.add(message);
+                        secLatch.countDown();
+                    } else if(message.getReadableAttempts() == 3 && msgContent.equals(message.getReadableContent())) {
+                        successLatch.countDown();
+
+                    }
+                }
+            });
+            consumer.setAutoFinish(false);
+            consumer.subscribe(topic);
+            consumer.start();
+
+            Assert.assertTrue(latch.await(60, TimeUnit.SECONDS));
+            NSQMessage msgInSet = set.iterator().next();
+            msgInSet.setNextConsumingInSecond(0);
+            consumer.requeue(msgInSet);
+            set.clear();
+            Assert.assertTrue(secLatch.await(30, TimeUnit.SECONDS));
+
+            msgInSet = set.iterator().next();
+            consumer.requeue(msgInSet, 10);
+            set.clear();
+            Assert.assertTrue(successLatch.await(60, TimeUnit.SECONDS));
+        }finally {
+            producer.close();
+            consumer.close();
+            TopicUtil.deleteTopic(adminHttp, topicName);
+            logger.info("[testConsumerRequeue] ends.");
+        }
     }
 
     private ScheduledExecutorService keepMessagePublish(final Producer producer, final String topic, long interval) throws NSQException {

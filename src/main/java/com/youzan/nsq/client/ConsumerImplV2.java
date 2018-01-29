@@ -461,7 +461,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             final ChannelFuture future = bootstrap.connect(address.getHost(), address.getPort());
             // Wait until the connection attempt succeeds or fails.
             if (!future.awaitUninterruptibly(config.getConnectTimeoutInMillisecond(), TimeUnit.MILLISECONDS)) {
-                throw new NSQNoConnectionException(future.cause());
+                throw new NSQNoConnectionException("timeout connecting to remote nsqd address " + address.toString(), future.cause());
             }
             final Channel channel = future.channel();
             if (!future.isSuccess()) {
@@ -1015,6 +1015,11 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
 
     @Override
     public void requeue(final NSQMessage message) throws NSQException {
+        this.requeue(message, -1);
+    }
+
+    @Override
+    public void requeue(final NSQMessage message, int nextConsumingInSecond) throws NSQException {
         if(this.closing.get()) {
             logger.warn("Could not requeue message during closing consumer.");
             return;
@@ -1023,6 +1028,8 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             return;
         }
         final NSQConnection conn = address_2_conn.get(message.getAddress());
+        if(nextConsumingInSecond >= 0)
+            message.setNextConsumingInSecond(nextConsumingInSecond);
         _requeue(message, conn);
     }
 
