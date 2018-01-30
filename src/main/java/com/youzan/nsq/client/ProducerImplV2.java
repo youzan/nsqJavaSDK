@@ -532,7 +532,7 @@ public class ProducerImplV2 implements Producer {
                     errLog = String.format("MaxRetries: %d , CurrentRetries: %d , Address: %s , Topic: %s, MessageLength: %d, RawMessage: %s, ExtJsonHeader: %s, DesiredTag: %s.", retry, c,
                             conn.getAddress(), msg.getTopic(), msgStr.length(), msgStr.substring(0, maxlen), msg.getJsonHeaderExt(), msg.getDesiredTag());
                 }
-                logger.error(errLog, e);
+                logger.warn(errLog, e);
                 //as to NSQInvalidMessageException throw it out after connection close.
                 if(e instanceof NSQInvalidMessageException)
                     throw (NSQInvalidMessageException)e;
@@ -601,6 +601,7 @@ public class ProducerImplV2 implements Producer {
                             Thread.sleep(NSQ_LEADER_NOT_READY_TIMEOUT);
                         } catch (InterruptedException e) {
                             logger.error("Publish process interrupted waiting for nsqd consensus.");
+                            Thread.currentThread().interrupt();
                         }
                         logger.info("Partitions info for {} invalidated and related lookup force updated.", topic);
                         throw new NSQInvalidDataNodeException(topic.getTopicText());
@@ -616,6 +617,9 @@ public class ProducerImplV2 implements Producer {
                     case E_MPUB_FAILED:
                     case E_PUB_FAILED: {
                         logger.error("Address: {} , Frame: {}", conn.getAddress(), frame);
+                        //clean topic 2 partitions selector and force a lookup for topic
+                        this.simpleClient.invalidatePartitionsSelector(topic.getTopicText());
+                        logger.info("Partitions info for {} invalidated and related lookup force updated.", topic);
                         throw new NSQPubFailedException("publish to " + topic.getTopicText() + " failed. Address " + conn.getAddress() + ", Error Frame: " + frame);
                     }
                     case E_INVALID: {

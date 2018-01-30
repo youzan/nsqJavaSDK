@@ -131,5 +131,4 @@ public class ITConsumer extends AbstractITConsumer{
             TopicUtil.emptyQueue("http://" + adminHttp, "JavaTesting-Producer-Base", "BaseConsumer");
         }
     }
-
 }

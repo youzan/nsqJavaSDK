@@ -307,43 +307,26 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         }
 
         //broken set to collect Address of connection which is not connected
-        final Set<ConnectionManager.NSQConnectionWrapper> broken = new HashSet<>();
-        //final ConcurrentHashMap<Address, Set<String>> address_2_topics = new ConcurrentHashMap<>();
+        final Set<NSQConnection> conns2ClsSet = new HashSet<>();
         final Set<Address> targetAddresses = new TreeSet<>();
         /*-
          * =====================================================================
-         *                    Clean up the broken connections
+         *                    Clean up and gather the broken connections
          * =====================================================================
          */
         for (final NSQConnection c : address_2_conn.values()) {
             try {
                 if (!c.isConnected()) {
                     //close it directly, as it is broken
-                    c.close();
-                    broken.add(new ConnectionManager.NSQConnectionWrapper(c));
+                    NSQConnection conn2Close = address_2_conn.remove(c.getAddress());
+                    if(null != conn2Close)
+                        conns2ClsSet.add(conn2Close);
                 }
             } catch (Exception e) {
                 logger.error("While detecting broken connections, Exception:", e);
             }
         }
-        /*-
-         * =====================================================================
-         *                                First Step:
-         *                          干掉Broken Brokers.
-         * =====================================================================
-         */
-        if(broken.size() > 0) {
-            Map<String, List<ConnectionManager.NSQConnectionWrapper>> topic2ConWrappers = new HashMap<>();
-            for (ConnectionManager.NSQConnectionWrapper conWrapper : broken) {
-                if (!topic2ConWrappers.containsKey(conWrapper.getTopic())) {
-                    topic2ConWrappers.put(conWrapper.getTopic(), new ArrayList<ConnectionManager.NSQConnectionWrapper>());
-                }
-                List<ConnectionManager.NSQConnectionWrapper> conWrappers = topic2ConWrappers.get(conWrapper.getTopic());
-                conWrappers.add(conWrapper);
-                clearDataNode(conWrapper);
-            }
-            conMgr.remove(topic2ConWrappers);
-        }
+
         /*-
          * =====================================================================
          *                            Get the relationship
@@ -369,7 +352,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                     }
                 } catch (InterruptedException e) {
                     logger.warn("Thread interrupted waiting for partition selector update, Topic {}. Ignore if SDK is shutting down.", topic);
-                    //retry for now
+                    Thread.currentThread().interrupt();
                 }
             }
             final List<Address> dataNodeLst = Arrays.asList(partitionDataNodes);
@@ -395,14 +378,39 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
          * =====================================================================
          */
         final Set<Address> except2 = new HashSet<>(oldAddresses);
-        final Set<NSQConnection> conns2ClsSet = new HashSet<>();
         except2.removeAll(targetAddresses);
         if (!except2.isEmpty()) {
             logger.info("Delete unused data-nodes: {}", except2);
             for (Address address : except2) {
-                conns2ClsSet.addAll(clearDataNode(address));
+                conns2ClsSet.add(_clearDataNode(address));
             }
         }
+
+        /*-
+         * =====================================================================
+         *                                Step:
+         *                          Clean up local resources
+         *                                    &
+         *                remove connection wrapper from connection manager
+         * =====================================================================
+         */
+        //close connections need expiration
+        if(conns2ClsSet.size() > 0) {
+            Map<String, List<ConnectionManager.NSQConnectionWrapper>> topic2ConWrappers = new HashMap<>();
+            logger.info("Close nsqd connections need expire: {}", conns2ClsSet);
+            for (NSQConnection conn2Close : conns2ClsSet) {
+                String topicName = conn2Close.getTopic().getTopicText();
+                if (!topic2ConWrappers.containsKey(topicName)) {
+                    topic2ConWrappers.put(topicName, new ArrayList<ConnectionManager.NSQConnectionWrapper>());
+                }
+                List<ConnectionManager.NSQConnectionWrapper> conWrappers = topic2ConWrappers.get(topicName);
+                conWrappers.add(new ConnectionManager.NSQConnectionWrapper(conn2Close));
+                conn2Close.close();
+            }
+            this.conMgr.remove(topic2ConWrappers);
+            logger.info("Done expiring nsqd connections.");
+        }
+
         /*-
          * =====================================================================
          *                                Step :
@@ -422,24 +430,10 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 }
             }
         }
-        /*-
-         * =====================================================================
-         *                                Last Step:
-         *                          Clean up local resources
-         * =====================================================================
-         */
-        //close connections need expiration
-        if(conns2ClsSet.size() > 0) {
-            logger.info("Close nsqd connections need expire: {}", conns2ClsSet);
-            for (NSQConnection conn2Close : conns2ClsSet) {
-                conn2Close.close();
-            }
-            logger.info("Done expiring nsqd connections.");
-        }
+
         except1.clear();
         except2.clear();
         oldAddresses.clear();
-        broken.clear();
         targetAddresses.clear();
     }
 
@@ -512,6 +506,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         else
             return new Sub(topic, channel);
     }
+
     /**
      * No any exception
      * The method does not close the TCP-Connection
@@ -519,24 +514,30 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
      * @param address the data-node(NSQd)'s address
      */
     public Set<NSQConnection> clearDataNode(Address address) {
+        final Set<NSQConnection> clearConnections = new HashSet<>();
+        NSQConnection conn = _clearDataNode(address);
+        if(null != conn)
+            clearConnections.add(conn);
+        return clearConnections;
+    }
+
+    private NSQConnection _clearDataNode(Address address) {
         if (address == null) {
             return null;
         }
         if (!address_2_conn.containsKey(address)) {
             return null;
         }
-        final Set<NSQConnection> clearConnections = new HashSet<>();
         final NSQConnection conn = address_2_conn.get(address);
         address_2_conn.remove(address);
         if (conn != null) {
-                clearConnections.add(conn);
-                try {
-                    backoff(conn);
-                } catch (Exception e) {
-                    logger.error("It can not backoff the connection! Exception:", e);
-                }
+            try {
+                backoff(conn);
+            } catch (Exception e) {
+                logger.error("It can not backoff the connection! Exception:", e);
+            }
         }
-        return clearConnections;
+        return conn;
     }
 
     @Override
