@@ -266,6 +266,7 @@ public class ITComplexConsumer {
         String seedLookupAddress = SeedLookupdAddressTestcase.seedlookupds[0];
         String dailyLookupAddress = SeedLookupdAddressTestcase.dailySeedlookupds[0];
         final String topic = "JavaTesting-Producer-Base";
+        String[] lookupAddresses = this.config.getLookupAddresses();
         final NSQConfig config = (NSQConfig) this.config.clone();
         config.setRdy(4);
         config.setConsumerName(consumerName);
@@ -305,6 +306,7 @@ public class ITComplexConsumer {
             Assert.assertEquals(Sets.difference(addresses, addressesAfter).size(), addresses.size());
             logger.info("nsqd addr set after {}", addressesAfter);
         }finally {
+            this.config.setLookupAddresses(lookupAddresses[0]);
             consumer.close();
             logger.info("[testLookupAddressUpdate] ends.");
         }

@@ -411,7 +411,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
         logger.info("[testExpiredTopicsClear] starts.");
         final String adminHttp = "http://" + props.getProperty("admin-address");
         final String channel = "default";
-        int topicNum = 20;
+        int topicNum = 10;
         final CountDownLatch latch = new CountDownLatch(topicNum);
         final ExecutorService exec = Executors.newCachedThreadPool();
         final AtomicBoolean fail = new AtomicBoolean(false);
