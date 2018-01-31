@@ -402,7 +402,6 @@ public class ProducerTest extends AbstractNSQClientTestcase {
         }finally {
             producer.close();
             logger.info("Producer closed");
-            TopicUtil.deleteTopic(adminHttp, topicName);
             logger.info("[testProducerConnEvict] ends.");
         }
     }
