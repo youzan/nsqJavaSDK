@@ -2,8 +2,10 @@ package it.youzan.nsq.client;
 
 import com.google.common.collect.Sets;
 import com.youzan.nsq.client.*;
-import com.youzan.nsq.client.core.ConnectionManager;
-import com.youzan.nsq.client.entity.*;
+import com.youzan.nsq.client.entity.Message;
+import com.youzan.nsq.client.entity.NSQConfig;
+import com.youzan.nsq.client.entity.NSQMessage;
+import com.youzan.nsq.client.entity.Topic;
 import com.youzan.nsq.client.entity.lookup.SeedLookupdAddress;
 import com.youzan.nsq.client.entity.lookup.SeedLookupdAddressTestcase;
 import com.youzan.nsq.client.exception.NSQException;
@@ -14,7 +16,6 @@ import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -116,6 +117,7 @@ public class ITProducer {
         }finally {
             stop.set(true);
             TopicUtil.deleteTopic(dailyLookupAdmin, topic);
+            producer.close();
             logger.info("[testLookupAddressUpdate] ends.");
         }
     }
