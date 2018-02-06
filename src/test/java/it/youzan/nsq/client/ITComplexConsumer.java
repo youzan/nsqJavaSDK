@@ -1,13 +1,8 @@
 package it.youzan.nsq.client;
 
-import com.google.common.collect.Sets;
 import com.youzan.nsq.client.*;
-import com.youzan.nsq.client.core.ConnectionManager;
-import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
-import com.youzan.nsq.client.entity.lookup.SeedLookupdAddress;
-import com.youzan.nsq.client.entity.lookup.SeedLookupdAddressTestcase;
 import com.youzan.nsq.client.exception.ConfigAccessAgentException;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.utils.TopicUtil;
@@ -21,7 +16,6 @@ import org.testng.annotations.Test;
 
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
-import java.nio.charset.Charset;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
