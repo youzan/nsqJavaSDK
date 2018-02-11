@@ -205,6 +205,7 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
             List<LookupdAddress> lookupdAddressesRemove = new LinkedList<>();
             //retied lookup addresses
             if(null != lookupdsRetire && lookupdsRetire.size() > 0) {
+                logger.info("retire lookup addresses check: {} starts.", lookupdsRetire);
                 for (int idx = 0; idx < this.lookupAddressesRefs.size(); idx++) {
                     LookupdAddress lookupdAddr = this.lookupAddressesRefs.get(idx);
                     if (lookupdsRetire.contains(lookupdAddr.getAddress())) {
@@ -213,11 +214,14 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
                         this.lookupAddressInUse.remove(lookupdAddr.getAddress());
                     }
                 }
-                if (lookupdAddressesRemove.size() > 0)
+                if (lookupdAddressesRemove.size() > 0) {
+                    logger.info("retire lookup addresses to removed: {}", lookupdAddressesRemove);
                     this.lookupAddressesRefs.removeAll(lookupdAddressesRemove);
+                }
             }
             //add new lookup addresses
             if(null != lookupdsNew && lookupdsNew.size() > 0) {
+                logger.info("new lookup addresses add: {} starts.", lookupdsNew);
                 for (String aLookupStr : lookupdsNew) {
                     LookupdAddress aLookup = LookupdAddress.create(this.getClusterId(), aLookupStr);
                     this.lookupAddressesRefs.add(aLookup);

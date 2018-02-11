@@ -247,7 +247,8 @@ public class ConnectionManager {
                 try {
                     latch.await(RDY_TIMEOUT, TimeUnit.MILLISECONDS);
                 } catch (InterruptedException e) {
-                    logger.error("Interrupted waiting for rdy update for subscribe, topic {}, Connection {}", topic, subscriber);
+                    logger.warn("Interrupted waiting for rdy update for subscribe, topic {}, Connection {}", topic, subscriber);
+                    Thread.currentThread().interrupt();
                 }
             } else {
                 backoff(subscriber);
@@ -310,15 +311,16 @@ public class ConnectionManager {
                 });
                 try {
                     if (!backoffLatch.await(RDY_TIMEOUT, TimeUnit.MILLISECONDS)) {
-                        logger.error("Timeout backoff topic connection {}", conn);
+                        logger.warn("Timeout backoff topic connection {}", conn);
                     } else if (null != latch) {
                         latch.countDown();
                     }
                 } catch (InterruptedException e) {
-                    logger.error("Interrupted waiting for rdy update for backoff, connection {}", conn);
+                    logger.warn("Interrupted waiting for rdy update for backoff, connection {}", conn);
+                    Thread.currentThread().interrupt();
                 }
             } else {
-                logger.error("Connection {} does not belong to current consumer.", conn);
+                logger.warn("Connection {} does not belong to current consumer.", conn);
             }
         }
     }
@@ -365,13 +367,14 @@ public class ConnectionManager {
 
                 try{
                     if (!backoffLatch.await(latchCount * RDY_TIMEOUT, TimeUnit.MILLISECONDS)) {
-                        logger.error("Timeout backoff topic connections {}", topic);
+                        logger.warn("Timeout backoff topic connections {}", topic);
                     } else if (null != latch) {
                         latch.countDown();
                         logger.info("Backoff connections for topic {}", topic);
                     }
                 } catch (InterruptedException e) {
-                    logger.error("Interrupted while waiting for back off on all connections for {}", topic);
+                    logger.warn("Interrupted while waiting for back off on all connections for {}", topic);
+                    Thread.currentThread().interrupt();
                 }
             } finally {
                 subs.writeUnlock();
@@ -415,13 +418,14 @@ public class ConnectionManager {
 
                 try {
                     if (!resumeLatch.await(latchCount * RDY_TIMEOUT, TimeUnit.MILLISECONDS)) {
-                        logger.error("Timeout for resume topic connections {}", topic);
+                        logger.warn("Timeout for resume topic connections {}", topic);
                     } else if (null != latch) {
                         latch.countDown();
                         logger.info("Resume connections for topic {}", topic);
                     }
                 } catch (InterruptedException e) {
-                    logger.error("Interrupted while waiting for resume on all connections for {}", topic);
+                    logger.warn("Interrupted while waiting for resume on all connections for {}", topic);
+                    Thread.currentThread().interrupt();
                 }
             } finally {
                 subs.writeUnlock();
@@ -489,10 +493,11 @@ public class ConnectionManager {
                    //await for may rdy updates
                    try {
                        if (!latch.await(conCount * RDY_TIMEOUT, TimeUnit.MILLISECONDS)) {
-                           logger.error("Timeout for redistribute connections rdy {}", topic);
+                           logger.warn("Timeout for redistribute connections rdy {}", topic);
                        }
                    } catch (InterruptedException e) {
-                       logger.error("Interrupted while waiting for resume on all connections for {}", topic);
+                       logger.warn("Interrupted while waiting for resume on all connections for {}", topic);
+                       Thread.currentThread().interrupt();
                    }
                } finally {
                    subs.writeUnlock();

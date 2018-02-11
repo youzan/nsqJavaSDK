@@ -593,7 +593,7 @@ public class ProducerImplV2 implements Producer {
                     case E_FAILED_ON_NOT_WRITABLE: {
                     }
                     case E_TOPIC_NOT_EXIST: {
-                        logger.error("Address: {} , Frame: {}", conn.getAddress(), frame);
+                        logger.warn("Address: {} , Frame: {}", conn.getAddress(), frame);
                         //clean topic 2 partitions selector and force a lookup for topic
                         this.simpleClient.invalidatePartitionsSelector(topic.getTopicText());
                         //backoff for nsqd consensus, if there is one
