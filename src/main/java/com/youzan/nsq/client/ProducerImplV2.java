@@ -626,7 +626,7 @@ public class ProducerImplV2 implements Producer {
                     case E_FAILED_ON_NOT_WRITABLE: {
                     }
                     case E_TOPIC_NOT_EXIST: {
-                        logger.error("Address: {} , Frame: {}", conn.getAddress(), frame);
+                        logger.warn("Address: {} , Frame: {}", conn.getAddress(), frame);
                         //clean topic 2 partitions selector and force a lookup for topic
                         this.simpleClient.invalidatePartitionsSelector(topic.getTopicText());
                         //backoff for nsqd consensus, if there is one
@@ -650,6 +650,9 @@ public class ProducerImplV2 implements Producer {
                     case E_MPUB_FAILED:
                     case E_PUB_FAILED: {
                         logger.error("Address: {} , Frame: {}", conn.getAddress(), frame);
+                        //clean topic 2 partitions selector and force a lookup for topic
+                        this.simpleClient.invalidatePartitionsSelector(topic.getTopicText());
+                        logger.info("Partitions info for {} invalidated and related lookup force updated.", topic);
                         throw new NSQPubFailedException("publish to " + topic.getTopicText() + " failed. Address " + conn.getAddress() + ", Error Frame: " + frame);
                     }
                     case E_INVALID: {

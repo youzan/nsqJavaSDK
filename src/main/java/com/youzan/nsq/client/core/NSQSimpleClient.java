@@ -415,7 +415,7 @@ public class NSQSimpleClient implements Client, Closeable {
 
         try {
             //force lookup here, and leaving update mapping from topic to partition to newDataNodes process.
-            IPartitionsSelector aPs = lookup.lookup(topic, this.useLocalLookupd, false);
+            IPartitionsSelector aPs = lookup.lookup(topic, this.useLocalLookupd, true);
             if (null != aPs)
                 topic_2_partitionsSelector.put(topic, aPs);
         } catch (NSQException e){
