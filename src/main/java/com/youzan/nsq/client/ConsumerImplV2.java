@@ -712,7 +712,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         } catch (Exception e) {
             ok = false;
             retry = false;
-            logger.error("Client business has one error. Original message: {}. Exception:", message.getReadableContent(), e);
+            logger.error("Client business has one error. Message meta: {}, Original message: {}. Exception:", message.toString(), message.getReadableContent(), e);
         }
         if (!ok && retry) {
             logger.info("Client has told SDK to do again. {}", message);

@@ -152,6 +152,12 @@ Note worthy:
   * type of counters including success, received, queue4Consume, finished, skipped improved to long;
   * remove RdyUpdatePolicy, rdy update are related to subscribe error received from nsqd. 
 
+#2.4.1.5-RELEASE
+Note worthy:
+fix:
+  * retired lookup address should be removed from SDK[#26](https://github.com/youzan/nsqJavaSDK/issues/26)
+  * closed connection should be removed from connection manager[#26](https://github.com/youzan/nsqJavaSDK/issues/26)
+
 #2.4.2
 Note worthy:
 * Producer:

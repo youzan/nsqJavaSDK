@@ -118,6 +118,7 @@ public class ITProducer {
         }finally {
             stop.set(true);
             TopicUtil.deleteTopic(dailyLookupAdmin, topic);
+            producer.close();
             logger.info("[testLookupAddressUpdate] ends.");
         }
     }

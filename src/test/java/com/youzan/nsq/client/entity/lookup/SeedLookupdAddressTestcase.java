@@ -206,10 +206,10 @@ public class SeedLookupdAddressTestcase {
             logger.info("[testListLookup] starts");
             aSeed = SeedLookupdAddress.create(seedlookupds[0]);
             listLookup(aSeed);
-            List<SoftReference<LookupdAddress>> lookupAddressRefs = dumpLookupdAddresses(aSeed);
+            List<LookupdAddress> lookupAddressRefs = dumpLookupdAddresses(aSeed);
             Assert.assertTrue(lookupAddressRefs.size() > 0);
-            for (SoftReference<LookupdAddress> lookupdRef : lookupAddressRefs) {
-                LookupdAddress lookupdAddress = lookupdRef.get();
+            for (LookupdAddress lookupdRef : lookupAddressRefs) {
+                LookupdAddress lookupdAddress = lookupdRef;
                 Assert.assertEquals(1, lookupdAddress.getReferenceCount());
             }
 
@@ -243,7 +243,7 @@ public class SeedLookupdAddressTestcase {
             aSeed.addLookupdAddress(aLookupd1);
             aSeed.addLookupdAddress(aLookupd2);
             aSeed.addLookupdAddress(aLookupd3);
-            List<SoftReference<LookupdAddress>> lookupAddresses = dumpLookupdAddresses(aSeed);
+            List<LookupdAddress> lookupAddresses = dumpLookupdAddresses(aSeed);
             Assert.assertEquals(2, lookupAddresses.size());
 
         }finally {

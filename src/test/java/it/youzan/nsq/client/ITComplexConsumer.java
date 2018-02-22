@@ -1,13 +1,8 @@
 package it.youzan.nsq.client;
 
-import com.google.common.collect.Sets;
 import com.youzan.nsq.client.*;
-import com.youzan.nsq.client.core.ConnectionManager;
-import com.youzan.nsq.client.entity.Address;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
-import com.youzan.nsq.client.entity.lookup.SeedLookupdAddress;
-import com.youzan.nsq.client.entity.lookup.SeedLookupdAddressTestcase;
 import com.youzan.nsq.client.exception.ConfigAccessAgentException;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.utils.TopicUtil;
@@ -257,56 +252,6 @@ public class ITComplexConsumer {
             consumer.close();
             TopicUtil.emptyQueue(admin, topic, "BaseConsumer");
             logger.info("[testReadableAttempt] ends.");
-        }
-    }
-
-    @Test
-    public void testLookupAddressUpdate() throws NSQException, InterruptedException {
-        logger.info("[testLookupAddressUpdate] starts.");
-        String seedLookupAddress = SeedLookupdAddressTestcase.seedlookupds[0];
-        String dailyLookupAddress = SeedLookupdAddressTestcase.dailySeedlookupds[0];
-        final String topic = "JavaTesting-Producer-Base";
-        final NSQConfig config = (NSQConfig) this.config.clone();
-        config.setRdy(4);
-        config.setConsumerName(consumerName);
-        config.setLookupAddresses(seedLookupAddress);
-
-        Consumer consumer = new ConsumerImplV2(config, new MessageHandler() {
-            @Override
-            public void process(NSQMessage message) {
-                //nothing happen
-            }
-        });
-        consumer.subscribe(topic);
-
-        try {
-            consumer.start();
-            Thread.sleep(10000);
-            //dump connection
-            Set<ConnectionManager.NSQConnectionWrapper> connWrappersSet = ((ConsumerImplV2) consumer).getConnectionManager().getSubscribeConnections(topic);
-            Set<Address> addresses = new HashSet<>();
-            for (ConnectionManager.NSQConnectionWrapper wrapper : connWrappersSet) {
-                addresses.add(wrapper.getConn().getAddress());
-            }
-            logger.info("nsqd addr set {}", addresses);
-            //hack SeedLookupAddress
-            SeedLookupdAddress seedLookup = SeedLookupdAddress.create(seedLookupAddress);
-            seedLookup.setAddress(dailyLookupAddress);
-            seedLookup.setClusterId(dailyLookupAddress);
-
-            Thread.sleep(90000);
-            //dump connection, again
-            connWrappersSet = ((ConsumerImplV2) consumer).getConnectionManager().getSubscribeConnections(topic);
-            Set<Address> addressesAfter = new HashSet<>();
-            for (ConnectionManager.NSQConnectionWrapper wrapper : connWrappersSet) {
-                addressesAfter.add(wrapper.getConn().getAddress());
-            }
-
-            Assert.assertEquals(Sets.difference(addresses, addressesAfter).size(), addresses.size());
-            logger.info("nsqd addr set after {}", addressesAfter);
-        }finally {
-            consumer.close();
-            logger.info("[testLookupAddressUpdate] ends.");
         }
     }
 
