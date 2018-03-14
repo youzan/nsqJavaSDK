@@ -157,6 +157,11 @@ Note worthy:
 fix:
   * retired lookup address should be removed from SDK[#26](https://github.com/youzan/nsqJavaSDK/issues/26)
   * closed connection should be removed from connection manager[#26](https://github.com/youzan/nsqJavaSDK/issues/26)
+  
+#2.4.1.6-RELEASE
+Note worthy:
+fix:
+  * consumer event group not shutdown[#26](https://github.com/youzan/nsqJavaSDK/issues/29)
 
 #2.4.2
 Note worthy:

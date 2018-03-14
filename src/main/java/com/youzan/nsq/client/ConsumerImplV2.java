@@ -67,6 +67,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
 
     //netty component for consumer
     private final Bootstrap bootstrap = new Bootstrap();
+    private final EventLoopGroup eventLoopGroup;
 
     /*
      * topics' partitions maintaining a sorted set of partitions number, example: {-1, 0, 2, 3}
@@ -114,7 +115,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         this.simpleClient = new NSQSimpleClient(Role.Consumer, this.config.getUserSpecifiedLookupAddress(), this.config);
 
         //initialize netty component
-        EventLoopGroup eventLoopGroup = new NioEventLoopGroup(config.getNettyPoolSize());
+        eventLoopGroup = new NioEventLoopGroup(config.getNettyPoolSize());
         bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
         bootstrap.option(ChannelOption.TCP_NODELAY, true);
         bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, config.getConnectTimeoutInMillisecond());
@@ -870,6 +871,9 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 close(connections);
                 logger.info("The consumer has been closed.");
             } finally {
+                if (eventLoopGroup != null && !eventLoopGroup.isShuttingDown()) {
+                    eventLoopGroup.shutdownGracefully(1, 2, TimeUnit.SECONDS);
+                }
                 cLock.writeLock().unlock();
             }
         }
