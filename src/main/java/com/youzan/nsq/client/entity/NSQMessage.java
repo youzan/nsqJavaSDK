@@ -299,7 +299,7 @@ public class NSQMessage implements MessageMetadata, Serializable{
                 throw new IllegalArgumentException(
                         "NextConsumingInSecond is illegal. It is too small. " + NSQConfig._MIN_NEXT_CONSUMING_IN_SECOND);
             } else if (timeout > NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND) {
-                logger.warn("Next consuming in second is larger than {}. It may be limited to max value in server side.", NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND);
+                logger.info("Next consuming in second is larger than {}. It may be limited to max value in server side.", NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND);
             }
         }
         this.nextConsumingInSecond = nextConsumingInSecond;

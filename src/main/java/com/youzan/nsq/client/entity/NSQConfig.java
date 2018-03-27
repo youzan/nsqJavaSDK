@@ -215,7 +215,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     // 1 seconds
     public static final int _MIN_NEXT_CONSUMING_IN_SECOND = 0;
-    // one hour is the limit
+    // 24 hour is the limit
     public static final int _MAX_NEXT_CONSUMING_IN_SECOND = 24 * 3600;
     private int nextConsumingInSecond = 60;
     private long maxConnWait = 200L;
