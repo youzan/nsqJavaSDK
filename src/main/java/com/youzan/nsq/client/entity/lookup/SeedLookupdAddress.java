@@ -14,6 +14,7 @@ import java.net.InetAddress;
 import java.net.URL;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -344,6 +345,9 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
         this.removeAllLookupdAddress();
     }
 
+    private static AtomicInteger LIST_ALL_ERR_CNT = new AtomicInteger(0);
+    private static final int THRESHOLD_LIST_LOOKUP_CNT = 3;
+
     public static int listAllLookup() {
         long start = 0L;
         int success = 0;
@@ -354,8 +358,14 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
             try {
                 aSeed.listLookup(true);
                 success ++;
+                LIST_ALL_ERR_CNT.set(0);
             } catch (IOException e) {
-                logger.error("Fail to get lookup address for seed lookup address: {}.", aSeed.getAddress());
+                int errCnt = LIST_ALL_ERR_CNT.addAndGet(1);
+                if(errCnt > THRESHOLD_LIST_LOOKUP_CNT) {
+                    logger.error("Fail to get lookup address for seed lookup address in continuous {} times. Lookupd address: {}.", errCnt, aSeed.getAddress());
+                } else {
+                    logger.warn("Fail to get lookup address for seed lookup address: {}.", aSeed.getAddress());
+                }
             }
         }
 
@@ -364,5 +374,9 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
         }
 
         return success;
+    }
+
+    public static int getListLookupErrCnt() {
+        return LIST_ALL_ERR_CNT.get();
     }
 }

@@ -64,6 +64,37 @@ public class SeedLookupdAddressTestcase {
     }
 
     @Test
+    public void testListLookupdAddressError() throws NoSuchFieldException, IllegalAccessException {
+        SeedLookupdAddress aSeed = null, aDummySeed1 = null, aDummySeed2 = null, aDummySeed3 = null, aDuplicatedSeed = null;
+        try {
+            logger.info("[testListLookupdAddressError] starts.");
+            aDummySeed1 = SeedLookupdAddress.create(dummyLookupds[0]);
+            aDummySeed2 = SeedLookupdAddress.create(dummyLookupds[1]);
+            aDummySeed3 = SeedLookupdAddress.create(dummyLookupds[2]);
+
+            SeedLookupdAddress.listAllLookup();
+            SeedLookupdAddress.listAllLookup();
+            SeedLookupdAddress.listAllLookup();
+            SeedLookupdAddress.listAllLookup();
+
+            int errCnt = SeedLookupdAddress.getListLookupErrCnt();
+            Assert.assertEquals(errCnt, 12);
+
+            clean(aDummySeed1);
+            clean(aDummySeed2);
+            clean(aDummySeed3);
+            aSeed = SeedLookupdAddress.create(seedlookupds[0]);
+            SeedLookupdAddress.listAllLookup();
+            errCnt = SeedLookupdAddress.getListLookupErrCnt();
+            Assert.assertEquals(errCnt, 0);
+
+        }finally {
+            logger.info("[testSeedLookupdAddressCreate] ends.");
+            clean(aSeed);
+        }
+    }
+
+    @Test
     public void testSeedLookupdAddressCreate() throws NoSuchFieldException, IllegalAccessException {
         SeedLookupdAddress aSeed = null, aDummySeed = null, aDuplicatedSeed = null;
         try {

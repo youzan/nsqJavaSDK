@@ -162,3 +162,8 @@ fix:
 Note worthy:
 fix:
   * consumer event group not shutdown[#26](https://github.com/youzan/nsqJavaSDK/issues/29)
+  
+#2.4.1.7-RELEASE
+Note worthy:
+fix
+ * error list lookup error after continuous 3 times[#30](https://github.com/youzan/nsqJavaSDK/issues/30)
