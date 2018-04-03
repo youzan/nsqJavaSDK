@@ -161,7 +161,7 @@ fix:
 #2.4.1.6-RELEASE
 Note worthy:
 fix:
-  * consumer event group not shutdown[#26](https://github.com/youzan/nsqJavaSDK/issues/29)
+  * consumer event group not shutdown[#29](https://github.com/youzan/nsqJavaSDK/issues/29)
   
 #2.4.1.7-RELEASE
 Note worthy:
