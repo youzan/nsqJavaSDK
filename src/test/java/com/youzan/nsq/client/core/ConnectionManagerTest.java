@@ -159,7 +159,7 @@ public class ConnectionManagerTest {
 //        ConnectionManager conMgr = null;
 //        String topic = "testRdyDec";
 //        String channel = "BaseConsumer";
-//        String adminHttp = "http://" + props.getProperty("admin-address");
+//        String adminHttp = "http://" + props.getProperty("lookup-addresses");
 //        try {
 //            TopicUtil.createTopic(adminHttp, topic, 5, 1, channel);
 //            TopicUtil.createTopicChannel(adminHttp, topic, channel);
@@ -235,7 +235,7 @@ public class ConnectionManagerTest {
             int partitionNum = 5;
             String topic = "testRdyInc";
             String channel = "BaseConsumer";
-            String adminHttp = "http://" + props.getProperty("admin-address");
+            String adminHttp = "http://" + props.getProperty("lookup-addresses");
         try{
             TopicUtil.createTopic(adminHttp, topic, 5, 1, channel);
             TopicUtil.createTopicChannel(adminHttp, topic, channel);
@@ -268,7 +268,7 @@ public class ConnectionManagerTest {
         logger.info("[testExpectedRdy] starts.");
         ConnectionManager conMgr = null;
         String topic = "test5Par1Rep";
-        String adminHttp = "http://" + props.getProperty("admin-address");
+        String adminHttp = "http://" + props.getProperty("lookup-addresses");
         try {
             TopicUtil.createTopic(adminHttp, topic, 5, 1, "default");
             TopicUtil.createTopicChannel(adminHttp, topic, "default");
@@ -332,7 +332,7 @@ public class ConnectionManagerTest {
         String topicJ = "testRemoveConWrapper_j";
         int par2 = 1;
 
-        String adminHttp = "http://" + props.getProperty("admin-address");
+        String adminHttp = "http://" + props.getProperty("lookup-addresses");
         String channel = "BaseConsumer";
         try {
             TopicUtil.createTopic(adminHttp, topic, par1, 1, channel);
@@ -426,7 +426,7 @@ public class ConnectionManagerTest {
         int par = 5;
         final String topic = "test5Par1Rep";
         String channel = "BaseConsumer";
-        String adminHttp = "http://" + props.getProperty("admin-address");
+        String adminHttp = "http://" + props.getProperty("lookup-addresses");
         try{
             TopicUtil.createTopic(adminHttp, topic, 5, 1, channel);
             TopicUtil.createTopicChannel(adminHttp, topic, channel);
@@ -527,7 +527,7 @@ public class ConnectionManagerTest {
 
         final String topic = "testInvalidateConnection";
         int par = 5;
-        String adminHttp = "http://" + props.getProperty("admin-address");
+        String adminHttp = "http://" + props.getProperty("lookup-addresses");
         try{
             TopicUtil.createTopic(adminHttp, topic, 5, 1, "default");
             TopicUtil.createTopicChannel(adminHttp, topic, "default");
@@ -563,7 +563,7 @@ public class ConnectionManagerTest {
         final String topicName = "testConBackoffResume";
         String channel = "default";
         int parNum = 5;
-        String adminUrl = "http://" + props.getProperty("admin-address");
+        String adminUrl = "http://" + props.getProperty("lookup-addresses");
         final ConnectionManager conMgr = new ConnectionManager(new IConsumeInfo() {
             @Override
             public float getLoadFactor() {
@@ -725,7 +725,7 @@ public class ConnectionManagerTest {
         MockedConsumer consumer = null;
         final String topic = "testProofreadTotalRdy";
         int par = 5;
-        String adminHttp = "http://" + props.getProperty("admin-address");
+        String adminHttp = "http://" + props.getProperty("lookup-addresses");
         try{
             TopicUtil.createTopic(adminHttp, topic, 5, 1, "default");
             TopicUtil.createTopicChannel(adminHttp, topic, "default");
@@ -785,7 +785,7 @@ public class ConnectionManagerTest {
         logger.info("[testMakebadOfRdyRedistribute] starts.");
         String topicName = "testMakebadOfRdyDist";
         String channel = "default";
-        String admin = "http://" + props.getProperty("admin-address");
+        String admin = "http://" + props.getProperty("lookup-addresses");
 
         final ConnectionManager conMgr = new ConnectionManager(new IConsumeInfo() {
             @Override
@@ -844,7 +844,7 @@ public class ConnectionManagerTest {
 
     @Test(dataProvider = "topicNums", dataProviderClass = ConnectionManagerTest.class)
     public void testConsumeMultiTopicsRdy(int topicsNum) throws Exception {
-        String adminHtp = "http://" + props.getProperty("admin-address");
+        String adminHtp = "http://" + props.getProperty("lookup-addresses");
         final List<String> list = new ArrayList<>();
         int parNum = 4;
         int repNum = 1;

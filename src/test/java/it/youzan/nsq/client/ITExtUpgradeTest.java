@@ -51,7 +51,7 @@ public class ITExtUpgradeTest {
         final String msgTimeoutInMillisecond = props.getProperty("msgTimeoutInMillisecond");
 
         lookupAddr = lookups;
-        adminHttp = "http://" + props.getProperty("admin-address");
+        adminHttp = "http://" + props.getProperty("lookup-addresses");
         config.setLookupAddresses(lookups);
         config.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
         config.setMsgTimeoutInMillisecond(Integer.valueOf(msgTimeoutInMillisecond));

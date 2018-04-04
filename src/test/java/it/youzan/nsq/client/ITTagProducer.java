@@ -51,7 +51,7 @@ public class ITTagProducer {
     }
 
     public void publishWTagAndNot() throws Exception {
-        TopicUtil.emptyQueue("http://" + props.getProperty("admin-address"), "testExt2Par2Rep", "BaseConsumer");
+        TopicUtil.emptyQueue("http://" + props.getProperty("lookup-addresses"), "testExt2Par2Rep", "BaseConsumer");
         Topic topic = new Topic("testExt2Par2Rep");
         DesiredTag tag = new DesiredTag("TAG1");
         for (int i = 0; i < 20; i++) {
@@ -62,7 +62,7 @@ public class ITTagProducer {
     }
 
     public void publishWTag() throws Exception {
-        TopicUtil.emptyQueue("http://" + props.getProperty("admin-address"), "testExt2Par2Rep", "BaseConsumer");
+        TopicUtil.emptyQueue("http://" + props.getProperty("lookup-addresses"), "testExt2Par2Rep", "BaseConsumer");
         Topic topic = new Topic("testExt2Par2Rep");
         DesiredTag tag = new DesiredTag("TAG1");
         for (int i = 0; i < 10; i++) {
@@ -80,7 +80,7 @@ public class ITTagProducer {
     }
 
     public void publishWTagMix() throws Exception {
-        TopicUtil.emptyQueue("http://" + props.getProperty("admin-address"), "testExt2Par2Rep", "BaseConsumer");
+        TopicUtil.emptyQueue("http://" + props.getProperty("lookup-addresses"), "testExt2Par2Rep", "BaseConsumer");
         Topic topic = new Topic("testExt2Par2Rep");
         DesiredTag tag = new DesiredTag("TAG1");
         for (int i = 0; i < 10; i++) {
@@ -96,7 +96,7 @@ public class ITTagProducer {
     }
 
     public void publishWTagMixWHeader() throws Exception {
-        TopicUtil.emptyQueue("http://" + props.getProperty("admin-address"), "testExt2Par2Rep", "BaseConsumer");
+        TopicUtil.emptyQueue("http://" + props.getProperty("lookup-addresses"), "testExt2Par2Rep", "BaseConsumer");
         Topic topic = new Topic("testExt2Par2Rep");
         DesiredTag tag = new DesiredTag("TAG1");
 

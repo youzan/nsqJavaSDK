@@ -50,7 +50,7 @@ public class ITComplexConsumer {
 
         lookups = props.getProperty("lookup-addresses");
         final String connTimeout = props.getProperty("connectTimeoutInMillisecond");
-        admin = "http://" + props.getProperty("admin-address");
+        admin = "http://" + props.getProperty("lookup-addresses");
         config.setLookupAddresses(lookups);
         config.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
         config.setThreadPoolSize4IO(Runtime.getRuntime().availableProcessors() * 2);
