@@ -544,8 +544,8 @@ public class ProducerImplV2 implements Producer {
                 invalidConnection(conn);
 
                 String errLog;
-                if(msg.getMessageCount() > 1) {
-                    errLog = String.format("%s, MaxRetries: %d , CurrentRetries: %d , Address: %s , Topic: %s， Message count: %d.", e.getLocalizedMessage(), retry, c,
+                if(msg instanceof MessagesWrapper) {
+                    errLog = String.format("MaxRetries: %d , CurrentRetries: %d , Address: %s , Topic: %s， Message count: %d.", retry, c,
                             conn.getAddress(), msg.getTopic(), msg.getMessageCount());
                 } else {
                     String msgStr = msg.getMessageBody();
@@ -558,6 +558,8 @@ public class ProducerImplV2 implements Producer {
                 //as to NSQInvalidMessageException throw it out after connection close.
                 if(e instanceof NSQInvalidMessageException)
                     throw (NSQInvalidMessageException)e;
+                else if (e instanceof NSQInvalidMessageBodyException)
+                    throw (NSQInvalidMessageBodyException)e;
                 NSQException nsqE = new NSQException(errLog, e);
                 exceptions.add(nsqE);
                 if (c >= retry) {
@@ -615,11 +617,14 @@ public class ProducerImplV2 implements Producer {
             case ERROR_FRAME: {
                 final ErrorFrame err = (ErrorFrame) frame;
                 switch (err.getError()) {
+                    case E_BAD_BODY: {
+                        throw new NSQInvalidMessageBodyException();
+                    }
                     case E_BAD_TOPIC: {
                         throw new NSQInvalidTopicException(topic.getTopicText());
                     }
                     case E_BAD_MESSAGE: {
-                        throw new NSQInvalidMessageException();
+                        throw NSQInvalidMessageException.EXP_INVALD_MSG;
                     }
                     case E_FAILED_ON_NOT_LEADER: {
                     }

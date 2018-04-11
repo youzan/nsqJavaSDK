@@ -218,6 +218,101 @@ public class ITProducer {
         }finally {
             producer.close();
             consumer.close();
+            logger.info("[ITProducer#multiPublishBatchError1] ends");
+        }
+    }
+
+    @Test
+    public void multiPublishOneMsg() throws Exception {
+        logger.info("[ITProducer#multiPublishOneMsg] starts");
+        Producer producer = null;
+        Consumer consumer = null;
+        Topic topic = new Topic("JavaTesting-Producer-Base");
+        final CountDownLatch latch = new CountDownLatch(1);
+        final AtomicBoolean failed = new AtomicBoolean(false);
+        try{
+            TopicUtil.emptyQueue(adminHttp, "JavaTesting-Producer-Base", "BaseConsumer");
+            final String msgStr = "The quick brown fox jumps over the lazy dog, 那只迅捷的灰狐狸跳过了那条懒狗";
+            final byte[] msgBytes = msgStr.getBytes(Charset.defaultCharset());
+
+            config.setConsumerName("BaseConsumer");
+            consumer = new ConsumerImplV2(config, new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    latch.countDown();
+                    if(!message.getReadableContent().equals(msgStr)) {
+                        failed.set(true);
+                    }
+                }
+            });
+            consumer.subscribe(topic);
+            consumer.start();
+
+            producer = new ProducerImplV2(config);
+            producer.start();
+            List<byte[]> msgs = new ArrayList<>();
+            //last batch, add an invalid one
+            msgs.add(msgStr.getBytes());
+            producer.publishMulti(msgs, topic);
+            latch.await(1, TimeUnit.MINUTES);
+            Assert.assertFalse(failed.get());
+        }finally {
+            producer.close();
+            consumer.close();
+            logger.info("[ITProducer#multiPublishOneMsg] ends");
+        }
+    }
+
+    @Test
+    public void multiPublishBadMsg() throws Exception {
+        logger.info("[ITProducer#multiPublishBadMsg] starts");
+        Producer producer = null;
+        Consumer consumer = null;
+        Topic topic = new Topic("JavaTesting-Producer-Base");
+        final CountDownLatch latch = new CountDownLatch(2300);
+        final AtomicBoolean failed = new AtomicBoolean(false);
+        try{
+//            TopicUtil.emptyQueue(adminHttp, "JavaTesting-Producer-Base", "BaseConsumer");
+            final String msgStr = "The quick brown fox jumps over the lazy dog, 那只迅捷的灰狐狸跳过了那条懒狗";
+            final byte[] msgBytes = msgStr.getBytes(Charset.defaultCharset());
+
+            //invalid message
+            ByteBuffer bf =  ByteBuffer.allocate(2000000);
+            int i = 0;
+            while(i++ < 2000000) {
+                bf.put("M".getBytes());
+            }
+
+            config.setConsumerName("BaseConsumer");
+            consumer = new ConsumerImplV2(config, new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    latch.countDown();
+                    if(!message.getReadableContent().equals(msgStr)) {
+                        failed.set(true);
+                    }
+                }
+            });
+            consumer.subscribe(topic);
+            consumer.start();
+
+            producer = new ProducerImplV2(config);
+            producer.start();
+            List<byte[]> msgs = new ArrayList<>();
+            for(int cnt = 0; cnt < 2344; cnt++) {
+                msgs.add(msgBytes);
+            }
+            //last batch, add an invalid one
+            msgs.add(bf.array());
+            producer.publishMulti(msgs, topic);
+            latch.await(1, TimeUnit.MINUTES);
+            Assert.assertFalse(failed.get());
+        } catch(Exception e){
+          logger.error("error in mpub", e);
+        } finally {
+            producer.close();
+            consumer.close();
+            logger.info("[ITProducer#multiPublishBadMsg] ends");
         }
     }
 
