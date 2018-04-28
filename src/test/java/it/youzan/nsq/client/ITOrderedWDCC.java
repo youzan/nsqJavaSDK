@@ -36,7 +36,7 @@ public class ITOrderedWDCC {
         try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {
             props.load(is);
         }
-        adminHttp = "http://" + props.getProperty("lookup-addresses");
+        adminHttp = "http://" + props.getProperty("admin-lookup-addresses");
     }
 
     @Test

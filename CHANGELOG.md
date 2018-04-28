@@ -167,3 +167,8 @@ fix:
 Note worthy:
 fix
  * error list lookup error after continuous 3 times[#30](https://github.com/youzan/nsqJavaSDK/issues/30)
+ 
+#2.4.1.8-RELEASE
+Note worthy:
+fix
+ * fix inappropriate log level in NSQSimpleClient [#32](https://github.com/youzan/nsqJavaSDK/issues/32)

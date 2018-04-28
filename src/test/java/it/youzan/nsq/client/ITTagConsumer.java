@@ -76,7 +76,7 @@ public class ITTagConsumer {
             consumer.close();
             consumerTag.close();
         }finally {
-            TopicUtil.emptyQueue("http://" + props.getProperty("lookup-addresses"), topic, "BaseConsumer");
+            TopicUtil.emptyQueue("http://" + props.getProperty("admin-lookup-addresses"), topic, "BaseConsumer");
         }
     }
 
@@ -125,7 +125,7 @@ public class ITTagConsumer {
             consumer.close();
             consumerTag.close();
         }finally {
-            TopicUtil.emptyQueue("http://" + props.getProperty("lookup-addresses"), topic, "BaseConsumer");
+            TopicUtil.emptyQueue("http://" + props.getProperty("admin-lookup-addresses"), topic, "BaseConsumer");
         }
     }
 
@@ -159,7 +159,7 @@ public class ITTagConsumer {
 
             consumer.close();
         }finally {
-            TopicUtil.emptyQueue("http://" + props.getProperty("lookup-addresses"), topic, "BaseConsumer");
+            TopicUtil.emptyQueue("http://" + props.getProperty("admin-lookup-addresses"), topic, "BaseConsumer");
         }
     }
 
@@ -202,7 +202,7 @@ public class ITTagConsumer {
 
             consumer.close();
         }finally {
-            TopicUtil.emptyQueue("http://" + props.getProperty("lookup-addresses"), topic, "BaseConsumer");
+            TopicUtil.emptyQueue("http://" + props.getProperty("admin-lookup-addresses"), topic, "BaseConsumer");
         }
     }
 }

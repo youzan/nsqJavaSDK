@@ -138,7 +138,8 @@ public class TopicUtil {
     }
 
     public static void createTopic(String adminUrl, String topicName, int parNum, int repNum, String channel, boolean ordered, boolean ext) throws Exception {
-        String urlStr = String.format("%s/topic/create?topic=%s&partition_num=%d&replicator=%d&orderedmulti=%b&extend=%b", adminUrl, topicName, parNum, repNum, ordered, ext);
+        String lookupLeaderAddr = lookupLeaderAddr(adminUrl);
+        String urlStr = String.format("%s/topic/create?topic=%s&partition_num=%d&replicator=%d&orderedmulti=%b&extend=%b", lookupLeaderAddr, topicName, parNum, repNum, ordered, ext);
         URL url = new URL(urlStr);
         IOUtil.postToUrl(url, null);
         Thread.sleep(20000);
@@ -150,14 +151,24 @@ public class TopicUtil {
     }
 
     private static JsonNode lookupProducers(String lookupUrlStr, String topicName) throws IOException {
-        ObjectMapper om = SystemUtil.getObjectMapper();
         String urlStr = String.format("%s/lookup?topic=%s", lookupUrlStr, topicName);
         URL lookupUrl = new URL(urlStr);
         return IOUtil.readFromUrl(lookupUrl);
     }
 
+    private static String lookupLeaderAddr(String lookupUrlStr) throws IOException {
+        ObjectMapper om = SystemUtil.getObjectMapper();
+        String urlStr = String.format("%s/listlookup", lookupUrlStr);
+        URL lookupUrl = new URL(urlStr);
+        JsonNode leaderNode = IOUtil.readFromUrl(lookupUrl).get("lookupdleader");
+        String ip = leaderNode.get("NodeIP").asText();
+        String httpPort = leaderNode.get("HttpPort").asText();
+        return "http://" + ip + ":" + httpPort;
+    }
+
     public static void deleteTopic(String lookupUrl, String topicName) throws Exception {
-        String topicDeleteUrlStr = String.format("%s/topic/delete?topic=%s&partition=**", lookupUrl, topicName);
+        String lookupLeaderAddr = lookupLeaderAddr(lookupUrl);
+        String topicDeleteUrlStr = String.format("%s/topic/delete?topic=%s&partition=**", lookupLeaderAddr, topicName);
         URL topicDeleteUrl = new URL(topicDeleteUrlStr);
         IOUtil.postToUrl(topicDeleteUrl, null);
     }
@@ -167,7 +178,8 @@ public class TopicUtil {
     }
 
     public static void upgradeTopic(String lookupdAddr, String topicName) throws Exception {
-        URL upgradeUrl = new URL(lookupdAddr + "/topic/meta/update?topic=" + topicName + "&upgradeext=true");
+        String lookupLeaderAddr = lookupLeaderAddr(lookupdAddr);
+        URL upgradeUrl = new URL(lookupLeaderAddr + "/topic/meta/update?topic=" + topicName + "&upgradeext=true");
         IOUtil.postToUrl(upgradeUrl, null);
     }
 
@@ -185,7 +197,7 @@ public class TopicUtil {
         try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {
             props.load(is);
         }
-        String adminHttp = "http://" + props.getProperty("lookup-addresses");
+        String adminHttp = "http://" + props.getProperty("admin-lookup-addresses");
         String topicPattern = "topic_";
         TopicUtil.deleteTopics(adminHttp, topicPattern);
         logger.info("[testTopicUtil] ends.");
@@ -201,7 +213,7 @@ public class TopicUtil {
         try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {
             props.load(is);
         }
-        String lookupHttp = "http://" + props.getProperty("lookup-addresses");
+        String lookupHttp = "http://" + props.getProperty("admin-lookup-addresses");
         String topicName = "topicUtilTest";
         TopicUtil.createTopic(lookupHttp, topicName, "default");
         //publish to channel

@@ -45,7 +45,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
 //        Consumer consumer1 = null;
 //        Consumer consumer2 = null;
 //        Consumer consumer3 = null;
-//        String adminHttp = "http://" + props.getProperty("lookup-addresses");
+//        String adminHttp = "http://" + props.getProperty("admin-lookup-addresses");
 //        try {
 ////            TopicUtil.createTopic(adminHttp, topic, 5, 1, "default");
 ////            TopicUtil.createTopicChannel(adminHttp, topic, "default");
@@ -141,7 +141,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         logger.info("[testNextConsumingTimeout] starts.");
         final NSQConfig config = new NSQConfig("BaseConsumer");
         config.setLookupAddresses(props.getProperty("lookup-addresses"));
-        String adminHttp = "http://" + props.getProperty("lookup-addresses");
+        String adminHttp = "http://" + props.getProperty("admin-lookup-addresses");
         String topicName = "testNextConsumingTimeout";
 
         final int requeueTimeout = 10;
@@ -211,7 +211,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         ScheduledExecutorService exec = null;
         Producer producer = null;
         Consumer consumer = null;
-        String adminHttp = "http://" + props.getProperty("lookup-addresses");
+        String adminHttp = "http://" + props.getProperty("admin-lookup-addresses");
         try {
             TopicUtil.createTopic(adminHttp, topicName, 5, 1, "BaseConsumer");
             TopicUtil.createTopicChannel(adminHttp, topicName, "BaseConsumer");
@@ -267,7 +267,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         ScheduledExecutorService exec = null;
         Producer producer = null;
         Consumer consumer = null;
-        String adminHttp = "http://" + props.getProperty("lookup-addresses");
+        String adminHttp = "http://" + props.getProperty("admin-lookup-addresses");
         try {
             TopicUtil.createTopic(adminHttp, topic, "BaseConsumer");
             TopicUtil.createTopicChannel(adminHttp, topic, "BaseConsumer");
@@ -320,7 +320,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         ScheduledExecutorService exec = null;
         Producer producer = null;
         Consumer consumer = null;
-        String adminHttp = "http://" + props.getProperty("lookup-addresses");
+        String adminHttp = "http://" + props.getProperty("admin-lookup-addresses");
         try {
             TopicUtil.createTopic(adminHttp, topic, "BaseConsumer");
             TopicUtil.createTopicChannel(adminHttp, topic, "BaseConsumer");
@@ -344,10 +344,15 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
             consumer.start();
             logger.info("Wait for 60s for consumer to start...");
             Thread.sleep(60000L);
-        }finally {
-            exec.shutdownNow();
+        } catch(Exception e) {
+            logger.error("error in testCloseConsumerWhileConsumption", e);
+        } finally {
+            if (exec != null)
+                exec.shutdownNow();
             Thread.sleep(1000L);
-            producer.close();
+            if (null != producer)
+                producer.close();
+            if (null != consumer)
             consumer.close();
             TopicUtil.deleteTopic(adminHttp, topic);
             logger.info("[testCloseConsumerWhileConsumption] ends.");
@@ -370,7 +375,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         ScheduledExecutorService exec = null;
         Producer producer = null;
         Consumer consumer = null;
-        String adminHttp = "http://" + props.getProperty("lookup-addresses");
+        String adminHttp = "http://" + props.getProperty("admin-lookup-addresses");
         try {
             TopicUtil.createTopic(adminHttp, topic, "default");
             TopicUtil.createTopicChannel(adminHttp, topic, "default");
@@ -415,7 +420,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         ScheduledExecutorService exec = null;
         Producer producer = null;
         MockedConsumer consumer = null;
-        String adminHttp = "http://" + props.getProperty("lookup-addresses");
+        String adminHttp = "http://" + props.getProperty("admin-lookup-addresses");
         try {
             TopicUtil.createTopic(adminHttp, topic1, 2, 1,"default");
             TopicUtil.createTopicChannel(adminHttp, topic1, "default");
@@ -464,7 +469,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         final NSQConfig config = new NSQConfig("default");
         config.setLookupAddresses(props.getProperty("lookup-addresses"));
         final String topic = "testExplicitReQueueMessage";
-        String adminHttp = "http://" + props.getProperty("lookup-addresses");
+        String adminHttp = "http://" + props.getProperty("admin-lookup-addresses");
         Producer producer = new ProducerImplV2(config);
         producer.start();
         Consumer consumer = new ConsumerImplV2(config);

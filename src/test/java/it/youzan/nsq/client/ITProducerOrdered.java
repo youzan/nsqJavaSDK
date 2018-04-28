@@ -37,7 +37,7 @@ public class ITProducerOrdered {
         final String connTimeout = props.getProperty("connectTimeoutInMillisecond");
         final String msgTimeoutInMillisecond = props.getProperty("msgTimeoutInMillisecond");
         final String threadPoolSize4IO = props.getProperty("threadPoolSize4IO");
-        adminHttp = "http://" + props.getProperty("lookup-addresses");
+        adminHttp = "http://" + props.getProperty("admin-lookup-addresses");
 
         config.setLookupAddresses(lookups);
         config.setUserSpecifiedLookupAddress(true);

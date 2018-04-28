@@ -243,7 +243,7 @@ public class NSQSimpleClient implements Client, Closeable {
                                 if (PERF_LOG.isDebugEnabled())
                                     PERF_LOG.debug("nop response to {}.", conn.getAddress());
                             }else{
-                                logger.error("Fail to response to heartbeat from {}.", conn.getAddress());
+                                logger.warn("Fail to response to heartbeat from {}.", conn.getAddress());
                             }
                         }
                     });

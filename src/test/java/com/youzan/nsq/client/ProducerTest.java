@@ -41,7 +41,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     @Test
     public void testPubExt2NormalTopic() throws Exception {
         logger.info("[testPubExt2NormalTopic] starts");
-        String adminHttp = "http://" + props.getProperty("lookup-addresses");
+        String adminHttp = "http://" + props.getProperty("admin-lookup-addresses");
         NSQConfig config = this.getNSQConfig();
         config.setLookupAddresses(props.getProperty("lookup-addresses"));
         Producer producer = this.createProducer(config);
@@ -88,7 +88,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
 
     @Test(expectedExceptions = {NSQTopicNotFoundException.class})
     public void testPubException2InvalidChannel() throws Exception {
-        String adminUrlStr = "http://" + props.getProperty("lookup-addresses");
+        String adminUrlStr = "http://" + props.getProperty("admin-lookup-addresses");
         String topicName = "topicHasNoChannel";
         String channel = "chanDel";
         //create topic
@@ -196,7 +196,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     @Test
     public void testSendConsumeCompressedBytes() throws Exception {
         logger.info("[testSendConsumeCompressedBytes] starts.");
-        String adminHttp = "http://" + props.getProperty("lookup-addresses");
+        String adminHttp = "http://" + props.getProperty("admin-lookup-addresses");
         String topicName = "testSendConsumeCompressedBytes";
         String channel = "default";
         try {
@@ -255,7 +255,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     @Test
     public void testCompressContent() throws Exception {
         logger.info("[testCompressContent] starts.");
-        String adminHttp = "http://" + props.getProperty("lookup-addresses");
+        String adminHttp = "http://" + props.getProperty("admin-lookup-addresses");
         String topicName = "testSendConsumeContent";
         String channel = "default";
         try {
@@ -324,7 +324,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     @Test
     public void testMessageWCompressedString() throws Exception {
         logger.info("[testMessageWCompressedString] starts.");
-        String adminHttp = "http://" + props.getProperty("lookup-addresses");
+        String adminHttp = "http://" + props.getProperty("admin-lookup-addresses");
         String topicName = "testSendConsumeString";
         String channel = "default";
 
@@ -376,7 +376,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     @Test
     public void testProducerConnEvict() throws Exception {
         logger.info("[testProducerConnEvict] starts.");
-        String adminHttp = "http://" + props.getProperty("lookup-addresses");
+        String adminHttp = "http://" + props.getProperty("admin-lookup-addresses");
         String topicName = "topicProducerEvict";
         String channel = "default";
         String raw  = "This is raw message for compress";
@@ -409,7 +409,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     @Test
     public void testExpiredTopicsClear() throws InterruptedException, NSQException, IOException {
         logger.info("[testExpiredTopicsClear] starts.");
-        final String adminHttp = "http://" + props.getProperty("lookup-addresses");
+        final String adminHttp = "http://" + props.getProperty("admin-lookup-addresses");
         final String channel = "default";
         int topicNum = 10;
         final CountDownLatch latch = new CountDownLatch(topicNum);
@@ -529,7 +529,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
     @Test(dataProvider = "producerProvider", dataProviderClass = ProducerTest.class)
     public void benchmarkPublish(int producerNum, final int messageNum, int msgSize) throws Exception {
         logger.info("[benchmarkPublish] start");
-        String adminUrl = "http://" + props.getProperty("lookup-addresses");
+        String adminUrl = "http://" + props.getProperty("admin-lookup-addresses");
         final String topic = "bench_producer";
         String channel = "default";
 
@@ -611,7 +611,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
         logger.info("[testPubExtNotChangeMap] starts");
         String topicName = "testPubNotChangeMap";
         String channel = "default";
-        String adminUrl = "http://" + props.getProperty("lookup-addresses");
+        String adminUrl = "http://" + props.getProperty("admin-lookup-addresses");
         Producer producer = null;
         try{
             TopicUtil.createTopic(adminUrl, topicName, 2, 2, channel, false, true);
@@ -653,7 +653,7 @@ public class ProducerTest extends AbstractNSQClientTestcase {
         int topicNum = 5;
         String topicName = "testProducerPreallocate";
         String channel = "default";
-        String adminUrl = "http://" + props.getProperty("lookup-addresses");
+        String adminUrl = "http://" + props.getProperty("admin-lookup-addresses");
         ProducerImplV2 producer = null;
 
         try{
