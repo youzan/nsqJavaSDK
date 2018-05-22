@@ -663,8 +663,11 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 }
             }
 
-            if(!this.config.getConsumeMessageFilterMode().getFilter().apply(filterData, filterDataInHeader)) {
-                return false;
+            boolean match = this.config.getConsumeMessageFilterMode().getFilter().apply(filterData, filterDataInHeader);
+            if(this.config.getConsumeMessageFilterInverse()) {
+                return !match;
+            } else {
+                return match;
             }
         }
         return true;

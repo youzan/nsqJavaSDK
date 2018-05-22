@@ -544,6 +544,37 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
     }
 
     @Test
+    public void testMessageFilterInverse() {
+        Map<String, String> filterMap = new HashMap<>();
+        filterMap.put("key1", "val1");
+        filterMap.put("key2", "val2");
+        filterMap.put("key_filter_3", "val3");
+
+        NSQConfig config = new NSQConfig("BaseConsumer");
+        config.setConsumeMessageFilterInverse(true);
+        config.setConsumeMessageFilterMode(ConsumeMessageFilterMode.MULTI_MATCH);
+        config.setConsumeMessageMultiFilters(NSQConfig.MultiFiltersRelation.OR, filterMap);
+        ConsumerImplV2 consumer = new ConsumerImplV2(config, new MessageHandler() {
+            @Override
+            public void process(NSQMessage message) {
+                //nothing happen
+            }
+        });
+        //mock a message frame, and NSQConnection
+        Map<String, Object> jsonExt = new HashMap();
+        //should hit
+        jsonExt.put("filter_key1", "filter_val1");
+        jsonExt.put("filter_key2", "filter_val2");
+        jsonExt.put("key1", "val1");
+
+        NSQMessage message = new NSQMessage();
+        message.setJsonExtHeader(jsonExt);
+
+        MockedNSQConnectionImpl conn = new MockedNSQConnectionImpl(0, new Address("127.0.0.1", 4150, "ha", "fakeTopic", 1, true), null, config);
+        Assert.assertFalse(consumer.checkExtFilter(message, conn));
+    }
+
+    @Test
     public void testMessageMultiFilters() {
         Map<String, String> filterMap = new HashMap<>();
         filterMap.put("key1", "val1");
