@@ -477,6 +477,7 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
 
     private void close() {
         synchronized (LOCK){
+            this.subscribeExec.shutdownNow();
             this.listLookupExec.shutdownNow();
             for(AbstractSeedLookupdConfig seedCnf:this.cat2SeedLookupCnfMap.values())
                 seedCnf.clean();

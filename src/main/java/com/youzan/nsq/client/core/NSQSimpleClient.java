@@ -348,7 +348,10 @@ public class NSQSimpleClient implements Client, Closeable {
 
                     //update topic 2 partition map
                     try {
-                        aPs = lookup.lookup(topic.getTopicText(), this.useLocalLookupd, false);
+                        aPs = topic_2_partitionsSelector.get(topic.getTopicText());
+                        if (null != aPs)
+                            continue;
+                        aPs = lookup.lookup(topic.getTopicText(), this.useLocalLookupd, true);
                         if (null != aPs) {
                             topic_2_partitionsSelector.put(topic.getTopicText(), aPs);
                             for (Partitions aPartitions : aPs.dumpAllPartitions()) {

@@ -167,7 +167,7 @@ public class ProducerImplV2 implements Producer {
                     Thread.currentThread().interrupt();
                 }
             }
-            logger.info("total {} addresses to initialize");
+            logger.info("total {} addresses to initialize", nsqdAddrs.size());
             for(Address addr : nsqdAddrs)
                 try {
                     this.bigPool.preparePool(addr);
@@ -267,9 +267,6 @@ public class ProducerImplV2 implements Producer {
                 long borrowConnEnd = System.currentTimeMillis() - borrowConnStart;
                 if(PERF_LOG.isDebugEnabled()) {
                     PERF_LOG.debug("{}: took {} milliSec to borrow connection from producer pool. CurrentRetries is {}", cxt.getTraceID(), borrowConnEnd, c);
-                }
-                if(borrowConnEnd > PerfTune.getInstance().getNSQConnBorrowLimit()) {
-                    PERF_LOG.warn("{}: took {} milliSec to borrow connection from producer pool. Limitation is {}. CurrentRetries is {}", cxt.getTraceID(), borrowConnEnd, PerfTune.getInstance().getNSQConnBorrowLimit(), c);
                 }
             }
             c++;
@@ -467,9 +464,6 @@ public class ProducerImplV2 implements Producer {
                 if(PERF_LOG.isDebugEnabled()){
                     PERF_LOG.debug("{}: took {} milliSec to get nsq connection.", cxt.getTraceID(), getConnEnd);
                 }
-                if(getConnEnd > PerfTune.getInstance().getNSQConnElapseLimit()) {
-                    PERF_LOG.warn("{}: took {} milliSec to get nsq connection. Limitation is {}", cxt.getTraceID(), getConnEnd, PerfTune.getInstance().getNSQConnElapseLimit());
-                }
 
                 if (conn == null) {
                     exceptions.add(new NSQDataNodesDownException("Could not get NSQd connection for " + msg.getTopic().toString() + ", topic may does not exist, or connection pool resource exhausted."));
@@ -482,10 +476,10 @@ public class ProducerImplV2 implements Producer {
                 //throw it directly
                 throw exp;
             }
-            catch (NSQNoConnectionException badConnExp) {
-                logger.info("Try invalidating partition selectors for {}, due to NSQNoConnectionException.", msg.getTopic());
+            catch (NSQNoConnectionException | NSQInvalidTopicException e) {
+                logger.info("Try invalidating partition selectors for {}, due to {}.", msg.getTopic(), e.getMessage());
                 this.simpleClient.invalidatePartitionsSelector(msg.getTopic().getTopicText());
-                exceptions.add(badConnExp);
+                exceptions.add(e);
                 continue;
             }
             catch(NSQException nsqe) {
@@ -508,13 +502,10 @@ public class ProducerImplV2 implements Producer {
                 }
 
                 long pubAndWaitStart = System.currentTimeMillis();
-                final NSQFrame frame = conn.commandAndGetResponse(pub);
+                final NSQFrame frame = conn.commandAndGetResponse(cxt, pub);
                 long pubAndWaitEnd = System.currentTimeMillis() - pubAndWaitStart;
                 if(PERF_LOG.isDebugEnabled()){
                     PERF_LOG.debug("{}: took {} milliSec to send msg to and hear response from nsqd.", cxt.getTraceID(), pubAndWaitEnd);
-                }
-                if(pubAndWaitEnd > PerfTune.getInstance().getSendMSGLimit()) {
-                    PERF_LOG.warn("{}: took {} milliSec to send message. Limitation is {}", cxt.getTraceID(), pubAndWaitEnd, PerfTune.getInstance().getSendMSGLimit());
                 }
 
                 handleResponse(msg.getTopic(), frame, conn);

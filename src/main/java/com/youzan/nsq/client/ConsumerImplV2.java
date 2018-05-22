@@ -14,18 +14,20 @@ import com.youzan.util.NamedThreadFactory;
 import com.youzan.util.ThreadSafe;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
-import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.file.FileSystems;
+import java.nio.file.PathMatcher;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.regex.Pattern;
 
 /**
  * TODO: a description
@@ -67,7 +69,6 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
 
     //netty component for consumer
     private final Bootstrap bootstrap = new Bootstrap();
-    private final EventLoopGroup eventLoopGroup;
 
     /*
      * topics' partitions maintaining a sorted set of partitions number, example: {-1, 0, 2, 3}
@@ -105,7 +106,11 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
      */
     private final NSQConfig config;
 
-
+    /*
+     * reg exp filter pattern for message filter
+     */
+    private Pattern regexpFilter = null;
+    private PathMatcher globFilter = null;
     /**
      * Initialize Consumer with passin {@link NSQConfig}, consumer keep reference to passin config object.
      * @param config
@@ -114,12 +119,29 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         this.config = config;
         this.simpleClient = new NSQSimpleClient(Role.Consumer, this.config.getUserSpecifiedLookupAddress(), this.config);
 
+        //hack to create pattern for consumer if reg exp message filter is applied
+        String filterVal = config.getConsumeMessageFilterValue();
+        if(StringUtils.isNotBlank(filterVal)) {
+            switch (config.getConsumeMessageFilterMode()) {
+                case REGEXP_MATCH: {
+                    regexpFilter = Pattern.compile(filterVal);
+                    break;
+                }
+                case GLOB_MATCH: {
+                    globFilter = FileSystems.getDefault().getPathMatcher("glob:" + filterVal);
+                    break;
+                }
+            }
+        }
+        if(config.getConsumeMessageFilterMode() == ConsumeMessageFilterMode.REGEXP_MATCH && StringUtils.isNotBlank(filterVal)) {
+            regexpFilter = Pattern.compile(filterVal);
+        }
+
         //initialize netty component
-        eventLoopGroup = new NioEventLoopGroup(config.getNettyPoolSize());
         bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
         bootstrap.option(ChannelOption.TCP_NODELAY, true);
         bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, config.getConnectTimeoutInMillisecond());
-        bootstrap.group(eventLoopGroup);
+        bootstrap.group(NSQConfig.getEventLoopGroup());
         bootstrap.channel(NioSocketChannel.class);
         bootstrap.handler(new NSQClientInitializer());
         //initialize consumer worker size
@@ -507,7 +529,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 }
             } else {
                 Sub command = createSubCmd(topic, this.config.getConsumerName());
-                final NSQFrame frame = conn.commandAndGetResponse(command);
+                final NSQFrame frame = conn.commandAndGetResponse(null, command);
                 if (handleResponse(frame, conn)) {
                     //as there is no success response from nsq, command is enough here
                     conn.subSent();
@@ -615,10 +637,33 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
 
     protected boolean checkExtFilter(final NSQMessage message, final NSQConnection conn) {
         String filterKey = this.config.getConsumeMessageFilterKey();
-        if (conn.isExtend() && StringUtils.isNotBlank(filterKey)) {
-            String filterDataInHeader = (String) message.getExtByName(filterKey);
+        ConsumeMessageFilterMode m = this.config.getConsumeMessageFilterMode();
+
+        if (conn.isExtend() && (StringUtils.isNotBlank(filterKey) || m == ConsumeMessageFilterMode.MULTI_MATCH)) {
+            Object filterDataInHeader = message.getExtByName(filterKey);
             String filterDataInConf = this.config.getConsumeMessageFilterValue();
-            if(!this.config.getConsumeMessageFilterMode().getFilter().apply(filterDataInConf, filterDataInHeader)) {
+            Object filterData = null;
+            switch (m) {
+                case EXACT_MATCH: {
+                    filterData = filterDataInConf;
+                    break;
+                }
+                case REGEXP_MATCH: {
+                    filterData = regexpFilter;
+                    break;
+                }
+                case GLOB_MATCH: {
+                    filterData = globFilter;
+                    break;
+                }
+                case MULTI_MATCH: {
+                    filterData = this.config.getConsumeMessageMultiFilters();
+                    filterDataInHeader = message.getJsonExtHeader();
+                    break;
+                }
+            }
+
+            if(!this.config.getConsumeMessageFilterMode().getFilter().apply(filterData, filterDataInHeader)) {
                 return false;
             }
         }
@@ -871,9 +916,6 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 close(connections);
                 logger.info("The consumer has been closed.");
             } finally {
-                if (eventLoopGroup != null && !eventLoopGroup.isShuttingDown()) {
-                    eventLoopGroup.shutdownGracefully(1, 2, TimeUnit.SECONDS);
-                }
                 cLock.writeLock().unlock();
             }
         }

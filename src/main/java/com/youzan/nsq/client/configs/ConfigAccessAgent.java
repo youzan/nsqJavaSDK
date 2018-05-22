@@ -1,9 +1,9 @@
 package com.youzan.nsq.client.configs;
 
-import com.youzan.nsq.client.exception.PropertyNotFoundException;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.exception.ConfigAccessAgentException;
 import com.youzan.nsq.client.exception.ConfigAccessAgentInitializeException;
+import com.youzan.nsq.client.exception.PropertyNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -91,6 +91,15 @@ public abstract class ConfigAccessAgent implements Closeable {
                         //invoke constructor of config access agent.
                         INSTANCE = constructor.newInstance();
                         INSTANCE.kickoff();
+                        //add shutdown hook
+                        Runtime.getRuntime().addShutdownHook(new Thread(){
+                            public void run() {
+                                if(null != INSTANCE) {
+                                    INSTANCE.release();
+                                    logger.info("config access agent release {}.", INSTANCE.getClass().getName());
+                                }
+                            }
+                        });
                     } catch (Exception e) {
                         logger.error("Fail to start config access agent {}. ", CAA_CLAZZ);
                         throw new ConfigAccessAgentInitializeException("Fail to initialize ConfigAccessAgent: " + CAA_CLAZZ);

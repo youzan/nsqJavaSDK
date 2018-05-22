@@ -544,6 +544,152 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
     }
 
     @Test
+    public void testMessageMultiFilters() {
+        Map<String, String> filterMap = new HashMap<>();
+        filterMap.put("key1", "val1");
+        filterMap.put("key2", "val2");
+        filterMap.put("key_filter_3", "val3");
+
+        NSQConfig config = new NSQConfig("BaseConsumer");
+        config.setConsumeMessageFilterMode(ConsumeMessageFilterMode.MULTI_MATCH);
+        config.setConsumeMessageMultiFilters(NSQConfig.MultiFiltersRelation.OR, filterMap);
+        ConsumerImplV2 consumer = new ConsumerImplV2(config, new MessageHandler() {
+            @Override
+            public void process(NSQMessage message) {
+                //nothing happen
+            }
+        });
+        //mock a message frame, and NSQConnection
+        Map<String, Object> jsonExt = new HashMap();
+        //should hit
+        jsonExt.put("filter_key1", "filter_val1");
+        jsonExt.put("filter_key2", "filter_val2");
+        jsonExt.put("key1", "val1");
+
+        NSQMessage message = new NSQMessage();
+        message.setJsonExtHeader(jsonExt);
+
+        MockedNSQConnectionImpl conn = new MockedNSQConnectionImpl(0, new Address("127.0.0.1", 4150, "ha", "fakeTopic", 1, true), null, config);
+        Assert.assertTrue(consumer.checkExtFilter(message, conn));
+
+        //mock a message frame, and NSQConnection
+        Map<String, Object> jsonExtOrMiss = new HashMap();
+        //should hit
+        jsonExtOrMiss.put("filter_key1", "filter_val1");
+        jsonExtOrMiss.put("filter_key2", "filter_val2");
+        jsonExtOrMiss.put("key1", "filter_val1");
+
+        message.setJsonExtHeader(jsonExtOrMiss);
+        Assert.assertFalse(consumer.checkExtFilter(message, conn));
+
+
+        NSQConfig configAnd = new NSQConfig("BaseConsumer");
+        configAnd.setConsumeMessageFilterMode(ConsumeMessageFilterMode.MULTI_MATCH);
+        configAnd.setConsumeMessageMultiFilters(NSQConfig.MultiFiltersRelation.AND, filterMap);
+        ConsumerImplV2 consumerAnd = new ConsumerImplV2(configAnd, new MessageHandler() {
+            @Override
+            public void process(NSQMessage message) {
+                //nothing happen
+            }
+        });
+
+        Map<String, Object> jsonExtAnd = new HashMap();
+        //should not hit
+        jsonExtAnd.put("key1", "val1");
+        jsonExtAnd.put("key2", "val2");
+        jsonExtAnd.put("key_filter_3", "val3");
+        jsonExtAnd.put("key4", "val4");
+
+        message.setJsonExtHeader(jsonExtAnd);
+        Assert.assertTrue(consumerAnd.checkExtFilter(message, conn));
+
+        Map<String, Object> jsonExtAndMiss1 = new HashMap();
+        //should not hit
+        jsonExtAndMiss1.put("key1", "val1");
+        jsonExtAndMiss1.put("key2", "val2");
+        jsonExtAndMiss1.put("key4", "val4");
+
+        message.setJsonExtHeader(jsonExtAndMiss1);
+        Assert.assertFalse(consumerAnd.checkExtFilter(message, conn));
+
+        Map<String, Object> jsonExtAndMiss2 = new HashMap();
+        //should not hit
+        jsonExtAndMiss2.put("key1", "val1");
+        jsonExtAndMiss2.put("key2", "val2");
+        jsonExtAndMiss2.put("key_filter_3", "val4");
+        jsonExtAndMiss2.put("key4", "val4");
+
+        message.setJsonExtHeader(jsonExtAndMiss2);
+        Assert.assertFalse(consumerAnd.checkExtFilter(message, conn));
+    }
+
+    @Test
+    public void testMessageGlobFilters() {
+        NSQConfig config = new NSQConfig("BaseConsumer");
+        config.setConsumeMessageFilterMode(ConsumeMessageFilterMode.GLOB_MATCH);
+        config.setConsumeMessageFilter("filter_key1", "filter*1");
+        ConsumerImplV2 consumer = new ConsumerImplV2(config, new MessageHandler() {
+            @Override
+            public void process(NSQMessage message) {
+                //nothing happen
+            }
+        });
+        //mock a message frame, and NSQConnection
+        Map<String, Object> jsonExt = new HashMap();
+        //should hit
+        jsonExt.put("filter_key1", "filter_val1");
+        jsonExt.put("filter_key2", "filter_val2");
+
+        NSQMessage message = new NSQMessage();
+        message.setJsonExtHeader(jsonExt);
+
+        MockedNSQConnectionImpl conn = new MockedNSQConnectionImpl(0, new Address("127.0.0.1", 4150, "ha", "fakeTopic", 1, true), null, config);
+
+        Assert.assertTrue(consumer.checkExtFilter(message, conn));
+
+        Map<String, Object> jsonExtMissing = new HashMap();
+        //should not hit
+        jsonExtMissing.put("filter_key1", "filter_val3");
+        jsonExtMissing.put("filter_key2", "filter_val2");
+
+        message.setJsonExtHeader(jsonExtMissing);
+        Assert.assertFalse(consumer.checkExtFilter(message, conn));
+    }
+
+    @Test
+    public void testMessageRegexpFilters() {
+        NSQConfig config = new NSQConfig("BaseConsumer");
+        config.setConsumeMessageFilterMode(ConsumeMessageFilterMode.REGEXP_MATCH);
+        config.setConsumeMessageFilter("filter_key1", "filter[\\w]+1");
+        ConsumerImplV2 consumer = new ConsumerImplV2(config, new MessageHandler() {
+            @Override
+            public void process(NSQMessage message) {
+                //nothing happen
+            }
+        });
+        //mock a message frame, and NSQConnection
+        Map<String, Object> jsonExt = new HashMap();
+        //should hit
+        jsonExt.put("filter_key1", "filter_val1");
+        jsonExt.put("filter_key2", "filter_val2");
+
+        NSQMessage message = new NSQMessage();
+        message.setJsonExtHeader(jsonExt);
+
+        MockedNSQConnectionImpl conn = new MockedNSQConnectionImpl(0, new Address("127.0.0.1", 4150, "ha", "fakeTopic", 1, true), null, config);
+
+        Assert.assertTrue(consumer.checkExtFilter(message, conn));
+
+        Map<String, Object> jsonExtMissing = new HashMap();
+        //should not hit
+        jsonExtMissing.put("filter_key1", "filter_val3");
+        jsonExtMissing.put("filter_key2", "filter_val2");
+
+        message.setJsonExtHeader(jsonExtMissing);
+        Assert.assertFalse(consumer.checkExtFilter(message, conn));
+    }
+
+    @Test
     public void testMessageHeaderFilter() {
         NSQConfig config = new NSQConfig("BaseConsumer");
         config.setConsumeMessageFilter("filter_key1", "filter_val1");
