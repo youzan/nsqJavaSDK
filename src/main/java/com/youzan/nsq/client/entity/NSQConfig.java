@@ -1,8 +1,11 @@
 package com.youzan.nsq.client.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.youzan.nsq.client.Version;
 import com.youzan.util.HostUtil;
 import com.youzan.util.NotThreadSafe;
@@ -823,6 +826,14 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * @return identify json string
      */
     public String identify(boolean topicExt) {
+        String messageFilterJsonStr;
+        try {
+            messageFilterJsonStr = toFilterIdentifyJsonString();
+        }catch (Exception e) {
+            logger.error("fail to parse message filter json.", e);
+            throw new RuntimeException();
+        }
+
         final StringBuffer buffer = new StringBuffer(300);
         buffer.append("{\"client_id\":\"" + clientId + "\", ");
         buffer.append("\"hostname\":\"" + hostname + "\", ");
@@ -859,8 +870,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         buffer.append("\"extend_support\":" + topicExt + ",");
         buffer.append("\"user_agent\": \"" + userAgent + "\"");
         //ext header feature
-        if(StringUtils.isNotBlank(this.getConsumeMessageFilterKey()))
-            buffer.append(", \"ext_filter\":{\"type\":" + this.getConsumeMessageFilterMode().getFilter().getType() + ", \"inverse\":\"" + this.getConsumeMessageFilterInverse() +", \"filter_ext_key\":\"" + this.getConsumeMessageFilterKey() + "\", \"filter_data\":\"" + this.getConsumeMessageFilterValue() + "\"}");
+        buffer.append(", \"ext_filter\":" + messageFilterJsonStr);
         buffer.append("}");
         return buffer.toString();
     }
@@ -1058,6 +1068,25 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         return this.producerPoolSize;
     }
 
+    private String toFilterIdentifyJsonString() throws JsonProcessingException {
+        ObjectNode root = SystemUtil.getObjectMapper().createObjectNode();
+        root.put("type", this.getConsumeMessageFilterMode().getFilter().getType());
+        root.put("inverse", this.getConsumeMessageFilterInverse());
+        if(this.getConsumeMessageFilterMode() != ConsumeMessageFilterMode.MULTI_MATCH) {
+            root.put("filter_ext_key", this.getConsumeMessageFilterKey());
+            root.put("filter_data", this.getConsumeMessageFilterValue());
+        } else {
+            root.put("filter_ext_key", this.consumerMsgFilterDatas.getKey().name());
+            ArrayNode dataList = root.putArray("filter_data_list");
+            for (Pair<String, String>kv: this.consumerMsgFilterDatas.getRight()) {
+                ObjectNode kvNode = dataList.addObject();
+                kvNode.put("filter_ext_key", kv.getKey());
+                kvNode.put("filter_data", kv.getValue());
+            }
+        }
+        return SystemUtil.getObjectMapper().writeValueAsString(root);
+    }
+
     //consume message filter value default value is null, which means no filter applied
     private Pair<String, String> consumeMsgFilterKV = null;
     //multi filter datas
@@ -1076,8 +1105,8 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     public enum MultiFiltersRelation {
-        AND,
-        OR
+        all,
+        any
     }
 
     public NSQConfig setConsumeMessageMultiFilters(MultiFiltersRelation relation, Map<String, String> filterKVMap) {

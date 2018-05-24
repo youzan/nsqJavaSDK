@@ -216,6 +216,7 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
                 }
                 if (lookupdAddressesRemove.size() > 0)
                     this.lookupAddressesRefs.removeAll(lookupdAddressesRemove);
+                logger.info("remove {} from seed lookupd clusterId: {} address: {}", lookupdAddressesRemove, this.getClusterId(), this.getAddress());
             }
             //add new lookup addresses
             if(null != lookupdsNew && lookupdsNew.size() > 0) {
@@ -225,6 +226,7 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
                     aLookup.addReference();
                     lookupAddressInUse.add(aLookupStr);
                 }
+                logger.info("add {} to seed lookupd clusterId: {} address: {}", lookupdsNew, this.getClusterId(), this.getAddress());
             }
         } finally {
             lookupAddressLock.writeLock().unlock();
@@ -293,6 +295,7 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
                 if (seedLookupMap.containsValue(aSeed)) {
                     long cnt = aSeed.updateRefCounter(-1);
                     if (cnt <= 0) {
+                        logger.info("remove seed lookup address {} as NO reference from control config.", aSeed.getAddress());
                         seedLookupMap.remove(aSeed.getAddress());
                         LISTLOOKUP_LASTUPDATED.remove(aSeed.getAddress());
                         aSeed.clean();
@@ -366,7 +369,7 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
         }
 
         if(logger.isDebugEnabled()) {
-            logger.debug("Time eclapse: {} millsec for all seed lookup addresses to listLookup, size {}", System.currentTimeMillis() - start, seedLookupMap.size());
+            logger.debug("Time elapse: {} millsec for all seed lookup addresses to listLookup, size {}", System.currentTimeMillis() - start, seedLookupMap.size());
         }
 
         return success;

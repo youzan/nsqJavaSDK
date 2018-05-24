@@ -336,7 +336,6 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
                     listLookupExec.scheduleWithFixedDelay(new Runnable() {
                         public void run() {
                             while(!isTouched() && 0 == SeedLookupdAddress.seedLookupMapSize()){
-                                logger.info("Backoff list lookup request as there is no seed lookupd address found.");
                                 try {
                                     Thread.sleep(500);
                                 } catch (InterruptedException e) {
@@ -358,7 +357,7 @@ public class LookupAddressUpdate implements IConfigAccessSubscriber<AbstractSeed
                                     touch();
                                     latch.countDown();
                                 } else {
-                                    logger.error("No lookupd address found after first list lookup request, make sure valid seed lookup address(es) offered.");
+                                    logger.warn("No lookupd address found after first list lookup request, make sure valid seed lookup address(es) offered.");
                                 }
                             }
 

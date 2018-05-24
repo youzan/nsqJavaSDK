@@ -544,6 +544,13 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
     }
 
     @Test
+    public void testMessageFilterJson() {
+        NSQConfig config = new NSQConfig("BaseConsumer");
+        String identifyJson = config.identify(false);
+        logger.info(identifyJson);
+    }
+
+    @Test
     public void testMessageFilterInverse() {
         Map<String, String> filterMap = new HashMap<>();
         filterMap.put("key1", "val1");
