@@ -1,16 +1,20 @@
 package com.youzan.nsq.client.entity.lookup;
 
+import com.google.common.collect.Sets;
 import com.youzan.nsq.client.entity.Topic;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.lang.invoke.MethodHandles;
 import java.lang.ref.SoftReference;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.*;
 
 /**
@@ -20,8 +24,75 @@ public class SeedLookupdAddressTestcase {
     private final static Logger logger = LoggerFactory.getLogger(SeedLookupdAddressTestcase.class);
 
     public static final String[] seedlookupds = new String[]{"sqs-qa.s.qima-inc.com:4161"};
+    public static final String[] seedlookupdsAdmin = new String[]{"http://sqs-qa.s.qima-inc.com:4171"};
+    public static final String[] dailySeedlookupds = new String[]{"nsq-daily.s.qima-inc.com:4161"};
+    public static final String[] dailySeedlookupdsAdmin = new String[]{"http://nsq-daily.s.qima-inc.com:4171"};
     public static final String[] dummyLookupds = new String[]{"dummyLookupd1:4161", "dummyLookupd2:4161", "dummyLookupd3:4161"};
     public static final String[] lookupdAddresses = new String[]{"10.9.80.209:4260:4162", "10.9.80.209:4262", "10.9.52.215:4161"};
+
+    @Test
+    public void testLookupAddressesUpdate() throws NoSuchFieldException, IllegalAccessException {
+        SeedLookupdAddress aSeed = null, aDummySeed = null, aDuplicatedSeed = null;
+        try {
+            logger.info("[testLookupAddressesUpdate] starts.");
+            aSeed = SeedLookupdAddress.create(seedlookupds[0]);
+
+            int num = SeedLookupdAddress.listAllLookup();
+            Assert.assertEquals(num, 1);
+
+            List<LookupdAddress> lookupdAddresses = dumpLookupdAddresses(aSeed);
+            Set<String> lookupAddrs = new HashSet<>();
+            for(LookupdAddress lookupAddr:lookupdAddresses) {
+                lookupAddrs.add(lookupAddr.getAddress());
+            }
+
+            aSeed.setAddress(dailySeedlookupds[0]);
+            aSeed.setClusterId(dailySeedlookupds[0]);
+
+            SeedLookupdAddress.listAllLookup();
+
+            List<LookupdAddress> lookupdAddressesSec = dumpLookupdAddresses(aSeed);
+            Set<String> lookupAddrsSec = new HashSet<>();
+            for(LookupdAddress lookupAddr:lookupdAddressesSec) {
+                lookupAddrsSec.add(lookupAddr.getAddress());
+            }
+            Assert.assertEquals(Sets.difference(lookupAddrs, lookupAddrsSec).size(), lookupAddrs.size());
+        }finally {
+            logger.info("[testLookupAddressesUpdate] ends.");
+            clean(aSeed);
+        }
+    }
+
+    @Test
+    public void testListLookupdAddressError() throws NoSuchFieldException, IllegalAccessException {
+        SeedLookupdAddress aSeed = null, aDummySeed1 = null, aDummySeed2 = null, aDummySeed3 = null, aDuplicatedSeed = null;
+        try {
+            logger.info("[testListLookupdAddressError] starts.");
+            aDummySeed1 = SeedLookupdAddress.create(dummyLookupds[0]);
+            aDummySeed2 = SeedLookupdAddress.create(dummyLookupds[1]);
+            aDummySeed3 = SeedLookupdAddress.create(dummyLookupds[2]);
+
+            SeedLookupdAddress.listAllLookup();
+            SeedLookupdAddress.listAllLookup();
+            SeedLookupdAddress.listAllLookup();
+            SeedLookupdAddress.listAllLookup();
+
+            int errCnt = SeedLookupdAddress.getListLookupErrCnt();
+            Assert.assertEquals(errCnt, 12);
+
+            clean(aDummySeed1);
+            clean(aDummySeed2);
+            clean(aDummySeed3);
+            aSeed = SeedLookupdAddress.create(seedlookupds[0]);
+            SeedLookupdAddress.listAllLookup();
+            errCnt = SeedLookupdAddress.getListLookupErrCnt();
+            Assert.assertEquals(errCnt, 0);
+
+        }finally {
+            logger.info("[testListLookupdAddressError] ends.");
+            clean(aSeed);
+        }
+    }
 
     @Test
     public void testSeedLookupdAddressCreate() throws NoSuchFieldException, IllegalAccessException {
@@ -167,10 +238,10 @@ public class SeedLookupdAddressTestcase {
             logger.info("[testListLookup] starts");
             aSeed = SeedLookupdAddress.create(seedlookupds[0]);
             listLookup(aSeed);
-            List<SoftReference<LookupdAddress>> lookupAddressRefs = dumpLookupdAddresses(aSeed);
+            List<LookupdAddress> lookupAddressRefs = dumpLookupdAddresses(aSeed);
             Assert.assertTrue(lookupAddressRefs.size() > 0);
-            for (SoftReference<LookupdAddress> lookupdRef : lookupAddressRefs) {
-                LookupdAddress lookupdAddress = lookupdRef.get();
+            for (LookupdAddress lookupdRef : lookupAddressRefs) {
+                LookupdAddress lookupdAddress = lookupdRef;
                 Assert.assertEquals(1, lookupdAddress.getReferenceCount());
             }
 
@@ -204,7 +275,7 @@ public class SeedLookupdAddressTestcase {
             aSeed.addLookupdAddress(aLookupd1);
             aSeed.addLookupdAddress(aLookupd2);
             aSeed.addLookupdAddress(aLookupd3);
-            List<SoftReference<LookupdAddress>> lookupAddresses = dumpLookupdAddresses(aSeed);
+            List<LookupdAddress> lookupAddresses = dumpLookupdAddresses(aSeed);
             Assert.assertEquals(2, lookupAddresses.size());
 
         }finally {
@@ -241,15 +312,15 @@ public class SeedLookupdAddressTestcase {
         }
     }
 
-    private static List<SoftReference<LookupdAddress>> dumpLookupdAddresses(final SeedLookupdAddress aSeed) throws NoSuchFieldException, IllegalAccessException {
+    private static List<LookupdAddress> dumpLookupdAddresses(final SeedLookupdAddress aSeed) throws NoSuchFieldException, IllegalAccessException {
         Class claz = SeedLookupdAddress.class;
         Field lookupdAddressRefsField = claz.getDeclaredField("lookupAddressesRefs");
         lookupdAddressRefsField.setAccessible(true);
-        List<SoftReference<LookupdAddress>> lookupAddressRefs = (List<SoftReference<LookupdAddress>>) lookupdAddressRefsField.get(aSeed);
+        List<LookupdAddress> lookupAddressRefs = (List<LookupdAddress>) lookupdAddressRefsField.get(aSeed);
         return lookupAddressRefs;
     }
 
-    private static ConcurrentHashMap<String, SeedLookupdAddress> dumpSeedLookupdMap(SeedLookupdAddress seed) throws NoSuchFieldException, IllegalAccessException {
+    public static ConcurrentHashMap<String, SeedLookupdAddress> dumpSeedLookupdMap(SeedLookupdAddress seed) throws NoSuchFieldException, IllegalAccessException {
         Class claz = SeedLookupdAddress.class;
         Field seedLookupMapField = claz.getDeclaredField("seedLookupMap");
         seedLookupMapField.setAccessible(true);

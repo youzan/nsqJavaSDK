@@ -11,13 +11,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-public class NSQMessage implements MessageMetadata{
+public class NSQMessage implements MessageMetadata, Serializable{
     private static final Logger logger = LoggerFactory.getLogger(Close.class);
 
     private final byte[] timestamp;
@@ -63,6 +64,8 @@ public class NSQMessage implements MessageMetadata{
      * @param address      the address of the message
      * @param connectionID the primary key of the connection
      * @param nextConsumingInSecond time elapse for requeued message to send
+     * @param topic
+     * @pa
      */
     public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
                      byte[] messageBody, Address address, Long connectionID, int nextConsumingInSecond, final Topic topic, boolean isExt) {
@@ -286,8 +289,7 @@ public class NSQMessage implements MessageMetadata{
     }
 
     /**
-     * @param nextConsumingInSecond 1s less-equals the nextConsumingInSecond to set less-equals
-     *                              180 days
+     * @param nextConsumingInSecond 1s less-equals the nextConsumingInSecond to
      * @throws NSQException if an invalid parameter error occurs
      */
     public void setNextConsumingInSecond(Integer nextConsumingInSecond) throws NSQException {
@@ -297,7 +299,7 @@ public class NSQMessage implements MessageMetadata{
                 throw new IllegalArgumentException(
                         "NextConsumingInSecond is illegal. It is too small. " + NSQConfig._MIN_NEXT_CONSUMING_IN_SECOND);
             } else if (timeout > NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND) {
-                logger.warn("Next consuming in second is larger than {}. It may be limited to max value in server side.", NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND);
+                logger.info("Next consuming in second is larger than {}. It may be limited to max value in server side.", NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND);
             }
         }
         this.nextConsumingInSecond = nextConsumingInSecond;

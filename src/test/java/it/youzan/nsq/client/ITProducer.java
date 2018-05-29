@@ -1,27 +1,30 @@
 package it.youzan.nsq.client;
 
+import com.google.common.collect.Sets;
 import com.youzan.nsq.client.*;
 import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
 import com.youzan.nsq.client.entity.Topic;
+import com.youzan.nsq.client.entity.lookup.SeedLookupdAddress;
+import com.youzan.nsq.client.entity.lookup.SeedLookupdAddressTestcase;
+import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.utils.TopicUtil;
-import org.junit.Assert;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Properties;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Test(groups = {"ITProducer-Base"}, priority = 3)
 public class ITProducer {
@@ -50,6 +53,77 @@ public class ITProducer {
         config.setThreadPoolSize4IO(Integer.valueOf(threadPoolSize4IO));
     }
 
+    @Test
+    public void testLookupAddressUpdate() throws Exception {
+        logger.info("[testLookupAddressUpdate] starts.");
+        String seedLookupAddress = SeedLookupdAddressTestcase.seedlookupds[0];
+        String dailyLookupAddress = SeedLookupdAddressTestcase.dailySeedlookupds[0];
+        String seedLookupAdmin = SeedLookupdAddressTestcase.seedlookupdsAdmin[0];
+        String dailyLookupAdmin = SeedLookupdAddressTestcase.dailySeedlookupdsAdmin[0];
+        final String topic = "JavaTesting-Producer-lookup";
+        final NSQConfig config = (NSQConfig) this.config.clone();
+        config.setLookupAddresses(seedLookupAddress);
+        final Producer producer = new ProducerImplV2(config);
+        final Message msg = Message.create(new Topic(topic), "msg content");
+        final AtomicLong cntAttempt = new AtomicLong(0);
+        final AtomicLong cntSuccess = new AtomicLong(0);
+        final AtomicBoolean stop = new AtomicBoolean(false);
+        producer.start();
+        try {
+            TopicUtil.createTopic(seedLookupAdmin, topic, "default");
+            TopicUtil.createTopicChannel(seedLookupAdmin, topic, "default");
+            TopicUtil.createTopic(dailyLookupAdmin, topic, 2, 2, "default", false, true);
+            TopicUtil.createTopicChannel(dailyLookupAdmin, topic, "default");
+
+            Thread thread = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    logger.info("message publish thread starts.");
+                    while(!stop.get()) {
+                        try {
+                            Thread.sleep(50);
+                            cntAttempt.incrementAndGet();
+                            producer.publish(msg);
+                            cntSuccess.incrementAndGet();
+                        } catch (NSQException e) {
+                            logger.error("fail to publish message. attempt: {}, success: {}", cntAttempt.get(), cntSuccess.get(), e);
+                        } catch (InterruptedException e) {
+                            //swallow
+                        }
+                    }
+                    logger.info("message publish thread exit. attempt: {}, success: {}", cntAttempt.get(), cntSuccess.get());
+                    producer.close();
+                }
+            });
+            thread.start();
+
+            //dump connection
+            Set<String> keySet = new HashSet<String>(((ProducerImplV2)producer).getConnectionPool().getNumActivePerKey().keySet());
+            logger.info("nsqd addr set {}", keySet);
+
+            //hack SeedLookupAddress
+            SeedLookupdAddress seedLookup = SeedLookupdAddress.create(seedLookupAddress);
+            seedLookup.setAddress(dailyLookupAddress);
+            seedLookup.setClusterId(dailyLookupAddress);
+            TopicUtil.deleteTopic(seedLookupAdmin, topic);
+            Thread.sleep(90000);
+
+            //dump connection, again
+            //dump connection
+            Set<String> keySetAfter = new HashSet<String>(((ProducerImplV2)producer).getConnectionPool().getNumActivePerKey().keySet());
+            logger.info("nsqd addr set {}", keySetAfter);
+
+            org.testng.Assert.assertEquals(Sets.difference(keySet, keySetAfter).size(), keySet.size());
+
+        }finally {
+            stop.set(true);
+            TopicUtil.deleteTopic(dailyLookupAdmin, topic);
+            producer.close();
+            logger.info("[testLookupAddressUpdate] ends.");
+        }
+    }
+
+    @Test
     public void multiPublishBatchError2() throws Exception {
         logger.info("[ITProducer#multiPublishBatchError2] starts");
         Producer producer = null;
@@ -89,7 +163,7 @@ public class ITProducer {
                     msgs.add(msgBytes);
             }
             //last batch, add an invalid one
-            List<byte[]> failedMsgs = producer.publish(msgs, topic, 100);
+            List<byte[]> failedMsgs = producer.publishMulti(msgs, topic, 100);
             Assert.assertEquals(2300, failedMsgs.size());
             Assert.assertTrue(latch.await(1, TimeUnit.MINUTES));
         } finally {
@@ -98,6 +172,7 @@ public class ITProducer {
         }
     }
 
+    @Test
     public void multiPublishBatchError1() throws Exception {
         logger.info("[ITProducer#multiPublishBatchError1] starts");
         Producer producer = null;
@@ -138,13 +213,108 @@ public class ITProducer {
             }
             //last batch, add an invalid one
             msgs.add(bf.array());
-            List<byte[]> failedMsgs = producer.publish(msgs, topic, 100);
+            List<byte[]> failedMsgs = producer.publishMulti(msgs, topic, 100);
             Assert.assertEquals(45, failedMsgs.size());
             latch.await(1, TimeUnit.MINUTES);
             Assert.assertFalse(failed.get());
         }finally {
             producer.close();
             consumer.close();
+            logger.info("[ITProducer#multiPublishBatchError1] ends");
+        }
+    }
+
+    @Test
+    public void multiPublishOneMsg() throws Exception {
+        logger.info("[ITProducer#multiPublishOneMsg] starts");
+        Producer producer = null;
+        Consumer consumer = null;
+        Topic topic = new Topic("JavaTesting-Producer-Base");
+        final CountDownLatch latch = new CountDownLatch(1);
+        final AtomicBoolean failed = new AtomicBoolean(false);
+        try{
+            TopicUtil.emptyQueue(adminHttp, "JavaTesting-Producer-Base", "BaseConsumer");
+            final String msgStr = "The quick brown fox jumps over the lazy dog, 那只迅捷的灰狐狸跳过了那条懒狗";
+            final byte[] msgBytes = msgStr.getBytes(Charset.defaultCharset());
+
+            config.setConsumerName("BaseConsumer");
+            consumer = new ConsumerImplV2(config, new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    latch.countDown();
+                    if(!message.getReadableContent().equals(msgStr)) {
+                        failed.set(true);
+                    }
+                }
+            });
+            consumer.subscribe(topic);
+            consumer.start();
+
+            producer = new ProducerImplV2(config);
+            producer.start();
+            List<byte[]> msgs = new ArrayList<>();
+            //last batch, add an invalid one
+            msgs.add(msgStr.getBytes());
+            producer.publishMulti(msgs, topic);
+            latch.await(1, TimeUnit.MINUTES);
+            Assert.assertFalse(failed.get());
+        }finally {
+            producer.close();
+            consumer.close();
+            logger.info("[ITProducer#multiPublishOneMsg] ends");
+        }
+    }
+
+    @Test
+    public void multiPublishBadMsg() throws Exception {
+        logger.info("[ITProducer#multiPublishBadMsg] starts");
+        Producer producer = null;
+        Consumer consumer = null;
+        Topic topic = new Topic("JavaTesting-Producer-Base");
+        final CountDownLatch latch = new CountDownLatch(2300);
+        final AtomicBoolean failed = new AtomicBoolean(false);
+        try{
+//            TopicUtil.emptyQueue(adminHttp, "JavaTesting-Producer-Base", "BaseConsumer");
+            final String msgStr = "The quick brown fox jumps over the lazy dog, 那只迅捷的灰狐狸跳过了那条懒狗";
+            final byte[] msgBytes = msgStr.getBytes(Charset.defaultCharset());
+
+            //invalid message
+            ByteBuffer bf =  ByteBuffer.allocate(2000000);
+            int i = 0;
+            while(i++ < 2000000) {
+                bf.put("M".getBytes());
+            }
+
+            config.setConsumerName("BaseConsumer");
+            consumer = new ConsumerImplV2(config, new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    latch.countDown();
+                    if(!message.getReadableContent().equals(msgStr)) {
+                        failed.set(true);
+                    }
+                }
+            });
+            consumer.subscribe(topic);
+            consumer.start();
+
+            producer = new ProducerImplV2(config);
+            producer.start();
+            List<byte[]> msgs = new ArrayList<>();
+            for(int cnt = 0; cnt < 2344; cnt++) {
+                msgs.add(msgBytes);
+            }
+            //last batch, add an invalid one
+            msgs.add(bf.array());
+            producer.publishMulti(msgs, topic);
+            latch.await(1, TimeUnit.MINUTES);
+            Assert.assertFalse(failed.get());
+        } catch(Exception e){
+          logger.error("error in mpub", e);
+        } finally {
+            producer.close();
+            consumer.close();
+            logger.info("[ITProducer#multiPublishBadMsg] ends");
         }
     }
 
@@ -178,7 +348,7 @@ public class ITProducer {
             for(int cnt = 0; cnt < 2345; cnt++) {
                 msgs.add(msgBytes);
             }
-            List<byte[]> failedMsgs = producer.publish(msgs, topic, 100);
+            List<byte[]> failedMsgs = producer.publishMulti(msgs, topic, 100);
             Assert.assertEquals(0, failedMsgs.size());
             latch.await(1, TimeUnit.MINUTES);
             Assert.assertFalse(failed.get());

@@ -30,19 +30,19 @@ public class Mpub extends Pub implements NSQCommand{
         byte[] header = this.getHeader().getBytes(NSQCommand.DEFAULT_CHARSET);
         //get MPUB body, which is a list containing multi messages
         List<byte[]> bodyL = this.getBody();
-        if (bodyL.size() > 1) {
+        int bodySize = 4 + 4; // 4 for total messages int, another 4 for body size.
+        if (bodyL.size() > 0) {
             // write total body size and message size
-            int bodySize = 4 + 4; // 4 for total messages int, another 4 for body size.
             for (byte[] data : bodyL) {
                 bodySize += 4; // message size
                 bodySize += data.length;
             }
-
-            buf = ByteBuffer.allocate(header.length + bodySize);
-            buf.put(header);
-            buf.putInt(bodySize);
-            buf.putInt(bodyL.size());
         }
+
+        buf = ByteBuffer.allocate(header.length + bodySize);
+        buf.put(header);
+        buf.putInt(bodySize);
+        buf.putInt(bodyL.size());
 
         for (byte[] data : bodyL) {
             buf.putInt(data.length);

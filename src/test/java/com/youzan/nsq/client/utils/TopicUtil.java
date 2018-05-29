@@ -10,14 +10,13 @@ import com.youzan.nsq.client.entity.Topic;
 import com.youzan.util.IOUtil;
 import com.youzan.util.SystemUtil;
 import org.junit.Assert;
+import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
@@ -32,16 +31,16 @@ public class TopicUtil {
     private static final Logger logger = LoggerFactory.getLogger(TopicUtil.class);
 
     public static void deleteTopics(final String nsqadminUrl, String topicPattern) throws IOException, InterruptedException {
-        URL url = new URL(nsqadminUrl + "/api/topics");
+        URL url = new URL(nsqadminUrl + "/topics");
         JsonNode root = SystemUtil.getObjectMapper().readTree(url);
-        JsonNode topics = root.get("topics");
+        JsonNode topics = root.get("data").get("topics");
         ExecutorService exec = Executors.newFixedThreadPool(4);
         List<String> topicsNeedDel = new ArrayList<>();
         if(topics.isArray()) {
             for(JsonNode topicNode : topics) {
-                if(topicNode.get("topic_name").asText().startsWith(topicPattern)) {
-                    String topic = topicNode.get("topic_name").asText();
-                    topicsNeedDel.add(topic);
+                String topicName = topicNode.asText();
+                if(topicName.startsWith(topicPattern)) {
+                    topicsNeedDel.add(topicName);
                 }
             }
             final CountDownLatch latch = new CountDownLatch(topicsNeedDel.size());
@@ -64,11 +63,34 @@ public class TopicUtil {
         }
     }
 
-    public static void emptyQueue(String nsqadminUrl, String topic, String channel) throws Exception {
-        URL channelUrl = new URL(nsqadminUrl + "/api/topics/" + topic + "/" + channel);
-        String content = "{\"action\":\"empty\"}";
-        IOUtil.postToUrl(channelUrl, content);
-        Thread.sleep(5000);
+    private static void loopInPartitions(String lookupUrlStr, String topic, String channel, String requestUrlPattern) throws IOException, InterruptedException {
+        JsonNode lookupRoot = lookupProducers(lookupUrlStr, topic);
+        JsonNode partitionsRoot = lookupRoot.get("partitions");
+        Iterator<Map.Entry<String, JsonNode>> ite =  partitionsRoot.fields();
+        while(ite.hasNext()) {
+            Map.Entry<String, JsonNode> partition = ite.next();
+            String partitionHttp = String.format(requestUrlPattern, partition.getValue().get("broadcast_address").asText(), partition.getValue().get("http_port").asInt(),
+                    topic, channel, partition.getKey());
+            URL url = new URL(partitionHttp);
+            logger.debug("Prepare to open HTTP Connection...");
+            HttpURLConnection con = (HttpURLConnection) url.openConnection();
+            con.setDoOutput(true);
+            con.setRequestMethod("POST");
+            con.setRequestProperty("Accept", "application/vnd.nsq; version=1.0");
+            con.setConnectTimeout(5 * 1000);
+            con.setReadTimeout(10 * 1000);
+            //con.getOutputStream().write(contentStr.getBytes());
+            InputStream is = con.getInputStream();
+            is.close();
+            if (logger.isDebugEnabled()) {
+                logger.debug("Request to {} responses {}:{}.", url.toString(), con.getResponseCode(), con.getResponseMessage());
+            }
+        }
+        Thread.sleep(10000);
+    }
+
+    public static void emptyQueue(String lookupUrlStr, String topic, String channel) throws Exception {
+        loopInPartitions(lookupUrlStr, topic, channel, "http://%s:%d/channel/empty?topic=%s&channel=%s&partition=%s");
     }
 
     public static void deleteTopicOld(String nsqdAddr, String topicName) throws IOException, InterruptedException {
@@ -107,61 +129,67 @@ public class TopicUtil {
         Thread.sleep(20000);
     }
 
-    public static void createTopic(String adminUrl, String topicName, String channel) throws IOException, InterruptedException {
+    public static void createTopic(String adminUrl, String topicName, String channel) throws Exception {
         createTopic(adminUrl, topicName, 2, 2, channel, false, false);
     }
 
-    public static void createTopic(String adminUrl, String topicName, int parNum, int repNum, String channel) throws IOException, InterruptedException {
+    public static void createTopic(String adminUrl, String topicName, int parNum, int repNum, String channel) throws Exception {
         createTopic(adminUrl, topicName, parNum, repNum, channel, false,  false);
     }
 
-    public static void createTopic(String adminUrl, String topicName, int parNum, int repNum, String channel, boolean ordered, boolean ext) throws IOException, InterruptedException {
-        String urlStr = String.format("%s/api/topics", adminUrl);
+    public static void createTopic(String adminUrl, String topicName, int parNum, int repNum, String channel, boolean ordered, boolean ext) throws Exception {
+        String lookupLeaderAddr = lookupLeaderAddr(adminUrl);
+        String urlStr = String.format("%s/topic/create?topic=%s&partition_num=%d&replicator=%d&orderedmulti=%b&extend=%b", lookupLeaderAddr, topicName, parNum, repNum, ordered, ext);
         URL url = new URL(urlStr);
-        String contentStr = String.format("{\"topic\":\"%s\",\"partition_num\":\"%d\", \"replicator\":\"%d\", \"retention_days\":\"\", \"syncdisk\":\"\", \"channel\":\"%s\", \"orderedmulti\":\"%s\", \"extend\":\"%s\"}", topicName, parNum, repNum, channel, ordered, ext);
-        logger.debug("Prepare to open HTTP Connection...");
-        HttpURLConnection con = (HttpURLConnection) url.openConnection();
-        con.setDoOutput(true);
-        con.setRequestMethod("POST");
-        con.setRequestProperty("Accept", "application/vnd.nsq; version=1.0");
-        con.setConnectTimeout(5 * 1000);
-        con.setReadTimeout(10 * 1000);
-        con.getOutputStream().write(contentStr.getBytes());
-        InputStream is = con.getInputStream();
-        is.close();
-        if (logger.isDebugEnabled()) {
-            logger.debug("Request to {} responses {}:{}.", url.toString(), con.getResponseCode(), con.getResponseMessage());
-        }
+        IOUtil.postToUrl(url, null);
         Thread.sleep(20000);
+        createTopicChannel(adminUrl, topicName, channel);
     }
 
-    public static void deleteTopic(String adminUrl, String topicName) throws Exception {
-        URL channelUrl = new URL(adminUrl + "/api/topics/" + topicName);
-        IOUtil.deleteToUrl(channelUrl);
+    public static void createTopicChannel(String lookupUrl, String topicName, String channel) throws IOException, InterruptedException {
+        loopInPartitions(lookupUrl, topicName, channel, "http://%s:%d/channel/create?topic=%s&channel=%s&partition=%s");
     }
 
-    public static void deleteTopicChannel(String adminUrl, String topicName, String channel) throws Exception {
-        URL channelUrl = new URL(adminUrl + "/api/topics/" + topicName + "/" + channel);
-        IOUtil.deleteToUrl(channelUrl);
+    private static JsonNode lookupProducers(String lookupUrlStr, String topicName) throws IOException {
+        String urlStr = String.format("%s/lookup?topic=%s", lookupUrlStr, topicName);
+        URL lookupUrl = new URL(urlStr);
+        return IOUtil.readFromUrl(lookupUrl);
     }
 
-    public static void createTopicChannel(String adminUrl, String topicName, String channel) throws Exception {
-        URL channelUrl = new URL(adminUrl + "/api/topics/" + topicName + "/" + channel);
-        IOUtil.postToUrl(channelUrl, "{\"action\":\"create\"}");
+    private static String lookupLeaderAddr(String lookupUrlStr) throws IOException {
+        ObjectMapper om = SystemUtil.getObjectMapper();
+        String urlStr = String.format("%s/listlookup", lookupUrlStr);
+        URL lookupUrl = new URL(urlStr);
+        JsonNode leaderNode = IOUtil.readFromUrl(lookupUrl).get("lookupdleader");
+        String ip = leaderNode.get("NodeIP").asText();
+        String httpPort = leaderNode.get("HttpPort").asText();
+        return "http://" + ip + ":" + httpPort;
+    }
+
+    public static void deleteTopic(String lookupUrl, String topicName) throws Exception {
+        String lookupLeaderAddr = lookupLeaderAddr(lookupUrl);
+        String topicDeleteUrlStr = String.format("%s/topic/delete?topic=%s&partition=**", lookupLeaderAddr, topicName);
+        URL topicDeleteUrl = new URL(topicDeleteUrlStr);
+        IOUtil.postToUrl(topicDeleteUrl, null);
+    }
+
+    public static void deleteTopicChannel(String lookupUrlStr, String topicName, String channel) throws Exception {
+        loopInPartitions(lookupUrlStr, topicName, channel, "http://%s:%d/channel/delete?topic=%s&channel=%s&partition=%s");
     }
 
     public static void upgradeTopic(String lookupdAddr, String topicName) throws Exception {
-        URL upgradeUrl = new URL(lookupdAddr + "/topic/meta/update?topic=" + topicName + "&upgradeext=true");
+        String lookupLeaderAddr = lookupLeaderAddr(lookupdAddr);
+        URL upgradeUrl = new URL(lookupLeaderAddr + "/topic/meta/update?topic=" + topicName + "&upgradeext=true");
         IOUtil.postToUrl(upgradeUrl, null);
     }
 
 
-    @Test
     /**
      * remove @Test comment and run as test cases to remove topics in qa
      * @throws IOException
      * @throws InterruptedException
      */
+    @Test
     public void deleteTopics() throws IOException, InterruptedException {
         logger.info("[testDeleteTopics] start.");
         Properties props = new Properties();
@@ -169,13 +197,12 @@ public class TopicUtil {
         try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {
             props.load(is);
         }
-        String adminHttp = "http://" + props.getProperty("admin-address");
+        String adminHttp = "http://" + props.getProperty("admin-lookup-addresses");
         String topicPattern = "topic_";
         TopicUtil.deleteTopics(adminHttp, topicPattern);
         logger.info("[testTopicUtil] ends.");
     }
 
-//    @Test
     public void testTopicUtil() throws Exception {
         Calendar cal = Calendar.getInstance();
         cal.set(2017, 7, 9, 17, 20, 0);
@@ -186,9 +213,9 @@ public class TopicUtil {
         try (final InputStream is = getClass().getClassLoader().getResourceAsStream("app-test.properties")) {
             props.load(is);
         }
-        String adminHttp = "http://" + props.getProperty("admin-address");
+        String lookupHttp = "http://" + props.getProperty("admin-lookup-addresses");
         String topicName = "topicUtilTest";
-        TopicUtil.createTopic(adminHttp, topicName, "default");
+        TopicUtil.createTopic(lookupHttp, topicName, "default");
         //publish to channel
         NSQConfig config = new NSQConfig("default");
         config.setLookupAddresses(props.getProperty("lookup-addresses"));
@@ -198,7 +225,7 @@ public class TopicUtil {
         for(int i = 0; i < 10; i++)
             producer.publish(Message.create(topic, "topic util test"));
         Thread.sleep(1000);
-        TopicUtil.emptyQueue(adminHttp, topicName, "default");
+        TopicUtil.emptyQueue(lookupHttp, topicName, "default");
         //consuemr should receive nothing
         final CountDownLatch latch = new CountDownLatch(1);
         Consumer consumer = new ConsumerImplV2(config, new MessageHandler() {
@@ -212,27 +239,46 @@ public class TopicUtil {
         Assert.assertFalse(latch.await(30, TimeUnit.SECONDS));
         consumer.close();
 
-        TopicUtil.deleteTopicChannel(adminHttp, topicName, "default");
+        TopicUtil.deleteTopicChannel(lookupHttp, topicName, "default");
         //request should return catch exception
-        URL channelUrl = new URL(adminHttp + "/api/topics/" + topicName + "/" + "default");
+        URL channelUrl = new URL(lookupHttp + "/api/topics/" + topicName + "/" + "default");
         ObjectMapper mapper = new ObjectMapper();
-        JsonNode root = mapper.readTree(channelUrl);
-        Iterator<String> ite = root.fieldNames();
-        int i = 0;
-        while(ite.hasNext()){
-            i++;
-            ite.next();
+        JsonNode root = null;
+        try {
+            root = mapper.readTree(channelUrl);
+            Assert.fail("topic channel should not exist: " + topicName);
+        }catch (IOException ioe) {
+
         }
-        Assert.assertEquals(1, i);
-        TopicUtil.deleteTopic(adminHttp, topicName);
-        URL topicUrl = new URL(adminHttp + "/api/topics/" + topicName);
+//        Iterator<String> ite = root.fieldNames();
+//        int i = 0;
+//        while(ite.hasNext()){
+//            i++;
+//            ite.next();
+//        }
+//        Assert.assertEquals(1, i);
+        TopicUtil.deleteTopic(lookupHttp, topicName);
+        URL topicUrl = new URL(lookupHttp + "/api/topics/" + topicName);
         try {
             root = mapper.readTree(topicUrl);
-            Assert.fail("topic should exist: " + topicName);
+            Assert.fail("topic should not exist: " + topicName);
         } catch(IOException ioe) {
 
         }
         producer.close();
         logger.info("[testTopicUtil] ends.");
+    }
+
+    public static String findLookupLeader(String lookupUrlStr) throws IOException {
+        URL lookupUrl = new URL(lookupUrlStr + "/listlookup");
+        JsonNode root = IOUtil.readFromUrl(lookupUrl);
+        if(null != root) {
+            JsonNode leader = root.get("lookupdleader");
+            String ip = leader.get("NodeIP").asText();
+            String port = leader.get("HttpPort").asText();
+            return ip + ":" + port;
+        } else {
+            return null;
+        }
     }
 }

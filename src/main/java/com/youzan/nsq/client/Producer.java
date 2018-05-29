@@ -85,7 +85,7 @@ public interface Producer extends Client, Closeable {
      * @throws NSQException
      * @return list of messages from passin messages which fail to send;
      */
-    List<byte[]> publish(List<byte[]> messages, Topic topic, int batchSize) throws NSQException;
+    List<byte[]> publishMulti(List<byte[]> messages, Topic topic, int batchSize) throws NSQException;
 
     /**
      * publish batch messages to nsqd. This function publish ALL messages to one target nsqd

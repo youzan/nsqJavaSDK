@@ -4,11 +4,16 @@
 
     <groupId>com.youzan</groupId>
     <artifactId>NSQ-Client</artifactId>
-    <version>2.4.2-os-SNAPSHOT</version>
+    <version>2.4.2-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>NSQ-Client</name>
 
+    <parent>
+        <artifactId>parent-pom</artifactId>
+        <groupId>com.youzan</groupId>
+        <version>1.0.2</version>
+    </parent>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -16,10 +21,15 @@
         <slf4j.version>1.7.21</slf4j.version>
         <logback.version>1.1.7</logback.version>
         <jackson.version>2.8.6</jackson.version>
-        <dccClient.version>1.1.0622-RELEASE</dccClient.version>
+        <dccClient.version>1.1.0521-SNAPSHOT</dccClient.version>
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>23.6-android</version>
+        </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
@@ -107,12 +117,6 @@
         </dependency>
     </dependencies>
 
-    <parent>
-        <artifactId>parent-pom</artifactId>
-        <groupId>com.youzan</groupId>
-        <version>1.0.2</version>
-    </parent>
-
     <build>
         <pluginManagement>
             <plugins>
@@ -129,24 +133,30 @@
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.7.9</version>
                 <configuration>
-                    <excludes>
-                        <exclude>**/com/youzan/nsq/client/core/pool/consumer/**.class</exclude>
-                    </excludes>
+                    <destFile>${sonar.jacoco.reportPath}</destFile>
+                    <append>true</append>
                 </configuration>
                 <executions>
                     <execution>
+                        <id>default-prepare-agent</id>
                         <goals>
                             <goal>prepare-agent</goal>
                         </goals>
                     </execution>
                     <execution>
-                        <id>generate-code-coverage-report</id>
-                        <phase>test</phase>
+                        <id>default-report</id>
+                        <phase>prepare-package</phase>
                         <goals>
                             <goal>report</goal>
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>sonar-maven-plugin</artifactId>
+                <version>3.2</version>
             </plugin>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
@@ -272,26 +282,6 @@
                         <artifactId>maven-resources-plugin</artifactId>
                         <executions>
                             <execution>
-                                <id>copy-test-resources</id>
-                                <phase>compile</phase>
-                                <goals>
-                                    <goal>copy-resources</goal>
-                                </goals>
-                                <configuration>
-                                    <resources>
-                                        <resource>
-                                            <filtering>false</filtering>
-                                            <directory>src/assembly/conf/openSource/</directory>
-                                        </resource>
-                                        <resource>
-                                            <filtering>false</filtering>
-                                            <directory>src/main/resources</directory>
-                                        </resource>
-                                    </resources>
-                                    <outputDirectory>target/test-classes</outputDirectory>
-                                </configuration>
-                            </execution>
-                            <execution>
                                 <id>copy-resources</id>
                                 <phase>compile</phase>
                                 <goals>
@@ -337,26 +327,6 @@
                         <artifactId>maven-resources-plugin</artifactId>
                         <executions>
                             <execution>
-                                <id>copy-test-resources</id>
-                                <phase>compile</phase>
-                                <goals>
-                                    <goal>copy-resources</goal>
-                                </goals>
-                                <configuration>
-                                    <resources>
-                                        <resource>
-                                            <filtering>false</filtering>
-                                            <directory>src/assembly/conf/dev/</directory>
-                                        </resource>
-                                        <resource>
-                                            <filtering>false</filtering>
-                                            <directory>src/main/resources</directory>
-                                        </resource>
-                                    </resources>
-                                    <outputDirectory>target/test-classes</outputDirectory>
-                                </configuration>
-                            </execution>
-                            <execution>
                                 <id>copy-resources</id>
                                 <phase>compile</phase>
                                 <goals>
@@ -365,9 +335,6 @@
                                 <configuration>
                                     <resources>
                                         <resource>
-                                            <excludes>
-                                                <exclude>app-test.properties</exclude>
-                                            </excludes>
                                             <filtering>false</filtering>
                                             <directory>src/assembly/conf/dev/</directory>
                                         </resource>
@@ -400,9 +367,6 @@
                 <resources>
                     <resource>
                         <directory>src/assembly/conf/youzan</directory>
-                        <excludes>
-                            <exclude>app-test.properties</exclude>
-                        </excludes>
                     </resource>
                 </resources>
                 <plugins>
@@ -410,26 +374,6 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-resources-plugin</artifactId>
                         <executions>
-                            <execution>
-                                <id>copy-test-resources</id>
-                                <phase>compile</phase>
-                                <goals>
-                                    <goal>copy-resources</goal>
-                                </goals>
-                                <configuration>
-                                    <resources>
-                                        <resource>
-                                            <filtering>false</filtering>
-                                            <directory>src/assembly/conf/youzan/</directory>
-                                        </resource>
-                                        <resource>
-                                            <filtering>false</filtering>
-                                            <directory>src/main/resources</directory>
-                                        </resource>
-                                    </resources>
-                                    <outputDirectory>target/test-classes</outputDirectory>
-                                </configuration>
-                            </execution>
                             <execution>
                                 <id>copy-resources</id>
                                 <phase>compile</phase>
@@ -440,9 +384,6 @@
                                     <resources>
                                         <resource>
                                             <filtering>false</filtering>
-                                            <excludes>
-                                                <exclude>app-test.properties</exclude>
-                                            </excludes>
                                             <directory>src/assembly/conf/youzan/</directory>
                                         </resource>
                                         <resource>

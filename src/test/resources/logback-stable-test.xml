@@ -101,7 +101,7 @@
         <appender-ref ref="TraceDEBUG"/>
     </logger>
 
-    <root level="DEBUG">
+    <root level="WARN">
         <appender-ref ref="STDOUT"/>
         <appender-ref ref="DEBUG"/>
         <appender-ref ref="INFO"/>

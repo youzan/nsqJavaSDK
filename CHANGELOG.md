@@ -152,10 +152,39 @@ Note worthy:
   * type of counters including success, received, queue4Consume, finished, skipped improved to long;
   * remove RdyUpdatePolicy, rdy update are related to subscribe error received from nsqd. 
 
-#2.4.2
+#2.4.1.5-RELEASE
 Note worthy:
-* Producer:
-  * mpub support.
-  * traceId API in Message class simplify.
-* Consumer:
-  * consume message filter.[#14](https://github.com/youzan/nsqJavaSDK/pull/14)
+fix:
+  * retired lookup address should be removed from SDK[#26](https://github.com/youzan/nsqJavaSDK/issues/26)
+  * closed connection should be removed from connection manager[#26](https://github.com/youzan/nsqJavaSDK/issues/26)
+  
+#2.4.1.6-RELEASE
+Note worthy:
+fix:
+  * consumer event group not shutdown[#29](https://github.com/youzan/nsqJavaSDK/issues/29)
+  
+#2.4.1.7-RELEASE
+Note worthy:
+fix
+ * error list lookup error after continuous 3 times[#30](https://github.com/youzan/nsqJavaSDK/issues/30)
+ 
+#2.4.1.8-RELEASE
+Note worthy:
+fix
+ * fix inappropriate log level in NSQSimpleClient [#32](https://github.com/youzan/nsqJavaSDK/issues/32)
+ * finish skipped message when auto finish is off [#34](https://github.com/youzan/nsqJavaSDK/issues/34)
+ 
+#2.4.1.9-RELEASE
+Note worthy:
+fix
+ * remove soft reference in seed lookup component [#37](https://github.com/youzan/nsqJavaSDK/issues/37)
+ * switch for producer topic resource clean [#38](https://github.com/youzan/nsqJavaSDK/issues/38)
+ 
+ #2.4.2
+ Note worthy:
+ * Producer:
+   * mpub support.
+   * traceId API in Message class simplify.
+   * touch support
+ * Consumer:
+   * consume message filter.[#14](https://github.com/youzan/nsqJavaSDK/pull/14)

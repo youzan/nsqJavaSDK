@@ -109,7 +109,7 @@ public class ConfigAccessAgentTestcase {
             String expectedDomain = "migrationConfigAccessTopic.nsq.lookupd.addr";
             Assert.assertEquals(domain.toDomain(), expectedDomain);
 
-            Role aRole = Role.getInstance("producer");
+            Role aRole = Role.Producer;
             DCCMigrationConfigAccessKey key = (DCCMigrationConfigAccessKey) DCCMigrationConfigAccessKey.getInstance(aRole);
             String expectedKey = "producer";
             Assert.assertEquals(key.toKey(), expectedKey);
@@ -158,7 +158,7 @@ public class ConfigAccessAgentTestcase {
 
             Topic topic = new Topic("subscribeLookupAddressUpdate.Topic");
             DCCMigrationConfigAccessDomain domain = (DCCMigrationConfigAccessDomain) DCCMigrationConfigAccessDomain.getInstance(topic.getTopicText());
-            Role aRole = Role.getInstance("producer");
+            Role aRole = Role.Producer;
             DCCMigrationConfigAccessKey key = (DCCMigrationConfigAccessKey) DCCMigrationConfigAccessKey.getInstance(aRole);
             TestConfigAccessAgent.updateValue(domain, new AbstractConfigAccessKey[]{key}, valueMap, true);
 

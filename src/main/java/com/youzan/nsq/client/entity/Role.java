@@ -16,15 +16,4 @@ public enum Role {
     public String getRoleTxt(){
         return this.roleTxt;
     }
-
-    public static Role getInstance(String role) {
-        switch(role) {
-            case "consumer":
-                return Role.Consumer;
-            case "producer":
-                return Role.Producer;
-            default:
-                return null;
-        }
-    }
 }

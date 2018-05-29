@@ -22,6 +22,7 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -45,7 +46,7 @@ public class ConnectionUtil {
         bootstrap.handler(new NSQClientInitializer());
     }
 
-    public static NSQConnection connect(Address addr, String channel, NSQConfig config) throws InterruptedException, TimeoutException, NSQNoConnectionException {
+    public static NSQConnection connect(Address addr, String channel, NSQConfig config) throws InterruptedException, TimeoutException, NSQNoConnectionException, ExecutionException {
         ChannelFuture chFuture = bootstrap.connect(addr.getHost(), addr.getPort());
         final CountDownLatch connLatch = new CountDownLatch(1);
         chFuture.addListener(new ChannelFutureListener() {
@@ -63,12 +64,12 @@ public class ConnectionUtil {
         ch.attr(Client.STATE).set(simpleClient);
         ch.attr(NSQConnection.STATE).set(con1);
         con1.command(Magic.getInstance());
-        NSQFrame resp = con1.commandAndGetResponse(new Identify(config, addr.isTopicExtend()));
+        NSQFrame resp = con1.commandAndGetResponse(null, new Identify(config, addr.isTopicExtend()));
         if (null == resp) {
             throw new IllegalStateException("Bad Identify Response!");
         }
         Thread.sleep(100);
-        resp = con1.commandAndGetResponse(new Sub(new Topic(addr.getTopic(), addr.getPartition()), channel));
+        resp = con1.commandAndGetResponse(null, new Sub(new Topic(addr.getTopic(), addr.getPartition()), channel));
         if (null == resp) {
             throw new IllegalStateException("Bad Identify Response!");
         }

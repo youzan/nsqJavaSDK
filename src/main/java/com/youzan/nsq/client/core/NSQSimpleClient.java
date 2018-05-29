@@ -8,6 +8,7 @@ import com.youzan.nsq.client.entity.*;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.exception.NSQInvalidTopicException;
 import com.youzan.nsq.client.exception.NSQLookupException;
+import com.youzan.nsq.client.exception.NSQTopicNotFoundException;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.util.NamedThreadFactory;
 import com.youzan.util.ThreadSafe;
@@ -163,14 +164,16 @@ public class NSQSimpleClient implements Client, Closeable {
         for (String topic : topics) {
             try {
                 final IPartitionsSelector aPs = lookup.lookup(topic, this.useLocalLookupd, false);
-                if(null == aPs){
+                if (null == aPs) {
                     logger.warn("No fit partition data found for topic: {}.", topic);
                     continue;
                 }
                 //dump all partitions in one partitions selector
                 topic_2_partitionsSelector.put(topic, aPs);
-            } catch(NSQLookupException e){
+            } catch (NSQLookupException e) {
                 logger.warn("Could not fetch lookup info for topic: {} at this moment, lookup info may not be ready.", topic);
+            } catch (NSQTopicNotFoundException e) {
+                logger.warn("topic {} not found in lookup request, topic or channel may be removed.", topic);
             } catch (Exception e) {
                 logger.error("Exception", e);
             }
@@ -245,7 +248,7 @@ public class NSQSimpleClient implements Client, Closeable {
                                 if (PERF_LOG.isDebugEnabled())
                                     PERF_LOG.debug("nop response to {}.", conn.getAddress());
                             }else{
-                                logger.error("Fail to response to heartbeat from {}.", conn.getAddress());
+                                logger.warn("Fail to response to heartbeat from {}.", conn.getAddress());
                             }
                         }
                     });
@@ -345,7 +348,10 @@ public class NSQSimpleClient implements Client, Closeable {
 
                     //update topic 2 partition map
                     try {
-                        aPs = lookup.lookup(topic.getTopicText(), this.useLocalLookupd, false);
+                        aPs = topic_2_partitionsSelector.get(topic.getTopicText());
+                        if (null != aPs)
+                            continue;
+                        aPs = lookup.lookup(topic.getTopicText(), this.useLocalLookupd, true);
                         if (null != aPs) {
                             topic_2_partitionsSelector.put(topic.getTopicText(), aPs);
                             for (Partitions aPartitions : aPs.dumpAllPartitions()) {
@@ -411,8 +417,8 @@ public class NSQSimpleClient implements Client, Closeable {
         }
 
         try {
-            //force lookup here, and leaving update mapping from topic to partition to newDataNodes process.
-            IPartitionsSelector aPs = lookup.lookup(topic, this.useLocalLookupd, false);
+            //force listlookup here.
+            IPartitionsSelector aPs = lookup.lookup(topic, this.useLocalLookupd, true);
             if (null != aPs)
                 topic_2_partitionsSelector.put(topic, aPs);
         } catch (NSQException e){

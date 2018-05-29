@@ -5,8 +5,8 @@ package com.youzan.nsq.client.entity.lookup;
  * Created by lin on 16/12/5.
  */
 public abstract class AbstractLookupdAddress {
-    protected String address;
-    private String clusterId;
+    protected volatile String address;
+    private volatile String clusterId;
 
     public AbstractLookupdAddress(String clusterId, String address){
         this.clusterId = clusterId;

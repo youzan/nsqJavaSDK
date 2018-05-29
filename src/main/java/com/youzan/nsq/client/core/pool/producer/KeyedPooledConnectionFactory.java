@@ -12,8 +12,6 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelOption;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.commons.pool2.BaseKeyedPooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
@@ -38,7 +36,6 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
     private static final Logger logger = LoggerFactory.getLogger(KeyedPooledConnectionFactory.class);
     private static final Logger PERF_LOG = LoggerFactory.getLogger(KeyedPooledConnectionFactory.class.getName() + ".perf");
     private final AtomicInteger connectionIDGenerator = new AtomicInteger(0);
-    private final EventLoopGroup eventLoopGroup;
     private final Bootstrap bootstrap = new Bootstrap();
 
     /**
@@ -53,11 +50,10 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
     public KeyedPooledConnectionFactory(NSQConfig config, Client client) {
         this.config = config;
         this.client = client;
-        this.eventLoopGroup = new NioEventLoopGroup(config.getNettyPoolSize());
         bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
         bootstrap.option(ChannelOption.TCP_NODELAY, true);
         bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, config.getConnectTimeoutInMillisecond());
-        bootstrap.group(eventLoopGroup);
+        bootstrap.group(NSQConfig.getEventLoopGroup());
         bootstrap.channel(NioSocketChannel.class);
         bootstrap.handler(new NSQClientInitializer());
     }
@@ -120,7 +116,7 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
         final NSQConnection connection = p.getObject();
         // another implementation : use client.heartbeat,or called
         // client.validateConnection
-        if (null != connection && connection.isConnected() && connection.isIdentitySent()) {
+        if (null != connection && connection.isIdentitySent()) {
             return client.validateHeartbeat(connection);
         }
         logger.warn("NSQConnection {} fails validation.", address);
@@ -138,8 +134,6 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
 
 
     public void close() {
-        if (eventLoopGroup != null && !eventLoopGroup.isShuttingDown()) {
-            eventLoopGroup.shutdownGracefully(1, 2, TimeUnit.SECONDS);
-        }
+
     }
 }

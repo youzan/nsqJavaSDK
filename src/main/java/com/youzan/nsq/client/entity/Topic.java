@@ -3,6 +3,7 @@ package com.youzan.nsq.client.entity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Serializable;
 import java.util.SortedSet;
 
 /**
@@ -10,10 +11,9 @@ import java.util.SortedSet;
  * partition information
  * Created by lin on 16/8/18.
  */
-public class Topic implements Comparable<Topic> {
+public class Topic implements Comparable<Topic>, Serializable {
     private static final Logger logger = LoggerFactory.getLogger(Topic.class);
     public static final Topic TOPIC_DEFAULT = new Topic("*");
-    private String key = "";
 
     //topic sharding
     private static final TopicSharding<Object> TOPIC_SHARDING = new TopicSharding<Object>() {

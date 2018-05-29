@@ -2,10 +2,7 @@ package com.youzan.nsq.client.core;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.youzan.nsq.client.core.command.*;
-import com.youzan.nsq.client.entity.Address;
-import com.youzan.nsq.client.entity.NSQConfig;
-import com.youzan.nsq.client.entity.NSQMessage;
-import com.youzan.nsq.client.entity.Topic;
+import com.youzan.nsq.client.entity.*;
 import com.youzan.nsq.client.exception.NSQNoConnectionException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
@@ -19,7 +16,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -35,6 +32,8 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     public static final int INIT_RDY = 1;
 
     private static final Logger logger = LoggerFactory.getLogger(NSQConnectionImpl.class);
+    private static final Logger PERF_LOG = LoggerFactory.getLogger(NSQConnectionImpl.class.getName() + ".perf");
+
     private static final long serialVersionUID = 7139923487863469738L;
 
     private final ReentrantReadWriteLock conLock = new ReentrantReadWriteLock();
@@ -127,28 +126,18 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
      * initialize NSQConnection to NSQd by sending Identify Command
      */
     @Override
-    public void init() throws TimeoutException, IOException {
-        conLock.writeLock().lock();
-        try {
-           _init();
-        } finally {
-            conLock.writeLock().unlock();
-        }
+    public void init() throws TimeoutException, IOException, ExecutionException {
+       _init();
     }
 
     @Override
-    public void init(final Topic topic) throws TimeoutException, IOException {
-        conLock.writeLock().lock();
-        try {
-            this._init();
-            Topic topicCon = Topic.newInstacne(topic, true);
-            setTopic(topicCon);
-        }finally {
-            conLock.writeLock().unlock();
-        }
+    public void init(final Topic topic) throws TimeoutException, IOException, ExecutionException {
+        this._init();
+        Topic topicCon = Topic.newInstacne(topic, true);
+        setTopic(topicCon);
     }
 
-    private void _init() throws TimeoutException, IOException {
+    private void _init() throws TimeoutException, IOException, ExecutionException {
         assert address != null;
         assert config != null;
         if (identitySent.compareAndSet(Boolean.FALSE, Boolean.TRUE)) {
@@ -156,9 +145,10 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
             final NSQCommand identify = new Identify(config, isExtend());
             NSQFrame response = null;
             try {
-                response = _commandAndGetResposne(identify);
+                response = _commandAndGetResposne(null, identify);
             } catch (InterruptedException e) {
                 logger.error("Identity fail to {}", this.address);
+                Thread.currentThread().interrupt();
             }
             if (null == response) {
                 throw new IllegalStateException("Bad Identify Response! Close connection!");
@@ -188,63 +178,63 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         return channel.writeAndFlush(cmd);
     }
 
-    private NSQFrame _commandAndGetResposne(final NSQCommand command) throws TimeoutException, InterruptedException{
+    private NSQFrame _commandAndGetResposne(final Context cxt, final NSQCommand command) throws TimeoutException, InterruptedException, ExecutionException {
         final long start = System.currentTimeMillis();
-        long timeout = queryTimeoutInMillisecond - (System.currentTimeMillis() - start);
-        if (!requests.offer(command, timeout, TimeUnit.MILLISECONDS)) {
+//        long timeout = queryTimeoutInMillisecond;
+        if (!requests.offer(command, queryTimeoutInMillisecond, TimeUnit.MILLISECONDS)) {
             throw new TimeoutException(
-                    "The command timeout in " + timeout + " milliSec. The command name is : " + command.getClass().getName());
+                    "The command timeout in " + queryTimeoutInMillisecond + " milliSec. The command name is : " + command.getClass().getName());
         }
+//        if(cxt != null && PERF_LOG.isDebugEnabled())
+//            PERF_LOG.debug("{}: took {} ms to offer", cxt.getTraceID(), System.currentTimeMillis() - start);
 
         // wait to get the response
-        final CountDownLatch sendLatch = new CountDownLatch(1);
+//        long clearStart = System.currentTimeMillis();
         responses.clear(); // clear
-        // write data
-        final ChannelFuture future = command(command);
-        future.addListener(new ChannelFutureListener() {
-            @Override
-            public void operationComplete(ChannelFuture future) throws Exception {
-                if(!future.isSuccess()) {
-                    Throwable cause = future.cause();
-                    logger.warn("{} failed with exception: {}", command, cause == null ? null : cause.getMessage());
-                }
-                sendLatch.countDown();
-            }
-        });
+//        if(cxt != null && PERF_LOG.isDebugEnabled())
+//            PERF_LOG.debug("{}: took {} ms to clear resp", cxt.getTraceID(), System.currentTimeMillis() - clearStart);
 
-        timeout = queryTimeoutInMillisecond - (System.currentTimeMillis() - start);
-        if(!sendLatch.await(timeout, TimeUnit.MILLISECONDS)) {
-            throw new TimeoutException(
-                    "The command timeout in " + timeout + " milliSec. The command name is : " + command.getClass().getName());
-        }
-        timeout = queryTimeoutInMillisecond - (System.currentTimeMillis() - start);
-        final NSQFrame frame = responses.poll(timeout, TimeUnit.MILLISECONDS);
+        // write data
+//        final long commandStart = System.currentTimeMillis();
+        final ChannelFuture future = command(command);
+//        timeout = queryTimeoutInMillisecond - (System.currentTimeMillis() - start);
+        future.get(queryTimeoutInMillisecond, TimeUnit.MILLISECONDS);
+//        if(cxt != null && PERF_LOG.isDebugEnabled())
+//            PERF_LOG.debug("{}: took {} ms to command", cxt.getTraceID(), System.currentTimeMillis() - commandStart);
+
+//        final long getRespStart = System.currentTimeMillis();
+//        timeout = queryTimeoutInMillisecond - (System.currentTimeMillis() - start);
+        final NSQFrame frame = responses.poll(queryTimeoutInMillisecond, TimeUnit.MILLISECONDS);
         if (frame == null) {
             throw new TimeoutException(
-                    "The command timeout receiving response frame in " + timeout + " milliSec. The command name is : " + command.getClass().getName());
+                    "The command timeout receiving response frame in " + queryTimeoutInMillisecond + " milliSec. The command name is : " + command.getClass().getName());
         }
+//        if(cxt != null && PERF_LOG.isDebugEnabled())
+//            PERF_LOG.debug("{}: took {} ms to getResp", cxt.getTraceID(), System.currentTimeMillis() - getRespStart);
 
+//        long pollStart = System.currentTimeMillis();
         requests.poll(); // clear
+//        if(cxt != null && PERF_LOG.isDebugEnabled())
+//            PERF_LOG.debug("{}: took {} ms to poll request", cxt.getTraceID(), System.currentTimeMillis() - pollStart);
         return frame;
     }
 
     @Override
-    public NSQFrame commandAndGetResponse(final NSQCommand command) throws TimeoutException, NSQNoConnectionException {
-        conLock.readLock().lock();
+    public NSQFrame commandAndGetResponse(Context cxt, final NSQCommand command) throws TimeoutException, NSQNoConnectionException, ExecutionException {
         try{
+            long isActiveStart = System.currentTimeMillis();
             if (!this._isConnected()) {
-                throw new NSQNoConnectionException(String.format("{} is not connected， command {} quit.", this, command));
+                throw new NSQNoConnectionException(String.format("%s is not connected， command %s quit.", this, command));
             }
+            if(cxt != null && PERF_LOG.isDebugEnabled())
+                PERF_LOG.debug("{}: tooks {} ms to check active", cxt.getTraceID(), System.currentTimeMillis() - isActiveStart);
 
-            return _commandAndGetResposne(command);
+            return _commandAndGetResposne(cxt, command);
         } catch (InterruptedException e) {
-            _close();
-            Thread.currentThread().interrupt();
             logger.error("Thread was interrupted, probably shutting down! Close connection!", e);
-        } finally {
-            conLock.readLock().unlock();
+            close();
+            throw new NSQNoConnectionException(String.format("%s is interrupted， command %s quit.", this, command));
         }
-        return null;
     }
 
     @Override
@@ -282,12 +272,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     @Override
     public boolean isConnected() {
-        conLock.readLock().lock();
-        try {
-            return this._isConnected();
-        }finally {
-            conLock.readLock().unlock();
-        }
+        return this._isConnected();
     }
 
     private boolean _isConnected() {
@@ -296,12 +281,12 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     @Override
     public boolean isIdentitySent() {
-        return identitySent.get();
+        return _isConnected() && identitySent.get();
     }
 
     @Override
     public boolean isSubSent() {
-        return this.subSent.get();
+        return _isConnected() && this.subSent.get();
     }
 
     @Override
@@ -317,17 +302,14 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         logger.info("Begin to clear {}", this);
         //extra lock to proof from more than none thread waiting for close
         if (closing.compareAndSet(false, true)) {
-            conLock.writeLock().lock();
-            try {
-                _close();
-            } finally {
-                conLock.writeLock().unlock();
-            }
+            if(this.isSubSent())
+                this.onClose();
+            _clear();
         }
         logger.info("End clear {}", this);
     }
 
-    private void _close() {
+    private void _clear() {
         if (null != channel) {
             channel.attr(NSQConnection.STATE).remove();
             channel.attr(Client.STATE).remove();
@@ -350,18 +332,12 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
      * 3. clear resources underneath
      */
     public void disconnect(final ConnectionManager conMgr) {
-        try {
-            logger.info("Disconnect from nsqd {} ...", this.address);
-            //1. backoff
-            conMgr.backoff(this);
-            //2. send CLS
-            this._onClose();
-        } finally {
-            //3. clear resource
-            if (channel.isActive())
-                this.close();
-            logger.info("nsqd {} disconnect", this.address);
-        }
+        logger.info("Disconnect from nsqd {} ...", this.address);
+        //1. backoff
+        conMgr.backoff(this);
+        //2. send CLS
+        this.close();
+        logger.info("nsqd {} disconnect", this.address);
     }
 
     @Override
@@ -400,18 +376,26 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     @Override
     public void onClose() {
-        logger.info("[{}] onClose", this);
-        this.close();
+        if(!this.channel.isActive() || !this.closing.get()) {
+            logger.info("Connection is not connected nor NSQConnection.close  is not invoked. onClose quit. {}", this);
+            return;
+        } else {
+            this._onClose();
+            logger.info("[{}] onClose sent", this);
+        }
     }
 
     private void _onClose() {
         //closing signal is updated here
         try {
-            this._commandAndGetResposne(Close.getInstance());
+            this._commandAndGetResposne(null, Close.getInstance());
         } catch (TimeoutException e) {
             logger.warn("Timeout receiving response for Close command.");
         } catch (InterruptedException e) {
             logger.error("Interrupted waiting for response from CLS.");
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException e) {
+            logger.warn("fail to send CLS.", e);
         }
     }
 

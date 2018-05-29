@@ -1,7 +1,8 @@
 package com.youzan.nsq.client.entity;
 
-import org.junit.Assert;
-import org.junit.Test;
+
+import org.testng.Assert;
+import org.testng.annotations.Test;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -22,6 +23,5 @@ public class AddressTest {
         except.add(addr2);
         except.remove(addr3);
         Assert.assertEquals(1, except.size());
-
     }
 }

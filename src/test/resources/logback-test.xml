@@ -155,7 +155,7 @@
         <appender-ref ref="CONSUME_POLICY"/>
     </logger>
 
-    <root level="DEBUG">
+    <root level="WARN">
         <appender-ref ref="STDOUT"/>
         <appender-ref ref="DEBUG"/>
         <appender-ref ref="INFO"/>

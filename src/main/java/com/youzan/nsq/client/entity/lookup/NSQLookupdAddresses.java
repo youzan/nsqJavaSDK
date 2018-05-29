@@ -1,7 +1,10 @@
 package com.youzan.nsq.client.entity.lookup;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.youzan.nsq.client.entity.*;
+import com.youzan.nsq.client.entity.Address;
+import com.youzan.nsq.client.entity.IPartitionsSelector;
+import com.youzan.nsq.client.entity.Partitions;
+import com.youzan.nsq.client.entity.SimplePartitionsSelector;
 import com.youzan.nsq.client.exception.NSQLookupException;
 import com.youzan.nsq.client.exception.NSQProducerNotFoundException;
 import com.youzan.nsq.client.exception.NSQTopicNotFoundException;
@@ -11,7 +14,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.lang.ref.SoftReference;
 import java.net.URL;
 import java.util.*;
 
@@ -156,7 +158,7 @@ public class NSQLookupdAddresses extends AbstractLookupdAddresses {
             throw new NSQProducerNotFoundException("No NSQd producer node return in lookup response. NSQd may not ready at this moment. " + topic);
         }
         final JsonNode partitions = rootNode.get("partitions");
-        Map<Integer, SoftReference<Address>> partitionId2Ref;
+        Map<Integer, Address> partitionId2Ref;
         List<Address> partitionedDataNodes;
         Set<AddressCompatibility> partitionNodeSet = new HashSet<>();
 
@@ -190,7 +192,7 @@ public class NSQLookupdAddresses extends AbstractLookupdAddresses {
                 if(parIdInt >= 0) {
                     partitionedDataNodes.add(address);
                     partitionNodeSet.add(new AddressCompatibility(address));
-                    partitionId2Ref.put(parIdInt, new SoftReference<>(address));
+                    partitionId2Ref.put(parIdInt, address);
                     if(!writable)
                         partitionCount++;
                 }

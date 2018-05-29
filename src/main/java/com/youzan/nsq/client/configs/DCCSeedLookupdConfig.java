@@ -5,7 +5,6 @@ import com.youzan.nsq.client.entity.lookup.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.ref.SoftReference;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -42,7 +41,6 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
     private static final Logger logger = LoggerFactory.getLogger(DCCSeedLookupdConfig.class);
 
     private static final String DEFAULT_PREFIX = "##_default";
-    private volatile int INDEX = 0;
     private ReentrantReadWriteLock defaultLock = new ReentrantReadWriteLock();
     private ConcurrentHashMap<String, DefaultSeedLookupd> defaultcnfMap = new ConcurrentHashMap<>();
     private final String categorization;
@@ -57,6 +55,7 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
      * Not used in 2.3
      * @param clusterInfo cluster info
      * @param seedLookup  seed lookupd address of default cluster
+     * @deprecated
      */
     @Deprecated
     public void putDefaultCluster(String clusterInfo, String seedLookup) {
@@ -76,6 +75,7 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
      * Not used in 2.3
      * @param clusterInfo default clusterinfo
      * @return seed lookupd address for default cluster
+     * @deprecated
      */
     @Deprecated
     public String getDefaultCluster(String clusterInfo) {
