@@ -13,6 +13,7 @@ import com.youzan.util.SystemUtil;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.handler.ssl.SslContext;
+import io.netty.util.concurrent.Future;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -21,9 +22,13 @@ import org.slf4j.LoggerFactory;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static org.apache.commons.lang3.tuple.Pair.of;
+
 
 /**
  * It is used for Producer or Consumer, and not both two.
@@ -36,7 +41,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private static final long serialVersionUID = 6624842850216901700L;
     private static final Logger logger = LoggerFactory.getLogger(NSQConfig.class);
     private static final ObjectMapper MAPPER_CONFIG = new ObjectMapper();
-    private static final EventLoopGroup DEFAULT_EVENT_LOOP_GROUP = new NioEventLoopGroup();
+    private static final EventLoopGroup DEFAULT_EVENT_LOOP_GROUP = new NioEventLoopGroup(Runtime.getRuntime().availableProcessors() * 2);
     private static EventLoopGroup EVENT_LOOP_GROUP = DEFAULT_EVENT_LOOP_GROUP;
 
     static {
@@ -966,15 +971,16 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
+     * @deprecated As nsq clients share a common netty event group, thread size it fixed to available cpu core * 2.
      * Specify netty work group thread pool size for nsqd frames receive & delivery process.
      * @param newPoolSize new pool size for netty nio group to set
      * @return {@link NSQConfig}
      */
+    @Deprecated
     public NSQConfig setNettyPoolSize(int newPoolSize) {
         if (newPoolSize < 1) {
             throw new IllegalArgumentException("Thread pool size smaller than 1 is not accepted.");
         }
-        EVENT_LOOP_GROUP = new NioEventLoopGroup(newPoolSize);
         return this;
     }
 
@@ -1068,6 +1074,17 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         return this.producerPoolSize;
     }
 
+    private boolean cleanTopicResource4Producer = false;
+
+    public NSQConfig setEnableCleanIdleTopicResourceForProducer(boolean enable) {
+        this.cleanTopicResource4Producer = enable;
+        return this;
+    }
+
+    public boolean getEnableCleanIdleTopicResourceForProducer() {
+        return this.cleanTopicResource4Producer;
+    }
+
     private String toFilterIdentifyJsonString() throws JsonProcessingException {
         ObjectNode root = SystemUtil.getObjectMapper().createObjectNode();
         root.put("type", this.getConsumeMessageFilterMode().getFilter().getType());
@@ -1078,7 +1095,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         } else {
             root.put("filter_ext_key", this.consumerMsgFilterDatas.getKey().name());
             ArrayNode dataList = root.putArray("filter_data_list");
-            for (Pair<String, String>kv: this.consumerMsgFilterDatas.getRight()) {
+            for (Pair<String, String> kv: this.consumerMsgFilterDatas.getRight()) {
                 ObjectNode kvNode = dataList.addObject();
                 kvNode.put("filter_ext_key", kv.getKey());
                 kvNode.put("filter_data", kv.getValue());

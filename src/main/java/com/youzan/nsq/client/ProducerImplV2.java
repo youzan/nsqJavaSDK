@@ -215,7 +215,8 @@ public class ProducerImplV2 implements Producer {
             }
             //simple client starts and LookupAddressUpdate instance initialized there.
             this.simpleClient.start();
-            scheduler.scheduleAtFixedRate(EXPIRED_TOPIC_CLEANER, 30, 30, TimeUnit.MINUTES);
+            if(this.config.getEnableCleanIdleTopicResourceForProducer())
+                scheduler.scheduleAtFixedRate(EXPIRED_TOPIC_CLEANER, 30, 30, TimeUnit.MINUTES);
             logger.info("The producer {} has been started.", this);
         }
     }

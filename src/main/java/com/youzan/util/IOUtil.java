@@ -112,7 +112,7 @@ public final class IOUtil {
                 }
             }
         }
-        if (httpURLConnection.getResponseCode() >= 300) {
+        if (httpURLConnection.getResponseCode() >= 500) {
             throw new Exception("HTTP Request failed, Response code is " + httpURLConnection.getResponseCode());
         }
         httpURLConnection.disconnect();

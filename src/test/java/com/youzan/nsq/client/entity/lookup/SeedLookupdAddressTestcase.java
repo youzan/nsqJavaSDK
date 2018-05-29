@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.lang.invoke.MethodHandles;
 import java.lang.ref.SoftReference;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -92,7 +93,6 @@ public class SeedLookupdAddressTestcase {
             clean(aSeed);
         }
     }
-
 
     @Test
     public void testSeedLookupdAddressCreate() throws NoSuchFieldException, IllegalAccessException {

@@ -123,6 +123,7 @@ public class ITProducer {
         }
     }
 
+    @Test
     public void multiPublishBatchError2() throws Exception {
         logger.info("[ITProducer#multiPublishBatchError2] starts");
         Producer producer = null;
@@ -171,6 +172,7 @@ public class ITProducer {
         }
     }
 
+    @Test
     public void multiPublishBatchError1() throws Exception {
         logger.info("[ITProducer#multiPublishBatchError1] starts");
         Producer producer = null;

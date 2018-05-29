@@ -66,8 +66,11 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
             try {
                 this.lookupAddressLock.readLock().lock();
                 lookupAddrRefSize = this.lookupAddressesRefs.size();
-                if (!force && lookupAddrRefSize > 0)
+                if (lookupAddrRefSize > 0)
                     return;
+                else {
+                    logger.info("lookup address ref not exist, force listlookup needed");
+                }
             } finally {
                 this.lookupAddressLock.readLock().unlock();
             }
@@ -259,11 +262,16 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
     public static SeedLookupdAddress create(String address) {
         SeedLookupdAddress aSeed = new SeedLookupdAddress(address);
         if (!seedLookupMap.containsKey(address)) {
-            seedLookupMap.put(address, aSeed);
-            LISTLOOKUP_LASTUPDATED.put(address, 0L);
+            synchronized (seedLookupMap) {
+                if (!seedLookupMap.containsKey(address)) {
+                    seedLookupMap.put(address, aSeed);
+                    LISTLOOKUP_LASTUPDATED.put(address, 0L);
+                }
+            }
         } else {
             aSeed = seedLookupMap.get(address);
         }
+
         return aSeed;
     }
 
@@ -276,7 +284,9 @@ public class SeedLookupdAddress extends AbstractLookupdAddress {
     static long addReference(SeedLookupdAddress aSeed) {
         if (seedLookupMap.containsValue(aSeed)) {
             synchronized (aSeed) {
-                return aSeed.updateRefCounter(1);
+                if (seedLookupMap.containsValue(aSeed)) {
+                    return aSeed.updateRefCounter(1);
+                }
             }
         }
         return -1;

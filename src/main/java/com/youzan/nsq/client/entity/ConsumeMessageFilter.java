@@ -93,10 +93,10 @@ public interface ConsumeMessageFilter<T, V> {
             for (Pair<String, String> filterData : multiFilters.getRight()) {
                 String extVal = extJsonHeader.get(filterData.getKey());
                 match = EXACT_MATCH_FILTER.apply(filterData.getRight(), extVal);
-                if (match && relation == NSQConfig.MultiFiltersRelation.OR) {
+                if (match && relation == NSQConfig.MultiFiltersRelation.any) {
                     return true;
                 }
-                if (!match && relation == NSQConfig.MultiFiltersRelation.AND) {
+                if (!match && relation == NSQConfig.MultiFiltersRelation.all) {
                     return false;
                 }
             }

@@ -2,7 +2,6 @@ package com.youzan.nsq.client.entity;
 
 import com.youzan.nsq.client.exception.NSQPartitionNotAvailableException;
 
-import java.lang.ref.SoftReference;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -13,7 +12,7 @@ import java.util.Map;
 public class Partitions {
     private final String topic;
     //view of partition dataNode, length of dataNodes equals to size of Partitions.partitionNum;
-    private Map<Integer, SoftReference<Address>> partitionId2Addr = null;
+    private Map<Integer, Address> partitionId2Addr = null;
     private List<Address> dataNodes = null;
     //for compatible consideration, array for data node which has no partition
     private List<Address> unpartitionedDataNodes = null;
@@ -26,7 +25,7 @@ public class Partitions {
         this.topic = topic;
     }
 
-    public Partitions updatePartitionDataNode(final Map<Integer, SoftReference<Address>> partitionId2Addr, final List<Address> dataNodes, final int partitionNum){
+    public Partitions updatePartitionDataNode(final Map<Integer, Address> partitionId2Addr, final List<Address> dataNodes, final int partitionNum){
         if(null == dataNodes || dataNodes.size() == 0 || null == partitionId2Addr || partitionId2Addr.size() == 0)
             throw new RuntimeException("Length of pass in data nodes doe not match size of total partition number.");
         this.partitionId2Addr = partitionId2Addr;
@@ -45,7 +44,7 @@ public class Partitions {
         this.partitionNum = newPartitionNum;
     }
 
-    public Map<Integer, SoftReference<Address>> getPartitionId2Addr(){
+    public Map<Integer, Address> getPartitionId2Addr(){
         return this.partitionId2Addr;
     }
 
@@ -60,7 +59,7 @@ public class Partitions {
         if(partitionID < 0 || partitionID >= this.partitionNum)
             throw new IndexOutOfBoundsException("PartitionID: " + partitionID + " out of boundary. Partition number: " + this.partitionNum);
         try {
-            return this.partitionId2Addr.get(partitionID).get();
+            return this.partitionId2Addr.get(partitionID);
         } catch (NullPointerException npe) {
             throw new NSQPartitionNotAvailableException("Partition: " + partitionID + " not found for " + this.topic);
         }

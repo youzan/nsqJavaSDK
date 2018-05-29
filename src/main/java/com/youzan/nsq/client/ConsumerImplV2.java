@@ -665,10 +665,12 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
 
             boolean match = this.config.getConsumeMessageFilterMode().getFilter().apply(filterData, filterDataInHeader);
             if(this.config.getConsumeMessageFilterInverse()) {
-                return !match;
-            } else {
-                return match;
+                match = !match;
             }
+            if (!match) {
+                LOG_CONSUME_POLICY.info("Message skipped as Message filter not match. {}", message);
+            }
+            return match;
         }
         return true;
     }

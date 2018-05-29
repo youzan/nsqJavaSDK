@@ -11,11 +11,13 @@ import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -132,6 +134,415 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
 //            logger.info("[testHowBadCanItBe] ends.");
 //        }
 //    }
+
+    @Test
+    public void testNoMessageFilter() throws Exception {
+        //exact message filter
+        logger.info("[testNoMessageFilter] starts.");
+        final NSQConfig config = new NSQConfig("BaseConsumer");
+        config.setLookupAddresses(props.getProperty("lookup-addresses"));
+        String adminHttp = "http://" + props.getProperty("admin-address");
+        String topicName = "testMessageFilter";
+        Topic topic = new Topic(topicName);
+        final CountDownLatch latch = new CountDownLatch(3);
+        Consumer consumer = null;
+        try {
+            TopicUtil.createTopic(adminHttp, topicName,  2 , 2, "BaseConsumer", false, true );
+            TopicUtil.createTopicChannel(adminHttp, topicName, "BaseConsumer");
+            final AtomicBoolean fail = new AtomicBoolean(false);
+            consumer = new ConsumerImplV2(config, new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    latch.countDown();
+                }
+            });
+            consumer.subscribe(topicName);
+            consumer.start();
+
+            //send a message
+            Producer p = new ProducerImplV2(config);
+            p.start();
+
+            HashMap<String, String> extHeader1 = new HashMap<>();
+            extHeader1.put("key1", "val2");
+            extHeader1.put("key2", "val2");
+            Message mRej1 = Message.create(topic, "reject");
+            mRej1.setJsonHeaderExt(extHeader1);
+            p.publishAndGetReceipt(mRej1);
+
+            HashMap<String, String> extHeader2 = new HashMap<>();
+            extHeader2.put("key1", "val3");
+            extHeader2.put("key2", "val_test_123");
+            extHeader2.put("key3", "val3");
+            Message mRej2 = Message.create(topic, "reject");
+            mRej2.setJsonHeaderExt(extHeader2);
+            p.publishAndGetReceipt(mRej2);
+
+            HashMap<String, String> extHeader3 = new HashMap<>();
+            extHeader3.put("key1", "val1");
+            extHeader3.put("key2", "val2");
+            extHeader3.put("key2", "val3");
+            Message mAcc3 = Message.create(topic, "accept");
+            mAcc3.setJsonHeaderExt(extHeader3);
+            p.publishAndGetReceipt(mAcc3);
+            p.close();
+            Assert.assertTrue(latch.await(30, TimeUnit.SECONDS));
+        } finally {
+            TopicUtil.emptyQueue(adminHttp, topicName, "BaseConsumer");
+            if(consumer != null)
+                consumer.close();
+            logger.info("[testNoMessageFilter] ends.");
+        }
+    }
+
+    @Test
+    public void testMultiMessageFilterAny() throws Exception {
+        //exact message filter
+        logger.info("[testMultiMessageFilter] starts.");
+        final NSQConfig config = new NSQConfig("BaseConsumer");
+        config.setConsumeMessageFilterMode(ConsumeMessageFilterMode.MULTI_MATCH);
+        config.setLookupAddresses(props.getProperty("lookup-addresses"));
+        String adminHttp = "http://" + props.getProperty("admin-address");
+        String topicName = "testMessageFilter";
+        Topic topic = new Topic(topicName);
+        HashMap<String, String> filters = new HashMap<>();
+        filters.put("key1", "val1");
+        filters.put("key2", "val2");
+        filters.put("key3", "val3");
+        config.setConsumeMessageMultiFilters(NSQConfig.MultiFiltersRelation.any, filters);
+
+        final CountDownLatch latch = new CountDownLatch(2);
+        Consumer consumer = null;
+        try {
+            TopicUtil.createTopic(adminHttp, topicName,  2 , 2, "BaseConsumer", false, true );
+            TopicUtil.createTopicChannel(adminHttp, topicName, "BaseConsumer");
+            final AtomicBoolean fail = new AtomicBoolean(false);
+            consumer = new ConsumerImplV2(config, new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    String content = message.getReadableContent();
+                    if(!content.contains("accept")) {
+                        fail.set(true);
+                    }
+                    latch.countDown();
+                }
+            });
+            consumer.subscribe(topicName);
+            consumer.start();
+
+            //send a message
+            Producer p = new ProducerImplV2(config);
+            p.start();
+
+            HashMap<String, String> extHeader1 = new HashMap<>();
+            extHeader1.put("key1", "val2");
+            extHeader1.put("key2", "val2");
+            Message mRej1 = Message.create(topic, "accept");
+            mRej1.setJsonHeaderExt(extHeader1);
+            p.publishAndGetReceipt(mRej1);
+
+            HashMap<String, String> extHeader2 = new HashMap<>();
+            extHeader2.put("key1", "val3");
+            extHeader2.put("key2", "val_test_123");
+            extHeader2.put("key3", "val3");
+            Message mRej2 = Message.create(topic, "accept");
+            mRej2.setJsonHeaderExt(extHeader2);
+            p.publishAndGetReceipt(mRej2);
+
+            HashMap<String, String> extHeader3 = new HashMap<>();
+            extHeader3.put("key1", "val2");
+            extHeader3.put("key2", "val3");
+            extHeader3.put("key2", "val4");
+            Message mAcc3 = Message.create(topic, "reject");
+            mAcc3.setJsonHeaderExt(extHeader3);
+            p.publishAndGetReceipt(mAcc3);
+            p.close();
+            Assert.assertTrue(latch.await(30, TimeUnit.SECONDS));
+            if(fail.get()) {
+                Assert.fail("wrong message received");
+            }
+        } finally {
+            TopicUtil.emptyQueue(adminHttp, topicName, "BaseConsumer");
+            if(consumer != null)
+                consumer.close();
+            logger.info("[testMultiMessageFilter] ends.");
+        }
+    }
+
+    @Test
+    public void testMultiMessageFilterAll() throws Exception {
+        //exact message filter
+        logger.info("[testMultiMessageFilterAll] starts.");
+        final NSQConfig config = new NSQConfig("BaseConsumer");
+        config.setConsumeMessageFilterMode(ConsumeMessageFilterMode.MULTI_MATCH);
+        config.setLookupAddresses(props.getProperty("lookup-addresses"));
+        String adminHttp = "http://" + props.getProperty("admin-address");
+        String topicName = "testMessageFilter";
+        Topic topic = new Topic(topicName);
+        HashMap<String, String> filters = new HashMap<>();
+        filters.put("key1", "val1");
+        filters.put("key2", "val2");
+        filters.put("key3", "val3");
+        config.setConsumeMessageMultiFilters(NSQConfig.MultiFiltersRelation.all, filters);
+
+        final CountDownLatch latch = new CountDownLatch(3);
+        Consumer consumer = null;
+        try {
+            TopicUtil.createTopic(adminHttp, topicName,  2 , 2, "BaseConsumer", false, true );
+            TopicUtil.createTopicChannel(adminHttp, topicName, "BaseConsumer");
+            final AtomicBoolean fail = new AtomicBoolean(false);
+            consumer = new ConsumerImplV2(config, new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    String content = message.getReadableContent();
+                    if(!content.contains("accept")) {
+                        fail.set(true);
+                    }
+                    latch.countDown();
+                }
+            });
+            consumer.subscribe(topicName);
+            consumer.start();
+
+            //send a message
+            Producer p = new ProducerImplV2(config);
+            p.start();
+
+            HashMap<String, String> extHeader1 = new HashMap<>();
+            extHeader1.put("key1", "val2");
+            extHeader1.put("key2", "val2");
+            Message mRej1 = Message.create(topic, "reject");
+            mRej1.setJsonHeaderExt(extHeader1);
+            p.publishAndGetReceipt(mRej1);
+
+            HashMap<String, String> extHeader2 = new HashMap<>();
+            extHeader2.put("key1", "val3");
+            extHeader2.put("key2", "val_test_123");
+            extHeader2.put("key3", "val3");
+            Message mRej2 = Message.create(topic, "reject");
+            mRej2.setJsonHeaderExt(extHeader2);
+            p.publishAndGetReceipt(mRej2);
+
+            HashMap<String, String> extHeader3 = new HashMap<>();
+            extHeader3.put("key1", "val1");
+            extHeader3.put("key2", "val2");
+            extHeader3.put("key2", "val3");
+            Message mAcc3 = Message.create(topic, "accept");
+            mAcc3.setJsonHeaderExt(extHeader3);
+            p.publishAndGetReceipt(mAcc3);
+            p.close();
+            latch.await(30, TimeUnit.SECONDS);
+            if(fail.get()) {
+                Assert.fail("wrong message received");
+            }
+        } finally {
+            TopicUtil.emptyQueue(adminHttp, topicName, "BaseConsumer");
+            if(consumer != null)
+                consumer.close();
+            logger.info("[testMultiMessageFilterAll] ends.");
+        }
+    }
+
+
+    @Test
+    public void testGlobMessageFilter() throws Exception {
+        //exact message filter
+        logger.info("[testGlobMessageFilter] starts.");
+        final NSQConfig config = new NSQConfig("BaseConsumer");
+        config.setConsumeMessageFilterMode(ConsumeMessageFilterMode.GLOB_MATCH);
+        config.setLookupAddresses(props.getProperty("lookup-addresses"));
+        String adminHttp = "http://" + props.getProperty("admin-address");
+        String topicName = "testMessageFilter";
+        Topic topic = new Topic(topicName);
+        config.setConsumeMessageFilter("key1", "val*123");
+        final CountDownLatch latch = new CountDownLatch(1);
+        Consumer consumer = null;
+        try {
+            TopicUtil.createTopic(adminHttp, topicName,  2 , 2, "BaseConsumer", false, true );
+            TopicUtil.createTopicChannel(adminHttp, topicName, "BaseConsumer");
+            final AtomicBoolean fail = new AtomicBoolean(false);
+            consumer = new ConsumerImplV2(config, new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    String content = message.getReadableContent();
+                    if(!content.contains("accept")) {
+                        fail.set(true);
+                    }
+                    latch.countDown();
+                }
+            });
+            consumer.subscribe(topicName);
+            consumer.start();
+
+            //send a message
+            Producer p = new ProducerImplV2(config);
+            p.start();
+
+            HashMap<String, String> extHeader1 = new HashMap<>();
+            extHeader1.put("key1", "val2");
+            extHeader1.put("key2", "val2");
+            Message mRej1 = Message.create(topic, "reject");
+            mRej1.setJsonHeaderExt(extHeader1);
+            p.publishAndGetReceipt(mRej1);
+
+            HashMap<String, String> extHeader2 = new HashMap<>();
+            extHeader2.put("key1", "val3");
+            extHeader2.put("key2", "val_test_123");
+            Message mRej2 = Message.create(topic, "reject");
+            mRej2.setJsonHeaderExt(extHeader2);
+            p.publishAndGetReceipt(mRej2);
+
+            HashMap<String, String> extHeader3 = new HashMap<>();
+            extHeader3.put("key1", "val_test_123");
+            extHeader3.put("key2", "val2");
+            Message mAcc3 = Message.create(topic, "accept");
+            mAcc3.setJsonHeaderExt(extHeader3);
+            p.publishAndGetReceipt(mAcc3);
+            p.close();
+            Assert.assertTrue(latch.await(30, TimeUnit.SECONDS));
+            if(fail.get()) {
+                Assert.fail("wrong message received");
+            }
+        } finally {
+            TopicUtil.emptyQueue(adminHttp, topicName, "BaseConsumer");
+            if(consumer != null)
+                consumer.close();
+            logger.info("[testGlobMessageFilter] ends.");
+        }
+    }
+
+    @Test
+    public void testRegExpMessageFilter() throws Exception {
+        //exact message filter
+        logger.info("[testRegExpMessageFilter] starts.");
+        final NSQConfig config = new NSQConfig("BaseConsumer");
+        config.setConsumeMessageFilterMode(ConsumeMessageFilterMode.REGEXP_MATCH);
+        config.setLookupAddresses(props.getProperty("lookup-addresses"));
+        String adminHttp = "http://" + props.getProperty("admin-address");
+        String topicName = "testMessageFilter";
+        Topic topic = new Topic(topicName);
+        config.setConsumeMessageFilter("key1", "val\\w+1\\d+");
+        final CountDownLatch latch = new CountDownLatch(1);
+        Consumer consumer = null;
+        try {
+            TopicUtil.createTopic(adminHttp, topicName,  2 , 2, "BaseConsumer", false, true );
+            TopicUtil.createTopicChannel(adminHttp, topicName, "BaseConsumer");
+            final AtomicBoolean fail = new AtomicBoolean(false);
+            consumer = new ConsumerImplV2(config, new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    String content = message.getReadableContent();
+                    if(!content.contains("accept")) {
+                        fail.set(true);
+                    }
+                    latch.countDown();
+                }
+            });
+            consumer.subscribe(topicName);
+            consumer.start();
+
+            //send a message
+            Producer p = new ProducerImplV2(config);
+            p.start();
+
+            HashMap<String, String> extHeader1 = new HashMap<>();
+            extHeader1.put("key1", "val2");
+            extHeader1.put("key2", "val2");
+            Message mRej1 = Message.create(topic, "reject");
+            mRej1.setJsonHeaderExt(extHeader1);
+            p.publishAndGetReceipt(mRej1);
+
+            HashMap<String, String> extHeader2 = new HashMap<>();
+            extHeader2.put("key1", "val3");
+            extHeader2.put("key2", "val_test_123");
+            Message mRej2 = Message.create(topic, "reject");
+            mRej2.setJsonHeaderExt(extHeader2);
+            p.publishAndGetReceipt(mRej2);
+
+            HashMap<String, String> extHeader3 = new HashMap<>();
+            extHeader3.put("key1", "val_test_123");
+            extHeader3.put("key2", "val2");
+            Message mAcc3 = Message.create(topic, "accept");
+            mAcc3.setJsonHeaderExt(extHeader3);
+            p.publishAndGetReceipt(mAcc3);
+            p.close();
+            latch.await(30, TimeUnit.SECONDS);
+            if(fail.get()) {
+                Assert.fail("wrong message received");
+            }
+        } finally {
+            TopicUtil.emptyQueue(adminHttp, topicName, "BaseConsumer");
+            if(consumer != null)
+                consumer.close();
+            logger.info("[testRegExpMessageFilter] ends.");
+        }
+    }
+
+    @Test
+    public void testExactMessageFilter() throws Exception {
+        //exact message filter
+        logger.info("[testExactMessageFilter] starts.");
+        final NSQConfig config = new NSQConfig("BaseConsumer");
+        config.setLookupAddresses(props.getProperty("lookup-addresses"));
+        String adminHttp = "http://" + props.getProperty("admin-address");
+        String topicName = "testMessageFilter";
+        Topic topic = new Topic(topicName);
+        config.setConsumeMessageFilter("key1", "val1");
+        final CountDownLatch latch = new CountDownLatch(1);
+        Consumer consumer = null;
+        try {
+            TopicUtil.createTopic(adminHttp, topicName,  2 , 2, "BaseConsumer", false, true );
+            TopicUtil.createTopicChannel(adminHttp, topicName, "BaseConsumer");
+            final AtomicBoolean fail = new AtomicBoolean(false);
+            consumer = new ConsumerImplV2(config, new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    String content = message.getReadableContent();
+                    if(!content.contains("accept")) {
+                        fail.set(true);
+                    }
+                    latch.countDown();
+                }
+            });
+            consumer.subscribe(topicName);
+            consumer.start();
+
+            //send a message
+            Producer p = new ProducerImplV2(config);
+            p.start();
+
+            HashMap<String, String> extHeader1 = new HashMap<>();
+            extHeader1.put("key1", "val2");
+            extHeader1.put("key2", "val2");
+            Message mRej1 = Message.create(topic, "reject");
+            mRej1.setJsonHeaderExt(extHeader1);
+            p.publishAndGetReceipt(mRej1);
+
+            HashMap<String, String> extHeader2 = new HashMap<>();
+            extHeader2.put("key1", "val3");
+            extHeader2.put("key2", "val2");
+            Message mRej2 = Message.create(topic, "reject");
+            mRej2.setJsonHeaderExt(extHeader2);
+            p.publishAndGetReceipt(mRej2);
+
+            HashMap<String, String> extHeader3 = new HashMap<>();
+            extHeader3.put("key1", "val1");
+            extHeader3.put("key2", "val2");
+            Message mAcc3 = Message.create(topic, "accept");
+            mAcc3.setJsonHeaderExt(extHeader3);
+            p.publishAndGetReceipt(mAcc3);
+            p.close();
+            latch.await(30, TimeUnit.SECONDS);
+            if(fail.get()) {
+                Assert.fail("wrong message received");
+            }
+        } finally {
+            TopicUtil.emptyQueue(adminHttp, topicName, "BaseConsumer");
+            if(consumer != null)
+                consumer.close();
+            logger.info("[testExactMessageFilter] ends.");
+        }
+    }
 
     @Test
     public void testNextConsumingTimeout() throws Exception {
@@ -560,7 +971,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         NSQConfig config = new NSQConfig("BaseConsumer");
         config.setConsumeMessageFilterInverse(true);
         config.setConsumeMessageFilterMode(ConsumeMessageFilterMode.MULTI_MATCH);
-        config.setConsumeMessageMultiFilters(NSQConfig.MultiFiltersRelation.OR, filterMap);
+        config.setConsumeMessageMultiFilters(NSQConfig.MultiFiltersRelation.any, filterMap);
         ConsumerImplV2 consumer = new ConsumerImplV2(config, new MessageHandler() {
             @Override
             public void process(NSQMessage message) {
@@ -590,7 +1001,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
 
         NSQConfig config = new NSQConfig("BaseConsumer");
         config.setConsumeMessageFilterMode(ConsumeMessageFilterMode.MULTI_MATCH);
-        config.setConsumeMessageMultiFilters(NSQConfig.MultiFiltersRelation.OR, filterMap);
+        config.setConsumeMessageMultiFilters(NSQConfig.MultiFiltersRelation.any, filterMap);
         ConsumerImplV2 consumer = new ConsumerImplV2(config, new MessageHandler() {
             @Override
             public void process(NSQMessage message) {
@@ -623,7 +1034,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
 
         NSQConfig configAnd = new NSQConfig("BaseConsumer");
         configAnd.setConsumeMessageFilterMode(ConsumeMessageFilterMode.MULTI_MATCH);
-        configAnd.setConsumeMessageMultiFilters(NSQConfig.MultiFiltersRelation.AND, filterMap);
+        configAnd.setConsumeMessageMultiFilters(NSQConfig.MultiFiltersRelation.all, filterMap);
         ConsumerImplV2 consumerAnd = new ConsumerImplV2(configAnd, new MessageHandler() {
             @Override
             public void process(NSQMessage message) {
