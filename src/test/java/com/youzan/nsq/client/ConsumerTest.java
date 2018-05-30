@@ -484,6 +484,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         logger.info("[testExactMessageFilter] starts.");
         final NSQConfig config = new NSQConfig("BaseConsumer");
         config.setLookupAddresses(props.getProperty("lookup-addresses"));
+        config.setConsumeMessageFilterMode(ConsumeMessageFilterMode.EXACT_MATCH);
         String adminHttp = "http://" + props.getProperty("admin-address");
         String topicName = "testMessageFilter";
         Topic topic = new Topic(topicName);
