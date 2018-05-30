@@ -179,43 +179,18 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     }
 
     private NSQFrame _commandAndGetResposne(final Context cxt, final NSQCommand command) throws TimeoutException, InterruptedException, ExecutionException {
-        final long start = System.currentTimeMillis();
-//        long timeout = queryTimeoutInMillisecond;
         if (!requests.offer(command, queryTimeoutInMillisecond, TimeUnit.MILLISECONDS)) {
             throw new TimeoutException(
                     "The command timeout in " + queryTimeoutInMillisecond + " milliSec. The command name is : " + command.getClass().getName());
         }
-//        if(cxt != null && PERF_LOG.isDebugEnabled())
-//            PERF_LOG.debug("{}: took {} ms to offer", cxt.getTraceID(), System.currentTimeMillis() - start);
-
-        // wait to get the response
-//        long clearStart = System.currentTimeMillis();
         responses.clear(); // clear
-//        if(cxt != null && PERF_LOG.isDebugEnabled())
-//            PERF_LOG.debug("{}: took {} ms to clear resp", cxt.getTraceID(), System.currentTimeMillis() - clearStart);
-
-        // write data
-//        final long commandStart = System.currentTimeMillis();
-        final ChannelFuture future = command(command);
-//        timeout = queryTimeoutInMillisecond - (System.currentTimeMillis() - start);
-        future.get(queryTimeoutInMillisecond, TimeUnit.MILLISECONDS);
-//        if(cxt != null && PERF_LOG.isDebugEnabled())
-//            PERF_LOG.debug("{}: took {} ms to command", cxt.getTraceID(), System.currentTimeMillis() - commandStart);
-
-//        final long getRespStart = System.currentTimeMillis();
-//        timeout = queryTimeoutInMillisecond - (System.currentTimeMillis() - start);
+        command(command);
         final NSQFrame frame = responses.poll(queryTimeoutInMillisecond, TimeUnit.MILLISECONDS);
         if (frame == null) {
             throw new TimeoutException(
                     "The command timeout receiving response frame in " + queryTimeoutInMillisecond + " milliSec. The command name is : " + command.getClass().getName());
         }
-//        if(cxt != null && PERF_LOG.isDebugEnabled())
-//            PERF_LOG.debug("{}: took {} ms to getResp", cxt.getTraceID(), System.currentTimeMillis() - getRespStart);
-
-//        long pollStart = System.currentTimeMillis();
         requests.poll(); // clear
-//        if(cxt != null && PERF_LOG.isDebugEnabled())
-//            PERF_LOG.debug("{}: took {} ms to poll request", cxt.getTraceID(), System.currentTimeMillis() - pollStart);
         return frame;
     }
 

@@ -639,7 +639,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         String filterKey = this.config.getConsumeMessageFilterKey();
         ConsumeMessageFilterMode m = this.config.getConsumeMessageFilterMode();
 
-        if (conn.isExtend() && (StringUtils.isNotBlank(filterKey) || m == ConsumeMessageFilterMode.MULTI_MATCH)) {
+        if (conn.isExtend() && ((StringUtils.isNotBlank(filterKey) || m == ConsumeMessageFilterMode.MULTI_MATCH))) {
             Object filterDataInHeader = message.getExtByName(filterKey);
             String filterDataInConf = this.config.getConsumeMessageFilterValue();
             Object filterData = null;
