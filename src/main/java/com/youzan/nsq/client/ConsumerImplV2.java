@@ -192,13 +192,14 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             //expect to expose that to user.
             //set copy partition true here, as consumer may need to connect to specified partition
             Topic topicCopy = Topic.newInstacne(topic, true);
+            String topicName = topicCopy.getTopicText();
             SortedSet<Long> partitionsSet;
-            if(topics2Partitions.containsKey(topicCopy.getTopicText())) {
-                partitionsSet = topics2Partitions.get(topicCopy);
+            if(topics2Partitions.containsKey(topicName)) {
+                partitionsSet = topics2Partitions.get(topicName);
             } else {
                 partitionsSet = new TreeSet<>();
-                topics2Partitions.put(topicCopy.getTopicText(), partitionsSet);
-                simpleClient.putTopic(topicCopy.getTopicText());
+                topics2Partitions.put(topicName, partitionsSet);
+                simpleClient.putTopic(topicName);
             }
             //add partition id to sorted set
             partitionsSet.add((long) topicCopy.getPartitionId());

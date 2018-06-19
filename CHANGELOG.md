@@ -188,3 +188,5 @@ fix
    * touch support
  * Consumer:
    * consume message filter.[#14](https://github.com/youzan/nsqJavaSDK/pull/14)
+fix
+ * topic object as key in Consumer.subscribe.[#41](https://github.com/youzan/nsqJavaSDK/issues/41)
