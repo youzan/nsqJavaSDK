@@ -192,7 +192,7 @@ public class ProducerImplV2 implements Producer {
             this.poolConfig.setLifo(false);
             //set fairness true, for blocked thread try borrowing connection
             this.poolConfig.setFairness(true);
-            this.poolConfig.setTestOnBorrow(false);
+            this.poolConfig.setTestOnBorrow(true);
             this.poolConfig.setTestOnReturn(false);
             //If testWhileIdle is true, during idle eviction, examined objects are validated when visited (and removed if invalid);
             //otherwise only objects that have been idle for more than minEvicableIdleTimeMillis are removed.

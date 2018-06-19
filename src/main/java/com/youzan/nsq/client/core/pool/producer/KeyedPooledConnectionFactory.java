@@ -117,7 +117,7 @@ public class KeyedPooledConnectionFactory extends BaseKeyedPooledObjectFactory<A
         // another implementation : use client.heartbeat,or called
         // client.validateConnection
         if (null != connection && connection.isIdentitySent()) {
-            return client.validateHeartbeat(connection);
+            return connection.isConnected();
         }
         logger.warn("NSQConnection {} fails validation.", address);
         return false;
