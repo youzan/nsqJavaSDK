@@ -1,5 +1,6 @@
 package com.youzan.nsq.client.core;
 
+import com.google.common.util.concurrent.*;
 import com.youzan.nsq.client.IConsumeInfo;
 import com.youzan.nsq.client.core.command.Rdy;
 import com.youzan.nsq.client.entity.Address;
@@ -31,13 +32,15 @@ public class ConnectionManager {
 
     //executor for backoff & resume
     private final ExecutorService exec = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(), new NamedThreadFactory("connMgr-job", Thread.NORM_PRIORITY));
+    private final ListeningScheduledExecutorService resumeExec = MoreExecutors.listeningDecorator(Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("rdy-resume", Thread.NORM_PRIORITY)));
     //schedule executor for rdy redistribute & expected rdy update
     private final ScheduledExecutorService scheduleExec = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("rdy-distribute", Thread.NORM_PRIORITY));
 
-    private final int INIT_DELAY = 5;
-    private final int INTERVAL = 5;
-    private final int INIT_RDY = 1;
-    private final int RDY_TIMEOUT = 100;
+    private static final int INIT_DELAY = 5;
+    private static final int INTERVAL = 5;
+    private static final int INIT_RDY = 1;
+    private static final int RDY_TIMEOUT = 100;
+    private static final long RESUME_WAIT_TIMEOUT = 5000l;
 
     private AtomicBoolean start = new AtomicBoolean(false);
     private final Runnable REDISTRIBUTE_RUNNABLE = new Runnable() {
@@ -333,6 +336,81 @@ public class ConnectionManager {
     }
 
     /**
+     * backoff connections to a topic and resume consumption after resumeDelayInSecond.
+     * @param topic topic to backoff.
+     * @param resumeDelayInSecond delay in second for resume consuming passin topic
+     */
+    public ListenableFuture<Boolean> backoff(final String topic, long resumeDelayInSecond) {
+        if (!topic2Subs.containsKey(topic)) {
+            logger.info("Subscriber for topic {} does not exist.");
+            return Futures.immediateFuture(Boolean.FALSE);
+        }
+
+        if(resumeDelayInSecond <= 0l) {
+            logger.warn("resume delay in second should larger than 0");
+            return Futures.immediateFuture(Boolean.FALSE);
+        }
+
+        final ConnectionWrapperSet subs = topic2Subs.get(topic);
+        if(null != subs) {
+            subs.writeLock();
+            try {
+                if (!subs.backoff()) {
+                    logger.info("topic {} already backoff.", topic);
+                    return Futures.immediateFuture(Boolean.TRUE);
+                }
+                final int latchCount = subs.size();
+                final CountDownLatch backoffLatch = new CountDownLatch(latchCount);
+                exec.submit(new Runnable() {
+                    public void run() {
+                        for (NSQConnectionWrapper sub : subs) {
+                            sub.getConn().onBackoff(new IRdyCallback() {
+                                @Override
+                                public void onUpdated(int newRdy, int lastRdy) {
+                                    subs.addTotalRdy(newRdy - lastRdy);
+                                    backoffLatch.countDown();
+                                }
+                            });
+                        }
+                    }
+                });
+
+                try{
+                    if (!backoffLatch.await(latchCount * RDY_TIMEOUT, TimeUnit.MILLISECONDS)) {
+                        logger.warn("Timeout backoff topic connections: {}", topic);
+                        return Futures.immediateFuture(Boolean.FALSE);
+                    } else {
+                        logger.info("Backoff connections for topic {}", topic);
+                        //submit resume task if resume delay > 0
+                        return this.resumeExec.schedule(new Callable<Boolean>() {
+                            @Override
+                            public Boolean call() {
+                                Boolean success = Boolean.FALSE;
+                                try {
+                                    CountDownLatch resumeLatch = new CountDownLatch(1);
+                                    resume(topic, resumeLatch);
+                                    if(resumeLatch.await(RESUME_WAIT_TIMEOUT, TimeUnit.SECONDS))
+                                        success = Boolean.TRUE;
+                                } catch (InterruptedException e) {
+                                    logger.warn("Interrupted while resume topic {}", topic);
+                                    Thread.currentThread().interrupt();
+                                }
+                                return success;
+                            }
+                        }, resumeDelayInSecond, TimeUnit.SECONDS);
+                    }
+                } catch (InterruptedException e) {
+                    logger.warn("Interrupted while waiting for back off on all connections for {}", topic);
+                    Thread.currentThread().interrupt();
+                }
+            } finally {
+                subs.writeUnlock();
+            }
+        }
+        return Futures.immediateFuture(Boolean.FALSE);
+    }
+
+    /**
      * backoff connections to a topic.
      * @param topic topic to backoff.
      */
@@ -370,13 +448,13 @@ public class ConnectionManager {
 
                 try{
                     if (!backoffLatch.await(latchCount * RDY_TIMEOUT, TimeUnit.MILLISECONDS)) {
-                        logger.warn("Timeout backoff topic connections {}", topic);
+                        logger.error("Timeout backoff topic connections {}", topic);
                     } else if (null != latch) {
                         latch.countDown();
                         logger.info("Backoff connections for topic {}", topic);
                     }
                 } catch (InterruptedException e) {
-                    logger.warn("Interrupted while waiting for back off on all connections for {}", topic);
+                    logger.error("Interrupted while waiting for back off on all connections for {}", topic);
                     Thread.currentThread().interrupt();
                 }
             } finally {
@@ -421,13 +499,13 @@ public class ConnectionManager {
 
                 try {
                     if (!resumeLatch.await(latchCount * RDY_TIMEOUT, TimeUnit.MILLISECONDS)) {
-                        logger.warn("Timeout for resume topic connections {}", topic);
+                        logger.error("Timeout for resume topic connections {}", topic);
                     } else if (null != latch) {
                         latch.countDown();
                         logger.info("Resume connections for topic {}", topic);
                     }
                 } catch (InterruptedException e) {
-                    logger.warn("Interrupted while waiting for resume on all connections for {}", topic);
+                    logger.error("Interrupted while waiting for resume on all connections for {}", topic);
                     Thread.currentThread().interrupt();
                 }
             } finally {

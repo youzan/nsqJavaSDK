@@ -1,6 +1,7 @@
 package com.youzan.nsq.client.core;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.youzan.nsq.client.IConsumeInfo;
 import com.youzan.nsq.client.MockedConsumer;
 import com.youzan.nsq.client.MockedNSQConnectionImpl;
@@ -569,6 +570,68 @@ public class ConnectionManagerTest {
         } finally {
             TopicUtil.deleteTopic(adminHttp, topic);
             logger.info("[testInvalidateConnection] ends.");
+        }
+    }
+
+    @Test
+    public void testBackOffWithResume() throws Exception {
+        logger.info("[testBackOffWithResume] starts");
+        final String topicName = "testConBackoffResume";
+        String channel = "default";
+        int parNum = 5;
+        final ConnectionManager conMgr = new ConnectionManager(new IConsumeInfo() {
+            @Override
+            public float getLoadFactor() {
+                return 0;
+            }
+
+            @Override
+            public int getRdyPerConnection() {
+                return 3;
+            }
+
+            @Override
+            public boolean isConsumptionEstimateElapseTimeout() {
+                return false;
+            }
+        });
+
+
+        try {
+            //then we have 5 channel
+            final List<NSQConnection> connList = new ArrayList<>(parNum);
+            JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topicName + "&access=r"));
+            for (int i = 0; i < parNum; i++) {
+                JsonNode partition = lookupResp.get("partitions").get("" + i);
+                Address addr = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topicName, i, false);
+                NSQConnection con = connect(addr, topicName, i, channel, config);
+                conMgr.subscribe(topicName, con);
+                connList.add(con);
+            }
+
+            //subscribe first connection
+            conMgr.start(0);
+            int resumeDelay = 2;
+
+            ListenableFuture<Boolean> resumeFuture = conMgr.backoff(topicName, resumeDelay);
+            boolean base = connList.get(0).isBackoff();
+            Assert.assertTrue(base);
+            logger.info("Connection 0 is backoff: {}", base);
+            for (NSQConnection con : connList) {
+                Assert.assertTrue(con.isConnected());
+                Assert.assertEquals(con.isBackoff(), base, "" + con + " isBackoff state does not equal to " + base);
+            }
+            //sleep until resume
+            Thread.sleep(resumeDelay * 1000);
+
+            for (NSQConnection con : connList) {
+                Assert.assertTrue(con.isConnected());
+                Assert.assertEquals(con.getCurrentRdyCount(), 1);
+            }
+            logger.info("[testBackOffWithResume] ends");
+        }finally {
+            conMgr.backoff(topicName, null);
+            conMgr.close();
         }
     }
 
