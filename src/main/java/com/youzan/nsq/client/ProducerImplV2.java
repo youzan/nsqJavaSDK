@@ -473,7 +473,7 @@ public class ProducerImplV2 implements Producer {
                 //update msg partition with connection address partition
                 msg.getTopic().setPartitionID(conn.getAddress().getPartition());
             }
-            catch (NSQTopicNotFoundException | NSQSeedLookupConfigNotFoundException exp) {
+            catch (NSQTopicNotFoundException | NSQLookupAddressNotFoundException | NSQSeedLookupConfigNotFoundException exp) {
                 //throw it directly
                 throw exp;
             }

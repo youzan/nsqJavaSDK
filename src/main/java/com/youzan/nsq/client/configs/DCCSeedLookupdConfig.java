@@ -110,9 +110,12 @@ public class DCCSeedLookupdConfig extends AbstractSeedLookupdConfig {
      */
     @Override
     public NSQLookupdAddresses punchLookupdAddress(String categorization, final String topic, boolean force) {
-        AbstractControlConfig ctrlCnf = getTopicCtrlCnf(LookupAddressUpdate.formatCategorizationTopic(categorization, topic));
-        if (null == ctrlCnf)
+        String topicCategorization = LookupAddressUpdate.formatCategorizationTopic(categorization, topic);
+        AbstractControlConfig ctrlCnf = getTopicCtrlCnf(topicCategorization);
+        if (null == ctrlCnf) {
+            logger.warn("Control config not found for categorization: {}", topicCategorization);
             return null;
+        }
         List<SeedLookupdAddress> curRefs = ctrlCnf.getCurrentReferences();
         List<SeedLookupdAddress> preRefs = ctrlCnf.getPreviousReferences();
 
