@@ -122,6 +122,7 @@ public interface NSQConnection extends Closeable {
     void onRdy(int rdy, IRdyCallback callback);
     void onResume(IRdyCallback callback);
     void onBackoff(IRdyCallback callback);
+    void onBackoff(IRdyCallback backOffCallback, long resumeDelayInSecond, IRdyCallback resumeCallback);
     boolean isBackoff();
     void onClose();
     int hashCode();
@@ -132,4 +133,6 @@ public interface NSQConnection extends Closeable {
     long lastMessageConsumptionFailed();
     boolean declineExpectedRdy();
     boolean increaseExpectedRdy(int rdyCeiling);
+    ChannelFuture finish(final NSQMessage msg);
+    ChannelFuture requeue(final NSQMessage msg, int defaultDelayInSecond);
 }

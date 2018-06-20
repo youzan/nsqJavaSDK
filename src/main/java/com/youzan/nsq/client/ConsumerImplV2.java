@@ -1,5 +1,6 @@
 package com.youzan.nsq.client;
 
+import com.google.common.base.Function;
 import com.youzan.nsq.client.configs.ConfigAccessAgent;
 import com.youzan.nsq.client.core.*;
 import com.youzan.nsq.client.core.command.*;
@@ -13,12 +14,16 @@ import com.youzan.util.IOUtil;
 import com.youzan.util.NamedThreadFactory;
 import com.youzan.util.ThreadSafe;
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.*;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelOption;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.PathMatcher;
@@ -63,6 +68,22 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     private final AtomicLong re = new AtomicLong(0); // have done reQueue
     private final AtomicLong queue4Consume = new AtomicLong(0); // have done reQueue
     private final AtomicLong skipped = new AtomicLong(0);
+
+    //fin callback funtion for connection
+    private final Function<Object, Object> finCallback = new Function<Object, Object>() {
+        @Override
+        public Object apply(@Nullable Object o) {
+            return finished.incrementAndGet();
+        }
+    };
+
+    //req callback function for conenction
+    private final Function<Object, Object> reqCallback = new Function<Object, Object>() {
+        @Override
+        public Object apply(@Nullable Object o) {
+            return re.incrementAndGet();
+        }
+    };
 
     //connection manager
     protected ConnectionManager conMgr = new ConnectionManager(this);
@@ -573,7 +594,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         address_2_conn.remove(address);
         if (conn != null) {
             try {
-                backoff(conn);
+                conn.onBackoff(null);
             } catch (Exception e) {
                 logger.error("It can not backoff the connection! Exception:", e);
             }
@@ -787,7 +808,8 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         final Integer nextConsumingWaiting = message.getNextConsumingInSecond();
         // It is too complex.
         NSQCommand cmd = null;
-        if (autoFinish) {
+        boolean msgAutoResponse = message.isMessageAutoResponse();
+        if (autoFinish && msgAutoResponse) {
             // Either Finish or ReQueue
             if (ok) {
                 // Finish
@@ -814,9 +836,9 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                     connection.declineExpectedRdy();
             }
         } else {
-            // Client code does finish explicitly.
+            // Client code does finish explicitly and message auto response is
             // Maybe ReQueue, but absolutely no Finish
-            if (!ok) {
+            if (!ok && msgAutoResponse) {
                 if (nextConsumingWaiting != null) {
                     // ReQueue
                     cmd = new ReQueue(message.getMessageID(), nextConsumingWaiting.intValue());
@@ -848,9 +870,9 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                     });
                     if(!skip) {
                         if (cmd instanceof Finish) {
-                            finished.incrementAndGet();
+                            finCallback.apply(null);
                         } else {
-                            re.incrementAndGet();
+                            reqCallback.apply(null);
                         }
                     }
                 }
@@ -881,9 +903,12 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         }
     }
 
+    /**
+     * @deprecated
+     * @param conn NSQConnection
+     */
     @Override
     public void backoff(NSQConnection conn) {
-        conMgr.backoff(conn);
     }
 
     @Override
@@ -1088,21 +1113,19 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     private void _requeue(final NSQMessage message, final NSQConnection conn) throws NSQNoConnectionException {
         if (conn != null) {
             if (conn.getId() == message.getConnectionID().intValue()) {
-                if (conn.isConnected()) {
-                    ChannelFuture future = conn.command(new ReQueue(message.getMessageID(), message.getNextConsumingInSecond().intValue()));
-                    future.addListener(new ChannelFutureListener() {
-                        @Override
-                        public void operationComplete(ChannelFuture future) throws Exception {
-                            if(future.isSuccess()) {
-                                re.incrementAndGet();
-                            } else {
-                                logger.warn("Fail to REQUEUE {}.", message, future.cause());
-                            }
+                ChannelFuture future = conn.requeue(message, message.getNextConsumingInSecond().intValue());
+                if(null == future)
+                    return;
+                future.addListener(new ChannelFutureListener() {
+                    @Override
+                    public void operationComplete(ChannelFuture future) throws Exception {
+                        if(future.isSuccess()) {
+                            re.incrementAndGet();
+                        } else {
+                            logger.warn("Fail to REQUEUE {}.", message, future.cause());
                         }
-                    });
-                } else {
-                    logger.info("Connection for message {} is closed. REQUEUE exits.", message);
-                }
+                    }
+                });
             } else {
                 logger.error("message {} does not belong to current consumer's connection", message);
             }
@@ -1115,21 +1138,19 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     private void _finish(final NSQMessage message, final NSQConnection conn) throws NSQNoConnectionException {
         if (conn != null) {
             if (conn.getId() == message.getConnectionID().intValue()) {
-                if (conn.isConnected()) {
-                    ChannelFuture future = conn.command(new Finish(message.getMessageID()));
-                    future.addListener(new ChannelFutureListener() {
-                        @Override
-                        public void operationComplete(ChannelFuture future) throws Exception {
-                            if(future.isSuccess()) {
-                                finished.incrementAndGet();
-                            } else {
-                                logger.warn("Fail to FIN {}.", message, future.cause());
-                            }
+                ChannelFuture future = conn.finish(message);
+                if(null == future)
+                    return;
+                future.addListener(new ChannelFutureListener() {
+                    @Override
+                    public void operationComplete(ChannelFuture future) throws Exception {
+                        if(future.isSuccess()) {
+                            finished.incrementAndGet();
+                        } else {
+                            logger.warn("Fail to FIN {}.", message, future.cause());
                         }
-                    });
-                } else {
-                    logger.info("Connection for message {} is closed. Finish exits.", message);
-                }
+                    }
+                });
             } else {
                 logger.error("message {} does not belong to current consumer's connection", message);
             }
@@ -1183,10 +1204,10 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             msg = new NSQMessage(orderedMsgFrame.getTimestamp(), orderedMsgFrame.getAttempts(), orderedMsgFrame.getMessageID(),
                     orderedMsgFrame.getInternalID(), orderedMsgFrame.getTractID(),
                     orderedMsgFrame.getDiskQueueOffset(), orderedMsgFrame.getDiskQueueDataSize(),
-                    msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond(), conn.getTopic(), conn.isExtend());
+                    msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond(), conn.getTopic(), conn.isExtend(), Boolean.TRUE, conn, finCallback, reqCallback);
         } else {
             msg = new NSQMessage(msgFrame.getTimestamp(), msgFrame.getAttempts(), msgFrame.getMessageID(),
-                    msgFrame.getInternalID(), msgFrame.getTractID(), msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond(), conn.getTopic(), conn.isExtend());
+                    msgFrame.getInternalID(), msgFrame.getTractID(), msgFrame.getMessageBody(), conn.getAddress(), conn.getId(), this.config.getNextConsumingInSecond(), conn.getTopic(), conn.isExtend(), Boolean.TRUE, conn, finCallback, reqCallback);
         }
         if(conn.isExtend()) {
             ExtVer extVer = ExtVer.getExtVersion(msgFrame.getExtVerBytes());

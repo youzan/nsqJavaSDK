@@ -1,12 +1,16 @@
 package com.youzan.nsq.client.entity;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.google.common.base.Function;
 import com.youzan.nsq.client.MessageMetadata;
+import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.core.command.Close;
 import com.youzan.nsq.client.core.command.PubExt;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.util.IOUtil;
 import com.youzan.util.SystemUtil;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,6 +20,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 public class NSQMessage implements MessageMetadata, Serializable{
@@ -31,10 +36,18 @@ public class NSQMessage implements MessageMetadata, Serializable{
     private long diskQueueOffset = -1L;
     private int diskQueueDataSize = -1;
 
+    //fix auto response as true, as according to logic of consumer, message will be requeue eventhrough consume process
+    // fails
+    private volatile boolean autoResp = true;
+
     private TopicInfo ti;
     private DesiredTag tag;
     private Map<String, Object> jsonExtHeader;
 
+    //nsqd connection this message belongs to
+    private NSQConnection conn;
+    Function<Object, Object> finCallback;
+    Function<Object, Object> reqCallback;
     /**
      * NSQMessage constructor, for test purpose
      */
@@ -54,7 +67,7 @@ public class NSQMessage implements MessageMetadata, Serializable{
 
     /**
      * all the parameters is the NSQ message format!
-     *
+     * @deprecated
      * @param timestamp    the raw bytes from the data-node
      * @param attempts     the raw bytes from the data-node
      * @param messageID    the raw bytes from the data-node
@@ -64,9 +77,10 @@ public class NSQMessage implements MessageMetadata, Serializable{
      * @param address      the address of the message
      * @param connectionID the primary key of the connection
      * @param nextConsumingInSecond time elapse for requeued message to send
-     * @param topic
-     * @pa
+     * @param topic         topic this message belongs to
+     * @param isExt         {@link Boolean#TRUE} if message is of extension format
      */
+    @Deprecated
     public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
                      byte[] messageBody, Address address, Long connectionID, int nextConsumingInSecond, final Topic topic, boolean isExt) {
         this.timestamp = timestamp;
@@ -94,6 +108,33 @@ public class NSQMessage implements MessageMetadata, Serializable{
     }
 
     /**
+     * all the parameters is the NSQ message format!
+     *
+     * @param timestamp    the raw bytes from the data-node
+     * @param attempts     the raw bytes from the data-node
+     * @param messageID    the raw bytes from the data-node
+     * @param internalID   message internal ID in bytes
+     * @param traceID      trace ID in bytes
+     * @param messageBody  the raw bytes from the data-node
+     * @param address      the address of the message
+     * @param connectionID the primary key of the connection
+     * @param nextConsumingInSecond time elapse for requeued message to send
+     * @param topic         topic this message belongs to
+     * @param isExt         {@link Boolean#TRUE} if message is of extension format
+     * @param autoResponse auto response config from consumer autoFinish flag
+     */
+    public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
+                      byte[] messageBody, Address address, Long connectionID, int nextConsumingInSecond, final Topic topic, boolean isExt, boolean autoResponse, final NSQConnection conn,
+                      final Function<Object, Object> finCallback, final Function<Object, Object> reqCallback) {
+        this(timestamp, attempts, messageID, internalID, traceID, messageBody, address, connectionID, nextConsumingInSecond, topic, isExt);
+        this.autoResp = autoResponse;
+        this.conn = conn;
+        this.finCallback = finCallback;
+        this.reqCallback = reqCallback;
+    }
+
+    /**
+     * @deprecated
      * NSQMessage constructor, for sub ordered message frame
      * @param timestamp    the raw bytes from the data-node
      * @param attempts     the raw bytes from the data-node
@@ -107,6 +148,7 @@ public class NSQMessage implements MessageMetadata, Serializable{
      * @param connectionID the primary key of the connection
      * @param nextConsumingInSecond time elapse for requeued message to send
      */
+    @Deprecated
     public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
                       final byte[] diskQueueOffset, final byte[] diskQueueDataSize, byte[] messageBody, Address address,
                       Long connectionID, int nextConsumingInSecond, final Topic topic, boolean isExt) {
@@ -115,6 +157,32 @@ public class NSQMessage implements MessageMetadata, Serializable{
         this.diskQueueOffset = buf.getLong();
         buf = ByteBuffer.wrap(diskQueueDataSize);
         this.diskQueueDataSize = buf.getInt();
+    }
+
+    /**
+     * NSQMessage constructor, for sub ordered message frame
+     * @param timestamp    the raw bytes from the data-node
+     * @param attempts     the raw bytes from the data-node
+     * @param messageID    the raw bytes from the data-node
+     * @param internalID   message internal ID in bytes
+     * @param traceID      trace ID in bytes
+     * @param diskQueueOffset   offset in nsq disk queue
+     * @param diskQueueDataSize message data size in bytes
+     * @param messageBody  the raw bytes from the data-node
+     * @param address      the address of the message
+     * @param connectionID the primary key of the connection
+     * @param nextConsumingInSecond time elapse for requeued message to send
+     * @param autoResponse autoResponse config from consumer autoFinish flag
+     */
+    public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
+                      final byte[] diskQueueOffset, final byte[] diskQueueDataSize, byte[] messageBody, Address address,
+                      Long connectionID, int nextConsumingInSecond, final Topic topic, boolean isExt, boolean autoResponse,
+                      final NSQConnection conn, Function<Object, Object> finCallback, Function<Object, Object> reqCallback) {
+        this(timestamp, attempts, messageID, internalID, traceID, diskQueueOffset, diskQueueDataSize, messageBody, address, connectionID, nextConsumingInSecond, topic, isExt);
+        this.autoResp = autoResponse;
+        this.conn = conn;
+        this.finCallback = finCallback;
+        this.reqCallback = reqCallback;
     }
 
     public void parseExtContent(ExtVer extVer, byte[] extBytes) throws IllegalArgumentException, IOException {
@@ -408,4 +476,56 @@ public class NSQMessage implements MessageMetadata, Serializable{
         return this.metaDataStr;
     }
 
+    /**
+     * disables the automatic response that
+     * would normally be sent when a message handler
+     * returns(FIN) or throws exception(REQ) for current message, like go-nsq.
+     * After disable auto response, user needs to invoke finish or requeue accordly
+     */
+    public void disableAutoResponse() {
+        this.autoResp = false;
+    }
+
+    public boolean isMessageAutoResponse() {
+        return this.autoResp;
+    }
+
+    /**
+     * finish current message, same effect as {@link com.youzan.nsq.client.ConsumerImplV2#finish(NSQMessage)}
+     */
+    public void finish() {
+        ChannelFuture future = this.conn.finish(this);
+        if(null == future)
+            return;
+        future.addListener(new ChannelFutureListener() {
+            @Override
+            public void operationComplete(ChannelFuture future) throws Exception {
+                if(future.isSuccess()) {
+                    finCallback.apply(null);
+                } else {
+                    logger.warn("Fail to FIN {}.", this, future.cause());
+                }
+            }
+        });
+    }
+
+    public void requeue(int nextConsumingInSecond, boolean backoff, long resumeDelayInsecond) {
+        ChannelFuture future = this.conn.requeue(this, nextConsumingInSecond);
+        if(null == future)
+            return;
+        future.addListener(new ChannelFutureListener() {
+            @Override
+            public void operationComplete(ChannelFuture future) throws Exception {
+                if(future.isSuccess()) {
+                    reqCallback.apply(null);
+                } else {
+                    logger.warn("Fail to REQ {}.", this, future.cause());
+                }
+            }
+        });
+        //backoff&resume, need to involve connection manager
+        if(!backoff)
+            return;
+
+    }
 }

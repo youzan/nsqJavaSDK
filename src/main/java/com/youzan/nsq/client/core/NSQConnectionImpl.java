@@ -1,12 +1,15 @@
 package com.youzan.nsq.client.core;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.youzan.nsq.client.core.command.*;
 import com.youzan.nsq.client.entity.*;
 import com.youzan.nsq.client.exception.NSQNoConnectionException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
+import com.youzan.util.NamedThreadFactory;
 import com.youzan.util.SystemUtil;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -16,10 +19,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -29,6 +29,9 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * @author <a href="mailto:my_email@email.exmaple.com">zhaoxi (linzuxiong)</a>
  */
 public class NSQConnectionImpl implements Serializable, NSQConnection, Comparable {
+    private final ListeningScheduledExecutorService resumeExec = MoreExecutors.listeningDecorator(
+            Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("rdy-resume", Thread.NORM_PRIORITY)));
+
     public static final int INIT_RDY = 1;
 
     private static final Logger logger = LoggerFactory.getLogger(NSQConnectionImpl.class);
@@ -80,7 +83,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         this.config = config;
         this.expectedRdy.set(NSQConfig.DEFAULT_RDY);
         this.queryTimeoutInMillisecond = config.getQueryTimeoutInMillisecond();
-        if(address.isTopicExtend()) {
+        if (address.isTopicExtend()) {
             isExtend = Boolean.TRUE;
         } else {
             isExtend = Boolean.FALSE;
@@ -94,7 +97,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         this.config = config;
         this.expectedRdy.set(computedRdyCeiling);
         this.queryTimeoutInMillisecond = config.getQueryTimeoutInMillisecond();
-        if(address.isTopicExtend()) {
+        if (address.isTopicExtend()) {
             isExtend = Boolean.TRUE;
         } else {
             isExtend = Boolean.FALSE;
@@ -107,14 +110,14 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     }
 
     @Override
-    public boolean checkOrder(long internalID, long diskQueueOffset, final NSQMessage msg){
-        if(!this.config.isOrdered())
+    public boolean checkOrder(long internalID, long diskQueueOffset, final NSQMessage msg) {
+        if (!this.config.isOrdered())
             return true;
-        if(internalID >= this.latestInternalID.get() && diskQueueOffset >= this.latestDiskQueueOffset.get()){
+        if (internalID >= this.latestInternalID.get() && diskQueueOffset >= this.latestDiskQueueOffset.get()) {
             this.latestInternalID.set(internalID);
             this.latestDiskQueueOffset.set(diskQueueOffset);
             return true;
-        }else {
+        } else {
             logger.warn("InternalID or diskQueueOffset is(are) NOT latest in current connection.\n" +
                     "InternalID:{}, latestInternalID:{}. diskQueueOffset:{}, latestQueueOffset:{}.\n" +
                     "Message: {}.", internalID, diskQueueOffset, this.latestInternalID.get(), this.latestDiskQueueOffset.get(), msg.toMetadataStr());
@@ -127,7 +130,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
      */
     @Override
     public void init() throws TimeoutException, IOException, ExecutionException {
-       _init();
+        _init();
     }
 
     @Override
@@ -153,18 +156,18 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
             if (null == response) {
                 throw new IllegalStateException("Bad Identify Response! Close connection!");
             }
-            JsonNode respIdentify =  SystemUtil.getObjectMapper().readTree(response.getData());
+            JsonNode respIdentify = SystemUtil.getObjectMapper().readTree(response.getData());
             JsonNode msgTimeoutNode = respIdentify.get(Identify.MSG_TIMEOUT);
-            if(null != msgTimeoutNode) {
+            if (null != msgTimeoutNode) {
                 this.msgTimeout = msgTimeoutNode.asInt();
             }
             JsonNode maxMsgTimeoutNode = respIdentify.get(Identify.MAX_MSG_TIMEOUT);
-            if(null != maxMsgTimeoutNode) {
+            if (null != maxMsgTimeoutNode) {
                 this.maxMsgTimeout = maxMsgTimeoutNode.asInt();
             }
         }
         assert channel.isActive();
-        if(logger.isDebugEnabled())
+        if (logger.isDebugEnabled())
             logger.debug("Having initialized {}", this);
     }
 
@@ -196,12 +199,12 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     @Override
     public NSQFrame commandAndGetResponse(Context cxt, final NSQCommand command) throws TimeoutException, NSQNoConnectionException, ExecutionException {
-        try{
+        try {
             long isActiveStart = System.currentTimeMillis();
             if (!this._isConnected()) {
                 throw new NSQNoConnectionException(String.format("%s is not connected， command %s quit.", this, command));
             }
-            if(cxt != null && PERF_LOG.isDebugEnabled())
+            if (cxt != null && PERF_LOG.isDebugEnabled())
                 PERF_LOG.debug("{}: tooks {} ms to check active", cxt.getTraceID(), System.currentTimeMillis() - isActiveStart);
 
             return _commandAndGetResposne(cxt, command);
@@ -277,10 +280,11 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         logger.info("Begin to clear {}", this);
         //extra lock to proof from more than none thread waiting for close
         if (closing.compareAndSet(false, true)) {
-            if(this.isSubSent())
+            if (this.isSubSent())
                 this.onClose();
             _clear();
         }
+        this.resumeExec.shutdown();
         logger.info("End clear {}", this);
     }
 
@@ -309,7 +313,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     public void disconnect(final ConnectionManager conMgr) {
         logger.info("Disconnect from nsqd {} ...", this.address);
         //1. backoff
-        conMgr.backoff(this);
+        conMgr.backoffConn(this, null);
         //2. send CLS
         this.close();
         logger.info("nsqd {} disconnect", this.address);
@@ -317,14 +321,14 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     @Override
     public void onRdy(final int rdy, final IRdyCallback callback) {
-        if(!this.isConnected()) {
+        if (!this.isConnected()) {
             logger.info("Connection is closed. Resume quit. {}", this);
             int currentRdy = getCurrentRdyCount();
             callback.onUpdated(currentRdy, currentRdy);
             return;
         }
 
-        if(backoff.get()) {
+        if (backoff.get()) {
             logger.info("Connection is already backed off. {}", this);
             int currentRdy = getCurrentRdyCount();
             callback.onUpdated(currentRdy, currentRdy);
@@ -351,7 +355,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     @Override
     public void onClose() {
-        if(!this.channel.isActive() || !this.closing.get()) {
+        if (!this.channel.isActive() || !this.closing.get()) {
             logger.info("Connection is not connected nor NSQConnection.close  is not invoked. onClose quit. {}", this);
             return;
         } else {
@@ -376,18 +380,18 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     @Override
     public void onResume(final IRdyCallback callback) {
-        if(!this.isConnected()) {
+        if (!this.isConnected()) {
             logger.info("Connection is closed. Resume quit. {}", this);
             int currentRdy = getCurrentRdyCount();
             callback.onUpdated(currentRdy, currentRdy);
             return;
         }
-        if(backoff.compareAndSet(true, false)) {
+        if (backoff.compareAndSet(true, false)) {
             final int rdy = INIT_RDY;
             command(new Rdy(rdy)).addListener(new ChannelFutureListener() {
                 @Override
                 public void operationComplete(ChannelFuture channelFuture) throws Exception {
-                    if(channelFuture.isSuccess()) {
+                    if (channelFuture.isSuccess()) {
                         int lastRdy = getCurrentRdyCount();
                         assert lastRdy == 0;
                         setCurrentRdyCount(rdy);
@@ -405,13 +409,14 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     }
 
     @Override
-    public void onBackoff(final IRdyCallback callback) {
-        if(!this.isConnected()) {
+    public void onBackoff(final IRdyCallback backoffCallback, final long resumeDelayInSecond, final IRdyCallback resumeCallback) {
+        if (!this.isConnected()) {
             logger.info("Connection is closed. Back off quit. {}", this);
-            callback.onUpdated(0, 0);
+            if(null != backoffCallback)
+                backoffCallback.onUpdated(0, 0);
             return;
         }
-        if(backoff.compareAndSet(false,true)) {
+        if (backoff.compareAndSet(false, true)) {
             //update last rdy
             command(Rdy.BACK_OFF).addListener(new ChannelFutureListener() {
                 @Override
@@ -419,7 +424,15 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
                     if (channelFuture.isSuccess()) {
                         int lastRdy = getCurrentRdyCount();
                         setCurrentRdyCount(0);
-                        callback.onUpdated(0, lastRdy);
+                        if(null != backoffCallback)
+                            backoffCallback.onUpdated(0, lastRdy);
+                        //resume with delay
+                        resumeExec.schedule(new Runnable() {
+                            @Override
+                            public void run() {
+                                onResume(resumeCallback);
+                            }
+                        }, resumeDelayInSecond, TimeUnit.SECONDS);
                     } else {
                         logger.warn("Fail to backoff consumption for connection {}", this);
                     }
@@ -428,12 +441,44 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
         } else {
             logger.info("Connection is already backed off. {}", this);
             //notify callback with new rdy and old rdy
-            callback.onUpdated(0, 0);
+            if(null != backoffCallback)
+                backoffCallback.onUpdated(0, 0);
+        }
+    }
+
+    @Override
+    public void onBackoff(final IRdyCallback callback) {
+        if (!this.isConnected()) {
+            logger.info("Connection is closed. Back off quit. {}", this);
+            if(null != callback)
+                callback.onUpdated(0, 0);
+            return;
+        }
+        if (backoff.compareAndSet(false, true)) {
+            //update last rdy
+            command(Rdy.BACK_OFF).addListener(new ChannelFutureListener() {
+                @Override
+                public void operationComplete(ChannelFuture channelFuture) throws Exception {
+                    if (channelFuture.isSuccess()) {
+                        int lastRdy = getCurrentRdyCount();
+                        setCurrentRdyCount(0);
+                        if(null != callback)
+                            callback.onUpdated(0, lastRdy);
+                    } else {
+                        logger.warn("Fail to backoff consumption for connection {}", this);
+                    }
+                }
+            });
+        } else {
+            logger.info("Connection is already backed off. {}", this);
+            //notify callback with new rdy and old rdy
+            if(null != callback)
+                callback.onUpdated(0, 0);
         }
     }
 
     public synchronized void setCurrentRdyCount(int newCount) {
-        if(newCount < 0 || this.currentRdy.get() == newCount) {
+        if (newCount < 0 || this.currentRdy.get() == newCount) {
             return;
         }
         this.lastRdy.set(this.currentRdy.get());
@@ -461,13 +506,14 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
 
     public void setExpectedRdy(int expectedRdy) {
         int originalExpectedRdy = this.expectedRdy.get();
-        if(originalExpectedRdy != expectedRdy && this.expectedRdy.compareAndSet(originalExpectedRdy, expectedRdy))
+        if (originalExpectedRdy != expectedRdy && this.expectedRdy.compareAndSet(originalExpectedRdy, expectedRdy))
             logger.info("Expected rdy set to {} from {}, connection: {}", expectedRdy, originalExpectedRdy, this);
     }
 
     public int getCurrentRdyCount() {
         return this.currentRdy.get();
     }
+
     /**
      * @return the id , the primary key of the object
      */
@@ -493,9 +539,9 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     @Override
     public int compareTo(Object o) {
         long res = getId() - ((NSQConnectionImpl) o).getId();
-        if(res > 0l){
+        if (res > 0l) {
             return 1;
-        } else if(res < 0l) {
+        } else if (res < 0l) {
             return -1;
         } else {
             return 0;
@@ -551,5 +597,27 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
                 + "]";
     }
 
+    @Override
+    public ChannelFuture finish(final NSQMessage msg) {
+        if (this.isConnected()) {
+            return command(new Finish(msg.getMessageID()));
+        } else {
+            logger.info("Connection for message {} is closed. Finish exits.", msg);
+            return null;
+        }
+    }
 
+    @Override
+    public ChannelFuture requeue(final NSQMessage msg, int defaultDelayInSecond) {
+        int delayInSecond = defaultDelayInSecond;
+        if(delayInSecond < 0) {
+            delayInSecond = msg.getNextConsumingInSecond();
+        }
+        if (this.isConnected()) {
+            return command(new ReQueue(msg.getMessageID(), delayInSecond));
+        } else {
+            logger.info("Connection for message {} is closed. Requeue exits.", msg);
+            return null;
+        }
+    }
 }
