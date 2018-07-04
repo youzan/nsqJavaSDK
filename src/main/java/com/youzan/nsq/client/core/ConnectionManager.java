@@ -18,7 +18,9 @@ import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Created by lin on 17/6/26.
+ * @deprecated deprecated in 2.4.2
  */
+@Deprecated
 public class ConnectionManager {
     private final static Logger logger = LoggerFactory.getLogger(ConnectionManager.class.getName());
     private ConcurrentMap<String, ConnectionWrapperSet> topic2Subs = new ConcurrentHashMap<>();

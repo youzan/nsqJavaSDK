@@ -546,6 +546,60 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
     }
 
     @Test
+    public void testMsgRequeue() throws Exception {
+        logger.info("[testMsgRequeue] starts.");
+        final NSQConfig config = new NSQConfig("BaseConsumer");
+        config.setMsgTimeoutInMillisecond(10000);
+        config.setLookupAddresses(props.getProperty("lookup-addresses"));
+        String adminHttp = "http://" + props.getProperty("admin-address");
+        String topicName = "testNextConsumingTimeout";
+
+        final int requeueTimeout = 10;
+        Consumer consumer = null;
+        try {
+//            TopicUtil.createTopic(adminHttp, topicName, "BaseConsumer");
+            TopicUtil.createTopicChannel(adminHttp, topicName, "BaseConsumer");
+
+            Producer producer = new ProducerImplV2(config);
+            producer.start();
+            producer.publish(Message.create(new Topic(topicName), "msg1"));
+            producer.close();
+            final AtomicInteger cnt = new AtomicInteger(3);
+            final CountDownLatch latch = new CountDownLatch(1);
+            final AtomicBoolean success = new AtomicBoolean(false);
+            //consumer
+            consumer = new ConsumerImplV2(config, new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    if(cnt.compareAndSet(3, 2)) {
+                        message.disableAutoResponse();
+                    } else if(cnt.compareAndSet(2, 1)) {
+                        try {
+                            message.disableAutoResponse();
+                            message.requeue(requeueTimeout);
+                        } catch (NSQException e) {
+                            //swallow
+                        }
+                    } else if(cnt.compareAndSet(1, 0)) {
+                        success.set(true);
+                        latch.countDown();
+                    }
+                }
+            });
+
+            consumer.subscribe(new Topic(topicName));
+            consumer.start();
+            Assert.assertTrue(latch.await(2, TimeUnit.MINUTES));
+            Assert.assertTrue(success.get());
+        }finally {
+            if(null != consumer)
+                consumer.close();
+            logger.info("[testMsgRequeue] ends.");
+            TopicUtil.emptyQueue(adminHttp, topicName, "BaseConsumer");
+        }
+    }
+
+    @Test
     public void testNextConsumingTimeout() throws Exception {
         logger.info("[testNextConsumingTimeout] starts.");
         final NSQConfig config = new NSQConfig("BaseConsumer");
@@ -556,7 +610,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         final int requeueTimeout = 10;
         Consumer consumer = null;
         try {
-            TopicUtil.createTopic(adminHttp, topicName, "BaseConsumer");
+//            TopicUtil.createTopic(adminHttp, topicName, "BaseConsumer");
             TopicUtil.createTopicChannel(adminHttp, topicName, "BaseConsumer");
 
             Producer producer = new ProducerImplV2(config);
@@ -603,7 +657,8 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         }finally {
             consumer.close();
             logger.info("[testNextConsumingTimeout] ends.");
-            TopicUtil.deleteTopic(adminHttp, topicName);
+            TopicUtil.emptyQueue(adminHttp, topicName, "BaseConsumer");
+//            TopicUtil.deleteTopic(adminHttp, topicName);
         }
     }
 

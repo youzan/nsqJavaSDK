@@ -105,6 +105,17 @@ public interface Consumer extends Client, Closeable {
     void backoff(Topic topic, CountDownLatch latch);
 
     /**
+     * Backoff consumption of *all* nsqd connections, with specified delayed in second
+     * @param resumeDelayInSecond
+     */
+    void backoff(long resumeDelayInSecond);
+
+    /**
+     * Resume message consumption of all nsqd connections.
+     */
+    void resume();
+
+    /**
      * Resume message consumption of specified backed off topic, with last RDY before topic consumption is backed off.
      *
      * @param topic topic to resume consumption
@@ -119,5 +130,10 @@ public interface Consumer extends Client, Closeable {
      */
     NSQConfig getConfig();
 
+    /**
+     * @deprecated deprecated as connection manager excluded from consumer
+     * @return null
+     */
+    @Deprecated
     ConnectionManager getConnectionManager();
 }

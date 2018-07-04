@@ -117,12 +117,19 @@ public interface NSQConnection extends Closeable {
     @Override
     void close();
 
+    /**
+     * @deprecated deprecated as connection manager not applied
+     * @param conMgr
+     */
+    @Deprecated
     void disconnect(final ConnectionManager conMgr);
+
+    void disconnect();
+
 
     void onRdy(int rdy, IRdyCallback callback);
     void onResume(IRdyCallback callback);
     void onBackoff(IRdyCallback callback);
-    void onBackoff(IRdyCallback backOffCallback, long resumeDelayInSecond, IRdyCallback resumeCallback);
     boolean isBackoff();
     void onClose();
     int hashCode();
@@ -135,4 +142,5 @@ public interface NSQConnection extends Closeable {
     boolean increaseExpectedRdy(int rdyCeiling);
     ChannelFuture finish(final NSQMessage msg);
     ChannelFuture requeue(final NSQMessage msg, int defaultDelayInSecond);
+    void mayUpdateRdy();
 }
