@@ -179,14 +179,29 @@ Note worthy:
 fix
  * remove soft reference in seed lookup component [#37](https://github.com/youzan/nsqJavaSDK/issues/37)
  * switch for producer topic resource clean [#38](https://github.com/youzan/nsqJavaSDK/issues/38)
+
+#2.4.1.10-RELEASE
+Note worthy:
+fix
+ * topic object as key in Consumer.subscribe [#41](https://github.com/youzan/nsqJavaSDK/issues/41)
+
+#2.4.1.11-RELEASE
+Note worthy
+fix
+ * upgrade jackson dependency to 2.8.9
  
- #2.4.2
- Note worthy:
+#2.4.1.12-RELEASE
+Note worthy
+feature
+ * requeue API in consumer 
+ 
+#2.4.2-RELEASE
+Note worthy:
  * Producer:
    * mpub support.
    * traceId API in Message class simplify.
-   * touch support
  * Consumer:
    * consume message filter.[#14](https://github.com/youzan/nsqJavaSDK/pull/14)
+   * touch & requeue API support.
 fix
  * topic object as key in Consumer.subscribe.[#41](https://github.com/youzan/nsqJavaSDK/issues/41)
