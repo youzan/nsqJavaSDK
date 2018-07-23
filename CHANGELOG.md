@@ -197,6 +197,8 @@ feature
  
 #2.4.2-RELEASE
 Note worthy:
+ * JDK:
+   * jdk 1.8 required.
  * Producer:
    * mpub support.
    * traceId API in Message class simplify.

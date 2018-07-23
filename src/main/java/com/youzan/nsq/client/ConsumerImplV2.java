@@ -350,7 +350,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             } catch (Exception e) {
                 logger.error("Exception in redistribute rdy: {}", e.getMessage(), e);
             }
-        }, _INTERVAL_IN_SECOND, _INTERVAL_RDY_UPDATE_IN_SECOND, TimeUnit.SECONDS);
+        }, _INTERVAL_RDY_UPDATE_IN_SECOND, _INTERVAL_RDY_UPDATE_IN_SECOND, TimeUnit.SECONDS);
     }
 
     /**
