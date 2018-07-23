@@ -483,6 +483,8 @@ public class NSQMessage implements MessageMetadata, Serializable{
 
     /**
      * finish current message, same effect as {@link com.youzan.nsq.client.ConsumerImplV2#finish(NSQMessage)}
+     * once message is created via deserialization, finish makes no effect.
+     * @throws NSQException throws NSQNoConnectionException if nsqd connection is closed/broken
      */
     public void finish() throws NSQException {
         if(null == consumer) {
@@ -492,6 +494,11 @@ public class NSQMessage implements MessageMetadata, Serializable{
         this.consumer.finish(this);
     }
 
+    /**
+     * requeue current message, with requeue delay, backoff option and resume delay in second.
+     * once message is created via deserialization, requeue makes no effect.
+     * @throws NSQException throws NSQNoConnectionException if nsqd connection is closed/broken
+     */
     public void requeue(int nextConsumingInSecond, final boolean backoff, final long resumeDelayInsecond) throws NSQException {
         if(null == consumer) {
             logger.warn("requeue makes no effect, as current message may be created via deserialization.");
@@ -503,6 +510,11 @@ public class NSQMessage implements MessageMetadata, Serializable{
         }
     }
 
+    /**
+     * requeue current message, with requeue delay
+     * once message is created via deserialization, requeue makes no effect.
+     * @throws NSQException throws NSQNoConnectionException if nsqd connection is closed/broken
+     */
     public void requeue(int nextConsumingInSecond) throws NSQException {
         requeue(nextConsumingInSecond, Boolean.FALSE, 0);
     }

@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
+import java.io.*;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -134,6 +134,56 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
 //            logger.info("[testHowBadCanItBe] ends.");
 //        }
 //    }
+
+    @Test
+    public void testClientSerialization() throws IOException, NSQException, InterruptedException, ClassNotFoundException {
+        logger.info("[testClientSerialization] starts.");
+        try{
+            final NSQConfig config = new NSQConfig("BaseConsumer");
+            config.setLookupAddresses(props.getProperty("lookup-addresses"));
+            String topicName = "testClientSerialization";
+            Topic topic = new Topic(topicName);
+            String msgContent = "this is a message for testing";
+            Message msg = Message.create(topic, msgContent);
+            //send a message
+            Producer p = new ProducerImplV2(config);
+            p.start(topicName);
+            p.publish(msg);
+
+            ByteArrayOutputStream bao = new ByteArrayOutputStream();
+            CountDownLatch latch = new CountDownLatch(1);
+            AtomicBoolean failure = new AtomicBoolean(true);
+            Consumer consumer = new ConsumerImplV2(config, new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    //do nothing
+                    try {
+                        ObjectOutputStream oos = new ObjectOutputStream(new BufferedOutputStream(bao));
+                        oos.writeObject(message);
+                        oos.close();
+                        failure.set(false);
+                    } catch (IOException e) {
+                        logger.error(e.getLocalizedMessage(), e);
+                    } finally {
+                        latch.countDown();
+                    }
+                }
+            });
+            consumer.subscribe(topic);
+            consumer.start();
+            Assert.assertTrue(latch.await(1, TimeUnit.MINUTES));
+            ObjectInputStream ois = new ObjectInputStream(new BufferedInputStream(new ByteArrayInputStream(bao.toByteArray())));
+            NSQMessage msgDeser = (NSQMessage) ois.readObject();
+            ois.close();
+            Assert.assertEquals(msgDeser.getReadableContent(), msgContent);
+            Assert.assertEquals(msgDeser.getReadableAttempts(), 1);
+            p.close();
+            consumer.close();
+            Assert.assertFalse(failure.get());
+        }finally {
+            logger.info("[testClientSerialization] ends.");
+        }
+    }
 
     @Test
     public void testNoMessageFilter() throws Exception {
