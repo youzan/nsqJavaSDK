@@ -41,7 +41,7 @@ public class NSQMessage implements MessageMetadata, Serializable{
     private Map<String, Object> jsonExtHeader;
 
     //nsqd connection this message belongs to
-    private Consumer consumer;
+    transient private Consumer consumer;
     /**
      * NSQMessage constructor, for test purpose
      */
@@ -485,10 +485,18 @@ public class NSQMessage implements MessageMetadata, Serializable{
      * finish current message, same effect as {@link com.youzan.nsq.client.ConsumerImplV2#finish(NSQMessage)}
      */
     public void finish() throws NSQException {
+        if(null == consumer) {
+            logger.warn("finish makes no effect, as current message may be created via deserialization.");
+            return;
+        }
         this.consumer.finish(this);
     }
 
     public void requeue(int nextConsumingInSecond, final boolean backoff, final long resumeDelayInsecond) throws NSQException {
+        if(null == consumer) {
+            logger.warn("requeue makes no effect, as current message may be created via deserialization.");
+            return;
+        }
         this.consumer.requeue(this, nextConsumingInSecond);
         if(backoff) {
             this.consumer.backoff(resumeDelayInsecond);
@@ -497,5 +505,18 @@ public class NSQMessage implements MessageMetadata, Serializable{
 
     public void requeue(int nextConsumingInSecond) throws NSQException {
         requeue(nextConsumingInSecond, Boolean.FALSE, 0);
+    }
+
+    /**
+     * touch current message, same effect as {@link NSQMessage#touch()}
+     * once message is created via deserialization, touch makes no effect.
+     * @throws NSQException throws NSQNoConnectionException if nsqd connection is closed/broken
+     */
+    public void touch() throws NSQException {
+        if(null == consumer) {
+            logger.warn("touch makes no effect, as current message may be created via deserialization.");
+            return;
+        }
+        this.consumer.touch(this);
     }
 }
