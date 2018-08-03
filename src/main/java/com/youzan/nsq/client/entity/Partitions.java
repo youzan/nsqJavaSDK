@@ -5,6 +5,7 @@ import com.youzan.nsq.client.exception.NSQPartitionNotAvailableException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Created by lin on 16/11/7.
@@ -17,6 +18,7 @@ public class Partitions {
     //for compatible consideration, array for data node which has no partition
     private List<Address> unpartitionedDataNodes = null;
     //all data ndes view of partitions
+    private ReentrantLock allDataNodesLock = new ReentrantLock();
     private List<Address> allDataNodes = null;
     //total partion number of topic
     private int partitionNum = 0;
@@ -67,13 +69,21 @@ public class Partitions {
 
     public List<Address> getAllDataNodes(){
         if(null == this.allDataNodes) {
-            int partitionsSize  = null == this.dataNodes ? 0 : this.dataNodes.size();
-            int unpartitionsSize = null == this.unpartitionedDataNodes ? 0 : this.unpartitionedDataNodes.size();
-            this.allDataNodes = new ArrayList<>(partitionsSize + unpartitionsSize);
-            if(null != this.dataNodes)
-                allDataNodes.addAll(this.dataNodes);
-            if(null != this.unpartitionedDataNodes)
-                allDataNodes.addAll(this.unpartitionedDataNodes);
+            allDataNodesLock.lock();
+            try {
+                if(null == this.allDataNodes) {
+                    int partitionsSize = null == this.dataNodes ? 0 : this.dataNodes.size();
+                    int unpartitionsSize = null == this.unpartitionedDataNodes ? 0 : this.unpartitionedDataNodes.size();
+                    List<Address> allDataNodes = new ArrayList<>(partitionsSize + unpartitionsSize);
+                    if (null != this.dataNodes)
+                        allDataNodes.addAll(this.dataNodes);
+                    if (null != this.unpartitionedDataNodes)
+                        allDataNodes.addAll(this.unpartitionedDataNodes);
+                    this.allDataNodes = allDataNodes;
+                }
+            }finally {
+                allDataNodesLock.unlock();
+            }
         }
         return this.allDataNodes;
     }

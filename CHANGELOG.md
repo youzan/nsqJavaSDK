@@ -207,3 +207,9 @@ Note worthy:
    * touch & requeue API support.
 fix
  * topic object as key in Consumer.subscribe.[#41](https://github.com/youzan/nsqJavaSDK/issues/41)
+ 
+#2.4.2.1-RELEASE
+Note worthy
+fix
+ * fix race condition in partition selector getAllDataNode
+ * fix connection refused when topic supports ext in topic migrate

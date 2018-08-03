@@ -222,7 +222,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
                 logger.error("Thread was interrupted, probably shutting down!", e);
             }
         } else {
-            logger.error("No request to send, but get a frame from the server. {}", frame);
+            logger.warn("No request to send, but get a frame from the server. {}", frame);
         }
     }
 
