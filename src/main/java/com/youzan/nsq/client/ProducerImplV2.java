@@ -8,6 +8,8 @@ import com.youzan.nsq.client.core.command.Pub;
 import com.youzan.nsq.client.core.pool.producer.KeyedPooledConnectionFactory;
 import com.youzan.nsq.client.entity.*;
 import com.youzan.nsq.client.exception.*;
+import com.youzan.nsq.client.metrics.CounterType;
+import com.youzan.nsq.client.metrics.MessageCounterCallback;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import com.youzan.nsq.client.network.frame.ResponseFrame;
@@ -63,6 +65,10 @@ public class ProducerImplV2 implements Producer {
 
     private final NSQConfig config;
     private final NSQSimpleClient simpleClient;
+
+    //publish metrics
+    private final MessageCounterCallback pubMetrics = MessageCounterCallback.build(CounterType.PUB);
+
     /**
      * @param config NSQConfig
      */
@@ -489,16 +495,17 @@ public class ProducerImplV2 implements Producer {
             }
             //create PUB command
             try {
-                String host = conn.getAddress().getHost();
-                int port = conn.getAddress().getPort();
-                String topic = conn.getAddress().getTopic();
+                Address addr = conn.getAddress();
+                String host = addr.getHost();
+                int port = addr.getPort();
+                String topic = addr.getTopic();
                 int partition = -1;
 
                 final Pub pub = createPubCmd(msg);
 
                 //check if address has partition info, if it does, update pub's partition
-                if(conn.getAddress().hasPartition()) {
-                    partition = conn.getAddress().getPartition();
+                if(addr.hasPartition()) {
+                    partition = addr.getPartition();
                     pub.overrideDefaultPartition(partition);
                 }
 
@@ -512,7 +519,7 @@ public class ProducerImplV2 implements Producer {
                 handleResponse(msg.getTopic(), frame, conn);
                 //when hit this line what we have are response frame
                 success.addAndGet(msg.getMessageCount());
-                if(msg.isTraced() && frame instanceof ResponseFrame && conn.getAddress().isHA()) {
+                if(msg.isTraced() && frame instanceof ResponseFrame && addr.isHA()) {
                     if (TraceLogger.isTraceLoggerEnabled())
                         TraceLogger.trace(this, conn, (MessageMetadata) frame);
                 }
@@ -524,6 +531,8 @@ public class ProducerImplV2 implements Producer {
                 if(PERF_LOG.isDebugEnabled()){
                     PERF_LOG.debug("{}: Producer took {} milliSec to send message to {}", cxt.getTraceID(), System.currentTimeMillis() - start, conn.getAddress());
                 }
+                //publish metrics
+                this.pubMetrics.apply(this.getConfig(), msg, addr);
                 return receipt;
             }
             catch(NSQPubFactoryInitializeException | NSQTagException | NSQTopicNotExtendableException | NSQExtNotSupportedException expShouldFail) {

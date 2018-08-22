@@ -1,6 +1,5 @@
 package com.youzan.nsq.client;
 
-import com.google.common.base.Function;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.youzan.nsq.client.configs.ConfigAccessAgent;
@@ -8,6 +7,8 @@ import com.youzan.nsq.client.core.*;
 import com.youzan.nsq.client.core.command.*;
 import com.youzan.nsq.client.entity.*;
 import com.youzan.nsq.client.exception.*;
+import com.youzan.nsq.client.metrics.CounterType;
+import com.youzan.nsq.client.metrics.MessageCounterCallback;
 import com.youzan.nsq.client.network.frame.*;
 import com.youzan.nsq.client.network.frame.NSQFrame.FrameType;
 import com.youzan.nsq.client.network.netty.NSQClientInitializer;
@@ -63,21 +64,15 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
     private volatile long lastConnecting = 0L;
     private volatile long lastSuccess = 0L;
 
-    private final AtomicLong received = new AtomicLong(0);
-    private final AtomicLong success = new AtomicLong(0);
-    private final AtomicLong finished = new AtomicLong(0);
-    private final AtomicLong re = new AtomicLong(0); // have done reQueue
+    private final MessageCounterCallback received = MessageCounterCallback.build(CounterType.RECV);
+    private final MessageCounterCallback finished = MessageCounterCallback.build(CounterType.FIN);
+    private final MessageCounterCallback req = MessageCounterCallback.build(CounterType.REQ);
+    private final MessageCounterCallback touched = MessageCounterCallback.build(CounterType.TOUCH);
+    private final MessageCounterCallback skipped = MessageCounterCallback.build(CounterType.SKIP);
+    private final MessageCounterCallback timeout = MessageCounterCallback.build(CounterType.TIMEOUT);
+    private final MessageCounterCallback exception = MessageCounterCallback.build(CounterType.EXCEPTION);
+
     private final AtomicLong queue4Consume = new AtomicLong(0); // have done reQueue
-    private final AtomicLong skipped = new AtomicLong(0);
-
-    //fin callback funtion for connection
-    private final Function<Object, Object> finCallback = o -> finished.incrementAndGet();
-
-    //req callback function for connection
-    private final Function<Object, Object> reqCallback = o -> re.incrementAndGet();
-
-    //skip callback function for connection
-    private final Function<Object, Object> skipCallback = o -> skipped.incrementAndGet();
 
     //netty component for consumer
     private final Bootstrap bootstrap = new Bootstrap();
@@ -338,7 +333,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 } catch (Exception e) {
                     logger.error("Exception in keep connection process:", e);
                 }
-                logger.info("Client received {} messages , success {} , finished {} , queue4Consume {}, reQueue explicitly {}. The values do not use a lock action.", received, success, finished, queue4Consume, re);
+                logger.info("Client received {} messages , finished {} , queue4Consume {}, reQueue explicitly {}. The values do not use a lock action.", received.getCount(), finished.getCount(), queue4Consume.get(), req.getCount());
             }
         }, 0, _INTERVAL_IN_SECOND, TimeUnit.SECONDS);
     }
@@ -646,7 +641,6 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 break;
             }
             case MESSAGE_FRAME: {
-                received.incrementAndGet();
                 final MessageFrame msg = (MessageFrame) frame;
                 final NSQMessage message = createNSQMessage(msg, conn);
 
@@ -727,7 +721,6 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 public void run() {
                     try {
                         consume(message, connection);
-                        success.incrementAndGet();
                     } catch (Exception e) {
                         IOUtil.closeQuietly(connection);
                         logger.error("Exception", e);
@@ -777,13 +770,13 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
         boolean explicitRequeue = false;
         boolean skip = needSkip4MsgKV(message);
         skip = skip || !checkExtFilter(message, connection);
-
+        received.apply(config, message);
         long start = System.currentTimeMillis();
         try {
             if(!skip)
                 handler.process(message);
             else
-                skipCallback.apply(null);
+                skipped.apply(config, message);
             ok = true;
             retry = false;
         } catch (ExplicitRequeueException e) {
@@ -801,6 +794,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             ok = false;
             retry = false;
             logger.error("Client business has one error. Message meta: {}, Original message: {}. Exception:", message.toString(), message.getReadableContent(), e);
+            exception.apply(config, message);
         }
         if (!ok && retry) {
             logger.info("Client has told SDK to do again. {}", message);
@@ -811,13 +805,16 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                 ok = false;
                 retry = false;
                 logger.error("Client business retry fail. Original message: {}. Exception:", message.getReadableContent(), e);
+                exception.apply(config, message);
             }
         }
         long end = System.currentTimeMillis() - start;
         if(PERF_LOG.isDebugEnabled())
             PERF_LOG.debug("Message handler took {} milliSec to finish consuming message for connection {}. Success:{}, Retry:{}", end, connection.getAddress(), ok, retry);
-        if(end > this.config.getMsgTimeoutInMillisecond())
+        if(end > this.config.getMsgTimeoutInMillisecond()) {
             PERF_LOG.warn("Message handler took {} milliSec to finish consuming message. Limitation is {}", end, this.config.getMsgTimeoutInMillisecond());
+            timeout.apply(config, message);
+        }
 
         // The client commands ReQueue into NSQd.
         final Integer nextConsumingWaiting = message.getNextConsumingInSecond();
@@ -873,23 +870,26 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
             if (!closing.get()) {
                 ChannelFuture future = connection.command(cmd);
                 if (null != future) {
+                    boolean nestSkip = skip;
+                    NSQCommand nestCmd = cmd;
                     future.addListener(new ChannelFutureListener() {
                         @Override
                         public void operationComplete(ChannelFuture future) throws Exception {
                             if (!future.isSuccess()) {
                                 logger.error("Fail to send {}. Message {} will be delivered to consumer in another round.", cmdStr, message.getMessageID());
-                            } else if (PERF_LOG.isDebugEnabled()) {
-                                PERF_LOG.debug("Command {} to {} for message {} sent.", cmdStr, connection.getAddress(), message.getMessageID());
+                            } else {
+                                if(!nestSkip) {
+                                    if (nestCmd instanceof Finish) {
+                                        finished.apply(config, message);
+                                    } else {
+                                        req.apply(config, message);
+                                    }
+                                }
+                                if(PERF_LOG.isDebugEnabled())
+                                    PERF_LOG.debug("Command {} to {} for message {} sent.", cmdStr, connection.getAddress(), message.getMessageID());
                             }
                         }
                     });
-                    if(!skip) {
-                        if (cmd instanceof Finish) {
-                            finCallback.apply(null);
-                        } else {
-                            reqCallback.apply(null);
-                        }
-                    }
                 }
             }
         }
@@ -1188,7 +1188,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                     @Override
                     public void operationComplete(ChannelFuture future) throws Exception {
                         if(future.isSuccess()) {
-                            re.incrementAndGet();
+                            req.apply(config, message);
                         } else {
                             logger.warn("Fail to REQUEUE {}.", message, future.cause());
                         }
@@ -1213,7 +1213,7 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                     @Override
                     public void operationComplete(ChannelFuture future) throws Exception {
                         if(future.isSuccess()) {
-                            finCallback.apply(null);
+                            finished.apply(config, message);
                         } else {
                             logger.warn("Fail to FIN {}.", message, future.cause());
                         }
@@ -1247,6 +1247,8 @@ public class ConsumerImplV2 implements Consumer, IConsumeInfo {
                         public void operationComplete(ChannelFuture future) throws Exception {
                             if(!future.isSuccess()) {
                                 logger.warn("Fail to Touch {}.", message, future.cause());
+                            } else{
+                                touched.apply(config, message);
                             }
                         }
                     });

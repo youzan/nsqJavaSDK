@@ -4,6 +4,7 @@
 package com.youzan.nsq.client.core;
 
 import com.youzan.nsq.client.entity.Address;
+import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.network.frame.NSQFrame;
 import io.netty.util.AttributeKey;
@@ -55,6 +56,8 @@ public interface Client extends Closeable {
     boolean validateHeartbeat(final NSQConnection conn);
 
     Set<NSQConnection> clearDataNode(Address address);
+
+    NSQConfig getConfig();
 
     void close(final NSQConnection conn);
 }

@@ -440,6 +440,11 @@ public class NSQSimpleClient implements Client, Closeable {
     }
 
     @Override
+    public NSQConfig getConfig() {
+        return null;
+    }
+
+    @Override
     public void close() {
         if(lock.tryLock()) {
             try {
