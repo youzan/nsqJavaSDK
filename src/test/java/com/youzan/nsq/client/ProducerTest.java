@@ -598,7 +598,11 @@ public class ProducerTest extends AbstractNSQClientTestcase {
             logger.info("benchmark publish ends in {} milliSec, producer_num: {}, message_num: {}, msg_size: {}", System.currentTimeMillis() - start, producerNum, messageNum, msgSize);
         }finally {
             producer.close();
-            TopicUtil.deleteTopic(adminUrl, topic);
+            try {
+                TopicUtil.deleteTopic(adminUrl, topic);
+            }catch (Exception e) {
+
+            }
             logger.info("[benchmarkPublish] ends");
         }
     }

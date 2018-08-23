@@ -34,6 +34,7 @@ public class ITProducer {
     final Random random = new Random();
     protected final NSQConfig config = new NSQConfig();
     protected String adminHttp;
+    protected String dccLookupd;
 
     @BeforeClass
     public void init() throws Exception {
@@ -47,6 +48,7 @@ public class ITProducer {
         final String msgTimeoutInMillisecond = props.getProperty("msgTimeoutInMillisecond");
         final String threadPoolSize4IO = props.getProperty("threadPoolSize4IO");
         this.adminHttp = "http://" + props.getProperty("admin-address");
+        this.dccLookupd = props.getProperty("dcc-lookup");
         config.setLookupAddresses(lookups);
         config.setConnectTimeoutInMillisecond(Integer.valueOf(connTimeout));
         config.setMsgTimeoutInMillisecond(Integer.valueOf(msgTimeoutInMillisecond));

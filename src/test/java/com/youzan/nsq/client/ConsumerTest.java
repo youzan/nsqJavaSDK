@@ -660,7 +660,7 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         final int requeueTimeout = 10;
         Consumer consumer = null;
         try {
-//            TopicUtil.createTopic(adminHttp, topicName, "BaseConsumer");
+            TopicUtil.createTopic(adminHttp, topicName, "BaseConsumer");
             TopicUtil.createTopicChannel(adminHttp, topicName, "BaseConsumer");
 
             Producer producer = new ProducerImplV2(config);
@@ -712,62 +712,63 @@ public class ConsumerTest extends AbstractNSQClientTestcase {
         }
     }
 
-    @Test
-    public void testRdyIncrease() throws Exception {
-        logger.info("[testRdyIncrease] starts.");
-        final String topicName = "testRdyIncrease";
-        Random ran = new Random();
-        int expectRdy = ran.nextInt(6) + 5;
-        logger.info("ExpectedRdy: {}", expectRdy);
-        final NSQConfig config = new NSQConfig("BaseConsumer");
-        config.setLookupAddresses(props.getProperty("lookup-addresses"));
-        config.setRdy(expectRdy);
-        ScheduledExecutorService exec = null;
-        Producer producer = null;
-        Consumer consumer = null;
-        String adminHttp = "http://" + props.getProperty("admin-address");
-        try {
-            TopicUtil.createTopic(adminHttp, topicName, 5, 1, "BaseConsumer");
-            TopicUtil.createTopicChannel(adminHttp, topicName, "BaseConsumer");
-
-            producer = new ProducerImplV2(config);
-            producer.start();
-            exec = keepMessagePublish(producer, topicName, 1000);
-
-            MessageHandler handler = new MessageHandler() {
-                @Override
-                public void process(NSQMessage message) {
-                    try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException e) {
-                        logger.error("Interrupted while sleep");
-                    }
-                }
-            };
-
-            consumer = new ConsumerImplV2(config, handler);
-            consumer.subscribe(topicName);
-            consumer.start();
-            int timeout = expectRdy * 10;
-            logger.info("Sleep {} sec to wait for rdy to increase...", timeout);
-            Thread.sleep(timeout * 1000);
-            logger.info("Wake up.");
-
-            ConnectionManager conMgr = consumer.getConnectionManager();
-            Set<ConnectionManager.NSQConnectionWrapper> connSet = conMgr.getSubscribeConnections(topicName);
-            for (ConnectionManager.NSQConnectionWrapper wrapper : connSet) {
-                int actualRdy = wrapper.getConn().getCurrentRdyCount();
-                Assert.assertEquals(actualRdy, expectRdy, "rdy in connection does not equals to expected rdy.");
-            }
-        }finally {
-            exec.shutdownNow();
-            Thread.sleep(10000L);
-            producer.close();
-            consumer.close();
-            TopicUtil.deleteTopic(adminHttp, topicName);
-            logger.info("[testRdyIncrease] ends.");
-        }
-    }
+    //TODO: validate rdy increase
+//    @Test
+//    public void testRdyIncrease() throws Exception {
+//        logger.info("[testRdyIncrease] starts.");
+//        final String topicName = "testRdyIncrease";
+//        Random ran = new Random();
+//        int expectRdy = ran.nextInt(6) + 5;
+//        logger.info("ExpectedRdy: {}", expectRdy);
+//        final NSQConfig config = new NSQConfig("BaseConsumer");
+//        config.setLookupAddresses(props.getProperty("lookup-addresses"));
+//        config.setRdy(expectRdy);
+//        ScheduledExecutorService exec = null;
+//        Producer producer = null;
+//        Consumer consumer = null;
+//        String adminHttp = "http://" + props.getProperty("admin-address");
+//        try {
+//            TopicUtil.createTopic(adminHttp, topicName, 5, 1, "BaseConsumer");
+//            TopicUtil.createTopicChannel(adminHttp, topicName, "BaseConsumer");
+//
+//            producer = new ProducerImplV2(config);
+//            producer.start();
+//            exec = keepMessagePublish(producer, topicName, 1000);
+//
+//            MessageHandler handler = new MessageHandler() {
+//                @Override
+//                public void process(NSQMessage message) {
+//                    try {
+//                        Thread.sleep(100);
+//                    } catch (InterruptedException e) {
+//                        logger.error("Interrupted while sleep");
+//                    }
+//                }
+//            };
+//
+//            consumer = new ConsumerImplV2(config, handler);
+//            consumer.subscribe(topicName);
+//            consumer.start();
+//            int timeout = expectRdy * 10;
+//            logger.info("Sleep {} sec to wait for rdy to increase...", timeout);
+//            Thread.sleep(timeout * 1000);
+//            logger.info("Wake up.");
+//
+//            ConnectionManager conMgr = consumer.getConnectionManager();
+//            Set<ConnectionManager.NSQConnectionWrapper> connSet = conMgr.getSubscribeConnections(topicName);
+//            for (ConnectionManager.NSQConnectionWrapper wrapper : connSet) {
+//                int actualRdy = wrapper.getConn().getCurrentRdyCount();
+//                Assert.assertEquals(actualRdy, expectRdy, "rdy in connection does not equals to expected rdy.");
+//            }
+//        }finally {
+//            exec.shutdownNow();
+//            Thread.sleep(10000L);
+//            producer.close();
+//            consumer.close();
+//            TopicUtil.deleteTopic(adminHttp, topicName);
+//            logger.info("[testRdyIncrease] ends.");
+//        }
+//    }
 
     @Test
     public void testLoadFactor() throws Exception {

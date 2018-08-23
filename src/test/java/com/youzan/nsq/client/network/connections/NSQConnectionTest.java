@@ -197,7 +197,7 @@ public class NSQConnectionTest {
                     //do nothing
                 }
             });
-            consumer.startParent();
+//            consumer.startParent();
             consumer.connect(addr1);
             NSQConnection con1 = consumer.getAddress2Conn().get(addr1);
             Assert.assertEquals(con1.getCurrentRdyCount(), 0);

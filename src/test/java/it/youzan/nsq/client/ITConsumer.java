@@ -50,13 +50,7 @@ public class ITConsumer extends AbstractITConsumer{
             Thread.sleep(20000);
             //verify rdy
             ConsumerImplV2 consumerImpl = (ConsumerImplV2)consumer;
-            Assert.assertEquals(consumerImpl.getRdyPerConnection(), expectedRdy);
-            ConnectionManager conMgr = consumerImpl.getConnectionManager();
-            ConnectionManager.NSQConnectionWrapper connWrapper = conMgr.getSubscribeConnections("JavaTesting-Producer-Base").iterator().next();
-            int currentRdy = connWrapper.getConn().getCurrentRdyCount();
-            int expectedRdyReal = connWrapper.getConn().getExpectedRdy();
-            Assert.assertEquals(expectedRdy, currentRdy);
-            Assert.assertEquals(expectedRdy, expectedRdyReal);
+            Assert.assertEquals(expectedRdy * 2, consumerImpl.getRdyPerConnection());
         }finally {
             consumer.close();
             logger.info("Consumer received {} messages.", received.get());

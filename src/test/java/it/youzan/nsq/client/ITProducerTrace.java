@@ -20,11 +20,11 @@ public class ITProducerTrace extends ITProducer {
     public void publishTrace() throws NSQException {
         //set trace id, which is a long(8-byte-length)
         logger.info("[ITProducerTrace#publishTrace] starts");
-        Topic topic = new Topic("dcp_event");
+        Topic topic = new Topic("JavaTesting-Trace");
         String[] lookupds = config.getLookupAddresses();
-//        if(config.getUserSpecifiedLookupAddress() && null != lookupds && lookupds[0].contains("nsq-"))
-//            return;
-        config.setLookupAddresses("dcc://10.9.7.75:8089?env=qa");
+        if(config.getUserSpecifiedLookupAddress() && null != lookupds && lookupds[0].contains("nsq-"))
+            return;
+        config.setLookupAddresses(dccLookupd);
         Producer producer = new ProducerImplV2(this.config);
         try {
             producer.start();

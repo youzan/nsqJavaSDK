@@ -213,3 +213,7 @@ Note worthy
 fix
  * fix race condition in partition selector getAllDataNode
  * fix connection refused when topic supports ext in topic migrate
+ 
+#2.4.2.2-RELEASE
+Note worthy
+migrate guava from 23.6-android back to 19.0 for compatibility with youzan-boot.[#45](https://github.com/youzan/nsqJavaSDK/issues/45)
