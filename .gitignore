@@ -57,7 +57,7 @@ data/
 target/
 out/
 *.iml
-!/src/test/resources/app-test.properties
+/src/test/resources/app-test.properties
 /src/test/resources/nsq/
 /src/test/resources/configClientTestStableWDCC.properties
 /src/test/resources/configClientTest.properties
