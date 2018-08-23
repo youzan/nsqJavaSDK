@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
 import static com.youzan.nsq.client.entity.NSQConfig.Compression.DEFLATE;
@@ -109,7 +110,7 @@ public class NSQConfigTestcase {
     }
 
     @Test
-    public void testIdentity() throws IOException, InterruptedException, TimeoutException, NSQNoConnectionException {
+    public void testIdentity() throws IOException, InterruptedException, TimeoutException, NSQNoConnectionException, ExecutionException {
         NSQConfig config = new NSQConfig("default");
         String defaultIdentifyJson = config.identify(false);
         JsonNode idenJson = SystemUtil.getObjectMapper().readTree(defaultIdentifyJson);

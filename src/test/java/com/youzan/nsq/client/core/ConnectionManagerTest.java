@@ -1,6 +1,7 @@
 package com.youzan.nsq.client.core;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.youzan.nsq.client.IConsumeInfo;
 import com.youzan.nsq.client.MockedConsumer;
 import com.youzan.nsq.client.MockedNSQConnectionImpl;

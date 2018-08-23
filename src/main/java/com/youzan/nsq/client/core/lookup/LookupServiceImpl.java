@@ -6,6 +6,7 @@ import com.youzan.nsq.client.entity.IPartitionsSelector;
 import com.youzan.nsq.client.entity.Role;
 import com.youzan.nsq.client.entity.lookup.NSQLookupdAddresses;
 import com.youzan.nsq.client.exception.NSQException;
+import com.youzan.nsq.client.exception.NSQLookupAddressNotFoundException;
 import com.youzan.nsq.client.exception.NSQLookupException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,9 +54,14 @@ public class LookupServiceImpl implements LookupService {
          * It is unnecessary to use Atomic/Lock for the variable
          */
         NSQLookupdAddresses aLookupdAddr = LookupAddressUpdate.getInstance().getLookup(topic, category, localLookupd, force, this.lookupLocalId);
-        IPartitionsSelector ps = null;
+        IPartitionsSelector ps;
         if(null != aLookupdAddr)
             ps = aLookupdAddr.lookup(topic, writable);
+        else {
+            String errMsg = String.format("Lookup addresses not found. topic: %s, writable: %b, category: %s, localLookup: %b, force lookup: %b",
+                    topic, writable, category.category(topic), localLookupd, force);
+            throw new NSQLookupAddressNotFoundException(errMsg);
+        }
         return ps;
     }
 

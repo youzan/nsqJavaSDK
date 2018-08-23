@@ -32,6 +32,8 @@ public interface Client extends Closeable {
     //interval of updating topic 2 partition selector
     int _INTERVAL_IN_SECOND = 20;
 
+    int _INTERVAL_RDY_UPDATE_IN_SECOND = 5;
+
     void start() throws NSQException;
 
     /**

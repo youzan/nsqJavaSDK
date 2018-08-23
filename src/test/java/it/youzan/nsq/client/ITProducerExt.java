@@ -1,6 +1,7 @@
 package it.youzan.nsq.client;
 
 import com.youzan.nsq.client.*;
+import com.youzan.nsq.client.core.NSQConnection;
 import com.youzan.nsq.client.entity.Message;
 import com.youzan.nsq.client.entity.NSQConfig;
 import com.youzan.nsq.client.entity.NSQMessage;
@@ -69,9 +70,10 @@ public class ITProducerExt {
                 producer.publish(msg);
             }
 
-            producer.close();
             config.setConsumerName("default");
             final CountDownLatch latch = new CountDownLatch(10);
+            NSQConfig config = new NSQConfig("test");
+            config.setLookupAddresses("nsq-qa.s.qima-inc.com:4161");
             consumer = new ConsumerImplV2(config, new MessageHandler() {
                 @Override
                 public void process(NSQMessage message) {
@@ -84,8 +86,9 @@ public class ITProducerExt {
             consumer.start();
             Assert.assertTrue(latch.await(60, TimeUnit.SECONDS));
         } finally {
-            Thread.sleep(1000);
+            Thread.sleep(1000000);
             consumer.close();
+            producer.close();
             logger.info("[publishExt] ends.");
         }
     }

@@ -31,7 +31,7 @@ public class Mpub extends Pub implements NSQCommand{
         //get MPUB body, which is a list containing multi messages
         List<byte[]> bodyL = this.getBody();
         int bodySize = 4 + 4; // 4 for total messages int, another 4 for body size.
-        if (bodyL.size() > 1) {
+        if (bodyL.size() > 0) {
             // write total body size and message size
             for (byte[] data : bodyL) {
                 bodySize += 4; // message size

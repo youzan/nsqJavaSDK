@@ -1,13 +1,19 @@
 package com.youzan.nsq.client.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.youzan.nsq.client.Version;
 import com.youzan.util.HostUtil;
 import com.youzan.util.NotThreadSafe;
 import com.youzan.util.SystemUtil;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.handler.ssl.SslContext;
+import io.netty.util.concurrent.Future;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -17,8 +23,12 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static org.apache.commons.lang3.tuple.Pair.of;
+
 
 /**
  * It is used for Producer or Consumer, and not both two.
@@ -31,9 +41,30 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     private static final long serialVersionUID = 6624842850216901700L;
     private static final Logger logger = LoggerFactory.getLogger(NSQConfig.class);
     private static final ObjectMapper MAPPER_CONFIG = new ObjectMapper();
+    private static final EventLoopGroup DEFAULT_EVENT_LOOP_GROUP = new NioEventLoopGroup(Runtime.getRuntime().availableProcessors() * 2);
+    private static EventLoopGroup EVENT_LOOP_GROUP = DEFAULT_EVENT_LOOP_GROUP;
 
     static {
         MAPPER_CONFIG.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+        Runtime.getRuntime().addShutdownHook(
+            new Thread() {
+                @Override
+                public void run() {
+                    Future future = EVENT_LOOP_GROUP.shutdownGracefully(1,2, TimeUnit.SECONDS);
+                    logger.info("nsq client EVENT LOOP GROUP shutting down.");
+                    try {
+                        future.get(2, TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    } catch (ExecutionException | TimeoutException e) {
+                        logger.error("fail to shut down event loop group.");
+                    }
+                }
+            });
+    }
+
+    public static EventLoopGroup getEventLoopGroup() {
+        return EVENT_LOOP_GROUP;
     }
 
     /**
@@ -215,7 +246,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     // 1 seconds
     public static final int _MIN_NEXT_CONSUMING_IN_SECOND = 0;
-    // one hour is the limit
+    // 24 hour is the limit
     public static final int _MAX_NEXT_CONSUMING_IN_SECOND = 24 * 3600;
     private int nextConsumingInSecond = 60;
     private long maxConnWait = 200L;
@@ -800,6 +831,14 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      * @return identify json string
      */
     public String identify(boolean topicExt) {
+        String messageFilterJsonStr;
+        try {
+            messageFilterJsonStr = toFilterIdentifyJsonString();
+        }catch (Exception e) {
+            logger.error("fail to parse message filter json.", e);
+            throw new RuntimeException();
+        }
+
         final StringBuffer buffer = new StringBuffer(300);
         buffer.append("{\"client_id\":\"" + clientId + "\", ");
         buffer.append("\"hostname\":\"" + hostname + "\", ");
@@ -836,8 +875,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         buffer.append("\"extend_support\":" + topicExt + ",");
         buffer.append("\"user_agent\": \"" + userAgent + "\"");
         //ext header feature
-        if(StringUtils.isNotBlank(this.getConsumeMessageFilterKey()))
-            buffer.append(", \"ext_filter\":{\"type\":" + this.getConsumeMessageFilterMode().getFilter().getType() + ", \"filter_ext_key\":\"" + this.getConsumeMessageFilterKey() + "\", \"filter_data\":\"" + this.getConsumeMessageFilterValue() + "\"}");
+        buffer.append(", \"ext_filter\":" + messageFilterJsonStr);
         buffer.append("}");
         return buffer.toString();
     }
@@ -933,15 +971,16 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     /**
+     * @deprecated As nsq clients share a common netty event group, thread size it fixed to available cpu core * 2.
      * Specify netty work group thread pool size for nsqd frames receive & delivery process.
      * @param newPoolSize new pool size for netty nio group to set
      * @return {@link NSQConfig}
      */
+    @Deprecated
     public NSQConfig setNettyPoolSize(int newPoolSize) {
         if (newPoolSize < 1) {
             throw new IllegalArgumentException("Thread pool size smaller than 1 is not accepted.");
         }
-        this.nettyPoolSize = newPoolSize;
         return this;
     }
 
@@ -1035,8 +1074,40 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
         return this.producerPoolSize;
     }
 
+    private boolean cleanTopicResource4Producer = false;
+
+    public NSQConfig setEnableCleanIdleTopicResourceForProducer(boolean enable) {
+        this.cleanTopicResource4Producer = enable;
+        return this;
+    }
+
+    public boolean getEnableCleanIdleTopicResourceForProducer() {
+        return this.cleanTopicResource4Producer;
+    }
+
+    private String toFilterIdentifyJsonString() throws JsonProcessingException {
+        ObjectNode root = SystemUtil.getObjectMapper().createObjectNode();
+        root.put("type", this.getConsumeMessageFilterMode().getFilter().getType());
+        root.put("inverse", this.getConsumeMessageFilterInverse());
+        if(this.getConsumeMessageFilterMode() != ConsumeMessageFilterMode.MULTI_MATCH) {
+            root.put("filter_ext_key", this.getConsumeMessageFilterKey());
+            root.put("filter_data", this.getConsumeMessageFilterValue());
+        } else {
+            root.put("filter_ext_key", this.consumerMsgFilterDatas.getKey().name());
+            ArrayNode dataList = root.putArray("filter_data_list");
+            for (Pair<String, String> kv: this.consumerMsgFilterDatas.getRight()) {
+                ObjectNode kvNode = dataList.addObject();
+                kvNode.put("filter_ext_key", kv.getKey());
+                kvNode.put("filter_data", kv.getValue());
+            }
+        }
+        return SystemUtil.getObjectMapper().writeValueAsString(root);
+    }
+
     //consume message filter value default value is null, which means no filter applied
     private Pair<String, String> consumeMsgFilterKV = null;
+    //multi filter datas
+    private Pair<MultiFiltersRelation, List<Pair<String, String>>> consumerMsgFilterDatas = null;
 
     /**
      * set consume message filter value, default value is null, which means there is NO message filter applied for
@@ -1048,6 +1119,30 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     public NSQConfig setConsumeMessageFilter(String key, String filterVal) {
         this.consumeMsgFilterKV = of(key, filterVal);
         return this;
+    }
+
+    public enum MultiFiltersRelation {
+        all,
+        any
+    }
+
+    public NSQConfig setConsumeMessageMultiFilters(MultiFiltersRelation relation, Map<String, String> filterKVMap) {
+        if (relation == null || null == filterKVMap || filterKVMap.size() < 1)
+            throw new IllegalArgumentException("pls specify relation and filter kv map.");
+        List<Pair<String, String>> filters = new ArrayList<>(filterKVMap.size());
+        for (String k : filterKVMap.keySet()) {
+            String filterVal = filterKVMap.get(k);
+            if(StringUtils.isEmpty(filterVal)) {
+                throw new IllegalArgumentException("filter val " + filterVal + " could not be empty");
+            }
+            filters.add(of(k, filterVal));
+        }
+        this.consumerMsgFilterDatas = of(relation, filters);
+        return this;
+    }
+
+    public Pair getConsumeMessageMultiFilters() {
+        return this.consumerMsgFilterDatas;
     }
 
     public String getConsumeMessageFilterKey() {
@@ -1065,6 +1160,7 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     }
 
     private ConsumeMessageFilterMode consumeMessageFilterMode = ConsumeMessageFilterMode.EXACT_MATCH;
+    private boolean messageFilterInverse = false;
 
     /**
      * specify message consume filter, default value is {@link ConsumeMessageFilterMode#EXACT_MATCH}
@@ -1082,6 +1178,14 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
 
     public ConsumeMessageFilterMode getConsumeMessageFilterMode() {
         return this.consumeMessageFilterMode;
+    }
+
+    public void setConsumeMessageFilterInverse(boolean inversed) {
+        this.messageFilterInverse = inversed;
+    }
+
+    public boolean getConsumeMessageFilterInverse() {
+        return this.messageFilterInverse;
     }
 
     @Override

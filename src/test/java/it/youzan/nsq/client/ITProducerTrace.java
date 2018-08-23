@@ -24,6 +24,7 @@ public class ITProducerTrace extends ITProducer {
         String[] lookupds = config.getLookupAddresses();
         if(config.getUserSpecifiedLookupAddress() && null != lookupds && lookupds[0].contains("nsq-"))
             return;
+        config.setLookupAddresses(dccLookupd);
         Producer producer = new ProducerImplV2(this.config);
         try {
             producer.start();

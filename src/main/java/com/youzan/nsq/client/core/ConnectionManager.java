@@ -3,6 +3,7 @@ package com.youzan.nsq.client.core;
 import com.youzan.nsq.client.IConsumeInfo;
 import com.youzan.nsq.client.core.command.Rdy;
 import com.youzan.nsq.client.entity.Address;
+import com.youzan.nsq.client.entity.Topic;
 import com.youzan.util.NamedThreadFactory;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
@@ -17,7 +18,9 @@ import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Created by lin on 17/6/26.
+ * @deprecated deprecated in 2.4.2
  */
+@Deprecated
 public class ConnectionManager {
     private final static Logger logger = LoggerFactory.getLogger(ConnectionManager.class.getName());
     private ConcurrentMap<String, ConnectionWrapperSet> topic2Subs = new ConcurrentHashMap<>();
@@ -29,15 +32,15 @@ public class ConnectionManager {
     private static final float PROOFREAD_FACTOR_FLOOR = 0.1f;
     private static final float PROOFREAD_FACTOR_DEFAULT = 1f;
 
-    //executor for backoff & resume
+    //executor for backoff & resume task
     private final ExecutorService exec = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(), new NamedThreadFactory("connMgr-job", Thread.NORM_PRIORITY));
     //schedule executor for rdy redistribute & expected rdy update
     private final ScheduledExecutorService scheduleExec = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("rdy-distribute", Thread.NORM_PRIORITY));
 
-    private final int INIT_DELAY = 5;
-    private final int INTERVAL = 5;
-    private final int INIT_RDY = 1;
-    private final int RDY_TIMEOUT = 100;
+    private static final int INIT_DELAY = 5;
+    private static final int INTERVAL = 5;
+    private static final int INIT_RDY = 1;
+    private static final int RDY_TIMEOUT = 100;
 
     private AtomicBoolean start = new AtomicBoolean(false);
     private final Runnable REDISTRIBUTE_RUNNABLE = new Runnable() {
@@ -249,11 +252,11 @@ public class ConnectionManager {
                 try {
                     latch.await(RDY_TIMEOUT, TimeUnit.MILLISECONDS);
                 } catch (InterruptedException e) {
-                    logger.error("Interrupted waiting for rdy update for subscribe, topic {}, Connection {}", topic, subscriber);
+                    logger.warn("Interrupted waiting for rdy update for subscribe, topic {}, Connection {}", topic, subscriber);
                     Thread.currentThread().interrupt();
                 }
             } else {
-                backoff(subscriber);
+                backoffConn(subscriber, null);
             }
         } finally {
             subs.writeUnlock();
@@ -289,11 +292,17 @@ public class ConnectionManager {
     }
 
     /**
+     *
      * backoff a single connection to nsqd, regardless of whether topic is backed off.
+     * @deprecated do not use for topic consumption backoff, use {@link com.youzan.nsq.client.ConsumerImplV2#backoff(Topic, CountDownLatch)}.
      * @param conn nsqd connection to backoff, connection manager check if connection belongs to current manager,
      *             backoff when it does.
      */
     public void backoff(final NSQConnection conn, final CountDownLatch latch) {
+        //nothing happen
+    }
+
+    void backoffConn(final NSQConnection conn, final CountDownLatch latch) {
         String topic = conn.getTopic().getTopicText();
         if (!topic2Subs.containsKey(topic)) {
             logger.info("Subscriber for topic {} does not exist.", topic);
@@ -314,22 +323,25 @@ public class ConnectionManager {
                 });
                 try {
                     if (!backoffLatch.await(RDY_TIMEOUT, TimeUnit.MILLISECONDS)) {
-                        logger.error("Timeout backoff topic connection {}", conn);
+                        logger.warn("Timeout backoff topic connection {}", conn);
                     } else if (null != latch) {
                         latch.countDown();
                     }
                 } catch (InterruptedException e) {
-                    logger.error("Interrupted waiting for rdy update for backoff, connection {}", conn);
+                    logger.warn("Interrupted waiting for rdy update for backoff, connection {}", conn);
                     Thread.currentThread().interrupt();
                 }
             } else {
-                logger.error("Connection {} does not belong to current consumer.", conn);
+                logger.warn("Connection {} does not belong to current consumer.", conn);
             }
         }
     }
 
+    /**
+     * @deprecated do not use for topic consumption backoff, use {@link com.youzan.nsq.client.ConsumerImplV2#backoff(Topic, CountDownLatch)}.
+     * @param conn
+     */
     public void backoff(final NSQConnection conn) {
-       backoff(conn, null);
     }
 
     /**
@@ -496,10 +508,10 @@ public class ConnectionManager {
                    //await for may rdy updates
                    try {
                        if (!latch.await(conCount * RDY_TIMEOUT, TimeUnit.MILLISECONDS)) {
-                           logger.error("Timeout for redistribute connections rdy {}", topic);
+                           logger.warn("Timeout for redistribute connections rdy {}", topic);
                        }
                    } catch (InterruptedException e) {
-                       logger.error("Interrupted while waiting for resume on all connections for {}", topic);
+                       logger.warn("Interrupted while waiting for resume on all connections for {}", topic);
                        Thread.currentThread().interrupt();
                    }
                } finally {

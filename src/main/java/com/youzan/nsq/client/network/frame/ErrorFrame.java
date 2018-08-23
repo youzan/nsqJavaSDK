@@ -72,6 +72,9 @@ public class ErrorFrame extends NSQFrame {
             if (content.startsWith(Response.E_EXT_NOT_SUPPORT.getContent())) {
                 return Response.E_EXT_NOT_SUPPORT;
             }
+            if (content.startsWith(Response.E_BAD_BODY.getContent())) {
+                return Response.E_BAD_BODY;
+            }
         }
         return null;
     }

@@ -8,6 +8,7 @@ import com.youzan.nsq.client.core.command.Magic;
 import com.youzan.nsq.client.core.command.Rdy;
 import com.youzan.nsq.client.core.command.Sub;
 import com.youzan.nsq.client.entity.*;
+import com.youzan.nsq.client.exception.NSQException;
 import com.youzan.nsq.client.network.netty.NSQClientInitializer;
 import com.youzan.util.IOUtil;
 import io.netty.bootstrap.Bootstrap;
@@ -146,6 +147,155 @@ public class NSQConnectionTest {
         conMgr.subscribe(topicName, con2);
         consumer.close(con3);
         con3.close();
+    }
+
+    @Test
+    public void testNSQConnectionDisconnect() throws Exception {
+        logger.info("[testNSQConnectionDisconnect] starts");
+        NSQConfig config = (NSQConfig) this.config.clone();
+        config.setConsumerName("default");
+        try {
+            String topicName = "JavaTesting-Producer-Base";
+            JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topicName + "&access=r"));
+            JsonNode partition = lookupResp.get("partitions").get("0");
+
+            Address addr1 = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topicName, 0, false);
+
+            MockedConsumer consumer = new MockedConsumer(config, new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    //do nothing
+                }
+            });
+//            consumer.start();
+            consumer.startParent();
+            consumer.connect(addr1);
+            NSQConnection con1 = consumer.getAddress2Conn().get(addr1);
+            con1.disconnect();
+            Assert.assertTrue(!con1.isConnected());
+        }finally {
+            logger.info("[testNSQConnectionDisconnect] ends");
+
+        }
+    }
+
+    @Test
+    public void testNSQConnectionRdyUpdate() throws Exception {
+        logger.info("[testNSQConnectionRdyUpdate] starts");
+        NSQConfig config = (NSQConfig) this.config.clone();
+        config.setConsumerName("default");
+        try {
+            String topicName = "JavaTesting-Producer-Base";
+            JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topicName + "&access=r"));
+            JsonNode partition = lookupResp.get("partitions").get("0");
+
+            Address addr1 = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topicName, 0, false);
+
+            MockedConsumer consumer = new MockedConsumer(config, new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    //do nothing
+                }
+            });
+//            consumer.startParent();
+            consumer.connect(addr1);
+            NSQConnection con1 = consumer.getAddress2Conn().get(addr1);
+            Assert.assertEquals(con1.getCurrentRdyCount(), 0);
+            con1.mayUpdateRdy();
+            int retry = 3;
+            boolean success = false;
+            while(retry-- > 0) {
+                Thread.sleep(5000l);
+                if(con1.getCurrentRdyCount() == 3) {
+                    success = true;
+                    break;
+                }
+            }
+            Assert.assertTrue(success);
+
+            //decrease rdy to 1
+            con1.declineExpectedRdy();
+            con1.declineExpectedRdy();
+            con1.declineExpectedRdy();
+            con1.mayUpdateRdy();
+            retry = 3;
+            success = false;
+            while(retry-- > 0) {
+                Thread.sleep(5000l);
+                if(con1.getCurrentRdyCount() == 1) {
+                    success = true;
+                    break;
+                }
+            }
+            Assert.assertTrue(success);
+
+            con1.disconnect();
+        }finally {
+            logger.info("[testNSQConnectionRdyUpdate] ends");
+
+        }
+    }
+
+    @Test
+    public void testConBackoffResume() throws Exception {
+        logger.info("[testConBackoff] starts");
+        NSQConfig config = (NSQConfig) this.config.clone();
+        config.setConsumerName("default");
+        try{
+            String topicName = "JavaTesting-Producer-Base";
+            JsonNode lookupResp = IOUtil.readFromUrl(new URL("http://" + lookupAddr + "/lookup?topic=" + topicName + "&access=r"));
+            JsonNode partition = lookupResp.get("partitions").get("0");
+
+            Address addr1 = new Address(partition.get("broadcast_address").asText(), partition.get("tcp_port").asText(), partition.get("version").asText(), topicName, 0, false);
+
+            MockedConsumer consumer = new MockedConsumer(config, new MessageHandler() {
+                @Override
+                public void process(NSQMessage message) {
+                    //do nothing
+                }
+            });
+            consumer.startParent();
+            consumer.connect(addr1);
+            NSQConnection con1 = consumer.getAddress2Conn().get(addr1);
+
+            con1.mayUpdateRdy();
+            int retry = 3;
+            boolean success = false;
+            while(retry-- > 0) {
+                Thread.sleep(5000l);
+                if(con1.getCurrentRdyCount() == 3) {
+                    success = true;
+                    break;
+                }
+            }
+            Assert.assertTrue(success);
+
+            //backoff
+            CountDownLatch backoffLatch = new CountDownLatch(1);
+            con1.onBackoff(null);
+            con1.onBackoff(new IRdyCallback() {
+                @Override
+                public void onUpdated(int newRdy, int lastRdy) {
+                    backoffLatch.countDown();
+                }
+            });
+            backoffLatch.await(5, TimeUnit.SECONDS);
+            Assert.assertEquals(con1.getCurrentRdyCount(), 0);
+
+            CountDownLatch resumeLatch = new CountDownLatch(1);
+            con1.onResume(new IRdyCallback() {
+                @Override
+                public void onUpdated(int newRdy, int lastRdy) {
+                    resumeLatch.countDown();
+                }
+            });
+            resumeLatch.await(5, TimeUnit.SECONDS);
+            Assert.assertEquals(con1.getCurrentRdyCount(), 1);
+
+            con1.disconnect();
+        }finally {
+            logger.info("[testConBackoff] ends");
+        }
     }
 
     @Test

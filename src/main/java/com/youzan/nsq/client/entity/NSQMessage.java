@@ -1,6 +1,7 @@
 package com.youzan.nsq.client.entity;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.youzan.nsq.client.Consumer;
 import com.youzan.nsq.client.MessageMetadata;
 import com.youzan.nsq.client.core.command.Close;
 import com.youzan.nsq.client.core.command.PubExt;
@@ -31,10 +32,16 @@ public class NSQMessage implements MessageMetadata, Serializable{
     private long diskQueueOffset = -1L;
     private int diskQueueDataSize = -1;
 
+    //fix auto response as true, as according to logic of consumer, message will be requeue eventhrough consume process
+    // fails
+    private volatile boolean autoResp = true;
+
     private TopicInfo ti;
     private DesiredTag tag;
     private Map<String, Object> jsonExtHeader;
 
+    //nsqd connection this message belongs to
+    transient private Consumer consumer;
     /**
      * NSQMessage constructor, for test purpose
      */
@@ -54,7 +61,7 @@ public class NSQMessage implements MessageMetadata, Serializable{
 
     /**
      * all the parameters is the NSQ message format!
-     *
+     * @deprecated
      * @param timestamp    the raw bytes from the data-node
      * @param attempts     the raw bytes from the data-node
      * @param messageID    the raw bytes from the data-node
@@ -64,9 +71,10 @@ public class NSQMessage implements MessageMetadata, Serializable{
      * @param address      the address of the message
      * @param connectionID the primary key of the connection
      * @param nextConsumingInSecond time elapse for requeued message to send
-     * @param topic
-     * @pa
+     * @param topic         topic this message belongs to
+     * @param isExt         {@link Boolean#TRUE} if message is of extension format
      */
+    @Deprecated
     public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
                      byte[] messageBody, Address address, Long connectionID, int nextConsumingInSecond, final Topic topic, boolean isExt) {
         this.timestamp = timestamp;
@@ -94,6 +102,31 @@ public class NSQMessage implements MessageMetadata, Serializable{
     }
 
     /**
+     * all the parameters is the NSQ message format!
+     *
+     * @param timestamp    the raw bytes from the data-node
+     * @param attempts     the raw bytes from the data-node
+     * @param messageID    the raw bytes from the data-node
+     * @param internalID   message internal ID in bytes
+     * @param traceID      trace ID in bytes
+     * @param messageBody  the raw bytes from the data-node
+     * @param address      the address of the message
+     * @param connectionID the primary key of the connection
+     * @param nextConsumingInSecond time elapse for requeued message to send
+     * @param topic         topic this message belongs to
+     * @param isExt         {@link Boolean#TRUE} if message is of extension format
+     * @param autoResponse auto response config from consumer autoFinish flag
+     * @param consumer      consumer current message belongs to
+     */
+    public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
+                      byte[] messageBody, Address address, Long connectionID, int nextConsumingInSecond, final Topic topic, boolean isExt, boolean autoResponse, final Consumer consumer) {
+        this(timestamp, attempts, messageID, internalID, traceID, messageBody, address, connectionID, nextConsumingInSecond, topic, isExt);
+        this.autoResp = autoResponse;
+        this.consumer = consumer;
+    }
+
+    /**
+     * @deprecated
      * NSQMessage constructor, for sub ordered message frame
      * @param timestamp    the raw bytes from the data-node
      * @param attempts     the raw bytes from the data-node
@@ -107,6 +140,7 @@ public class NSQMessage implements MessageMetadata, Serializable{
      * @param connectionID the primary key of the connection
      * @param nextConsumingInSecond time elapse for requeued message to send
      */
+    @Deprecated
     public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
                       final byte[] diskQueueOffset, final byte[] diskQueueDataSize, byte[] messageBody, Address address,
                       Long connectionID, int nextConsumingInSecond, final Topic topic, boolean isExt) {
@@ -115,6 +149,31 @@ public class NSQMessage implements MessageMetadata, Serializable{
         this.diskQueueOffset = buf.getLong();
         buf = ByteBuffer.wrap(diskQueueDataSize);
         this.diskQueueDataSize = buf.getInt();
+    }
+
+    /**
+     * NSQMessage constructor, for sub ordered message frame
+     * @param timestamp    the raw bytes from the data-node
+     * @param attempts     the raw bytes from the data-node
+     * @param messageID    the raw bytes from the data-node
+     * @param internalID   message internal ID in bytes
+     * @param traceID      trace ID in bytes
+     * @param diskQueueOffset   offset in nsq disk queue
+     * @param diskQueueDataSize message data size in bytes
+     * @param messageBody  the raw bytes from the data-node
+     * @param address      the address of the message
+     * @param connectionID the primary key of the connection
+     * @param nextConsumingInSecond time elapse for requeued message to send
+     * @param autoResponse autoResponse config from consumer autoFinish flag
+     * @param consumer      consumer current message belongs to
+     */
+    public NSQMessage(byte[] timestamp, byte[] attempts, byte[] messageID, byte[] internalID, byte[] traceID,
+                      final byte[] diskQueueOffset, final byte[] diskQueueDataSize, byte[] messageBody, Address address,
+                      Long connectionID, int nextConsumingInSecond, final Topic topic, boolean isExt, boolean autoResponse,
+                      final Consumer consumer) {
+        this(timestamp, attempts, messageID, internalID, traceID, diskQueueOffset, diskQueueDataSize, messageBody, address, connectionID, nextConsumingInSecond, topic, isExt);
+        this.autoResp = autoResponse;
+        this.consumer = consumer;
     }
 
     public void parseExtContent(ExtVer extVer, byte[] extBytes) throws IllegalArgumentException, IOException {
@@ -299,7 +358,7 @@ public class NSQMessage implements MessageMetadata, Serializable{
                 throw new IllegalArgumentException(
                         "NextConsumingInSecond is illegal. It is too small. " + NSQConfig._MIN_NEXT_CONSUMING_IN_SECOND);
             } else if (timeout > NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND) {
-                logger.warn("Next consuming in second is larger than {}. It may be limited to max value in server side.", NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND);
+                logger.info("Next consuming in second is larger than {}. It may be limited to max value in server side.", NSQConfig._MAX_NEXT_CONSUMING_IN_SECOND);
             }
         }
         this.nextConsumingInSecond = nextConsumingInSecond;
@@ -408,4 +467,68 @@ public class NSQMessage implements MessageMetadata, Serializable{
         return this.metaDataStr;
     }
 
+    /**
+     * disables the automatic response that
+     * would normally be sent when a message handler
+     * returns(FIN) or throws exception(REQ) for current message, like go-nsq.
+     * After disable auto response, user needs to invoke finish or requeue accordly
+     */
+    public void disableAutoResponse() {
+        this.autoResp = false;
+    }
+
+    public boolean isMessageAutoResponse() {
+        return this.autoResp;
+    }
+
+    /**
+     * finish current message, same effect as {@link com.youzan.nsq.client.ConsumerImplV2#finish(NSQMessage)}
+     * once message is created via deserialization, finish makes no effect.
+     * @throws NSQException throws NSQNoConnectionException if nsqd connection is closed/broken
+     */
+    public void finish() throws NSQException {
+        if(null == consumer) {
+            logger.warn("finish makes no effect, as current message may be created via deserialization.");
+            return;
+        }
+        this.consumer.finish(this);
+    }
+
+    /**
+     * requeue current message, with requeue delay, backoff option and resume delay in second.
+     * once message is created via deserialization, requeue makes no effect.
+     * @throws NSQException throws NSQNoConnectionException if nsqd connection is closed/broken
+     */
+    public void requeue(int nextConsumingInSecond, final boolean backoff, final long resumeDelayInsecond) throws NSQException {
+        if(null == consumer) {
+            logger.warn("requeue makes no effect, as current message may be created via deserialization.");
+            return;
+        }
+        this.consumer.requeue(this, nextConsumingInSecond);
+        if(backoff) {
+            this.consumer.backoff(resumeDelayInsecond);
+        }
+    }
+
+    /**
+     * requeue current message, with requeue delay
+     * once message is created via deserialization, requeue makes no effect.
+     * @throws NSQException throws NSQNoConnectionException if nsqd connection is closed/broken
+     */
+    public void requeue(int nextConsumingInSecond) throws NSQException {
+        requeue(nextConsumingInSecond, Boolean.FALSE, 0);
+    }
+
+    /**
+     * touch current message, same effect as {@link NSQMessage#touch()}
+     * once message is created via deserialization, touch makes no effect.
+     * @throws NSQException throws NSQNoConnectionException if nsqd connection is closed/broken
+     */
+    public void touch() throws NSQException {
+        if(null == consumer) {
+            logger.warn("touch makes no effect, as current message may be created via deserialization.");
+            return;
+        }
+        this.consumer.touch(this);
+    }
 }

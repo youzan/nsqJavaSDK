@@ -1,10 +1,7 @@
 package com.youzan.nsq.client.core;
 
 import com.youzan.nsq.client.core.command.NSQCommand;
-import com.youzan.nsq.client.entity.Address;
-import com.youzan.nsq.client.entity.NSQConfig;
-import com.youzan.nsq.client.entity.NSQMessage;
-import com.youzan.nsq.client.entity.Topic;
+import com.youzan.nsq.client.entity.*;
 import com.youzan.nsq.client.exception.NSQNoConnectionException;
 import com.youzan.nsq.client.network.frame.ErrorFrame;
 import com.youzan.nsq.client.network.frame.NSQFrame;
@@ -14,6 +11,7 @@ import io.netty.util.AttributeKey;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
 /**
@@ -52,14 +50,14 @@ public interface NSQConnection extends Closeable {
      *
      * @throws TimeoutException a timeout error
      */
-    void init() throws TimeoutException, IOException;
+    void init() throws TimeoutException, IOException, ExecutionException;
 
     /**
      * initialization of NSQConnection for consumer, with topic name passin.
      * @param topic topic this NSQConenction subscribe to
      * @throws TimeoutException raised when timeout in initialization
      */
-    void init(final Topic topic) throws TimeoutException, IOException;
+    void init(final Topic topic) throws TimeoutException, IOException, ExecutionException;
 
     /**
      * Check internalID and disk queue offset of message received in current connection, config of current connection
@@ -79,7 +77,7 @@ public interface NSQConnection extends Closeable {
      * @return a {@link NSQFrame}  after send a request
      * @throws TimeoutException a timed out error
      */
-    NSQFrame commandAndGetResponse(final NSQCommand command) throws TimeoutException, NSQNoConnectionException;
+    NSQFrame commandAndGetResponse(Context cxt, final NSQCommand command) throws TimeoutException, NSQNoConnectionException, ExecutionException;
 
     ChannelFuture command(final NSQCommand command);
 
@@ -119,7 +117,15 @@ public interface NSQConnection extends Closeable {
     @Override
     void close();
 
+    /**
+     * @deprecated deprecated as connection manager not applied
+     * @param conMgr
+     */
+    @Deprecated
     void disconnect(final ConnectionManager conMgr);
+
+    void disconnect();
+
 
     void onRdy(int rdy, IRdyCallback callback);
     void onResume(IRdyCallback callback);
@@ -134,4 +140,7 @@ public interface NSQConnection extends Closeable {
     long lastMessageConsumptionFailed();
     boolean declineExpectedRdy();
     boolean increaseExpectedRdy(int rdyCeiling);
+    ChannelFuture finish(final NSQMessage msg);
+    ChannelFuture requeue(final NSQMessage msg, int defaultDelayInSecond);
+    void mayUpdateRdy();
 }

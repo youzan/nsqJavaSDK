@@ -248,7 +248,7 @@ public class NSQSimpleClient implements Client, Closeable {
                                 if (PERF_LOG.isDebugEnabled())
                                     PERF_LOG.debug("nop response to {}.", conn.getAddress());
                             }else{
-                                logger.error("Fail to response to heartbeat from {}.", conn.getAddress());
+                                logger.warn("Fail to response to heartbeat from {}.", conn.getAddress());
                             }
                         }
                     });
@@ -348,7 +348,10 @@ public class NSQSimpleClient implements Client, Closeable {
 
                     //update topic 2 partition map
                     try {
-                        aPs = lookup.lookup(topic.getTopicText(), this.useLocalLookupd, false);
+                        aPs = topic_2_partitionsSelector.get(topic.getTopicText());
+                        if (null != aPs)
+                            continue;
+                        aPs = lookup.lookup(topic.getTopicText(), this.useLocalLookupd, true);
                         if (null != aPs) {
                             topic_2_partitionsSelector.put(topic.getTopicText(), aPs);
                             for (Partitions aPartitions : aPs.dumpAllPartitions()) {
@@ -414,8 +417,8 @@ public class NSQSimpleClient implements Client, Closeable {
         }
 
         try {
-            //force lookup here, and leaving update mapping from topic to partition to newDataNodes process.
-            IPartitionsSelector aPs = lookup.lookup(topic, this.useLocalLookupd, false);
+            //force listlookup here.
+            IPartitionsSelector aPs = lookup.lookup(topic, this.useLocalLookupd, true);
             if (null != aPs)
                 topic_2_partitionsSelector.put(topic, aPs);
         } catch (NSQException e){
