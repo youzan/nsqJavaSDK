@@ -8,7 +8,7 @@ pls specify profile "openSource" and compile, like:
 `mvn compile -P openSource,!dev`
 
 ## Server
-* https://github.com/youyzan/nsq
+* https://github.com/youzan/nsq
 * Feature: strong consistent replication
 
 ## Guide
