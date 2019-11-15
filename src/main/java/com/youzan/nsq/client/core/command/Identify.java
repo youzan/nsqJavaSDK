@@ -21,6 +21,7 @@ public class Identify implements NSQCommand {
     private static final byte[] IDENTITY_CMD = "IDENTIFY\n".getBytes(NSQCommand.DEFAULT_CHARSET);
     public static final String MSG_TIMEOUT = "msg_timeout";
     public static final String MAX_MSG_TIMEOUT = "max_msg_timeout";
+    public static final String AUTH_REQUIRED = "auth_required";
     private final List<byte[]> body = new ArrayList<>(1);
     private byte[] bytes = null;
     public Identify(final NSQConfig config, boolean topicExt) {

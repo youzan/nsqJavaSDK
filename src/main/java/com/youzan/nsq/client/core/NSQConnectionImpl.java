@@ -69,6 +69,7 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
     private int msgTimeout = 0;
     //max_msg_timeout
     private int maxMsgTimeout = 0;
+    private boolean authRequired = false;
 
     private volatile long lastMsgTouched;
     private volatile long lastMsgConsumptionFailed;
@@ -162,10 +163,47 @@ public class NSQConnectionImpl implements Serializable, NSQConnection, Comparabl
             if (null != maxMsgTimeoutNode) {
                 this.maxMsgTimeout = maxMsgTimeoutNode.asInt();
             }
+
+            JsonNode authRequired = respIdentify.get(Identify.AUTH_REQUIRED);
+            if (null != authRequired) {
+                this.authRequired = authRequired.asBoolean();
+            }
+
+            if (this.authRequired) {
+                if (this.config.getAuthSecret().isEmpty()) {
+                    logger.error("Auth Required");
+                    Thread.currentThread().interrupt();
+                } else {
+                    this.auth();
+                }
+            }
         }
         assert channel.isActive();
         if (logger.isDebugEnabled())
             logger.debug("Having initialized {}", this);
+    }
+
+    private void auth() throws TimeoutException, IOException, ExecutionException {
+        final NSQCommand auth = new Auth(config.getAuthSecret());
+        NSQFrame response = null;
+        try {
+            response = _commandAndGetResposne(null, auth);
+        } catch (InterruptedException e) {
+            logger.error("Auth fail to {}", this.address);
+            Thread.currentThread().interrupt();
+        }
+        if (null == response) {
+            throw new IllegalStateException("Bad Auth Response! Close connection!");
+        }
+        if (NSQFrame.FrameType.ERROR_FRAME.equals(response.getType())) {
+            logger.error("Error authenticating");
+            throw new IllegalStateException("Error authenticating! Close connection!");
+        }
+        JsonNode respAuth = SystemUtil.getObjectMapper().readTree(response.getData());
+        String identity = respAuth.get(Auth.IDENTITY).asText();
+        String identityUrl = respAuth.get(Auth.IDENTITY_URL).asText();
+        int permissionCount = respAuth.get(Auth.PERMISSION_COUNT).asInt();
+        logger.info("Auth accepted. Identity: {}, Identity URL: {}, Permissions: {}", identity, identityUrl, permissionCount);
     }
 
     @Override

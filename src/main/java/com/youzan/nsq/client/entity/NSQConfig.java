@@ -164,6 +164,8 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
      */
     private boolean ordered = false;
 
+    private String authSecret = "";
+
     /**
      * <pre>
      * Set the thread_pool_size for IO running.
@@ -498,6 +500,14 @@ public class NSQConfig implements java.io.Serializable, Cloneable {
     public NSQConfig setConsumerName(String consumerName) {
         this.consumerName = consumerName;
         return this;
+    }
+
+    public String getAuthSecret() {
+        return authSecret;
+    }
+
+    public void setAuthSecret(String authSecret) {
+        this.authSecret = authSecret;
     }
 
     /**
